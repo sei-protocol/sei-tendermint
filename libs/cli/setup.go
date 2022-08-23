@@ -25,6 +25,18 @@ type Executable interface {
 }
 
 // PrepareBaseCmd is meant for tendermint and other servers
+func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defaultHome string) *cobra.Command {
+	// the primary caller of this command is in the SDK and
+	// returning the cobra.Command object avoids breaking that
+	// code. In the long term, the SDK could avoid this entirely.
+	cobra.OnInitialize(func() { InitEnv(envPrefix) })
+	cmd.PersistentFlags().StringP(HomeFlag, "", defaultHome, "directory for config and data")
+	cmd.PersistentFlags().Bool(TraceFlag, false, "print out full stack trace on errors")
+	cmd.PersistentPreRunE = concatCobraCmdFuncs(BindFlagsLoadViper, cmd.PersistentPreRunE)
+	return cmd
+}
+
+// PrepareBaseCmd is meant for tendermint and other servers
 func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defaultHome string) Executor {
 	cobra.OnInitialize(func() { initEnv(envPrefix) })
 	cmd.PersistentFlags().StringP(HomeFlag, "", defaultHome, "directory for config and data")
@@ -122,6 +134,60 @@ func concatCobraCmdFuncs(fs ...cobraCmdFunc) cobraCmdFunc {
 		}
 		return nil
 	}
+}
+
+// Bind all flags and read the config into viper
+func bindFlagsLoadViper(cmd *cobra.Command, args []string) error {
+	// cmd.Flags() includes flags from this command and all persistent flags from the parent
+	if err := viper.BindPFlags(cmd.Flags()); err != nil {
+		return err
+	}
+
+	homeDir := viper.GetString(HomeFlag)
+	viper.Set(HomeFlag, homeDir)
+	viper.SetConfigName("config")                         // name of config file (without extension)
+	viper.AddConfigPath(homeDir)                          // search root directory
+	viper.AddConfigPath(filepath.Join(homeDir, "config")) // search root directory /config
+
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		// stderr, so if we redirect output to json file, this doesn't appear
+		// fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	} else if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		// ignore not found error, return other errors
+		return err
+	}
+	return nil
+}
+
+type ExitCoder interface {
+	ExitCode() int
+}
+
+// execute adds all child commands to the root command sets flags appropriately.
+// This is called by main.main(). It only needs to happen once to the rootCmd.
+func (e Executor) Execute() error {
+	e.SilenceUsage = true
+	e.SilenceErrors = true
+	err := e.Command.Execute()
+	if err != nil {
+		if viper.GetBool(TraceFlag) {
+			const size = 64 << 10
+			buf := make([]byte, size)
+			buf = buf[:runtime.Stack(buf, false)]
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n%s\n", err, buf)
+		} else {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+
+		// return error code 1 by default, can override it with a special error type
+		exitCode := 1
+		if ec, ok := err.(ExitCoder); ok {
+			exitCode = ec.ExitCode()
+		}
+		e.Exit(exitCode)
+	}
+	return err
 }
 
 // Bind all flags and read the config into viper

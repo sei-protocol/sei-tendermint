@@ -28,3 +28,7 @@ type Logger interface {
 func NewSyncWriter(w io.Writer) io.Writer {
 	return kitlog.NewSyncWriter(w)
 }
+
+func NewSyncWriter(w io.Writer) io.Writer {
+	return kitlog.NewSyncWriter(w)
+}
