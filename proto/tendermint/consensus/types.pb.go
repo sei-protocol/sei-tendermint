@@ -351,6 +351,128 @@ func (m *BlockPart) GetPart() types.Part {
 	return types.Part{}
 }
 
+// BlockPartHashonly is sent when gossipping a piece of the proposed block.
+// This is the hash-based implementation
+type BlockPartHashOnly struct {
+	Height int64  `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Round  int32  `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`
+	Hash   []byte `protobuf:"bytes,3,opt,name=hash,proto3" json:"hash,omitempty"`
+}
+
+func (m *BlockPartHashOnly) Reset()         { *m = BlockPartHashOnly{} }
+func (m *BlockPartHashOnly) String() string { return proto.CompactTextString(m) }
+func (*BlockPartHashOnly) ProtoMessage()    {}
+func (*BlockPartHashOnly) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81a22d2efc008981, []int{5}
+}
+func (m *BlockPartHashOnly) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *BlockPartHashOnly) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_BlockPartHashOnly.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *BlockPartHashOnly) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockPartHashOnly.Merge(m, src)
+}
+func (m *BlockPartHashOnly) XXX_Size() int {
+	return m.Size()
+}
+func (m *BlockPartHashOnly) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlockPartHashOnly.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlockPartHashOnly proto.InternalMessageInfo
+
+func (m *BlockPartHashOnly) GetHeight() int64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+func (m *BlockPartHashOnly) GetRound() int32 {
+	if m != nil {
+		return m.Round
+	}
+	return 0
+}
+
+func (m *BlockPartHashOnly) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+type BlockPartRequest struct {
+	Height int64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Round  int32 `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`
+	Index  int32 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+}
+
+func (m *BlockPartRequest) Reset()         { *m = BlockPartRequest{} }
+func (m *BlockPartRequest) String() string { return proto.CompactTextString(m) }
+func (*BlockPartRequest) ProtoMessage()    {}
+func (*BlockPartRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_81a22d2efc008981, []int{6}
+}
+func (m *BlockPartRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *BlockPartRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_BlockPartRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *BlockPartRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BlockPartRequest.Merge(m, src)
+}
+func (m *BlockPartRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *BlockPartRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_BlockPartRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BlockPartRequest proto.InternalMessageInfo
+
+func (m *BlockPartRequest) GetHeight() int64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+func (m *BlockPartRequest) GetRound() int32 {
+	if m != nil {
+		return m.Round
+	}
+	return 0
+}
+
+func (m *BlockPartRequest) GetIndex() int32 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
 // Vote is sent when voting for a proposal (or lack thereof).
 type Vote struct {
 	Vote *types.Vote `protobuf:"bytes,1,opt,name=vote,proto3" json:"vote,omitempty"`
@@ -360,7 +482,7 @@ func (m *Vote) Reset()         { *m = Vote{} }
 func (m *Vote) String() string { return proto.CompactTextString(m) }
 func (*Vote) ProtoMessage()    {}
 func (*Vote) Descriptor() ([]byte, []int) {
-	return fileDescriptor_81a22d2efc008981, []int{5}
+	return fileDescriptor_81a22d2efc008981, []int{7}
 }
 func (m *Vote) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -408,7 +530,7 @@ func (m *HasVote) Reset()         { *m = HasVote{} }
 func (m *HasVote) String() string { return proto.CompactTextString(m) }
 func (*HasVote) ProtoMessage()    {}
 func (*HasVote) Descriptor() ([]byte, []int) {
-	return fileDescriptor_81a22d2efc008981, []int{6}
+	return fileDescriptor_81a22d2efc008981, []int{8}
 }
 func (m *HasVote) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)

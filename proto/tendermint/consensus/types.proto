@@ -51,6 +51,21 @@ message BlockPart {
   tendermint.types.Part part   = 3 [(gogoproto.nullable) = false];
 }
 
+// BlockPartHashOnly is sent when gossipping a piece of the proposed block.
+// This is the hash-based implementation
+message BlockPartHashOnly {
+  int64 height = 1;
+  int32 round  = 2;
+  bytes hash   = 3;
+}
+
+// BlockPartRequest is sent when a validator requests a particular BlockPart
+message BlockPartRequest {
+  int64 height = 1;
+  int32 round  = 2;
+  int32 index  = 3;
+}
+
 // Vote is sent when voting for a proposal (or lack thereof).
 message Vote {
   tendermint.types.Vote vote = 1;

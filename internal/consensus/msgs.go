@@ -3,7 +3,6 @@ package consensus
 import (
 	"errors"
 	"fmt"
-
 	cstypes "github.com/tendermint/tendermint/internal/consensus/types"
 	"github.com/tendermint/tendermint/internal/jsontypes"
 	"github.com/tendermint/tendermint/libs/bits"
@@ -211,6 +210,54 @@ func (m *BlockPartMessage) ValidateBasic() error {
 // String returns a string representation.
 func (m *BlockPartMessage) String() string {
 	return fmt.Sprintf("[BlockPart H:%v R:%v P:%v]", m.Height, m.Round, m.Part)
+}
+
+type BlockPartHashOnlyMessage struct {
+	Height             int64 `json:",string"`
+	Round              int32
+	BlockPartSetHeader types.PartSetHeader
+}
+
+func (*BlockPartHashOnlyMessage) TypeTag() string { return "tendermint/BlockPartHashOnly" }
+
+// ValidateBasic performs basic validation.
+func (m *BlockPartHashOnlyMessage) ValidateBasic() error {
+	if m.Height < 0 {
+		return errors.New("negative Height")
+	}
+	if m.Round < 0 {
+		return errors.New("negative Round")
+	}
+	return nil
+}
+
+// String returns a string representation.
+func (m *BlockPartHashOnlyMessage) String() string {
+	return fmt.Sprintf("[BlockPartHashOnly H:%v R:%v P:%v]", m.Height, m.Round, m.BlockPartSetHeader)
+}
+
+type BlockPartRequestMessage struct {
+	Height int64 `json:",string"`
+	Round  int32
+	Index  int32
+}
+
+func (*BlockPartRequestMessage) TypeTag() string { return "tendermint/BlockPartRequest" }
+
+// ValidateBasic performs basic validation.
+func (m *BlockPartRequestMessage) ValidateBasic() error {
+	if m.Height < 0 {
+		return errors.New("negative Height")
+	}
+	if m.Round < 0 {
+		return errors.New("negative Round")
+	}
+	return nil
+}
+
+// String returns a string representation.
+func (m *BlockPartRequestMessage) String() string {
+	return fmt.Sprintf("[BlockPartRequest H:%v R:%v I:%v]", m.Height, m.Round, m.Index)
 }
 
 // VoteMessage is sent when voting for a proposal (or lack thereof).

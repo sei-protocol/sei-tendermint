@@ -159,6 +159,18 @@ func (ps *PeerState) SetHasProposalBlockPart(height int64, round int32, index in
 	ps.PRS.ProposalBlockParts.SetIndex(index, true)
 }
 
+// HasProposalBlockPart gets whether or not the given block part index is known for the peer.
+func (ps *PeerState) HasProposalBlockPart(height int64, round int32, index int) bool {
+	ps.mtx.Lock()
+	defer ps.mtx.Unlock()
+
+	if ps.PRS.Height != height || ps.PRS.Round != round {
+		return false
+	}
+
+	return ps.PRS.ProposalBlockParts.GetIndex(index)
+}
+
 // PickVoteToSend picks a vote to send to the peer. It will return true if a
 // vote was picked.
 //

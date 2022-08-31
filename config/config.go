@@ -956,6 +956,9 @@ type ConsensusConfig struct {
 	CreateEmptyBlocks         bool          `mapstructure:"create-empty-blocks"`
 	CreateEmptyBlocksInterval time.Duration `mapstructure:"create-empty-blocks-interval"`
 
+	// Send transaction hash only
+	GossipTransactionHashOnly bool `mapstructure:"gossip-txn-hash-only"`
+
 	// Reactor sleep duration parameters
 	PeerGossipSleepDuration     time.Duration `mapstructure:"peer-gossip-sleep-duration"`
 	PeerQueryMaj23SleepDuration time.Duration `mapstructure:"peer-query-maj23-sleep-duration"`

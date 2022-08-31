@@ -520,31 +520,43 @@ OUTER_LOOP:
 
 		// Send proposal Block parts?
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
-			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
-				part := rs.ProposalBlockParts.GetPart(index)
-				partProto, err := part.ToProto()
-				if err != nil {
-					logger.Error("failed to convert block part to proto", "err", err)
-					return
-				}
-
-				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
-				if err := dataCh.Send(ctx, p2p.Envelope{
+			sendEnvelope := p2p.Envelope{}
+			if r.state.config.GossipTransactionHashOnly { // If we're using hash-based gossip, we always broadcast the hash
+				logger.Debug("sending block part hash only", "height", prs.Height, "round", prs.Round)
+				sendEnvelope = p2p.Envelope{
 					To: ps.peerID,
-					Message: &tmcons.BlockPart{
-						Height: rs.Height, // this tells peer that this part applies to us
-						Round:  rs.Round,  // this tells peer that this part applies to us
-						Part:   *partProto,
+					Message: &tmcons.BlockPartHashOnly{
+						Height: rs.Height,                           // this tells peer that this part applies to us
+						Round:  rs.Round,                            // this tells peer that this part applies to us
+						Hash:   prs.ProposalBlockPartSetHeader.Hash, // rather than sending the proto, send the hash. if the node doesn't recognize this hash, it must fetch the full proto
 					},
-				}); err != nil {
-					return
 				}
+			} else { // Otherwise, we only send if our view of peer state shows they do not own the block part
+				if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
+					part := rs.ProposalBlockParts.GetPart(index)
+					partProto, err := part.ToProto()
+					if err != nil {
+						logger.Error("failed to convert block part to proto", "err", err)
+						return
+					}
 
-				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
-				continue OUTER_LOOP
+					logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
+					sendEnvelope = p2p.Envelope{
+						To: ps.peerID,
+						Message: &tmcons.BlockPart{
+							Height: rs.Height, // this tells peer that this part applies to us
+							Round:  rs.Round,  // this tells peer that this part applies to us
+							Part:   *partProto,
+						},
+					}
+					ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
+				}
 			}
+			if err := dataCh.Send(ctx, sendEnvelope); err != nil {
+				return
+			}
+			continue OUTER_LOOP
 		}
-
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
 		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
@@ -1138,7 +1150,52 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+	case *tmcons.BlockPartHashOnly:
+		if !r.state.config.GossipTransactionHashOnly { // We should only receive this message type if using hash-based gossiping
+			panic("Did not expect to receive BlockPartHashOnly message. Not configured to do so.")
+		}
+		bpHashOnlyMsg := msgI.(*BlockPartHashOnlyMessage)
+		rs := r.getRoundState()
+		// Check if we have this block part. If not, request it
+		if !rs.ProposalBlockParts.HasHeader(bpHashOnlyMsg.BlockPartSetHeader) {
+			if index, ok := ps.PRS.ProposalBlockParts.Copy().Sub(rs.ProposalBlockParts.BitArray()).PickRandom(); ok {
+				logger.Debug("sending block part request", "height", bpHashOnlyMsg.Height, "round", bpHashOnlyMsg.Round)
+				if err := r.channels.data.Send(ctx, p2p.Envelope{
+					To: ps.peerID,
+					Message: &tmcons.BlockPartRequest{
+						Height: rs.Height, // this tells peer that this part applies to us
+						Round:  rs.Round,  // this tells peer that this part applies to us
+						Index:  int32(index),
+					},
+				}); err != nil {
+					return err
+				}
+			}
+		}
+	case *tmcons.BlockPartRequest:
+		if !r.state.config.GossipTransactionHashOnly { // We should only receive this message type if using hash-based gossiping
+			panic("Did not expect to receive BlockPartHashOnly message. Not configured to do so.")
+		}
+		bpReqMsg := msgI.(*BlockPartRequestMessage)
+		rs := r.getRoundState()
+		part := rs.ProposalBlockParts.GetPart(int(bpReqMsg.Index))
+		partProto, err := part.ToProto()
+		if err != nil {
+			logger.Error("failed to convert block part to proto", "err", err)
+			return err
+		}
 
+		logger.Debug("sending block part for request", "height", bpReqMsg.Height, "round", bpReqMsg.Round)
+		if err := r.channels.data.Send(ctx, p2p.Envelope{
+			To: ps.peerID,
+			Message: &tmcons.BlockPart{
+				Height: rs.Height, // this tells peer that this part applies to us
+				Round:  rs.Round,  // this tells peer that this part applies to us
+				Part:   *partProto,
+			},
+		}); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("received unknown message on DataChannel: %T", msg)
 	}
