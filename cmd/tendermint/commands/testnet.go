@@ -59,7 +59,7 @@ Example:
 		keyType                 string
 	)
 
-	cmd.Flags().IntVar(&nValidators, "v", 4,
+	cmd.Flags().IntVar(&nValidators, "v", 2,
 		"number of validators to initialize the testnet with")
 	cmd.Flags().StringVar(&configFile, "config", "",
 		"config file to use (note some options may be overwritten)")
@@ -102,6 +102,8 @@ Example:
 				nValidators+nNonValidators,
 			)
 		}
+		ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
+			conf.PrivValidator.StateFile(), logger, keyType)
 
 		// set mode to validator for testnet
 		config := cfg.DefaultValidatorConfig()

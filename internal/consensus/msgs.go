@@ -31,6 +31,7 @@ func init() {
 	jsontypes.MustRegister(&HasVoteMessage{})
 	jsontypes.MustRegister(&VoteSetMaj23Message{})
 	jsontypes.MustRegister(&VoteSetBitsMessage{})
+	jsontypes.MustRegister(&BlockPartHashOnlyMessage{})
 }
 
 // NewRoundStepMessage is sent for every step taken in the ConsensusState.
@@ -450,6 +451,16 @@ func MsgToProto(msg Message) (*tmcons.Message, error) {
 				},
 			},
 		}
+	case *BlockPartHashOnlyMessage:
+		pb = tmcons.Message{
+			Sum: &tmcons.Message_BlockPartHashOnly{
+				BlockPartHashOnly: &tmcons.BlockPartHashOnly{
+					Height:             msg.Height,
+					Round:              msg.Round,
+					BlockPartSetHeader: msg.BlockPartSetHeader.ToProto(),
+				},
+			},
+		}
 	case *VoteMessage:
 		vote := msg.Vote.ToProto()
 		pb = tmcons.Message{
@@ -579,6 +590,16 @@ func MsgFromProto(msg *tmcons.Message) (Message, error) {
 			Height: msg.BlockPart.Height,
 			Round:  msg.BlockPart.Round,
 			Part:   parts,
+		}
+	case *tmcons.Message_BlockPartHashOnly:
+		pbPartSetHeader, err := types.PartSetHeaderFromProto(&msg.BlockPartHashOnly.BlockPartSetHeader)
+		if err != nil {
+			return nil, fmt.Errorf("blockparthashonly msg to proto error: %w", err)
+		}
+		pb = &BlockPartHashOnlyMessage{
+			Height:             msg.BlockPartHashOnly.Height,
+			Round:              msg.BlockPartHashOnly.Round,
+			BlockPartSetHeader: *pbPartSetHeader,
 		}
 	case *tmcons.Message_Vote:
 		// Vote validation will be handled in the vote message ValidateBasic

@@ -124,7 +124,7 @@ func initFilesWithConfig(ctx context.Context, conf *config.Config, logger log.Lo
 	if err := config.WriteConfigFile(conf.RootDir, conf); err != nil {
 		return err
 	}
-	logger.Info("Generated config", "mode", conf.Mode)
+	logger.Info("Generated configs", "mode", conf.Mode)
 
 	return nil
 }

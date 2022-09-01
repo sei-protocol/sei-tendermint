@@ -56,7 +56,7 @@ message BlockPart {
 message BlockPartHashOnly {
   int64 height = 1;
   int32 round  = 2;
-  bytes hash   = 3;
+  tendermint.types.PartSetHeader block_part_set_header = 3 [(gogoproto.nullable) = false];
 }
 
 // BlockPartRequest is sent when a validator requests a particular BlockPart
@@ -110,5 +110,6 @@ message Message {
     HasVote       has_vote        = 7;
     VoteSetMaj23  vote_set_maj23  = 8;
     VoteSetBits   vote_set_bits   = 9;
+    BlockPartHashOnly block_part_hash_only = 10;
   }
 }

@@ -36,6 +36,8 @@ func (m *Message) Wrap(pb proto.Message) error {
 	case *VoteSetBits:
 		m.Sum = &Message_VoteSetBits{VoteSetBits: msg}
 
+	case *BlockPartHashOnly:
+		m.Sum = &Message_BlockPartHashOnly{BlockPartHashOnly: msg}
 	default:
 		return fmt.Errorf("unknown message: %T", msg)
 	}
@@ -73,6 +75,9 @@ func (m *Message) Unwrap() (proto.Message, error) {
 
 	case *Message_VoteSetBits:
 		return m.GetVoteSetBits(), nil
+
+	case *Message_BlockPartHashOnly:
+		return m.GetBlockPartHashOnly(), nil
 
 	default:
 		return nil, fmt.Errorf("unknown message: %T", msg)

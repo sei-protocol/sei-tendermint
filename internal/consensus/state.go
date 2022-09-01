@@ -1034,7 +1034,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		added, err = cs.addProposalBlockPart(msg, peerID)
 
-		// We unlock here to yield to any routines that need to read the the RoundState.
+		// We unlock here to yield to any routines that need to read the RoundState.
 		// Previously, this code held the lock from the point at which the final block
 		// part was received until the block executed against the application.
 		// This prevented the reactor from being able to retrieve the most updated
@@ -1128,7 +1128,7 @@ func (cs *State) handleTimeout(
 	ti timeoutInfo,
 	rs cstypes.RoundState,
 ) {
-	cs.logger.Debug("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	cs.logger.Info("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
 	// timeouts must be for current height, round, step
 	if ti.Height != rs.Height || ti.Round < rs.Round || (ti.Round == rs.Round && ti.Step < rs.Step) {
@@ -1771,6 +1771,9 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 			"entering precommit step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
+			"heights", cs.Height != height,
+			"round", round < cs.Round,
+			"last", cs.Round == round && cstypes.RoundStepPrecommit <= cs.Step,
 		)
 		return
 	}
@@ -1791,7 +1794,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		if cs.LockedBlock != nil {
 			logger.Info("precommit step; no +2/3 prevotes during enterPrecommit while we are locked; precommitting nil")
 		} else {
-			logger.Info("precommit step; no +2/3 prevotes during enterPrecommit; precommitting nil")
+			logger.Info("precommit step: no +2/3 prevotes during enterPrecommit; precommitting nil")
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
@@ -2351,9 +2354,10 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 	// Update Valid* if we can.
 	prevotes := cs.Votes.Prevotes(cs.Round)
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
+	cs.logger.Info("Trying to complete proposal with prevotes", "prevotes", prevotes, "blockID", blockID, "hasTwoThirds", hasTwoThirds)
 	if hasTwoThirds && !blockID.IsNil() && (cs.ValidRound < cs.Round) {
 		if cs.ProposalBlock.HashesTo(blockID.Hash) {
-			cs.logger.Debug(
+			cs.logger.Info(
 				"updating valid block to new proposal block",
 				"valid_round", cs.Round,
 				"valid_block_hash", cs.ProposalBlock.Hash(),
@@ -2368,18 +2372,22 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 		// proposer is faulty or voting power of faulty processes is more
 		// than 1/3. We should trigger in the future accountability
 		// procedure at this point.
+	} else {
+		cs.logger.Info("Did not receive 2/3 or block is nil or incorrect round")
 	}
 
 	// Do not count prevote/precommit/commit into handleBlockPartMsg's span
 	handleBlockPartSpan.End()
 
 	if cs.Step <= cstypes.RoundStepPropose && cs.isProposalComplete() {
+		cs.logger.Info("Moving onto Prevote")
 		// Move onto the next step
 		cs.enterPrevote(ctx, height, cs.Round, "complete-proposal")
 		if hasTwoThirds { // this is optimisation as this will be triggered when prevote is added
 			cs.enterPrecommit(ctx, height, cs.Round, "complete-proposal")
 		}
 	} else if cs.Step == cstypes.RoundStepCommit {
+		cs.logger.Info("Moving onto Commit")
 		// If we're waiting on the proposal block...
 		cs.tryFinalizeCommit(ctx, height)
 	}
@@ -2613,7 +2621,7 @@ func (cs *State) addVote(
 
 	case tmproto.PrecommitType:
 		precommits := cs.Votes.Precommits(vote.Round)
-		cs.logger.Debug("added vote to precommit",
+		cs.logger.Info("added vote to precommit",
 			"height", vote.Height,
 			"round", vote.Round,
 			"validator", vote.ValidatorAddress.String(),
@@ -2729,6 +2737,7 @@ func (cs *State) signAddVote(
 	}
 
 	// TODO: pass pubKey to signVote
+	cs.logger.Info("Signing vote for %s", "hash", hash)
 	vote, err := cs.signVote(ctx, msgType, hash, header)
 	if err != nil {
 		cs.logger.Error("failed signing vote", "height", cs.Height, "round", cs.Round, "vote", vote, "err", err)

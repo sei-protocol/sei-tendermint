@@ -1022,7 +1022,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		DoubleSignCheckHeight:       int64(0),
-		GossipTransactionHashOnly:   true,
+		GossipTransactionHashOnly:   false,
 	}
 }
 

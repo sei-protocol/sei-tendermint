@@ -93,6 +93,7 @@ func TestSub(t *testing.T) {
 		{`"x_x_x_xxxx"`, `"xxxxxx"`, `"______xxxx"`},
 		{`"xxxxxxxxxx"`, `"x_x_x_"`, `"_x_x_xxxxx"`},
 		{`"x_x_x_"`, `"xxxxxxxxxx"`, `"______"`},
+		{`"x"`, `"_"`, `"x"`},
 	}
 	for _, tc := range testCases {
 		var bA *BitArray
