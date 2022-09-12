@@ -25,6 +25,7 @@ func (emptyMempool) CheckTx(context.Context, types.Tx, func(*abci.ResponseCheckT
 	return nil
 }
 func (emptyMempool) RemoveTxByKey(txKey types.TxKey) error   { return nil }
+func (emptyMempool) HasTx(txKey types.TxKey) bool            { return false }
 func (emptyMempool) ReapMaxBytesMaxGas(_, _ int64) types.Txs { return types.Txs{} }
 func (emptyMempool) ReapMaxTxs(n int) types.Txs              { return types.Txs{} }
 func (emptyMempool) Update(

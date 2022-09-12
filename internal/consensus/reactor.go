@@ -208,7 +208,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	// leak the goroutine when stopping the reactor.
 	go r.peerStatsRoutine(ctx, peerUpdates)
 
-	r.subscribeToBroadcastEvents(ctx, r.channels.state)
+	r.subscribeToBroadcastEvents(ctx, r.channels.state, r.channels.data)
 
 	if !r.WaitSync() {
 		if err := r.state.Start(ctx); err != nil {
@@ -344,7 +344,7 @@ func (r *Reactor) broadcastHasVoteMessage(ctx context.Context, vote *types.Vote,
 // subscribeToBroadcastEvents subscribes for new round steps and votes using the
 // internal pubsub defined in the consensus state to broadcast them to peers
 // upon receiving.
-func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.Channel) {
+func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.Channel, dataCh *p2p.Channel) {
 	onStopCh := r.state.getOnStopCh()
 
 	err := r.state.evsw.AddListenerForEvent(
@@ -384,6 +384,17 @@ func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.C
 		types.EventVoteValue,
 		func(data tmevents.EventData) error {
 			return r.broadcastHasVoteMessage(ctx, data.(*types.Vote), stateCh)
+		},
+	)
+	if err != nil {
+		r.logger.Error("failed to add listener for events", "err", err)
+	}
+
+	err = r.state.evsw.AddListenerForEvent(
+		listenerIDConsensus,
+		types.EventRequestMissingTxs,
+		func(data tmevents.EventData) error {
+			return r.handleTxRequestMsg(ctx, data.(*TxRequestMessage), dataCh)
 		},
 	)
 	if err != nil {
@@ -522,15 +533,20 @@ OUTER_LOOP:
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
 				sendEnvelope := p2p.Envelope{}
+				logger.Info("Checking gossip txn only: ", "val", r.state.config.GossipTransactionHashOnly)
 				if r.state.config.GossipTransactionHashOnly {
-					//logger.Info("sending block part hash only", "height", prs.Height, "round", prs.Round, "hash", prs.ProposalBlockPartSetHeader.Hash)
+					logger.Info("sending block part hash only", "height", prs.Height, "round", prs.Round, "hash", prs.ProposalBlockPartSetHeader.Hash)
 					sendEnvelope = p2p.Envelope{
 						To: ps.peerID,
 						Message: &tmcons.BlockPartHashOnly{
 							Height:             rs.Height,                                // this tells peer that this part applies to us
 							Round:              rs.Round,                                 // this tells peer that this part applies to us
 							BlockPartSetHeader: prs.ProposalBlockPartSetHeader.ToProto(), // rather than sending the proto, send the hash. if the node doesn't recognize this hash, it must fetch the full proto
+							Index:              int32(index),
 						},
+					}
+					if err := dataCh.Send(ctx, sendEnvelope); err != nil {
+						return
 					}
 				} else {
 					part := rs.ProposalBlockParts.GetPart(index)
@@ -549,13 +565,19 @@ OUTER_LOOP:
 							Part:   *partProto,
 						},
 					}
+
+					if err := dataCh.Send(ctx, sendEnvelope); err != nil {
+						return
+					}
 					ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
-					continue OUTER_LOOP
 				}
-				if err := dataCh.Send(ctx, sendEnvelope); err != nil {
-					return
-				}
+				//if err := dataCh.Send(ctx, sendEnvelope); err != nil {
+				//	return
+				//}
+				//ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
+				continue OUTER_LOOP
 			}
+			//logger.Debug("Have block part already", "height", rs.Height, "round", rs.Round, "header", prs.ProposalBlockPartSetHeader, "votes", rs.Votes.String(), "block", rs.ProposalBlockParts.GetPart(index))
 		}
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
@@ -945,6 +967,18 @@ func (r *Reactor) queryMaj23Routine(ctx context.Context, ps *PeerState, stateCh 
 	}
 }
 
+func (r *Reactor) handleTxRequestMsg(ctx context.Context, txRequestMsg *TxRequestMessage, dataCh *p2p.Channel) error {
+	return dataCh.Send(ctx, p2p.Envelope{
+		Broadcast: true,
+		Message: &tmcons.TxRequestMessage{
+			Height: txRequestMsg.Height,
+			Round:  txRequestMsg.Round,
+			TxKeys: txRequestMsg.TxKeys,
+		},
+	})
+
+}
+
 // processPeerUpdate process a peer update message. For new or reconnected peers,
 // we create a peer state if one does not exist for the peer, which should always
 // be the case, and we spawn all the relevant goroutine to broadcast messages to
@@ -1152,6 +1186,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 			return ctx.Err()
 		}
 	case *tmcons.BlockPartHashOnly:
+		logger.Info("Received block part hash only")
 		if !r.state.config.GossipTransactionHashOnly { // We should only receive this message type if using hash-based gossiping
 			panic("Did not expect to receive BlockPartHashOnly message. Not configured to do so.")
 		}
@@ -1161,29 +1196,31 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		//logger.Info("Checking if we have block", "has", rs.ProposalBlockParts.HasHeader(bpHashOnlyMsg.BlockPartSetHeader), "rs header", rs.ProposalBlockParts, "bp header", bpHashOnlyMsg.BlockPartSetHeader)
 		if !rs.ProposalBlockParts.HasHeader(bpHashOnlyMsg.BlockPartSetHeader) {
 			//logger.Info("----------------", "ps proposal block parts", ps.PRS.ProposalBlockParts, "rs proposal block parts", rs.ProposalBlockParts.BitArray())
-			sub := ps.PRS.ProposalBlockParts.Copy().Sub(rs.ProposalBlockParts.BitArray())
-			index, ok := sub.PickRandom()
-			logger.Info("REesult of sub", "res", sub, "index", index, "ok", ok)
-			if index, ok := ps.PRS.ProposalBlockParts.Copy().Sub(rs.ProposalBlockParts.BitArray()).PickRandom(); ok {
-				logger.Info("sending block part request", "height", bpHashOnlyMsg.Height, "round", bpHashOnlyMsg.Round)
-				if err := r.channels.data.Send(ctx, p2p.Envelope{
-					To: ps.peerID,
-					Message: &tmcons.BlockPartRequest{
-						Height: rs.Height, // this tells peer that this part applies to us
-						Round:  rs.Round,  // this tells peer that this part applies to us
-						Index:  int32(index),
-					},
-				}); err != nil {
-					return err
-				}
-				ps.SetHasProposalBlockPart(bpHashOnlyMsg.Height, bpHashOnlyMsg.Round, int(index))
+			//sub := ps.PRS.ProposalBlockParts.Copy().Sub(rs.ProposalBlockParts.BitArray())
+			//index, ok := sub.PickRandom()
+			//logger.Info("REesult of sub", "res", sub, "index", index, "ok", ok)
+			//if index, ok := ps.PRS.ProposalBlockParts.Copy().Sub(rs.ProposalBlockParts.BitArray()).PickRandom(); ok {
+			logger.Info("sending block part request", "height", bpHashOnlyMsg.Height, "round", bpHashOnlyMsg.Round)
+			if err := r.channels.data.Send(ctx, p2p.Envelope{
+				To: ps.peerID,
+				Message: &tmcons.BlockPartRequest{
+					Height: rs.Height, // this tells peer that this part applies to us
+					Round:  rs.Round,  // this tells peer that this part applies to us
+					Index:  bpHashOnlyMsg.Index,
+				},
+			}); err != nil {
+				return err
 			}
+			ps.SetHasProposalBlockPart(bpHashOnlyMsg.Height, bpHashOnlyMsg.Round, int(bpHashOnlyMsg.Index))
+			//}
+		} else {
+			logger.Debug("Have block part already", "height", rs.Height, "round", rs.Round, "header", bpHashOnlyMsg.BlockPartSetHeader, "votes", rs.Votes.String(), "block", rs.ProposalBlockParts.GetPart(int(bpHashOnlyMsg.Index)))
 		}
 	case *tmcons.BlockPartRequest:
 		if !r.state.config.GossipTransactionHashOnly { // We should only receive this message type if using hash-based gossiping
 			panic("Did not expect to receive BlockPartHashOnly message. Not configured to do so.")
 		}
-		bpReqMsg := msgI.(*BlockPartRequestMessage)
+		bpReqMsg := msgI.(*TxRequestMessage)
 		rs := r.getRoundState()
 		part := rs.ProposalBlockParts.GetPart(int(bpReqMsg.Index))
 		partProto, err := part.ToProto()
@@ -1203,6 +1240,8 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		}); err != nil {
 			return err
 		}
+		ps.SetHasProposalBlockPart(ps.PRS.Height, ps.PRS.Round, int(bpReqMsg.Index))
+
 	default:
 		return fmt.Errorf("received unknown message on DataChannel: %T", msg)
 	}

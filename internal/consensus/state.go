@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/internal/p2p"
 	"io"
 	"os"
 	"runtime/debug"
@@ -151,6 +152,8 @@ type State struct {
 	peerMsgQueue     chan msgInfo
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
+	// we may need to send txn requests to other peers
+	dataCh *p2p.Channel
 
 	// information about added votes and block parts are written on this channel
 	// so statistics can be computed by reactor
@@ -175,7 +178,7 @@ type State struct {
 	setProposal    func(proposal *types.Proposal, t time.Time) error
 
 	// synchronous pubsub between consensus state and reactor.
-	// state only emits EventNewRoundStep, EventValidBlock, and EventVote
+	// state only emits EventNewRoundStep, EventValidBlock, EventVote and EventRequestMissingTxs
 	evsw tmevents.EventSwitch
 
 	// for reporting metrics
@@ -209,6 +212,7 @@ func NewState(
 	blockStore sm.BlockStore,
 	txNotifier txNotifier,
 	evpool evidencePool,
+	dataCh *p2p.Channel,
 	eventBus *eventbus.EventBus,
 	traceProviderOps []trace.TracerProviderOption,
 	options ...StateOption,
@@ -225,6 +229,7 @@ func NewState(
 		internalMsgQueue: make(chan msgInfo, msgQueueSize),
 		timeoutTicker:    NewTimeoutTicker(logger),
 		statsMsgQueue:    make(chan msgInfo, msgQueueSize),
+		dataCh:           dataCh,
 		doWALCatchup:     true,
 		wal:              nilWAL{},
 		evpool:           evpool,
@@ -1025,6 +1030,13 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
+		// If we're gossiping transaction hashes, then we need to determine which
+		// txns we're missing and request them
+		if cs.config.GossipTransactionHashOnly {
+
+			missingTxns := cs.blockExec.GetMissingTxns(msg.Proposal.TxnHashes)
+			cs.requestMissingTxns(msg.Proposal.Height, msg.Proposal.Round, missingTxns)
+		}
 
 	case *BlockPartMessage:
 		spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleBlockPartMsg")
@@ -1092,18 +1104,18 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			}
 		}
 
-		// TODO: punish peer
-		// We probably don't want to stop the peer here. The vote does not
-		// necessarily comes from a malicious peer but can be just broadcasted by
-		// a typical peer.
-		// https://github.com/tendermint/tendermint/issues/1281
+	// TODO: punish peer
+	// We probably don't want to stop the peer here. The vote does not
+	// necessarily comes from a malicious peer but can be just broadcasted by
+	// a typical peer.
+	// https://github.com/tendermint/tendermint/issues/1281
 
-		// NOTE: the vote is broadcast to peers by the reactor listening
-		// for vote events
+	// NOTE: the vote is broadcast to peers by the reactor listening
+	// for vote events
 
-		// TODO: If rs.Height == vote.Height && rs.Round < vote.Round,
-		// the peer is sending us CatchupCommit precommits.
-		// We could make note of this and help filter in broadcastHasVoteMessage().
+	// TODO: If rs.Height == vote.Height && rs.Round < vote.Round,
+	// the peer is sending us CatchupCommit precommits.
+	// We could make note of this and help filter in broadcastHasVoteMessage().
 
 	default:
 		cs.logger.Error("unknown msg type", "type", fmt.Sprintf("%T", msg))
@@ -1459,7 +1471,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 
 	// Make proposal
 	propBlockID := types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()}
-	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time)
+	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time, block.Data.TxKeys)
 	p := proposal.ToProto()
 
 	// wait the max amount we would wait for a proposal
@@ -1469,11 +1481,17 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 		proposal.Signature = p.Signature
 
 		// send proposal and block parts on internal msg queue
+		cs.logger.Info("Sending internal message for proposal", "proposal", proposal)
 		cs.sendInternalMessage(ctx, msgInfo{&ProposalMessage{proposal}, "", tmtime.Now()})
 
-		for i := 0; i < int(blockParts.Total()); i++ {
-			part := blockParts.GetPart(i)
-			cs.sendInternalMessage(ctx, msgInfo{&BlockPartMessage{cs.Height, cs.Round, part}, "", tmtime.Now()})
+		// Let peers request block parts rather than blindly sending them
+		// if we're in hashes-only mode
+		if !cs.config.GossipTransactionHashOnly {
+			for i := 0; i < int(blockParts.Total()); i++ {
+				part := blockParts.GetPart(i)
+				cs.logger.Info("Sending internal message for block part", "blockpart", part)
+				cs.sendInternalMessage(ctx, msgInfo{&BlockPartMessage{cs.Height, cs.Round, part}, "", tmtime.Now()})
+			}
 		}
 
 		cs.logger.Debug("signed proposal", "height", height, "round", round, "proposal", proposal)
@@ -1536,7 +1554,7 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr)
+	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, cs.config.GossipTransactionHashOnly)
 	if err != nil {
 		panic(err)
 	}
@@ -2274,6 +2292,14 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	return nil
 }
 
+func (cs *State) requestMissingTxns(
+	height int64,
+	round int32,
+	txKeys []types.TxKey,
+) {
+	cs.evsw.FireEvent(types.EventRequestMissingTxs, &TxRequestMessage{height, round, txKeys})
+}
+
 // NOTE: block is not necessarily valid.
 // Asynchronously triggers either enterPrevote (before we timeout of propose) or tryFinalizeCommit,
 // once we have the full block.
@@ -2747,6 +2773,7 @@ func (cs *State) signAddVote(
 		// The signer will sign the extension, make sure to remove the data on the way out
 		vote.StripExtension()
 	}
+	cs.logger.Info("Sending internal message for vote", "vote", vote)
 	cs.sendInternalMessage(ctx, msgInfo{&VoteMessage{vote}, "", tmtime.Now()})
 	cs.logger.Debug("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
 	return vote

@@ -49,6 +49,7 @@ func MakeBlock(state sm.State, height int64, c *types.Commit) *types.Block {
 		c,
 		nil,
 		state.Validators.GetProposer().Address,
+		false,
 	)
 }
 
@@ -81,7 +82,7 @@ func makeBlockAndPartSet(
 		}
 	}
 
-	block := state.MakeBlock(height, []types.Tx{}, lastCommit, nil, state.Validators.GetProposer().Address)
+	block := state.MakeBlock(height, []types.Tx{}, lastCommit, nil, state.Validators.GetProposer().Address, false)
 	partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
 	require.NoError(t, err)
 

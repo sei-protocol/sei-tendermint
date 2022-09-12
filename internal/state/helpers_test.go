@@ -61,7 +61,7 @@ func makeAndApplyGoodBlock(
 	evidence []types.Evidence,
 ) (sm.State, types.BlockID) {
 	t.Helper()
-	block := state.MakeBlock(height, factory.MakeNTxs(height, 10), lastCommit, evidence, proposerAddr)
+	block := state.MakeBlock(height, factory.MakeNTxs(height, 10), lastCommit, evidence, proposerAddr, false)
 	partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
 	require.NoError(t, err)
 

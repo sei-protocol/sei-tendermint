@@ -31,11 +31,12 @@ type Proposal struct {
 	BlockID   BlockID   `json:"block_id"`
 	Timestamp time.Time `json:"timestamp"`
 	Signature []byte    `json:"signature"`
+	TxnHashes []TxKey   `json:"txn_hashes"`
 }
 
 // NewProposal returns a new Proposal.
 // If there is no POLRound, polRound should be -1.
-func NewProposal(height int64, round int32, polRound int32, blockID BlockID, ts time.Time) *Proposal {
+func NewProposal(height int64, round int32, polRound int32, blockID BlockID, ts time.Time, txKeys []TxKey) *Proposal {
 	return &Proposal{
 		Type:      tmproto.ProposalType,
 		Height:    height,
@@ -43,6 +44,7 @@ func NewProposal(height int64, round int32, polRound int32, blockID BlockID, ts 
 		BlockID:   blockID,
 		POLRound:  polRound,
 		Timestamp: tmtime.Canonical(ts),
+		TxnHashes: txKeys,
 	}
 }
 
@@ -169,6 +171,7 @@ func (p *Proposal) ToProto() *tmproto.Proposal {
 	pb.PolRound = p.POLRound
 	pb.Timestamp = p.Timestamp
 	pb.Signature = p.Signature
+	pb.TxnHashes = p.TxnHashes
 
 	return pb
 }

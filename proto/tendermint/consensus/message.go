@@ -38,6 +38,9 @@ func (m *Message) Wrap(pb proto.Message) error {
 
 	case *BlockPartHashOnly:
 		m.Sum = &Message_BlockPartHashOnly{BlockPartHashOnly: msg}
+
+	case *BlockPartRequest:
+		m.Sum = &Message_BlockPartRequest{BlockPartRequest: msg}
 	default:
 		return fmt.Errorf("unknown message: %T", msg)
 	}
@@ -79,6 +82,8 @@ func (m *Message) Unwrap() (proto.Message, error) {
 	case *Message_BlockPartHashOnly:
 		return m.GetBlockPartHashOnly(), nil
 
+	case *Message_BlockPartRequest:
+		return m.GetBlockPartRequest(), nil
 	default:
 		return nil, fmt.Errorf("unknown message: %T", msg)
 	}

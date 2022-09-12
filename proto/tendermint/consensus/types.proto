@@ -6,6 +6,7 @@ option go_package = "github.com/tendermint/tendermint/proto/tendermint/consensus
 import "gogoproto/gogo.proto";
 import "tendermint/types/types.proto";
 import "tendermint/libs/bits/types.proto";
+import "tendermint/tendermint/types";
 
 // NewRoundStep is sent for every step taken in the ConsensusState.
 // For every height/round/step transition
@@ -59,6 +60,11 @@ message BlockPartHashOnly {
   tendermint.types.PartSetHeader block_part_set_header = 3 [(gogoproto.nullable) = false];
 }
 
+message TxRequestMessage {
+  int64 height = 1;
+  int32 round  = 2;
+  repeated bytes tx_keys = 3;
+}
 // BlockPartRequest is sent when a validator requests a particular BlockPart
 message BlockPartRequest {
   int64 height = 1;
@@ -111,5 +117,7 @@ message Message {
     VoteSetMaj23  vote_set_maj23  = 8;
     VoteSetBits   vote_set_bits   = 9;
     BlockPartHashOnly block_part_hash_only = 10;
+    BlockPartRequest block_part_request = 11;
+    TxRequestMessage txn_request_message = 12;
   }
 }

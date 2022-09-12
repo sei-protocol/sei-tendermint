@@ -166,6 +166,11 @@ type PartSet struct {
 	byteSize int64
 }
 
+type PartSetHashOnly struct {
+	partsHashOnly         []*PartHashOnly
+	partsHashOnlyBitArray *bits.BitArray
+}
+
 // Returns an immutable, full PartSet from the data bytes.
 // The data bytes are split into "partSize" chunks, and merkle tree computed.
 // CONTRACT: partSize is greater than zero.
@@ -196,6 +201,25 @@ func NewPartSetFromData(data []byte, partSize uint32) *PartSet {
 		partsBitArray: partsBitArray,
 		count:         total,
 		byteSize:      int64(len(data)),
+	}
+}
+
+func NewPartSetHashOnlyFromData(data []byte, partSize uint32) *PartSetHashOnly {
+	total := (uint32(len(data)) + partSize - 1) / partSize
+	partsHashOnly := make([]*PartHashOnly, total)
+	partsHashOnlyBitArray := bits.NewBitArray(int(total))
+	for i := uint32(0); i < total; i++ {
+		part := &PartHashOnly{
+			Index: i,
+			Bytes: data[i*partSize : tmmath.MinInt(len(data), int((i+1)*partSize))],
+		}
+		partsHashOnly[i] = part
+		partsHashOnlyBitArray.SetIndex(int(i), true)
+	}
+
+	return &PartSetHashOnly{
+		partsHashOnly:         partsHashOnly,
+		partsHashOnlyBitArray: partsHashOnlyBitArray,
 	}
 }
 

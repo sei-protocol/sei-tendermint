@@ -267,10 +267,11 @@ func (state State) MakeBlock(
 	commit *types.Commit,
 	evidence []types.Evidence,
 	proposerAddress []byte,
+	hashesOnly bool,
 ) *types.Block {
 
 	// Build base block with block data.
-	block := types.MakeBlock(height, txs, commit, evidence)
+	block := types.MakeBlock(height, txs, commit, evidence, hashesOnly)
 
 	// Fill rest of header with state data.
 	block.Header.Populate(
@@ -283,6 +284,26 @@ func (state State) MakeBlock(
 
 	return block
 }
+
+//func (state State) MakeBlockHashOnly(
+//	height int64,
+//	txs []types.Tx,
+//	commit *types.Commit,
+//	evidence []types.Evidence,
+//	proposerAddress []byte,
+//) *types.BlockHashOnly {
+//	block := types.MakeBlockHashOnly(height, txs, commit, evidence)
+//	// Fill rest of header with state data.
+//	block.Header.Populate(
+//		state.Version.Consensus, state.ChainID,
+//		tmtime.Now(), state.LastBlockID,
+//		state.Validators.Hash(), state.NextValidators.Hash(),
+//		state.ConsensusParams.HashConsensusParams(), state.AppHash, state.LastResultsHash,
+//		proposerAddress,
+//	)
+//
+//	return block
+//}
 
 //------------------------------------------------------------------------
 // Genesis

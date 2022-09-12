@@ -32,6 +32,7 @@ func init() {
 	jsontypes.MustRegister(&VoteSetMaj23Message{})
 	jsontypes.MustRegister(&VoteSetBitsMessage{})
 	jsontypes.MustRegister(&BlockPartHashOnlyMessage{})
+	jsontypes.MustRegister(&TxRequestMessage{})
 }
 
 // NewRoundStepMessage is sent for every step taken in the ConsensusState.
@@ -217,6 +218,7 @@ type BlockPartHashOnlyMessage struct {
 	Height             int64 `json:",string"`
 	Round              int32
 	BlockPartSetHeader types.PartSetHeader
+	Index              int32
 }
 
 func (*BlockPartHashOnlyMessage) TypeTag() string { return "tendermint/BlockPartHashOnly" }
@@ -237,16 +239,16 @@ func (m *BlockPartHashOnlyMessage) String() string {
 	return fmt.Sprintf("[BlockPartHashOnly H:%v R:%v P:%v]", m.Height, m.Round, m.BlockPartSetHeader)
 }
 
-type BlockPartRequestMessage struct {
+type TxRequestMessage struct {
 	Height int64 `json:",string"`
 	Round  int32
-	Index  int32
+	TxKeys []types.TxKey
 }
 
-func (*BlockPartRequestMessage) TypeTag() string { return "tendermint/BlockPartRequest" }
+func (*TxRequestMessage) TypeTag() string { return "tendermint/BlockPartRequest" }
 
 // ValidateBasic performs basic validation.
-func (m *BlockPartRequestMessage) ValidateBasic() error {
+func (m *TxRequestMessage) ValidateBasic() error {
 	if m.Height < 0 {
 		return errors.New("negative Height")
 	}
@@ -257,8 +259,8 @@ func (m *BlockPartRequestMessage) ValidateBasic() error {
 }
 
 // String returns a string representation.
-func (m *BlockPartRequestMessage) String() string {
-	return fmt.Sprintf("[BlockPartRequest H:%v R:%v I:%v]", m.Height, m.Round, m.Index)
+func (m *TxRequestMessage) String() string {
+	return fmt.Sprintf("[BlockPartRequest H:%v R:%v H:%v]", m.Height, m.Round, m.TxKeys)
 }
 
 // VoteMessage is sent when voting for a proposal (or lack thereof).
@@ -458,6 +460,7 @@ func MsgToProto(msg Message) (*tmcons.Message, error) {
 					Height:             msg.Height,
 					Round:              msg.Round,
 					BlockPartSetHeader: msg.BlockPartSetHeader.ToProto(),
+					Index:              msg.Index,
 				},
 			},
 		}
@@ -600,6 +603,7 @@ func MsgFromProto(msg *tmcons.Message) (Message, error) {
 			Height:             msg.BlockPartHashOnly.Height,
 			Round:              msg.BlockPartHashOnly.Round,
 			BlockPartSetHeader: *pbPartSetHeader,
+			Index:              msg.BlockPartHashOnly.Index,
 		}
 	case *tmcons.Message_Vote:
 		// Vote validation will be handled in the vote message ValidateBasic

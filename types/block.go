@@ -47,6 +47,15 @@ type Block struct {
 	LastCommit *Commit      `json:"last_commit"`
 }
 
+type BlockHashOnly struct {
+	mtx sync.Mutex
+
+	Header     `json:"header"`
+	DataHashes `json:"data"`
+	Evidence   EvidenceList `json:"evidence"`
+	LastCommit *Commit      `json:"last_commit"`
+}
+
 // ValidateBasic performs basic validation that doesn't involve state data.
 // It checks the internal consistency of the block.
 // Further validation is done using state#ValidateBlock.
@@ -141,6 +150,24 @@ func (b *Block) MakePartSet(partSize uint32) (*PartSet, error) {
 		return nil, err
 	}
 	return NewPartSetFromData(bz, partSize), nil
+}
+
+func (b *Block) MakePartSetHashOnly(partSize uint32) (*PartSetHashOnly, error) {
+	if b == nil {
+		return nil, errors.New("nil block")
+	}
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	pbb, err := b.ToProto()
+	if err != nil {
+		return nil, err
+	}
+	bz, err := proto.Marshal(pbb)
+	if err != nil {
+		return nil, err
+	}
+	return NewPartSetHashOnlyFromData(bz, partSize), nil
 }
 
 // HashesTo is a convenience function that checks if a block hashes to the given argument.
@@ -303,17 +330,48 @@ func MaxDataBytesNoEvidence(maxBytes int64, valsCount int) int64 {
 	return maxDataBytes
 }
 
+func MakeBlockHashOnly(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *BlockHashOnly {
+
+	var txnHashes [][]byte
+	for _, tx := range txs {
+		txnHashes = append(txnHashes, tx.Hash())
+	}
+	block := &BlockHashOnly{
+		Header: Header{
+			Version:        version.Consensus{Block: version.BlockProtocol, App: 0},
+			Height:         height,
+			LastCommitHash: lastCommit.hash,
+		},
+		Evidence: evidence,
+		DataHashes: DataHashes{
+			TxHashes: txnHashes,
+		},
+	}
+	return block
+
+}
+
 // MakeBlock returns a new block with an empty header, except what can be
 // computed from itself.
 // It populates the same set of fields validated by ValidateBasic.
-func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
+func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence, hashOnly bool) *Block {
+	var txnKeys []TxKey
+	for _, tx := range txs {
+		txnKeys = append(txnKeys, tx.Key())
+	}
+	txnToSend := Txs{}
+	if !hashOnly {
+		txnToSend = txs
+	}
+
 	block := &Block{
 		Header: Header{
 			Version: version.Consensus{Block: version.BlockProtocol, App: 0},
 			Height:  height,
 		},
 		Data: Data{
-			Txs: txs,
+			Txs:    txnToSend,
+			TxKeys: txnKeys,
 		},
 		Evidence:   evidence,
 		LastCommit: lastCommit,
@@ -1276,7 +1334,7 @@ func ExtendedCommitFromProto(ecp *tmproto.ExtendedCommit) (*ExtendedCommit, erro
 	return extCommit, extCommit.ValidateBasic()
 }
 
-//-------------------------------------
+// -------------------------------------
 
 // Data contains the set of transactions included in the block
 type Data struct {
@@ -1284,7 +1342,8 @@ type Data struct {
 	// Txs that will be applied by state @ block.Height+1.
 	// NOTE: not all txs here are valid.  We're just agreeing on the order first.
 	// This means that block.AppHash does not include these txs.
-	Txs Txs `json:"txs"`
+	Txs    Txs     `json:"txs"`
+	TxKeys []TxKey `'json:"tx_keys"'`
 
 	// Volatile
 	hash tmbytes.HexBytes

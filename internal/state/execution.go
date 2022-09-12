@@ -90,6 +90,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	state State,
 	lastExtCommit *types.ExtendedCommit,
 	proposerAddr []byte,
+	hashesOnly bool,
 ) (*types.Block, error) {
 
 	maxBytes := state.ConsensusParams.Block.MaxBytes
@@ -102,7 +103,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	commit := lastExtCommit.ToCommit()
-	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
+	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr, false)
 	rpp, err := blockExec.appClient.PrepareProposal(
 		ctx,
 		&abci.RequestPrepareProposal{
@@ -139,7 +140,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		}
 	}
 	itxs := txrSet.IncludedTxs()
-	return state.MakeBlock(height, itxs, commit, evidence, proposerAddr), nil
+	return state.MakeBlock(height, itxs, commit, evidence, proposerAddr, hashesOnly), nil
 }
 
 func (blockExec *BlockExecutor) ProcessProposal(
@@ -406,6 +407,17 @@ func (blockExec *BlockExecutor) Commit(
 	)
 
 	return res.RetainHeight, err
+}
+
+func (blockExec *BlockExecutor) GetMissingTxns(txKeys []types.TxKey) []types.TxKey {
+	var missingTxKeys []types.TxKey
+	for _, txKey := range txKeys {
+		if !blockExec.mempool.HasTx(txKey) {
+			missingTxKeys = append(missingTxKeys, txKey)
+
+		}
+	}
+	return missingTxKeys
 }
 
 func buildLastCommitInfo(block *types.Block, store Store, initialHeight int64) abci.CommitInfo {

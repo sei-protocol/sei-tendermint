@@ -108,6 +108,14 @@ func (_m *Mempool) RemoveTxByKey(txKey types.TxKey) error {
 	return r0
 }
 
+// RemoveTxByKey provides a mock function with given fields: txKey
+func (_m *Mempool) HasTx(txKey types.TxKey) bool {
+	ret := _m.Called(txKey)
+
+	_, ok := ret.Get(0).(func(types.TxKey) error)
+	return ok
+}
+
 // Size provides a mock function with given fields:
 func (_m *Mempool) Size() int {
 	ret := _m.Called()

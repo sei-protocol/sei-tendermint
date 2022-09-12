@@ -39,6 +39,7 @@ const (
 	EventTimeoutWaitValue     = "TimeoutWait"
 	EventValidBlockValue      = "ValidBlock"
 	EventVoteValue            = "Vote"
+	EventRequestMissingTxs    = "ReuestMissingTx"
 
 	// Events emitted by the evidence reactor when evidence is validated
 	// and before it is committed
