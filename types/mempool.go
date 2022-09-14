@@ -34,13 +34,6 @@ func TxKeyFromProto(dp *tmproto.TxKey) (TxKey, error) {
 	if dp == nil {
 		return TxKey{}, errors.New("nil data")
 	}
-	//txBzs := make([]byte, len(dp.TxKey))
-	//if len(dp.TxKey) > 0 {
-	//	for i := range dp.TxKey {
-	//		txBzs[i] = dp.TxKey[i]
-	//	}
-	//}
-
 	var txBzs [sha256.Size]byte
 	for i := range dp.TxKey {
 		txBzs[i] = dp.TxKey[i]

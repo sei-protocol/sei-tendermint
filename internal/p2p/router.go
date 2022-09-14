@@ -262,9 +262,6 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 	defer r.channelMtx.Unlock()
 
 	id := chDesc.ID
-	//if _, ok := r.channelQueues[id]; ok {
-	//	return nil, fmt.Errorf("channel %v already exists (%s)", id, chDesc.Name)
-	//}
 	r.chDescs = append(r.chDescs, chDesc)
 
 	messageType := chDesc.MessageType

@@ -327,8 +327,8 @@ func makeNode(
 	node.router.AddChDescToBeAdded(consensus.GetDataChannelDescriptor(), csReactor.SetDataChannel)
 	node.router.AddChDescToBeAdded(consensus.GetVoteChannelDescriptor(), csReactor.SetVoteChannel)
 	node.router.AddChDescToBeAdded(consensus.GetVoteSetChannelDescriptor(), csReactor.SetVoteSetChannel)
+	// Mempool should be available both for mempool reactor (for disseminating txs) and consensus reactor (for requesting txs during consensus)
 	node.router.AddChDescToBeAdded(mempool.GetChannelDescriptor(cfg.Mempool), mpReactor.SetChannel, csReactor.SetMempoolChannel)
-	//node.router.AddChDescToBeAdded(mempool.GetChannelDescriptor(cfg.Mempool), csReactor.SetMempoolChannel)
 	node.services = append(node.services, csReactor)
 	node.rpcEnv.ConsensusReactor = csReactor
 

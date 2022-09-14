@@ -2351,14 +2351,18 @@ func (cs *State) addProposalBlockPart(
 		if cs.config.GossipTransactionHashOnly {
 			txKeys := cs.Proposal.TxKeys
 			if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
+				// We do not have full proposal block, don't set it
 				cs.logger.Info("PSULOG - populating txs has missing txs!", "keys", cs.blockExec.GetMissingTxs(txKeys))
 			} else {
+				// We have full proposal block. Set txs in proposal from mempool
 				cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
 				txs := cs.blockExec.GetTxsForKeys(txKeys)
 				block.Data.Txs = txs
+				cs.ProposalBlock = block
 			}
+		} else {
+			cs.ProposalBlock = block
 		}
-		cs.ProposalBlock = block
 
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
 		cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
