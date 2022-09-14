@@ -271,7 +271,6 @@ func makeNode(
 
 	mpReactor, mp := createMempoolReactor(logger, cfg, proxyApp, stateStore, nodeMetrics.mempool,
 		peerManager.Subscribe)
-	node.router.AddChDescToBeAdded(mempool.GetChannelDescriptor(cfg.Mempool), mpReactor.SetChannel)
 	node.rpcEnv.Mempool = mp
 	node.services = append(node.services, mpReactor)
 
@@ -328,6 +327,8 @@ func makeNode(
 	node.router.AddChDescToBeAdded(consensus.GetDataChannelDescriptor(), csReactor.SetDataChannel)
 	node.router.AddChDescToBeAdded(consensus.GetVoteChannelDescriptor(), csReactor.SetVoteChannel)
 	node.router.AddChDescToBeAdded(consensus.GetVoteSetChannelDescriptor(), csReactor.SetVoteSetChannel)
+	node.router.AddChDescToBeAdded(mempool.GetChannelDescriptor(cfg.Mempool), mpReactor.SetChannel, csReactor.SetMempoolChannel)
+	//node.router.AddChDescToBeAdded(mempool.GetChannelDescriptor(cfg.Mempool), csReactor.SetMempoolChannel)
 	node.services = append(node.services, csReactor)
 	node.rpcEnv.ConsensusReactor = csReactor
 

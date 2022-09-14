@@ -119,6 +119,7 @@ type State struct {
 
 	// config details
 	config            *config.ConsensusConfig
+	mempoolConfig     *config.MempoolConfig
 	privValidator     types.PrivValidator // for signing votes
 	privValidatorType types.PrivValidatorType
 
@@ -1049,6 +1050,14 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		cs.mtx.Lock()
 		if added && cs.ProposalBlockParts.IsComplete() {
+			// We also need to check we have all txs if we're only gossiping
+			// tx keys.
+			// TODO(psu): Figure out how to trigger handleCompleteProposal once all txs are received
+			if cs.config.GossipTransactionHashOnly && len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
+				cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
+				return
+			}
+
 			if fsyncUponCompletion {
 				_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.handleBlockPartMsg.fsync")
 				if err := cs.wal.FlushAndSync(); err != nil { // fsync
@@ -1459,8 +1468,9 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 
 	// Make proposal
 	propBlockID := types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()}
-	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time)
+	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time, block.Data.TxKeys)
 	p := proposal.ToProto()
+	cs.logger.Info("PSULOG - converted proposal to proto", "txkeys", p.TxKeys, "height", p.Height, "round", p.Round)
 
 	// wait the max amount we would wait for a proposal
 	ctxto, cancel := context.WithTimeout(ctx, cs.state.ConsensusParams.Timeout.Propose)
@@ -1536,7 +1546,8 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr)
+	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, cs.config.GossipTransactionHashOnly)
+	cs.logger.Info("PSULOG - created proposal block", "height", ret.Height, "txs", ret.Txs, "txkeys", ret.TxKeys)
 	if err != nil {
 		panic(err)
 	}
@@ -1673,7 +1684,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	*/
 	if cs.Proposal.POLRound == -1 {
 		if cs.LockedRound == -1 {
-			logger.Info("prevote step: ProposalBlock is valid and there is no locked block; prevoting the proposal")
+			logger.Info("prevote step: ProposalBlock is valid and there is no locked block; prevoting the proposal", "blockId", cs.Proposal.BlockID)
 			cs.signAddVote(ctx, tmproto.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
 			return
 		}
@@ -2053,7 +2064,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		"num_txs", len(block.Txs),
 		"time", time.Now().UnixMilli(),
 	)
-	logger.Debug(fmt.Sprintf("%v", block))
+	logger.Info(fmt.Sprintf("%v", block))
 
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
@@ -2282,7 +2293,7 @@ func (cs *State) addProposalBlockPart(
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
-		cs.logger.Debug("received block part from wrong height", "height", height, "round", round)
+		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false, nil
 	}
@@ -2292,7 +2303,7 @@ func (cs *State) addProposalBlockPart(
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		// NOTE: this can happen when we've gone to a higher round and
 		// then receive parts from the previous round - not necessarily a bad peer.
-		cs.logger.Debug(
+		cs.logger.Info(
 			"received a block part when we are not expecting any",
 			"height", height,
 			"round", round,
@@ -2335,6 +2346,18 @@ func (cs *State) addProposalBlockPart(
 			return added, err
 		}
 
+		// We need to now populate proposal block with the txs
+		cs.logger.Info("PSULOG - maybe populating proposal block with txs")
+		if cs.config.GossipTransactionHashOnly {
+			txKeys := cs.Proposal.TxKeys
+			if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
+				cs.logger.Info("PSULOG - populating txs has missing txs!", "keys", cs.blockExec.GetMissingTxs(txKeys))
+			} else {
+				cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
+				txs := cs.blockExec.GetTxsForKeys(txKeys)
+				block.Data.Txs = txs
+			}
+		}
 		cs.ProposalBlock = block
 
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
@@ -2371,7 +2394,9 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 	}
 
 	// Do not count prevote/precommit/commit into handleBlockPartMsg's span
-	handleBlockPartSpan.End()
+	if handleBlockPartSpan != nil {
+		handleBlockPartSpan.End()
+	}
 
 	if cs.Step <= cstypes.RoundStepPropose && cs.isProposalComplete() {
 		// Move onto the next step

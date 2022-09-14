@@ -31,11 +31,12 @@ type Proposal struct {
 	BlockID   BlockID   `json:"block_id"`
 	Timestamp time.Time `json:"timestamp"`
 	Signature []byte    `json:"signature"`
+	TxKeys    []TxKey   `json:"tx_keys"`
 }
 
 // NewProposal returns a new Proposal.
 // If there is no POLRound, polRound should be -1.
-func NewProposal(height int64, round int32, polRound int32, blockID BlockID, ts time.Time) *Proposal {
+func NewProposal(height int64, round int32, polRound int32, blockID BlockID, ts time.Time, txKeys []TxKey) *Proposal {
 	return &Proposal{
 		Type:      tmproto.ProposalType,
 		Height:    height,
@@ -43,6 +44,7 @@ func NewProposal(height int64, round int32, polRound int32, blockID BlockID, ts 
 		BlockID:   blockID,
 		POLRound:  polRound,
 		Timestamp: tmtime.Canonical(ts),
+		TxKeys:    txKeys,
 	}
 }
 
@@ -169,6 +171,11 @@ func (p *Proposal) ToProto() *tmproto.Proposal {
 	pb.PolRound = p.POLRound
 	pb.Timestamp = p.Timestamp
 	pb.Signature = p.Signature
+	var txKeys []*tmproto.TxKey
+	for _, txKey := range p.TxKeys {
+		txKeys = append(txKeys, txKey.ToProto())
+	}
+	pb.TxKeys = txKeys
 
 	return pb
 }
@@ -194,6 +201,12 @@ func ProposalFromProto(pp *tmproto.Proposal) (*Proposal, error) {
 	p.POLRound = pp.PolRound
 	p.Timestamp = pp.Timestamp
 	p.Signature = pp.Signature
+	var txKeys []TxKey
+	for _, txKey := range pp.TxKeys {
+		key, _ := TxKeyFromProto(txKey)
+		txKeys = append(txKeys, key)
+	}
+	p.TxKeys = txKeys
 
 	return p, p.ValidateBasic()
 }

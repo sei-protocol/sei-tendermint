@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	protomem "github.com/tendermint/tendermint/proto/tendermint/mempool"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -171,10 +172,11 @@ func NewReactor(
 }
 
 type channelBundle struct {
-	state  *p2p.Channel
-	data   *p2p.Channel
-	vote   *p2p.Channel
-	votSet *p2p.Channel
+	state     *p2p.Channel
+	data      *p2p.Channel
+	vote      *p2p.Channel
+	votSet    *p2p.Channel
+	mempoolCh *p2p.Channel
 }
 
 func (r *Reactor) SetStateChannel(ch *p2p.Channel) {
@@ -191,6 +193,10 @@ func (r *Reactor) SetVoteChannel(ch *p2p.Channel) {
 
 func (r *Reactor) SetVoteSetChannel(ch *p2p.Channel) {
 	r.channels.votSet = ch
+}
+
+func (r *Reactor) SetMempoolChannel(ch *p2p.Channel) {
+	r.channels.mempoolCh = ch
 }
 
 // OnStart starts separate go routines for each p2p Channel and listens for
@@ -589,7 +595,7 @@ OUTER_LOOP:
 			{
 				propProto := rs.Proposal.ToProto()
 
-				logger.Debug("sending proposal", "height", prs.Height, "round", prs.Round)
+				logger.Info("PSULOG - sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.Proposal{
@@ -1117,9 +1123,35 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 
 	switch msg := envelope.Message.(type) {
 	case *tmcons.Proposal:
+		logger.Info("PSULOG - received proposal", "msg", msgI, "msg as proposal", msgI.(*ProposalMessage))
 		pMsg := msgI.(*ProposalMessage)
 
 		ps.SetHasProposal(pMsg.Proposal)
+		height := pMsg.Proposal.Height
+		round := pMsg.Proposal.Round
+		proposalTxs := pMsg.Proposal.TxKeys
+		// Check if we there are missing txs and request if necessary
+		if r.state.config.GossipTransactionHashOnly {
+			missingTxKeys := r.state.blockExec.GetMissingTxs(proposalTxs)
+			logger.Info("PSULOG - checking for missing keys", "proposal height", pMsg.Proposal.Height, "proposal round", pMsg.Proposal.Round, "txkeys", pMsg.Proposal.TxKeys, "missingTxKeys", missingTxKeys)
+			if len(missingTxKeys) > 0 {
+				var txKeys []*tmproto.TxKey
+				for _, txKey := range missingTxKeys {
+					txKeys = append(txKeys, txKey.ToProto())
+				}
+
+				if err := r.channels.data.Send(ctx, p2p.Envelope{
+					To: ps.peerID,
+					Message: &tmcons.TxRequest{
+						Height: height,
+						Round:  round,
+						TxKeys: txKeys,
+					},
+				}); err != nil {
+					logger.Error("Error sending TxRequest message", "peer", ps.peerID, "height", height, "round", round, "txKeys", txKeys)
+				}
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -1137,6 +1169,26 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
+		}
+	case *tmcons.TxRequest:
+		trMsg := msgI.(*TxRequestMessage)
+		logger.Info("PSULOG: Received request for Txs", "txKeys", trMsg.TxKeys)
+		var txKeys []types.TxKey
+		for _, txKey := range trMsg.TxKeys {
+			txKeys = append(txKeys, *txKey)
+		}
+		txs := r.state.blockExec.GetTxsForKeys(txKeys)
+		// TODO(psu): send all txs in 1 msg
+		for _, tx := range txs {
+			logger.Info("PSULOG: Sending mempool ch for tx", "tx", tx)
+			if err := r.channels.mempoolCh.Send(ctx, p2p.Envelope{
+				To: ps.peerID,
+				Message: &protomem.Txs{
+					Txs: [][]byte{tx},
+				},
+			}); err != nil {
+				logger.Error("Unable to send tx for tx request", "peerId", ps.peerID, "txKeys", txKeys)
+			}
 		}
 
 	default:

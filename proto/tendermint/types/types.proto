@@ -98,6 +98,10 @@ message Data {
   repeated bytes txs = 1;
 }
 
+message TxKey {
+  bytes tx_key = 1;
+}
+
 // Vote represents a prevote, precommit, or commit vote from validators for
 // consensus.
 message Vote {
@@ -174,6 +178,7 @@ message Proposal {
   google.protobuf.Timestamp timestamp = 6
       [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
   bytes signature = 7;
+  repeated TxKey tx_keys = 8;
 }
 
 message SignedHeader {

@@ -32,6 +32,7 @@ func init() {
 	jsontypes.MustRegister(&HasVoteMessage{})
 	jsontypes.MustRegister(&VoteSetMaj23Message{})
 	jsontypes.MustRegister(&VoteSetBitsMessage{})
+	jsontypes.MustRegister(&TxRequestMessage{})
 }
 
 // NewRoundStepMessage is sent for every step taken in the ConsensusState.
@@ -183,6 +184,25 @@ func (m *ProposalPOLMessage) ValidateBasic() error {
 // String returns a string representation.
 func (m *ProposalPOLMessage) String() string {
 	return fmt.Sprintf("[ProposalPOL H:%v POLR:%v POL:%v]", m.Height, m.ProposalPOLRound, m.ProposalPOL)
+}
+
+// TxRequestMessage is sent when a set of Txs are requested
+type TxRequestMessage struct {
+	Height int64 `json:",string"`
+	Round  int32
+	TxKeys []*types.TxKey
+}
+
+func (*TxRequestMessage) TypeTag() string { return "tendermint/TxRequest" }
+
+func (m *TxRequestMessage) ValidateBasic() error {
+	if m.Height < 0 {
+		return errors.New("negative Height")
+	}
+	if m.Round < 0 {
+		return errors.New("negative Round")
+	}
+	return nil
 }
 
 // BlockPartMessage is sent when gossipping a piece of the proposed block.

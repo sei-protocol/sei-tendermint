@@ -120,6 +120,7 @@ func (r *Reactor) handleMempoolMessage(ctx context.Context, envelope *p2p.Envelo
 	switch msg := envelope.Message.(type) {
 	case *protomem.Txs:
 		protoTxs := msg.GetTxs()
+		logger.Info("PSULOG - handling mempool message", "peer", envelope.From, "txs", protoTxs)
 		if len(protoTxs) == 0 {
 			return errors.New("empty txs received from peer")
 		}

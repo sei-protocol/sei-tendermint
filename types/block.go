@@ -306,14 +306,23 @@ func MaxDataBytesNoEvidence(maxBytes int64, valsCount int) int64 {
 // MakeBlock returns a new block with an empty header, except what can be
 // computed from itself.
 // It populates the same set of fields validated by ValidateBasic.
-func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
+func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence, hashOnly bool) *Block {
+	var txKeys []TxKey
+	for _, tx := range txs {
+		txKeys = append(txKeys, tx.Key())
+	}
+	txToSend := Txs{}
+	if !hashOnly {
+		txToSend = txs
+	}
 	block := &Block{
 		Header: Header{
 			Version: version.Consensus{Block: version.BlockProtocol, App: 0},
 			Height:  height,
 		},
 		Data: Data{
-			Txs: txs,
+			Txs:    txToSend,
+			TxKeys: txKeys,
 		},
 		Evidence:   evidence,
 		LastCommit: lastCommit,
@@ -1285,6 +1294,8 @@ type Data struct {
 	// NOTE: not all txs here are valid.  We're just agreeing on the order first.
 	// This means that block.AppHash does not include these txs.
 	Txs Txs `json:"txs"`
+
+	TxKeys []TxKey `json:"tx_keys"`
 
 	// Volatile
 	hash tmbytes.HexBytes

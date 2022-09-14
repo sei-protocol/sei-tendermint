@@ -178,7 +178,7 @@ type Router struct {
 
 type chDescAdderWithCallback struct {
 	chDesc *ChannelDescriptor
-	cb     func(*Channel)
+	cbs    []func(*Channel)
 }
 
 // NewRouter creates a new Router. The given Transports must already be
@@ -262,9 +262,9 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 	defer r.channelMtx.Unlock()
 
 	id := chDesc.ID
-	if _, ok := r.channelQueues[id]; ok {
-		return nil, fmt.Errorf("channel %v already exists", id)
-	}
+	//if _, ok := r.channelQueues[id]; ok {
+	//	return nil, fmt.Errorf("channel %v already exists (%s)", id, chDesc.Name)
+	//}
 	r.chDescs = append(r.chDescs, chDesc)
 
 	messageType := chDesc.MessageType
@@ -953,10 +953,10 @@ func (r *Router) setupQueueFactory(ctx context.Context) error {
 	return nil
 }
 
-func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Channel)) {
+func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callbacks ...func(*Channel)) {
 	r.chDescsToBeAdded = append(r.chDescsToBeAdded, chDescAdderWithCallback{
 		chDesc: chDesc,
-		cb:     callback,
+		cbs:    callbacks,
 	})
 }
 
@@ -974,7 +974,9 @@ func (r *Router) OnStart(ctx context.Context) error {
 		if ch, err := r.OpenChannel(ctx, chDescWithCb.chDesc); err != nil {
 			return err
 		} else {
-			chDescWithCb.cb(ch)
+			for _, cb := range chDescWithCb.cbs {
+				cb(ch)
+			}
 		}
 	}
 

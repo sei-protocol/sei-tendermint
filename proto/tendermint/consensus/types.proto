@@ -84,6 +84,12 @@ message VoteSetBits {
   tendermint.libs.bits.BitArray votes = 5 [(gogoproto.nullable) = false];
 }
 
+message TxRequest {
+  int64                          height   = 1;
+  int32                          round    = 2;
+  repeated tendermint.types.TxKey         tx_keys  = 3;
+}
+
 message Message {
   oneof sum {
     NewRoundStep  new_round_step  = 1;
@@ -95,5 +101,6 @@ message Message {
     HasVote       has_vote        = 7;
     VoteSetMaj23  vote_set_maj23  = 8;
     VoteSetBits   vote_set_bits   = 9;
+    TxRequest     tx_request      = 10;
   }
 }

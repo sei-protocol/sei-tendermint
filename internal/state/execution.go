@@ -90,6 +90,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	state State,
 	lastExtCommit *types.ExtendedCommit,
 	proposerAddr []byte,
+	hashOnly bool,
 ) (*types.Block, error) {
 
 	maxBytes := state.ConsensusParams.Block.MaxBytes
@@ -102,7 +103,8 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	commit := lastExtCommit.ToCommit()
-	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
+	// Always include tx (hashOnly=false) for abci
+	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr, false)
 	rpp, err := blockExec.appClient.PrepareProposal(
 		ctx,
 		&abci.RequestPrepareProposal{
@@ -139,7 +141,14 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		}
 	}
 	itxs := txrSet.IncludedTxs()
-	return state.MakeBlock(height, itxs, commit, evidence, proposerAddr), nil
+	block2 := state.MakeBlock(height, itxs, commit, evidence, proposerAddr, hashOnly)
+	blockExec.logger.Info("PSULOG creating block", "hashOnly", hashOnly, "block", block, "num_txs", len(block.Txs))
+	return block2, nil
+}
+
+func (blockExec *BlockExecutor) GetTxsForKeys(txKeys []types.TxKey) types.Txs {
+	blockExec.logger.Info("PSULOG getting txs for keys", "txKeys", txKeys)
+	return blockExec.mempool.GetTxsForKeys(txKeys)
 }
 
 func (blockExec *BlockExecutor) ProcessProposal(
@@ -410,6 +419,17 @@ func (blockExec *BlockExecutor) Commit(
 	)
 
 	return res.RetainHeight, err
+}
+
+func (blockExec *BlockExecutor) GetMissingTxs(txKeys []types.TxKey) []types.TxKey {
+	var missingTxKeys []types.TxKey
+	for _, txKey := range txKeys {
+		blockExec.logger.Info("PSULOG - GetMIssingTxs", "txKey", txKey, "hasTx", blockExec.mempool.HasTx(txKey))
+		if !blockExec.mempool.HasTx(txKey) {
+			missingTxKeys = append(missingTxKeys, txKey)
+		}
+	}
+	return missingTxKeys
 }
 
 func buildLastCommitInfo(block *types.Block, store Store, initialHeight int64) abci.CommitInfo {
