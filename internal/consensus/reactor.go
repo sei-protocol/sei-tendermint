@@ -523,46 +523,6 @@ OUTER_LOOP:
 
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
-
-		logger.Info("PSULOG - OUTERLOOP - help peer catch up")
-		// if the peer is on a previous height that we have, help catch up
-		blockStoreBase := r.state.blockStore.Base()
-		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
-			heightLogger := logger.With("height", prs.Height)
-
-			// If we never received the commit message from the peer, the block parts
-			// will not be initialized.
-			if prs.ProposalBlockParts == nil {
-				blockMeta := r.state.blockStore.LoadBlockMeta(prs.Height)
-				if blockMeta == nil {
-					heightLogger.Error(
-						"failed to load block meta",
-						"blockstoreBase", blockStoreBase,
-						"blockstoreHeight", r.state.blockStore.Height(),
-					)
-				} else {
-					ps.InitProposalBlockParts(blockMeta.BlockID.PartSetHeader)
-				}
-
-				// Continue the loop since prs is a copy and not effected by this
-				// initialization.
-				continue OUTER_LOOP
-			}
-
-			r.gossipDataForCatchup(ctx, rs, prs, ps, dataCh)
-			continue OUTER_LOOP
-		}
-
-		// if height and round don't match, sleep
-		if (rs.Height != prs.Height) || (rs.Round != prs.Round) {
-			continue OUTER_LOOP
-		}
-
-		// By here, height and round match.
-		// Proposal block parts were already matched and sent if any were wanted.
-		// (These can match on hash so the round doesn't matter)
-		// Now consider sending other things, like the Proposal itself.
-
 		// Send Proposal && ProposalPOL BitArray?
 		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal)
 		if rs.Proposal != nil && !prs.Proposal {
@@ -606,6 +566,45 @@ OUTER_LOOP:
 				}
 			}
 		}
+
+		logger.Info("PSULOG - OUTERLOOP - help peer catch up")
+		// if the peer is on a previous height that we have, help catch up
+		blockStoreBase := r.state.blockStore.Base()
+		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
+			heightLogger := logger.With("height", prs.Height)
+
+			// If we never received the commit message from the peer, the block parts
+			// will not be initialized.
+			if prs.ProposalBlockParts == nil {
+				blockMeta := r.state.blockStore.LoadBlockMeta(prs.Height)
+				if blockMeta == nil {
+					heightLogger.Error(
+						"failed to load block meta",
+						"blockstoreBase", blockStoreBase,
+						"blockstoreHeight", r.state.blockStore.Height(),
+					)
+				} else {
+					ps.InitProposalBlockParts(blockMeta.BlockID.PartSetHeader)
+				}
+
+				// Continue the loop since prs is a copy and not effected by this
+				// initialization.
+				continue OUTER_LOOP
+			}
+
+			r.gossipDataForCatchup(ctx, rs, prs, ps, dataCh)
+			continue OUTER_LOOP
+		}
+
+		// if height and round don't match, sleep
+		if (rs.Height != prs.Height) || (rs.Round != prs.Round) {
+			continue OUTER_LOOP
+		}
+
+		// By here, height and round match.
+		// Proposal block parts were already matched and sent if any were wanted.
+		// (These can match on hash so the round doesn't matter)
+		// Now consider sending other things, like the Proposal itself.
 
 		// Send proposal Block parts?
 		logger.Info("PSULOG - OUTERLOOP - sending block parts?")
