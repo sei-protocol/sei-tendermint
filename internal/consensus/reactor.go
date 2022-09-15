@@ -524,34 +524,6 @@ OUTER_LOOP:
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 
-		// Send proposal Block parts?
-		logger.Info("PSULOG - OUTERLOOP - sending block parts?")
-		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
-			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
-				part := rs.ProposalBlockParts.GetPart(index)
-				partProto, err := part.ToProto()
-				if err != nil {
-					logger.Error("failed to convert block part to proto", "err", err)
-					return
-				}
-
-				logger.Info("sending block part", "height", prs.Height, "round", prs.Round)
-				if err := dataCh.Send(ctx, p2p.Envelope{
-					To: ps.peerID,
-					Message: &tmcons.BlockPart{
-						Height: rs.Height, // this tells peer that this part applies to us
-						Round:  rs.Round,  // this tells peer that this part applies to us
-						Part:   *partProto,
-					},
-				}); err != nil {
-					return
-				}
-
-				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
-				continue OUTER_LOOP
-			}
-		}
-
 		logger.Info("PSULOG - OUTERLOOP - help peer catch up")
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
@@ -592,7 +564,7 @@ OUTER_LOOP:
 		// Now consider sending other things, like the Proposal itself.
 
 		// Send Proposal && ProposalPOL BitArray?
-		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.ProposalPOL, "peer state", prs)
+		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal)
 		if rs.Proposal != nil && !prs.Proposal {
 			// Proposal: share the proposal metadata with peer.
 			{
@@ -632,6 +604,34 @@ OUTER_LOOP:
 				}); err != nil {
 					return
 				}
+			}
+		}
+
+		// Send proposal Block parts?
+		logger.Info("PSULOG - OUTERLOOP - sending block parts?")
+		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
+			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
+				part := rs.ProposalBlockParts.GetPart(index)
+				partProto, err := part.ToProto()
+				if err != nil {
+					logger.Error("failed to convert block part to proto", "err", err)
+					return
+				}
+
+				logger.Info("sending block part", "height", prs.Height, "round", prs.Round)
+				if err := dataCh.Send(ctx, p2p.Envelope{
+					To: ps.peerID,
+					Message: &tmcons.BlockPart{
+						Height: rs.Height, // this tells peer that this part applies to us
+						Round:  rs.Round,  // this tells peer that this part applies to us
+						Part:   *partProto,
+					},
+				}); err != nil {
+					return
+				}
+
+				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
+				continue OUTER_LOOP
 			}
 		}
 	}
