@@ -2347,9 +2347,9 @@ func (cs *State) addProposalBlockPart(
 		}
 
 		// We need to now populate proposal block with the txs
-		cs.logger.Info("PSULOG - maybe populating proposal block with txs")
+		cs.logger.Info("PSULOG - maybe populating proposal block with txs", "current proposal", cs.Proposal, "proposal block", block)
 		if cs.config.GossipTransactionHashOnly {
-			txKeys := cs.Proposal.TxKeys
+			txKeys := block.TxKeys
 			if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
 				// We do not have full proposal block, don't set it
 				cs.logger.Info("PSULOG - populating txs has missing txs!", "keys", cs.blockExec.GetMissingTxs(txKeys))
