@@ -1034,6 +1034,9 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		added, err = cs.addProposalBlockPart(msg, peerID)
+		if err != nil {
+			cs.logger.Info("PSULOG - received block part message but encountered error adding part", "error", err)
+		}
 
 		// We unlock here to yield to any routines that need to read the the RoundState.
 		// Previously, this code held the lock from the point at which the final block
@@ -1054,8 +1057,11 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			// tx keys.
 			// TODO(psu): Figure out how to trigger handleCompleteProposal once all txs are received
 			if cs.config.GossipTransactionHashOnly {
-				if cs.Proposal == nil || len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
-					cs.logger.Info("PSULOG - proposal is complete but still proposal block is still nil or missing txs")
+				if cs.ProposalBlock == nil || len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
+					cs.logger.Info("PSULOG - proposal is complete but proposal block is still nil or missing txs", "proposal", cs.Proposal)
+					if cs.ProposalBlock != nil {
+						cs.logger.Info("PSULOG  proposal is complete but proposal block is still nil or missing txs", "missing txs", cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys))
+					}
 					return
 				} else if len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
 					cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
@@ -1071,6 +1077,8 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 				fsyncSpan.End()
 			}
 			cs.handleCompleteProposal(ctx, msg.Height, span)
+		} else {
+			cs.logger.Info("PSULOG - did not complete proposal", "added", added, "proposalblockparts is complete", cs.ProposalBlockParts.IsComplete())
 		}
 		if added {
 			select {

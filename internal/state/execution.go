@@ -424,7 +424,7 @@ func (blockExec *BlockExecutor) Commit(
 func (blockExec *BlockExecutor) GetMissingTxs(txKeys []types.TxKey) []types.TxKey {
 	var missingTxKeys []types.TxKey
 	for _, txKey := range txKeys {
-		blockExec.logger.Info("PSULOG - GetMIssingTxs", "txKey", txKey, "hasTx", blockExec.mempool.HasTx(txKey))
+		blockExec.logger.Info("PSULOG - GetMissingTxs", "txKey", txKey, "hasTx", blockExec.mempool.HasTx(txKey))
 		if !blockExec.mempool.HasTx(txKey) {
 			missingTxKeys = append(missingTxKeys, txKey)
 		}
