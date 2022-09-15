@@ -2361,14 +2361,15 @@ func (cs *State) addProposalBlockPart(
 					txs := cs.blockExec.GetTxsForKeys(txKeys)
 					block.Data.Txs = txs
 					cs.ProposalBlock = block
+					// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+					cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
 				}
 			}
 		} else {
 			cs.ProposalBlock = block
+			// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+			cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
 		}
-
-		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-		cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
 
 		if err := cs.eventBus.PublishEventCompleteProposal(cs.CompleteProposalEvent()); err != nil {
 			cs.logger.Error("failed publishing event complete proposal", "err", err)
