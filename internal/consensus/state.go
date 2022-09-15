@@ -1078,7 +1078,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			}
 			cs.handleCompleteProposal(ctx, msg.Height, span)
 		} else {
-			cs.logger.Info("PSULOG - did not complete proposal", "added", added, "proposalblockparts is complete", cs.ProposalBlockParts.IsComplete())
+			cs.logger.Info("PSULOG - did not complete proposal", "added", added, "proposalblockparts", cs.ProposalBlockParts)
 		}
 		if added {
 			select {
