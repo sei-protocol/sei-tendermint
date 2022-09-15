@@ -1053,9 +1053,14 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			// We also need to check we have all txs if we're only gossiping
 			// tx keys.
 			// TODO(psu): Figure out how to trigger handleCompleteProposal once all txs are received
-			if cs.config.GossipTransactionHashOnly && len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
-				cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
-				return
+			if cs.config.GossipTransactionHashOnly {
+				if cs.Proposal == nil || len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
+					cs.logger.Info("PSULOG - proposal is complete but still proposal block is still nil or missing txs")
+					return
+				} else if len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
+					cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
+					return
+				}
 			}
 
 			if fsyncUponCompletion {
@@ -1083,6 +1088,8 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 				"block_round", msg.Round,
 			)
 			err = nil
+		} else if err != nil {
+			cs.logger.Info("PSULOG - added block part but received err", "error", err)
 		}
 
 	case *VoteMessage:
@@ -2290,6 +2297,7 @@ func (cs *State) addProposalBlockPart(
 	peerID types.NodeID,
 ) (added bool, err error) {
 	height, round, part := msg.Height, msg.Round, msg.Part
+	cs.logger.Info("PSULOG - adding proposal block part", "blockpart", msg)
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {

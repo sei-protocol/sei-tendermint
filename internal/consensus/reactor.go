@@ -1161,6 +1161,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		ps.ApplyProposalPOLMessage(msgI.(*ProposalPOLMessage))
 	case *tmcons.BlockPart:
 		bpMsg := msgI.(*BlockPartMessage)
+		logger.Info("Received block part message", "blockpartmesage", bpMsg)
 
 		ps.SetHasProposalBlockPart(bpMsg.Height, bpMsg.Round, int(bpMsg.Part.Index))
 		r.Metrics.BlockParts.With("peer_id", string(envelope.From)).Add(1)
