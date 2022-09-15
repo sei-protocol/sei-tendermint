@@ -2349,16 +2349,19 @@ func (cs *State) addProposalBlockPart(
 		// We need to now populate proposal block with the txs
 		cs.logger.Info("PSULOG - maybe populating proposal block with txs", "current proposal", cs.Proposal, "proposal block", block)
 		if cs.config.GossipTransactionHashOnly {
-			txKeys := block.TxKeys
-			if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
-				// We do not have full proposal block, don't set it
-				cs.logger.Info("PSULOG - populating txs has missing txs!", "keys", cs.blockExec.GetMissingTxs(txKeys))
+			if cs.Proposal == nil {
+				cs.logger.Info("PSULOG - populating tx has no proposal")
 			} else {
-				// We have full proposal block. Set txs in proposal from mempool
-				cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
-				txs := cs.blockExec.GetTxsForKeys(txKeys)
-				block.Data.Txs = txs
-				cs.ProposalBlock = block
+				txKeys := cs.Proposal.TxKeys
+				if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
+					cs.logger.Info("PSULOG - populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
+				} else {
+					// We have full proposal block. Set txs in proposal block from mempool
+					cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
+					txs := cs.blockExec.GetTxsForKeys(txKeys)
+					block.Data.Txs = txs
+					cs.ProposalBlock = block
+				}
 			}
 		} else {
 			cs.ProposalBlock = block
