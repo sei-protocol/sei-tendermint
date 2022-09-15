@@ -1019,6 +1019,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
+		cs.logger.Info("PSULOG - state handleMsg received proposal", "proposal", msg)
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
@@ -2258,6 +2259,8 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
 	// Already have one
 	// TODO: possibly catch double proposals
+	cs.logger.Info("PSULOG - defaultsetproposal enter - checking proposal", "proposal", proposal)
+
 	if cs.Proposal != nil || proposal == nil {
 		return nil
 	}
@@ -2282,6 +2285,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	}
 
 	proposal.Signature = p.Signature
+	cs.logger.Info("PSULOG - defaultsetproposal setting proposal", "proposal", proposal)
 	cs.Proposal = proposal
 	cs.ProposalReceiveTime = recvTime
 	cs.calculateProposalTimestampDifferenceMetric()
