@@ -214,7 +214,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	// leak the goroutine when stopping the reactor.
 	go r.peerStatsRoutine(ctx, peerUpdates)
 
-	r.subscribeToBroadcastEvents(ctx, r.channels.state)
+	r.subscribeToBroadcastEvents(ctx, r.channels.state, r.channels.data)
 
 	if !r.WaitSync() {
 		if err := r.state.Start(ctx); err != nil {
@@ -347,10 +347,19 @@ func (r *Reactor) broadcastHasVoteMessage(ctx context.Context, vote *types.Vote,
 	})
 }
 
+func (r *Reactor) broadcastHasProposalMessage(ctx context.Context, proposal *types.Proposal, dataCh *p2p.Channel) error {
+	return dataCh.Send(ctx, p2p.Envelope{
+		Broadcast: true,
+		Message: &tmcons.Proposal{
+			Proposal: *proposal.ToProto(),
+		},
+	})
+}
+
 // subscribeToBroadcastEvents subscribes for new round steps and votes using the
 // internal pubsub defined in the consensus state to broadcast them to peers
 // upon receiving.
-func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.Channel) {
+func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.Channel, dataCh *p2p.Channel) {
 	onStopCh := r.state.getOnStopCh()
 
 	err := r.state.evsw.AddListenerForEvent(
@@ -395,6 +404,12 @@ func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.C
 	if err != nil {
 		r.logger.Error("failed to add listener for events", "err", err)
 	}
+	err = r.state.evsw.AddListenerForEvent(
+		listenerIDConsensus,
+		types.EventNewProposal,
+		func(data tmevents.EventData) error {
+			return r.broadcastHasProposalMessage(ctx, data.(*types.Proposal), dataCh)
+		})
 }
 
 func makeRoundStepMessage(rs *cstypes.RoundState) *tmcons.NewRoundStep {
@@ -517,6 +532,7 @@ OUTER_LOOP:
 
 		select {
 		case <-ctx.Done():
+			logger.Info("PSULOG - OUTERLOOP - context is done. returnning")
 			return
 		case <-timer.C:
 		}
@@ -630,6 +646,7 @@ OUTER_LOOP:
 				}
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
+				logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
 				continue OUTER_LOOP
 			}
 		}

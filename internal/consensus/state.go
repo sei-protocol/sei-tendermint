@@ -1301,7 +1301,7 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 		// and meanwhile we might have received a proposal
 		// for round 0.
 	} else {
-		logger.Debug("resetting proposal info")
+		logger.Info("resetting proposal info")
 		cs.Proposal = nil
 		cs.ProposalReceiveTime = time.Time{}
 		cs.ProposalBlock = nil
@@ -2296,7 +2296,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 		cs.metrics.MarkBlockGossipStarted()
 		cs.ProposalBlockParts = types.NewPartSetFromHeader(proposal.BlockID.PartSetHeader)
 	}
-
+	cs.evsw.FireEvent(types.EventNewProposal, proposal)
 	cs.logger.Info("received proposal", "proposal", proposal)
 	return nil
 }
