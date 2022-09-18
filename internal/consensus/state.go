@@ -2090,8 +2090,10 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		defer storeBlockSpan.End()
 		seenExtendedCommit := cs.Votes.Precommits(cs.CommitRound).MakeExtendedCommit()
 		if cs.state.ConsensusParams.ABCI.VoteExtensionsEnabled(block.Height) {
+			logger.Info("PSULOG - saving block with extension with data", "len of txs", len(block.Data.Txs))
 			cs.blockStore.SaveBlockWithExtendedCommit(block, blockParts, seenExtendedCommit)
 		} else {
+			logger.Info("PSULOG - saving block without extension with data", "len of txs", len(block.Data.Txs), "block parts", blockParts)
 			cs.blockStore.SaveBlock(block, blockParts, seenExtendedCommit.ToCommit())
 		}
 		storeBlockSpan.End()
@@ -2380,7 +2382,15 @@ func (cs *State) addProposalBlockPart(
 					cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
 					txs := cs.blockExec.GetTxsForKeys(txKeys)
 					block.Data.Txs = txs
+					block.DataHash = block.Data.Hash()
 					cs.ProposalBlock = block
+					cs.logger.Info("PSULOG - setting proposal block", "block", block)
+					partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
+					if err != nil {
+						return false, nil
+					}
+
+					cs.ProposalBlockParts = partSet
 					// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
 					cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
 				}

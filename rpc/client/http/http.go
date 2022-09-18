@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -33,24 +34,24 @@ the example for more details.
 
 Example:
 
-		c, err := New("http://192.168.1.10:26657")
-		if err != nil {
-			// handle error
-		}
+	c, err := New("http://192.168.1.10:26657")
+	if err != nil {
+		// handle error
+	}
 
-		// call Start/Stop if you're subscribing to events
-		err = c.Start()
-		if err != nil {
-			// handle error
-		}
-		defer c.Stop()
+	// call Start/Stop if you're subscribing to events
+	err = c.Start()
+	if err != nil {
+		// handle error
+	}
+	defer c.Stop()
 
-		res, err := c.Status()
-		if err != nil {
-			// handle error
-		}
+	res, err := c.Status()
+	if err != nil {
+		// handle error
+	}
 
-		// handle result
+	// handle result
 */
 type HTTP struct {
 	remote string
@@ -428,6 +429,7 @@ func (c *baseRPCClient) Commit(ctx context.Context, height *int64) (*coretypes.R
 
 func (c *baseRPCClient) Tx(ctx context.Context, hash bytes.HexBytes, prove bool) (*coretypes.ResultTx, error) {
 	result := new(coretypes.ResultTx)
+	fmt.Println("Calling tx search")
 	if err := c.caller.Call(ctx, "tx", &coretypes.RequestTx{Hash: hash, Prove: prove}, result); err != nil {
 		return nil, err
 	}
