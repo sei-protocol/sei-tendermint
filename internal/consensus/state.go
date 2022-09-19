@@ -852,6 +852,7 @@ func (cs *State) updateToState(state sm.State) {
 	cs.Validators = validators
 	cs.Proposal = nil
 	cs.ProposalReceiveTime = time.Time{}
+	cs.logger.Info("PSULOG - setting proposalblock to nil in updateToState", "state", state)
 	cs.ProposalBlock = nil
 	cs.ProposalBlockParts = nil
 	cs.LockedRound = -1
@@ -1600,7 +1601,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		cs.newStep()
 	}()
 
-	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli(), "proposal block", cs.ProposalBlock)
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -2090,10 +2091,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		defer storeBlockSpan.End()
 		seenExtendedCommit := cs.Votes.Precommits(cs.CommitRound).MakeExtendedCommit()
 		if cs.state.ConsensusParams.ABCI.VoteExtensionsEnabled(block.Height) {
-			logger.Info("PSULOG - saving block with extension with data", "len of txs", len(block.Data.Txs))
 			cs.blockStore.SaveBlockWithExtendedCommit(block, blockParts, seenExtendedCommit)
 		} else {
-			logger.Info("PSULOG - saving block without extension with data", "len of txs", len(block.Data.Txs), "block parts", blockParts)
 			cs.blockStore.SaveBlock(block, blockParts, seenExtendedCommit.ToCommit())
 		}
 		storeBlockSpan.End()
