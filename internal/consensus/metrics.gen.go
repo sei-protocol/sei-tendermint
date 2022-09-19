@@ -169,7 +169,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "proposal_block_created_on_propose",
 			Help:      "Number of proposal blocks created on propose received.",
-		}, append(labels, "sucess")).With(labelsAndValues...),
+		}, append(labels, "success")).With(labelsAndValues...),
 		ProposalTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
