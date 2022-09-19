@@ -271,7 +271,6 @@ func (ps *PartSet) Total() uint32 {
 
 func (ps *PartSet) AddPart(part *Part) (bool, error) {
 	if ps == nil {
-		fmt.Println("Adding part is nil")
 		return false, nil
 	}
 	ps.mtx.Lock()
