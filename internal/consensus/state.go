@@ -1027,6 +1027,18 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
+		if cs.config.GossipTransactionHashOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) {
+			created := cs.tryCreateProposalBlock(msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
+			if created {
+				if fsyncUponCompletion {
+					if err := cs.wal.FlushAndSync(); err != nil { // fsync
+						panic("error flushing wal after receiving all block parts")
+					}
+				}
+				cs.handleCompleteProposal(ctx, msg.Proposal.Height, span)
+
+			}
+		}
 
 	case *BlockPartMessage:
 		spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleBlockPartMsg")
@@ -1482,7 +1494,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 
 	// Make proposal
 	propBlockID := types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()}
-	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time, block.Data.TxKeys)
+	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time, block.Data.TxKeys, block.Header, block.LastCommit, block.Evidence, cs.privValidatorPubKey.Address())
 	p := proposal.ToProto()
 	cs.logger.Info("PSULOG - converted proposal to proto", "txkeys", p.TxKeys, "height", p.Height, "round", p.Round)
 
@@ -1835,6 +1847,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 			"entering precommit step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
+			"expected", fmt.Sprintf("#%v/%v", height, round),
 		)
 		return
 	}
@@ -2444,6 +2457,46 @@ func (cs *State) addProposalBlockPart(
 
 	return added, nil
 }
+
+func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.Header, lastCommit *types.Commit, evidence []types.Evidence, proposerAddress types.Address) bool {
+	cs.logger.Info("PSULOG - trying to create proposal block")
+
+	// Blocks might be reused, so round mismatch is OK
+	if cs.Height != height {
+		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
+		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
+		return false
+	}
+
+	if cs.Proposal == nil || len(cs.blockExec.GetMissingTxs(cs.Proposal.TxKeys)) != 0 {
+		cs.logger.Info("PSULOG - cannot create block, either proposal is missing or we have missing keys", "proposal", cs.Proposal)
+		return false
+	} else {
+		txKeys := cs.Proposal.TxKeys
+		//block := types.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, false)
+		block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress, false)
+		// We have full proposal block. Set txs in proposal block from mempool
+		cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
+		cs.logger.Info("PSULOG - recreating proposal block", "block", block)
+		txs := cs.blockExec.GetTxsForKeys(txKeys)
+		block.Version = header.Version
+		block.Data.Txs = txs
+		block.DataHash = block.Data.Hash()
+		block.Header.Time = header.Time
+		block.Header.ProposerAddress = header.ProposerAddress
+		cs.ProposalBlock = block
+		cs.logger.Info("PSULOG - setting proposal block", "block", block)
+		partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
+		if err != nil {
+			return false
+		}
+		cs.ProposalBlockParts = partSet
+		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+		cs.logger.Info("Successfully recreated proposal block", "block", block)
+		return true
+	}
+}
+
 func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handleBlockPartSpan otrace.Span) {
 	cs.logger.Info("PSULOG - handle complete proposal", "height", height, "proposal block parts", cs.ProposalBlockParts)
 	// Update Valid* if we can.
