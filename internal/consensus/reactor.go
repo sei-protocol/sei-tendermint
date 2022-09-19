@@ -1196,7 +1196,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		}
 	case *tmcons.TxRequest:
 		trMsg := msgI.(*TxRequestMessage)
-		logger.Info("PSULOG: Received request for Txs", "txKeys", trMsg.TxKeys)
+		//logger.Info("PSULOG: Received request for Txs", "txKeys", trMsg.TxKeys)
 		var txKeys []types.TxKey
 		for _, txKey := range trMsg.TxKeys {
 			txKeys = append(txKeys, *txKey)
