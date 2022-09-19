@@ -532,58 +532,47 @@ OUTER_LOOP:
 
 		select {
 		case <-ctx.Done():
-			logger.Info("PSULOG - OUTERLOOP - context is done. returnning")
+			//logger.Info("PSULOG - OUTERLOOP - context is done. returnning")
 			return
 		case <-timer.C:
 		}
 
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
-		// Send Proposal && ProposalPOL BitArray?
-		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.ProposalBlock", r.state.ProposalBlock)
-		if rs.Proposal != nil && !prs.Proposal {
-			// Proposal: share the proposal metadata with peer.
-			{
-				propProto := rs.Proposal.ToProto()
+		// Send proposal Block parts?
+		logger.Info("PSULOG - OUTERLOOP - sending block parts?", "rs.ProposalBlockParts", rs.ProposalBlockParts, "prs.ProposalPartSetHeader", prs.ProposalBlockPartSetHeader, "cond", rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader))
+		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
+			//logger.Info("PSULOG - OUTERLOOP - sending block parts!", "rs bit array", rs.ProposalBlockParts.BitArray())
+			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
+				logger.Info("PSULOG - OUTERLOOP - sending block part !!", "index", index)
+				part := rs.ProposalBlockParts.GetPart(index)
+				partProto, err := part.ToProto()
+				if err != nil {
+					logger.Error("failed to convert block part to proto", "err", err)
+					return
+				}
 
-				logger.Info("PSULOG - sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
+				logger.Info("sending block part", "height", prs.Height, "round", prs.Round)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
-					Message: &tmcons.Proposal{
-						Proposal: *propProto,
+					Message: &tmcons.BlockPart{
+						Height: rs.Height, // this tells peer that this part applies to us
+						Round:  rs.Round,  // this tells peer that this part applies to us
+						Part:   *partProto,
 					},
 				}); err != nil {
 					return
 				}
 
-				// NOTE: A peer might have received a different proposal message, so
-				// this Proposal msg will be rejected!
-				ps.SetHasProposal(rs.Proposal)
-			}
-
-			// ProposalPOL: lets peer know which POL votes we have so far. The peer
-			// must receive ProposalMessage first. Note, rs.Proposal was validated,
-			// so rs.Proposal.POLRound <= rs.Round, so we definitely have
-			// rs.Votes.Prevotes(rs.Proposal.POLRound).
-			if 0 <= rs.Proposal.POLRound {
-				pPol := rs.Votes.Prevotes(rs.Proposal.POLRound).BitArray()
-				pPolProto := pPol.ToProto()
-
-				logger.Debug("sending POL", "height", prs.Height, "round", prs.Round)
-				if err := dataCh.Send(ctx, p2p.Envelope{
-					To: ps.peerID,
-					Message: &tmcons.ProposalPOL{
-						Height:           rs.Height,
-						ProposalPolRound: rs.Proposal.POLRound,
-						ProposalPol:      *pPolProto,
-					},
-				}); err != nil {
-					return
-				}
+				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
+				//logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
+				continue OUTER_LOOP
+			} else {
+				logger.Info("PSULOG - OUTERLOOP - sending block part !! NOT OK", "rs bit array", rs.ProposalBlockParts.BitArray())
 			}
 		}
 
-		logger.Info("PSULOG - OUTERLOOP - help peer catch up")
+		//logger.Info("PSULOG - OUTERLOOP - help peer catch up")
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
 		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
@@ -622,32 +611,47 @@ OUTER_LOOP:
 		// (These can match on hash so the round doesn't matter)
 		// Now consider sending other things, like the Proposal itself.
 
-		// Send proposal Block parts?
-		logger.Info("PSULOG - OUTERLOOP - sending block parts?")
-		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
-			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
-				part := rs.ProposalBlockParts.GetPart(index)
-				partProto, err := part.ToProto()
-				if err != nil {
-					logger.Error("failed to convert block part to proto", "err", err)
-					return
-				}
+		// Send Proposal && ProposalPOL BitArray?
+		//logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.ProposalBlock", r.state.ProposalBlock)
+		if rs.Proposal != nil && !prs.Proposal {
+			// Proposal: share the proposal metadata with peer.
+			{
+				propProto := rs.Proposal.ToProto()
 
-				logger.Info("sending block part", "height", prs.Height, "round", prs.Round)
+				//logger.Info("PSULOG - sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
-					Message: &tmcons.BlockPart{
-						Height: rs.Height, // this tells peer that this part applies to us
-						Round:  rs.Round,  // this tells peer that this part applies to us
-						Part:   *partProto,
+					Message: &tmcons.Proposal{
+						Proposal: *propProto,
 					},
 				}); err != nil {
 					return
 				}
 
-				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
-				logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
-				continue OUTER_LOOP
+				// NOTE: A peer might have received a different proposal message, so
+				// this Proposal msg will be rejected!
+				ps.SetHasProposal(rs.Proposal)
+			}
+
+			// ProposalPOL: lets peer know which POL votes we have so far. The peer
+			// must receive ProposalMessage first. Note, rs.Proposal was validated,
+			// so rs.Proposal.POLRound <= rs.Round, so we definitely have
+			// rs.Votes.Prevotes(rs.Proposal.POLRound).
+			if 0 <= rs.Proposal.POLRound {
+				pPol := rs.Votes.Prevotes(rs.Proposal.POLRound).BitArray()
+				pPolProto := pPol.ToProto()
+
+				logger.Debug("sending POL", "height", prs.Height, "round", prs.Round)
+				if err := dataCh.Send(ctx, p2p.Envelope{
+					To: ps.peerID,
+					Message: &tmcons.ProposalPOL{
+						Height:           rs.Height,
+						ProposalPolRound: rs.Proposal.POLRound,
+						ProposalPol:      *pPolProto,
+					},
+				}); err != nil {
+					return
+				}
 			}
 		}
 	}

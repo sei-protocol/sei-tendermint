@@ -271,6 +271,7 @@ func (ps *PartSet) Total() uint32 {
 
 func (ps *PartSet) AddPart(part *Part) (bool, error) {
 	if ps == nil {
+		fmt.Println("Adding part is nil")
 		return false, nil
 	}
 	ps.mtx.Lock()
@@ -283,6 +284,7 @@ func (ps *PartSet) AddPart(part *Part) (bool, error) {
 
 	// If part already exists, return false.
 	if ps.parts[part.Index] != nil {
+		fmt.Println("Adding part already exists")
 		return false, nil
 	}
 

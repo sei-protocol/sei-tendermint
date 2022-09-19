@@ -117,6 +117,7 @@ func (ps *PeerState) SetHasProposal(proposal *types.Proposal) {
 	}
 
 	if ps.PRS.Proposal {
+		ps.logger.Info("PSULOG - Peer already has proposal")
 		return
 	}
 

@@ -600,6 +600,17 @@ func MsgFromProto(msg *tmcons.Message) (Message, error) {
 			BlockID: *bi,
 			Votes:   bits,
 		}
+	case *tmcons.Message_TxRequest:
+		var txKeys []*types.TxKey
+		for _, txKey := range msg.TxRequest.TxKeys {
+			key, _ := types.TxKeyFromProto(txKey)
+			txKeys = append(txKeys, &key)
+		}
+		pb = &TxRequestMessage{
+			Height: msg.TxRequest.Height,
+			Round:  msg.TxRequest.Round,
+			TxKeys: txKeys,
+		}
 	default:
 		return nil, fmt.Errorf("consensus: message not recognized: %T", msg)
 	}

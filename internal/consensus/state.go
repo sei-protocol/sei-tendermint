@@ -852,7 +852,6 @@ func (cs *State) updateToState(state sm.State) {
 	cs.Validators = validators
 	cs.Proposal = nil
 	cs.ProposalReceiveTime = time.Time{}
-	cs.logger.Info("PSULOG - setting proposalblock to nil in updateToState", "state", state)
 	cs.ProposalBlock = nil
 	cs.ProposalBlockParts = nil
 	cs.LockedRound = -1
@@ -1020,7 +1019,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
-		cs.logger.Info("PSULOG - state handleMsg received proposal", "proposal", msg)
+		cs.logger.Info("PSULOG - state handleMsg received proposal", "proposal", msg, "cs.ProposalBlockParts", cs.ProposalBlockParts)
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
@@ -1034,11 +1033,9 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		span.SetAttributes(attribute.Int("round", int(msg.Round)))
 		defer span.End()
 
+		cs.logger.Info("PSULOG - received block part message", "error", err, "added", added, "cs.ProposalBlockParts", cs.ProposalBlockParts, "cs.Proposal", cs.Proposal)
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		added, err = cs.addProposalBlockPart(msg, peerID)
-		if err != nil {
-			cs.logger.Info("PSULOG - received block part message but encountered error adding part", "error", err)
-		}
 
 		// We unlock here to yield to any routines that need to read the the RoundState.
 		// Previously, this code held the lock from the point at which the final block
@@ -1054,22 +1051,22 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		cs.mtx.Unlock()
 
 		cs.mtx.Lock()
-		if added && cs.ProposalBlockParts.IsComplete() {
+		if cs.ProposalBlockParts != nil && cs.ProposalBlockParts.IsComplete() && cs.Proposal != nil {
 			// We also need to check we have all txs if we're only gossiping
 			// tx keys.
 			// TODO(psu): Figure out how to trigger handleCompleteProposal once all txs are received
-			if cs.config.GossipTransactionHashOnly {
-				if cs.ProposalBlock == nil || len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
-					cs.logger.Info("PSULOG - proposal is complete but proposal block is still nil or missing txs", "proposal", cs.Proposal)
-					if cs.ProposalBlock != nil {
-						cs.logger.Info("PSULOG  proposal is complete but proposal block is still nil or missing txs", "missing txs", cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys))
-					}
-					return
-				} else if len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
-					cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
-					return
-				}
-			}
+			//if cs.config.GossipTransactionHashOnly {
+			//	if cs.ProposalBlock == nil || len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
+			//		cs.logger.Info("PSULOG - proposal is complete but proposal block is still nil or missing txs", "proposal", cs.Proposal)
+			//		if cs.ProposalBlock != nil {
+			//			cs.logger.Info("PSULOG  proposal is complete but proposal block is still nil or missing txs", "missing txs", cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys))
+			//		}
+			//		return
+			//	} else if len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
+			//		cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
+			//		return
+			//	}
+			//}
 
 			if fsyncUponCompletion {
 				_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.handleBlockPartMsg.fsync")
@@ -1080,7 +1077,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			}
 			cs.handleCompleteProposal(ctx, msg.Height, span)
 		} else {
-			cs.logger.Info("PSULOG - did not complete proposal", "added", added, "proposalblockparts", cs.ProposalBlockParts)
+			cs.logger.Info("PSULOG - did not complete proposal", "added", added, "proposalblockparts", cs.ProposalBlockParts, "proposal", cs.Proposal)
 		}
 		if added {
 			select {
@@ -1618,11 +1615,29 @@ func (cs *State) proposalIsTimely() bool {
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
 
+	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
+	if !cs.config.GossipTransactionHashOnly && cs.ProposalBlock == nil {
+		logger.Info("prevote step: ProposalBlock is nil; prevoting nil")
+		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
+	if cs.Proposal == nil {
+		logger.Info("prevote step: did not receive proposal; prevoting nil")
+		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
+	// If we're not the proposer, we need to build the block
 	if cs.config.GossipTransactionHashOnly && cs.ProposalBlock == nil {
 		logger.Info("prevote step: Creating proposal block from txs", "proposal", cs.Proposal, "proposal block parts", cs.ProposalBlockParts)
 		txKeys := cs.Proposal.TxKeys
 		if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
 			logger.Info("PSULOG - prevote step: populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
+			return
+		} else if !cs.ProposalBlockParts.IsComplete() {
+			logger.Info("PSULOG - prevote step: proposal block parts is incomplete", "keys", cs.blockExec.GetMissingTxs(txKeys), "block parts", cs.ProposalBlockParts, "proposal", cs.Proposal)
+			return
 		} else {
 			bz, err := io.ReadAll(cs.ProposalBlockParts.GetReader())
 			if err != nil {
@@ -1649,18 +1664,6 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 			cs.ProposalBlock = block
 			logger.Info("PSULOG - setting proposal block", "block", block)
 		}
-	}
-	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
-	if cs.ProposalBlock == nil {
-		logger.Info("prevote step: ProposalBlock is nil; prevoting nil")
-		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
-		return
-	}
-
-	if cs.Proposal == nil {
-		logger.Info("prevote step: did not receive proposal; prevoting nil")
-		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
-		return
 	}
 
 	if !cs.Proposal.Timestamp.Equal(cs.ProposalBlock.Header.Time) {
@@ -2292,7 +2295,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
 	// Already have one
 	// TODO: possibly catch double proposals
-	cs.logger.Info("PSULOG - defaultsetproposal enter - checking proposal", "proposal", proposal)
+	cs.logger.Info("PSULOG - defaultsetproposal enter - checking proposal", "proposal", proposal, "cs.Proposal", cs.Proposal)
 
 	if cs.Proposal != nil || proposal == nil {
 		return nil
@@ -2440,6 +2443,7 @@ func (cs *State) addProposalBlockPart(
 	return added, nil
 }
 func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handleBlockPartSpan otrace.Span) {
+	cs.logger.Info("PSULOG - handle complete proposal", "height", height, "proposal block parts", cs.ProposalBlockParts)
 	// Update Valid* if we can.
 	prevotes := cs.Votes.Prevotes(cs.Round)
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
@@ -2463,9 +2467,7 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 	}
 
 	// Do not count prevote/precommit/commit into handleBlockPartMsg's span
-	if handleBlockPartSpan != nil {
-		handleBlockPartSpan.End()
-	}
+	handleBlockPartSpan.End()
 
 	if cs.Step <= cstypes.RoundStepPropose && cs.isProposalComplete() {
 		// Move onto the next step
