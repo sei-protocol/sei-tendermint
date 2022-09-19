@@ -568,7 +568,7 @@ OUTER_LOOP:
 				//logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
 				continue OUTER_LOOP
 			} else {
-				logger.Info("PSULOG - OUTERLOOP - sending block part !! NOT OK", "rs bit array", rs.ProposalBlockParts.BitArray())
+				//logger.Info("PSULOG - OUTERLOOP - sending block part !! NOT OK", "rs bit array", rs.ProposalBlockParts.BitArray())
 			}
 		}
 
@@ -1146,7 +1146,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 
 	switch msg := envelope.Message.(type) {
 	case *tmcons.Proposal:
-		logger.Info("PSULOG - received proposal", "msg", msgI, "msg as proposal", msgI.(*ProposalMessage))
+		//logger.Info("PSULOG - received proposal", "msg", msgI, "msg as proposal", msgI.(*ProposalMessage))
 		pMsg := msgI.(*ProposalMessage)
 
 		ps.SetHasProposal(pMsg.Proposal)
@@ -1156,7 +1156,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		// Check if we there are missing txs and request if necessary
 		if r.state.config.GossipTransactionHashOnly {
 			missingTxKeys := r.state.blockExec.GetMissingTxs(proposalTxs)
-			logger.Info("PSULOG - checking for missing keys", "proposal height", pMsg.Proposal.Height, "proposal round", pMsg.Proposal.Round, "txkeys", pMsg.Proposal.TxKeys, "missingTxKeys", missingTxKeys)
+			//logger.Info("PSULOG - checking for missing keys", "proposal height", pMsg.Proposal.Height, "proposal round", pMsg.Proposal.Round, "txkeys", pMsg.Proposal.TxKeys, "missingTxKeys", missingTxKeys)
 			if len(missingTxKeys) > 0 {
 				var txKeys []*tmproto.TxKey
 				for _, txKey := range missingTxKeys {
@@ -1184,7 +1184,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		ps.ApplyProposalPOLMessage(msgI.(*ProposalPOLMessage))
 	case *tmcons.BlockPart:
 		bpMsg := msgI.(*BlockPartMessage)
-		logger.Info("Received block part message", "blockpartmesage", bpMsg)
+		//logger.Info("Received block part message", "blockpartmesage", bpMsg)
 
 		ps.SetHasProposalBlockPart(bpMsg.Height, bpMsg.Round, int(bpMsg.Part.Index))
 		r.Metrics.BlockParts.With("peer_id", string(envelope.From)).Add(1)
@@ -1204,7 +1204,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		txs := r.state.blockExec.GetTxsForKeys(txKeys)
 		// TODO(psu): send all txs in 1 msg
 		for _, tx := range txs {
-			logger.Info("PSULOG: Sending mempool ch for tx", "tx", tx)
+			//logger.Info("PSULOG: Sending mempool ch for tx", "tx", tx)
 			if err := r.channels.mempoolCh.Send(ctx, p2p.Envelope{
 				To: ps.peerID,
 				Message: &protomem.Txs{

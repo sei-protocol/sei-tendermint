@@ -476,6 +476,22 @@ func MsgToProto(msg Message) (*tmcons.Message, error) {
 			Sum: vsb,
 		}
 
+	case *TxRequestMessage:
+		var txKeys []*tmproto.TxKey
+		for _, txKey := range msg.TxKeys {
+			key := txKey.ToProto()
+			txKeys = append(txKeys, key)
+		}
+		pb = tmcons.Message{
+			Sum: &tmcons.Message_TxRequest{
+				TxRequest: &tmcons.TxRequest{
+					Height: msg.Height,
+					Round:  msg.Round,
+					TxKeys: txKeys,
+				},
+			},
+		}
+
 	default:
 		return nil, fmt.Errorf("consensus: message not recognized: %T", msg)
 	}

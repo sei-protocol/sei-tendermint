@@ -142,12 +142,12 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	}
 	itxs := txrSet.IncludedTxs()
 	block2 := state.MakeBlock(height, itxs, commit, evidence, proposerAddr, hashOnly)
-	blockExec.logger.Info("PSULOG creating block", "hashOnly", hashOnly, "block", block, "num_txs", len(block.Txs))
+	//blockExec.logger.Info("PSULOG creating block", "hashOnly", hashOnly, "block", block, "num_txs", len(block.Txs))
 	return block2, nil
 }
 
 func (blockExec *BlockExecutor) GetTxsForKeys(txKeys []types.TxKey) types.Txs {
-	blockExec.logger.Info("PSULOG getting txs for keys", "txKeys", txKeys)
+	//blockExec.logger.Info("PSULOG getting txs for keys", "txKeys", txKeys)
 	return blockExec.mempool.GetTxsForKeys(txKeys)
 }
 
