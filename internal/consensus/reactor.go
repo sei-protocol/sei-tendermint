@@ -540,7 +540,7 @@ OUTER_LOOP:
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 		// Send proposal Block parts?
-		logger.Info("PSULOG - OUTERLOOP - sending block parts?", "rs.ProposalBlockParts", rs.ProposalBlockParts, "prs.ProposalPartSetHeader", prs.ProposalBlockPartSetHeader, "cond", rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader))
+		logger.Info("PSULOG - OUTERLOOP - sending block parts?", "rs.ProposalBlockParts", rs.ProposalBlockParts, "prs.ProposalPartSetHeader", prs.ProposalBlockPartSetHeader, "cond", rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader), "rs header", rs.ProposalBlockParts.Header(), "prs header", prs.ProposalBlockPartSetHeader)
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
 			//logger.Info("PSULOG - OUTERLOOP - sending block parts!", "rs bit array", rs.ProposalBlockParts.BitArray())
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {

@@ -1051,7 +1051,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		cs.mtx.Unlock()
 
 		cs.mtx.Lock()
-		if cs.ProposalBlockParts != nil && cs.ProposalBlockParts.IsComplete() && cs.Proposal != nil {
+		if added && cs.ProposalBlockParts.IsComplete() {
 			// We also need to check we have all txs if we're only gossiping
 			// tx keys.
 			// TODO(psu): Figure out how to trigger handleCompleteProposal once all txs are received
@@ -1560,7 +1560,8 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, cs.config.GossipTransactionHashOnly)
+	//ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, cs.config.GossipTransactionHashOnly)
+	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, false)
 	cs.logger.Info("PSULOG - created proposal block", "height", ret.Height, "txs", ret.Txs, "txkeys", ret.TxKeys)
 	if err != nil {
 		panic(err)
@@ -1662,7 +1663,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 			block.Data.Txs = txs
 			block.DataHash = block.Data.Hash()
 			cs.ProposalBlock = block
-			logger.Info("PSULOG - setting proposal block", "block", block)
+			logger.Info("PSULOG - setting proposal block in defaultDoPrevote", "block", block)
 		}
 	}
 
@@ -2414,6 +2415,7 @@ func (cs *State) addProposalBlockPart(
 				} else {
 					// We have full proposal block. Set txs in proposal block from mempool
 					cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
+					cs.logger.Info("PSULOG - recreating proposal block", "block", block)
 					txs := cs.blockExec.GetTxsForKeys(txKeys)
 					block.Data.Txs = txs
 					block.DataHash = block.Data.Hash()
