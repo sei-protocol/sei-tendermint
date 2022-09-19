@@ -1066,22 +1066,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		cs.mtx.Lock()
 		if added && cs.ProposalBlockParts.IsComplete() {
-			// We also need to check we have all txs if we're only gossiping
-			// tx keys.
-			// TODO(psu): Figure out how to trigger handleCompleteProposal once all txs are received
-			//if cs.config.GossipTransactionHashOnly {
-			//	if cs.ProposalBlock == nil || len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
-			//		cs.logger.Info("PSULOG - proposal is complete but proposal block is still nil or missing txs", "proposal", cs.Proposal)
-			//		if cs.ProposalBlock != nil {
-			//			cs.logger.Info("PSULOG  proposal is complete but proposal block is still nil or missing txs", "missing txs", cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys))
-			//		}
-			//		return
-			//	} else if len(cs.blockExec.GetMissingTxs(cs.ProposalBlock.TxKeys)) != 0 {
-			//		cs.logger.Info("PSULOG - received all proposal blocks but still missing txs")
-			//		return
-			//	}
-			//}
-
 			if fsyncUponCompletion {
 				_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.handleBlockPartMsg.fsync")
 				if err := cs.wal.FlushAndSync(); err != nil { // fsync
@@ -1574,7 +1558,6 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	//ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, cs.config.GossipTransactionHashOnly)
 	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, false)
 	//cs.logger.Info("PSULOG - created proposal block", "height", ret.Height, "txs", ret.Txs, "txkeys", ret.TxKeys)
 	if err != nil {

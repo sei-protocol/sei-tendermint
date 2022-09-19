@@ -182,6 +182,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "proposal_missing_txs",
 			Help:      "Number of missing txs when trying to create proposal.",
 		}, labels).With(labelsAndValues...),
+		MissingTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "missing_txs",
+			Help:      "Number of missing txs when a proposal is received.",
+		}, append(labels, "proposer_address")).With(labelsAndValues...),
 		QuorumPrevoteDelay: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -271,5 +277,6 @@ func NopMetrics() *Metrics {
 		ProposalBlockCreatedOnPropose: discard.NewCounter(),
 		ProposalTxs:                   discard.NewGauge(),
 		ProposalMissingTxs:            discard.NewGauge(),
+		MissingTxs:                    discard.NewGauge(),
 	}
 }
