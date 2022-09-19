@@ -540,7 +540,7 @@ OUTER_LOOP:
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 		// Send Proposal && ProposalPOL BitArray?
-		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.Proposal", r.state.Proposal)
+		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.ProposalBlock", r.state.ProposalBlock)
 		if rs.Proposal != nil && !prs.Proposal {
 			// Proposal: share the proposal metadata with peer.
 			{

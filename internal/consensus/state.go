@@ -1618,6 +1618,38 @@ func (cs *State) proposalIsTimely() bool {
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
 
+	if cs.config.GossipTransactionHashOnly && cs.ProposalBlock == nil {
+		logger.Info("prevote step: Creating proposal block from txs", "proposal", cs.Proposal, "proposal block parts", cs.ProposalBlockParts)
+		txKeys := cs.Proposal.TxKeys
+		if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
+			logger.Info("PSULOG - prevote step: populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
+		} else {
+			bz, err := io.ReadAll(cs.ProposalBlockParts.GetReader())
+			if err != nil {
+				logger.Error("Encountered error reading block parts", err)
+				return
+			}
+
+			var pbb = new(tmproto.Block)
+			err = proto.Unmarshal(bz, pbb)
+			if err != nil {
+				logger.Error("Encountered error unmarshaling block", err)
+				return
+			}
+
+			block, err := types.BlockFromProto(pbb)
+			if err != nil {
+				logger.Error("Encountered error converting block from proto", err)
+				return
+			}
+			// We have full proposal block. Set txs in proposal block from mempool
+			txs := cs.blockExec.GetTxsForKeys(txKeys)
+			block.Data.Txs = txs
+			block.DataHash = block.Data.Hash()
+			cs.ProposalBlock = block
+			logger.Info("PSULOG - setting proposal block", "block", block)
+		}
+	}
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
 	if cs.ProposalBlock == nil {
 		logger.Info("prevote step: ProposalBlock is nil; prevoting nil")
