@@ -545,24 +545,24 @@ OUTER_LOOP:
 			//logger.Info("PSULOG - OUTERLOOP - sending block parts!", "rs bit array", rs.ProposalBlockParts.BitArray())
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
 				//logger.Info("PSULOG - OUTERLOOP - sending block part !!", "index", index)
-				//part := rs.ProposalBlockParts.GetPart(index)
-				//partProto, err := part.ToProto()
-				//if err != nil {
-				//	logger.Error("failed to convert block part to proto", "err", err)
-				//	return
-				//}
+				part := rs.ProposalBlockParts.GetPart(index)
+				partProto, err := part.ToProto()
+				if err != nil {
+					logger.Error("failed to convert block part to proto", "err", err)
+					return
+				}
 
 				//logger.Info("sending block part", "height", prs.Height, "round", prs.Round, "partProto", partProto)
-				//if err := dataCh.Send(ctx, p2p.Envelope{
-				//	To: ps.peerID,
-				//	Message: &tmcons.BlockPart{
-				//		Height: rs.Height, // this tells peer that this part applies to us
-				//		Round:  rs.Round,  // this tells peer that this part applies to us
-				//		Part:   *partProto,
-				//	},
-				//}); err != nil {
-				//	return
-				//}
+				if err := dataCh.Send(ctx, p2p.Envelope{
+					To: ps.peerID,
+					Message: &tmcons.BlockPart{
+						Height: rs.Height, // this tells peer that this part applies to us
+						Round:  rs.Round,  // this tells peer that this part applies to us
+						Part:   *partProto,
+					},
+				}); err != nil {
+					return
+				}
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
 				//logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")

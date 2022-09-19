@@ -267,11 +267,10 @@ func (state State) MakeBlock(
 	commit *types.Commit,
 	evidence []types.Evidence,
 	proposerAddress []byte,
-	hashOnly bool,
 ) *types.Block {
 
 	// Build base block with block data.
-	block := types.MakeBlock(height, txs, commit, evidence, hashOnly)
+	block := types.MakeBlock(height, txs, commit, evidence)
 
 	// Fill rest of header with state data.
 	block.Header.Populate(

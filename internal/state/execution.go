@@ -90,7 +90,6 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	state State,
 	lastExtCommit *types.ExtendedCommit,
 	proposerAddr []byte,
-	hashOnly bool,
 ) (*types.Block, error) {
 
 	maxBytes := state.ConsensusParams.Block.MaxBytes
@@ -104,7 +103,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	commit := lastExtCommit.ToCommit()
 	// Always include tx (hashOnly=false) for abci
-	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr, false)
+	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 	rpp, err := blockExec.appClient.PrepareProposal(
 		ctx,
 		&abci.RequestPrepareProposal{
@@ -141,9 +140,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		}
 	}
 	itxs := txrSet.IncludedTxs()
-	block2 := state.MakeBlock(height, itxs, commit, evidence, proposerAddr, hashOnly)
-	//blockExec.logger.Info("PSULOG creating block", "hashOnly", hashOnly, "block", block, "num_txs", len(block.Txs))
-	return block2, nil
+	return state.MakeBlock(height, itxs, commit, evidence, proposerAddr), nil
 }
 
 func (blockExec *BlockExecutor) GetTxsForKeys(txKeys []types.TxKey) types.Txs {

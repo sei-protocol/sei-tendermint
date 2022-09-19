@@ -1558,7 +1558,7 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
-	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr, false)
+	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr)
 	//cs.logger.Info("PSULOG - created proposal block", "height", ret.Height, "txs", ret.Txs, "txkeys", ret.TxKeys)
 	if err != nil {
 		panic(err)
@@ -2464,7 +2464,7 @@ func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.
 		return false
 	} else {
 		//block := types.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, false)
-		block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress, false)
+		block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress)
 		// We have full proposal block. Set txs in proposal block from mempool
 		//cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
 		//cs.logger.Info("PSULOG - recreating proposal block", "block", block)
