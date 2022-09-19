@@ -69,6 +69,9 @@ type Metrics struct {
 	// Number of block parts transmitted by each peer.
 	BlockParts metrics.Counter `metrics_labels:"peer_id"`
 
+	// Number of tx requests transmitted by each peer.
+	TxsSent metrics.Counter `metrics_labels:"peer_id"`
+
 	// Histogram of durations for each step in the consensus protocol.
 	StepDuration metrics.Histogram `metrics_labels:"step" metrics_buckettype:"exprange" metrics_bucketsizes:"0.1, 100, 8"`
 	stepStart    time.Time
@@ -81,6 +84,10 @@ type Metrics struct {
 	// Number of block parts received by the node, separated by whether the part
 	// was relevant to the block the node is trying to gather or not.
 	BlockGossipPartsReceived metrics.Counter `metrics_labels:"matches_current"`
+
+	ProposalBlockCreated metrics.Counter `metrics_labels:"success"`
+	ProposalTxsCount     metrics.Gauge
+	MissingTxsCount      metrics.Gauge
 
 	// QuroumPrevoteMessageDelay is the interval in seconds between the proposal
 	// timestamp and the timestamp of the earliest prevote that achieved a quorum

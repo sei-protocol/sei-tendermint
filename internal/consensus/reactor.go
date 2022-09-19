@@ -1202,6 +1202,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 			txKeys = append(txKeys, *txKey)
 		}
 		txs := r.state.blockExec.GetTxsForKeys(txKeys)
+		r.Metrics.TxsSent.With("peer_id", string(envelope.From)).Add(1)
 		// TODO(psu): send all txs in 1 msg
 		for _, tx := range txs {
 			//logger.Info("PSULOG: Sending mempool ch for tx", "tx", tx)

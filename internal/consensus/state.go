@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -1029,6 +1030,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
 		if cs.config.GossipTransactionHashOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) {
 			created := cs.tryCreateProposalBlock(msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
+			cs.metrics.ProposalBlockCreated.With("success", strconv.FormatBool(created)).Add(1)
 			if created {
 				if fsyncUponCompletion {
 					if err := cs.wal.FlushAndSync(); err != nil { // fsync
@@ -2467,12 +2469,17 @@ func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false
 	}
-
-	if cs.Proposal == nil || len(cs.blockExec.GetMissingTxs(cs.Proposal.TxKeys)) != 0 {
+	if cs.Proposal == nil {
+		return false
+	}
+	txKeys := cs.Proposal.TxKeys
+	cs.metrics.ProposalTxsCount.Set(float64(len(cs.Proposal.TxKeys)))
+	missingTxKeys := cs.blockExec.GetMissingTxs(txKeys)
+	if len(missingTxKeys) != 0 {
 		//cs.logger.Info("PSULOG - cannot create block, either proposal is missing or we have missing keys", "proposal", cs.Proposal)
+		cs.metrics.MissingTxsCount.Set(float64(len(cs.blockExec.GetMissingTxs(cs.Proposal.TxKeys))))
 		return false
 	} else {
-		txKeys := cs.Proposal.TxKeys
 		//block := types.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, false)
 		block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress, false)
 		// We have full proposal block. Set txs in proposal block from mempool
