@@ -1047,10 +1047,9 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		span.SetAttributes(attribute.Int("round", int(msg.Round)))
 		defer span.End()
 
-		cs.logger.Info("PSULOG - received block part message", "error", err, "added", added, "cs.ProposalBlockParts", cs.ProposalBlockParts, "cs.Proposal", cs.Proposal)
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		added, err = cs.addProposalBlockPart(msg, peerID)
-
+		cs.logger.Info("PSULOG - received block part message", "error", err, "added", added, "cs.ProposalBlockParts", cs.ProposalBlockParts, "cs.Proposal", cs.Proposal)
 		// We unlock here to yield to any routines that need to read the the RoundState.
 		// Previously, this code held the lock from the point at which the final block
 		// part was received until the block executed against the application.
@@ -1833,7 +1832,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 			"expected", fmt.Sprintf("#%v/%v", height, round),
-			"entryLabel", entryLabel
+			"entryLabel", entryLabel,
 		)
 		return
 	}
@@ -2401,40 +2400,9 @@ func (cs *State) addProposalBlockPart(
 		if err != nil {
 			return added, err
 		}
-
-		// We need to now populate proposal block with the txs
-		//cs.logger.Info("PSULOG - maybe populating proposal block with txs", "current proposal", cs.Proposal, "proposal block", block)
-		if cs.config.GossipTransactionHashOnly {
-			if cs.Proposal == nil {
-				cs.logger.Info("PSULOG - populating tx has no proposal")
-			} else {
-				txKeys := cs.Proposal.TxKeys
-				if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
-					cs.logger.Info("PSULOG - populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
-				} else {
-					// We have full proposal block. Set txs in proposal block from mempool
-					//cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
-					cs.logger.Info("PSULOG - recreating proposal block in addProposalBlockParts", "block", block)
-					txs := cs.blockExec.GetTxsForKeys(txKeys)
-					block.Data.Txs = txs
-					block.DataHash = block.Data.Hash()
-					cs.ProposalBlock = block
-					//cs.logger.Info("PSULOG - setting proposal block", "block", block)
-					partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
-					if err != nil {
-						return false, nil
-					}
-
-					cs.ProposalBlockParts = partSet
-					// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-					cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
-				}
-			}
-		} else {
-			cs.ProposalBlock = block
-			// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-			cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
-		}
+		cs.ProposalBlock = block
+		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+		cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
 
 		if err := cs.eventBus.PublishEventCompleteProposal(cs.CompleteProposalEvent()); err != nil {
 			cs.logger.Error("failed publishing event complete proposal", "err", err)
@@ -2442,6 +2410,48 @@ func (cs *State) addProposalBlockPart(
 	}
 
 	return added, nil
+	// We need to now populate proposal block with the txs
+	//cs.logger.Info("PSULOG - maybe populating proposal block with txs", "current proposal", cs.Proposal, "proposal block", block)
+	//	if cs.config.GossipTransactionHashOnly {
+	//		if cs.Proposal == nil {
+	//			cs.logger.Info("PSULOG - populating tx has no proposal")
+	//			return added, nil
+	//		} else {
+	//			txKeys := cs.Proposal.TxKeys
+	//			if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
+	//				cs.logger.Info("PSULOG - populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
+	//			} else {
+	//				// We have full proposal block. Set txs in proposal block from mempool
+	//				//cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
+	//				cs.logger.Info("PSULOG - recreating proposal block in addProposalBlockParts", "block", block)
+	//				txs := cs.blockExec.GetTxsForKeys(txKeys)
+	//				block.Data.Txs = txs
+	//				block.DataHash = block.Data.Hash()
+	//				cs.ProposalBlock = block
+	//				//cs.logger.Info("PSULOG - setting proposal block", "block", block)
+	//				partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
+	//				if err != nil {
+	//					return false, nil
+	//				}
+	//
+	//				cs.ProposalBlockParts = partSet
+	//				// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+	//				cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
+	//				added = true
+	//			}
+	//		}
+	//	} else {
+	//		cs.ProposalBlock = block
+	//		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+	//		cs.logger.Info("received complete proposal block", "height", cs.ProposalBlock.Height, "hash", cs.ProposalBlock.Hash(), "time", time.Now().UnixMilli())
+	//	}
+	//
+	//	if err := cs.eventBus.PublishEventCompleteProposal(cs.CompleteProposalEvent()); err != nil {
+	//		cs.logger.Error("failed publishing event complete proposal", "err", err)
+	//	}
+	//}
+	//
+	//return added, nil
 }
 
 func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.Header, lastCommit *types.Commit, evidence []types.Evidence, proposerAddress types.Address) bool {
