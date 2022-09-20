@@ -1020,7 +1020,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
-		cs.logger.Info("PSULOG - state handleMsg received proposal", "proposal", msg, "cs.ProposalBlockParts", cs.ProposalBlockParts)
+		//cs.logger.Info("PSULOG - state handleMsg received proposal", "proposal", msg, "cs.ProposalBlockParts", cs.ProposalBlockParts)
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
@@ -1049,7 +1049,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		added, err = cs.addProposalBlockPart(msg, peerID)
-		cs.logger.Info("PSULOG - received block part message", "error", err, "added", added, "cs.ProposalBlockParts", cs.ProposalBlockParts, "cs.Proposal", cs.Proposal)
+		//cs.logger.Info("PSULOG - received block part message", "error", err, "added", added, "cs.ProposalBlockParts", cs.ProposalBlockParts, "cs.Proposal", cs.Proposal)
 		// We unlock here to yield to any routines that need to read the the RoundState.
 		// Previously, this code held the lock from the point at which the final block
 		// part was received until the block executed against the application.
@@ -1558,7 +1558,7 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 	proposerAddr := cs.privValidatorPubKey.Address()
 
 	ret, err := cs.blockExec.CreateProposalBlock(ctx, cs.Height, cs.state, lastExtCommit, proposerAddr)
-	cs.logger.Info("PSULOG - created proposal block", "height", ret.Height, "txs", ret.Txs, "txkeys", ret.TxKeys)
+	//cs.logger.Info("PSULOG - created proposal block", "height", ret.Height, "txs", ret.Txs, "txkeys", ret.TxKeys)
 	if err != nil {
 		panic(err)
 	}
@@ -1630,10 +1630,10 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		//logger.Info("prevote step: Creating proposal block from txs", "proposal", cs.Proposal, "proposal block parts", cs.ProposalBlockParts)
 		txKeys := cs.Proposal.TxKeys
 		if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
-			logger.Info("PSULOG - prevote step: populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
+			//logger.Info("PSULOG - prevote step: populating txs has missing txs", "keys", cs.blockExec.GetMissingTxs(txKeys))
 			return
 		} else if !cs.ProposalBlockParts.IsComplete() {
-			logger.Info("PSULOG - prevote step: proposal block parts is incomplete", "keys", cs.blockExec.GetMissingTxs(txKeys), "block parts", cs.ProposalBlockParts, "proposal", cs.Proposal)
+			//logger.Info("PSULOG - prevote step: proposal block parts is incomplete", "keys", cs.blockExec.GetMissingTxs(txKeys), "block parts", cs.ProposalBlockParts, "proposal", cs.Proposal)
 			return
 		} else {
 			bz, err := io.ReadAll(cs.ProposalBlockParts.GetReader())
@@ -1659,7 +1659,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 			block.Data.Txs = txs
 			block.DataHash = block.Data.Hash()
 			cs.ProposalBlock = block
-			logger.Info("PSULOG - setting proposal block in defaultDoPrevote", "block", block)
+			//logger.Info("PSULOG - setting proposal block in defaultDoPrevote", "block", block)
 		}
 	}
 
@@ -2294,7 +2294,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
 	// Already have one
 	// TODO: possibly catch double proposals
-	cs.logger.Info("PSULOG - defaultsetproposal enter - checking proposal", "proposal", proposal, "cs.Proposal", cs.Proposal)
+	//cs.logger.Info("PSULOG - defaultsetproposal enter - checking proposal", "proposal", proposal, "cs.Proposal", cs.Proposal)
 
 	if cs.Proposal != nil || proposal == nil {
 		return nil
@@ -2320,7 +2320,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	}
 
 	proposal.Signature = p.Signature
-	cs.logger.Info("PSULOG - defaultsetproposal setting proposal", "proposal", proposal)
+	//cs.logger.Info("PSULOG - defaultsetproposal setting proposal", "proposal", proposal)
 	cs.Proposal = proposal
 	cs.ProposalReceiveTime = recvTime
 	cs.calculateProposalTimestampDifferenceMetric()
@@ -2332,7 +2332,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 		cs.ProposalBlockParts = types.NewPartSetFromHeader(proposal.BlockID.PartSetHeader)
 	}
 	cs.evsw.FireEvent(types.EventNewProposal, proposal)
-	cs.logger.Info("received proposal", "proposal", proposal)
+	//cs.logger.Info("received proposal", "proposal", proposal)
 	return nil
 }
 
@@ -2493,13 +2493,13 @@ func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.
 		}
 		cs.ProposalBlockParts = partSet
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-		cs.logger.Info("Successfully recreated proposal block", "block", block)
+		//cs.logger.Info("Successfully recreated proposal block", "block", block)
 		return true
 	}
 }
 
 func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handleBlockPartSpan otrace.Span) {
-	cs.logger.Info("PSULOG - handle complete proposal", "height", height, "proposal block parts", cs.ProposalBlockParts)
+	//cs.logger.Info("PSULOG - handle complete proposal", "height", height, "proposal block parts", cs.ProposalBlockParts)
 	// Update Valid* if we can.
 	prevotes := cs.Votes.Prevotes(cs.Round)
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
