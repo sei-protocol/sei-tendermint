@@ -964,7 +964,7 @@ type ConsensusConfig struct {
 	CreateEmptyBlocks         bool          `mapstructure:"create-empty-blocks"`
 	CreateEmptyBlocksInterval time.Duration `mapstructure:"create-empty-blocks-interval"`
 	// Send transaction hash only
-	GossipTransactionHashOnly bool `mapstructure:"gossip-txn-hash-only"`
+	GossipTransactionKeyOnly bool `mapstructure:"gossip-tx-key-only"`
 
 	// Reactor sleep duration parameters
 	PeerGossipSleepDuration     time.Duration `mapstructure:"peer-gossip-sleep-duration"`
@@ -1029,7 +1029,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		DoubleSignCheckHeight:       int64(0),
-		GossipTransactionHashOnly:   false,
+		GossipTransactionKeyOnly:    true,
 	}
 }
 

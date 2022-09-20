@@ -460,7 +460,7 @@ create-empty-blocks = {{ .Consensus.CreateEmptyBlocks }}
 create-empty-blocks-interval = "{{ .Consensus.CreateEmptyBlocksInterval }}"
 
 # Only gossip hashes, not the actual data
-gossip-txn-hash-only = "{{ .Consensus.GossipTransactionHashOnly }}"
+gossip-tx-key-only = "{{ .Consensus.GossipTransactionKeyOnly }}"
 
 # Reactor sleep duration parameters
 peer-gossip-sleep-duration = "{{ .Consensus.PeerGossipSleepDuration }}"

@@ -1153,7 +1153,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		round := pMsg.Proposal.Round
 		proposalTxs := pMsg.Proposal.TxKeys
 		// Check if we there are missing txs and request if necessary
-		if r.state.config.GossipTransactionHashOnly {
+		if r.state.config.GossipTransactionKeyOnly {
 			missingTxKeys := r.state.blockExec.GetMissingTxs(proposalTxs)
 			//logger.Info("PSULOG - checking for missing keys", "proposal height", pMsg.Proposal.Height, "proposal round", pMsg.Proposal.Round, "txkeys", pMsg.Proposal.TxKeys, "missingTxKeys", missingTxKeys)
 			r.Metrics.MissingTxs.With("proposer_address", pMsg.Proposal.ProposerAddress.String()).Set(float64(len(missingTxKeys)))

@@ -1028,7 +1028,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
-		if cs.config.GossipTransactionHashOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) {
+		if cs.config.GossipTransactionKeyOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) {
 			created := cs.tryCreateProposalBlock(msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
 			cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(created)).Add(1)
 			if created {
@@ -1613,7 +1613,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	logger := cs.logger.With("height", height, "round", round)
 
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
-	if !cs.config.GossipTransactionHashOnly && cs.ProposalBlock == nil {
+	if !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil {
 		//logger.Info("prevote step: ProposalBlock is nil; prevoting nil")
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
@@ -1626,7 +1626,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	}
 
 	// If we're not the proposer, we need to build the block
-	if cs.config.GossipTransactionHashOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
+	if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
 		//logger.Info("prevote step: Creating proposal block from txs", "proposal", cs.Proposal, "proposal block parts", cs.ProposalBlockParts)
 		txKeys := cs.Proposal.TxKeys
 		if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
@@ -2412,7 +2412,7 @@ func (cs *State) addProposalBlockPart(
 	return added, nil
 	// We need to now populate proposal block with the txs
 	//cs.logger.Info("PSULOG - maybe populating proposal block with txs", "current proposal", cs.Proposal, "proposal block", block)
-	//	if cs.config.GossipTransactionHashOnly {
+	//	if cs.config.GossipTransactionKeyOnly {
 	//		if cs.Proposal == nil {
 	//			cs.logger.Info("PSULOG - populating tx has no proposal")
 	//			return added, nil
