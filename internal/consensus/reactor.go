@@ -551,7 +551,7 @@ OUTER_LOOP:
 					return
 				}
 
-				logger.Info("sending block part", "height", prs.Height, "round", prs.Round, "partProto", partProto)
+				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round, "partProto", partProto)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.BlockPart{
@@ -617,7 +617,7 @@ OUTER_LOOP:
 			{
 				propProto := rs.Proposal.ToProto()
 
-				logger.Info("PSULOG - sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
+				logger.Debug("sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.Proposal{

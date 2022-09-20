@@ -1296,7 +1296,7 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 		// and meanwhile we might have received a proposal
 		// for round 0.
 	} else {
-		logger.Info("resetting proposal info")
+		logger.Debug("resetting proposal info")
 		cs.Proposal = nil
 		cs.ProposalReceiveTime = time.Time{}
 		cs.ProposalBlock = nil
@@ -1595,7 +1595,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		cs.newStep()
 	}()
 
-	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli(), "proposal block", cs.ProposalBlock)
+	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -2348,7 +2348,7 @@ func (cs *State) addProposalBlockPart(
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
-		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
+		cs.logger.Debug("received block part from wrong height", "height", height, "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false, nil
 	}
@@ -2358,7 +2358,7 @@ func (cs *State) addProposalBlockPart(
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		// NOTE: this can happen when we've gone to a higher round and
 		// then receive parts from the previous round - not necessarily a bad peer.
-		cs.logger.Info(
+		cs.logger.Debug(
 			"received a block part when we are not expecting any",
 			"height", height,
 			"round", round,
