@@ -539,11 +539,11 @@ OUTER_LOOP:
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 		// Send proposal Block parts?
-		//logger.Info("PSULOG - OUTERLOOP - sending block parts?", "rs.ProposalBlockParts", rs.ProposalBlockParts, "prs.ProposalPartSetHeader", prs.ProposalBlockPartSetHeader, "cond", rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader), "rs header", rs.ProposalBlockParts.Header(), "prs header", prs.ProposalBlockPartSetHeader)
+		logger.Info("PSULOG - OUTERLOOP - sending block parts?", "rs.ProposalBlockParts", rs.ProposalBlockParts, "prs.ProposalPartSetHeader", prs.ProposalBlockPartSetHeader, "cond", rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader), "rs header", rs.ProposalBlockParts.Header(), "prs header", prs.ProposalBlockPartSetHeader)
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
-			//logger.Info("PSULOG - OUTERLOOP - sending block parts!", "rs bit array", rs.ProposalBlockParts.BitArray())
+			logger.Info("PSULOG - OUTERLOOP - sending block parts!", "rs bit array", rs.ProposalBlockParts.BitArray())
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
-				//logger.Info("PSULOG - OUTERLOOP - sending block part !!", "index", index)
+				logger.Info("PSULOG - OUTERLOOP - sending block part !!", "index", index)
 				part := rs.ProposalBlockParts.GetPart(index)
 				partProto, err := part.ToProto()
 				if err != nil {
@@ -551,7 +551,7 @@ OUTER_LOOP:
 					return
 				}
 
-				//logger.Info("sending block part", "height", prs.Height, "round", prs.Round, "partProto", partProto)
+				logger.Info("sending block part", "height", prs.Height, "round", prs.Round, "partProto", partProto)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.BlockPart{
@@ -564,14 +564,14 @@ OUTER_LOOP:
 				}
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
-				//logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
+				logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
 				continue OUTER_LOOP
 			} else {
-				//logger.Info("PSULOG - OUTERLOOP - sending block part !! NOT OK", "rs bit array", rs.ProposalBlockParts.BitArray())
+				logger.Info("PSULOG - OUTERLOOP - sending block part !! NOT OK", "rs bit array", rs.ProposalBlockParts.BitArray())
 			}
 		}
 
-		//logger.Info("PSULOG - OUTERLOOP - help peer catch up")
+		logger.Info("PSULOG - OUTERLOOP - help peer catch up")
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
 		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
@@ -611,13 +611,13 @@ OUTER_LOOP:
 		// Now consider sending other things, like the Proposal itself.
 
 		// Send Proposal && ProposalPOL BitArray?
-		//logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.ProposalBlock", r.state.ProposalBlock)
+		logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.ProposalBlock", r.state.ProposalBlock)
 		if rs.Proposal != nil && !prs.Proposal {
 			// Proposal: share the proposal metadata with peer.
 			{
 				propProto := rs.Proposal.ToProto()
 
-				//logger.Info("PSULOG - sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
+				logger.Info("PSULOG - sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.Proposal{
