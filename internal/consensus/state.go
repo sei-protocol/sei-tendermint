@@ -1620,8 +1620,14 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		return
 	}
 
+	if cs.Proposal == nil {
+		logger.Info("prevote step: did not receive proposal; prevoting nil")
+		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
 	// If we're not the proposer, we need to build the block
-	if cs.config.GossipTransactionHashOnly && cs.ProposalBlock == nil {
+	if cs.config.GossipTransactionHashOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
 		//logger.Info("prevote step: Creating proposal block from txs", "proposal", cs.Proposal, "proposal block parts", cs.ProposalBlockParts)
 		txKeys := cs.Proposal.TxKeys
 		if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
@@ -2338,7 +2344,7 @@ func (cs *State) addProposalBlockPart(
 	peerID types.NodeID,
 ) (added bool, err error) {
 	height, round, part := msg.Height, msg.Round, msg.Part
-	cs.logger.Info("PSULOG - adding proposal block part", "blockpart", msg)
+	//cs.logger.Info("PSULOG - adding proposal block part", "blockpart", msg)
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
