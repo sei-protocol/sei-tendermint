@@ -1833,6 +1833,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 			"expected", fmt.Sprintf("#%v/%v", height, round),
+			"entryLabel", entryLabel
 		)
 		return
 	}
