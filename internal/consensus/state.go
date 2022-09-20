@@ -2478,7 +2478,7 @@ func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.
 		block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress)
 		// We have full proposal block. Set txs in proposal block from mempool
 		//cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
-		cs.logger.Info("PSULOG - recreating proposal block in tryCreate", "block", block)
+		//cs.logger.Info("PSULOG - recreating proposal block in tryCreate", "block", block)
 		txs := cs.blockExec.GetTxsForKeys(txKeys)
 		block.Version = header.Version
 		block.Data.Txs = txs
