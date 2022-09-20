@@ -532,7 +532,6 @@ OUTER_LOOP:
 
 		select {
 		case <-ctx.Done():
-			//logger.Info("PSULOG - OUTERLOOP - context is done. returnning")
 			return
 		case <-timer.C:
 		}
@@ -1146,7 +1145,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 
 	switch msg := envelope.Message.(type) {
 	case *tmcons.Proposal:
-		//logger.Info("PSULOG - received proposal", "msg", msgI, "msg as proposal", msgI.(*ProposalMessage))
+		logger.Info("PSULOG - received proposal", "msg", msgI, "msg as proposal", msgI.(*ProposalMessage))
 		pMsg := msgI.(*ProposalMessage)
 
 		ps.SetHasProposal(pMsg.Proposal)
@@ -1185,7 +1184,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		ps.ApplyProposalPOLMessage(msgI.(*ProposalPOLMessage))
 	case *tmcons.BlockPart:
 		bpMsg := msgI.(*BlockPartMessage)
-		//logger.Info("Received block part message", "blockpartmesage", bpMsg)
+		logger.Info("Received block part message", "blockpartmesage", bpMsg)
 
 		ps.SetHasProposalBlockPart(bpMsg.Height, bpMsg.Round, int(bpMsg.Part.Index))
 		r.Metrics.BlockParts.With("peer_id", string(envelope.From)).Add(1)
@@ -1197,7 +1196,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		}
 	case *tmcons.TxRequest:
 		trMsg := msgI.(*TxRequestMessage)
-		//logger.Info("PSULOG: Received request for Txs", "txKeys", trMsg.TxKeys)
+		logger.Info("PSULOG: Received request for Txs", "txKeys", trMsg.TxKeys)
 		var txKeys []types.TxKey
 		for _, txKey := range trMsg.TxKeys {
 			txKeys = append(txKeys, *txKey)

@@ -109,7 +109,7 @@ func (ps *PeerState) GetHeight() int64 {
 
 // SetHasProposal sets the given proposal as known for the peer.
 func (ps *PeerState) SetHasProposal(proposal *types.Proposal) {
-	//ps.logger.Info("PSULOG - SetHasProposal", "proposal", proposal, "ps.PRS.Proposal", ps.PRS.Proposal)
+	ps.logger.Info("PSULOG - SetHasProposal", "proposal", proposal, "ps.PRS.Proposal", ps.PRS.Proposal)
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
