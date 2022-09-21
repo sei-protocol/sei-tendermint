@@ -136,12 +136,6 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "block_parts",
 			Help:      "Number of block parts transmitted by each peer.",
 		}, append(labels, "peer_id")).With(labelsAndValues...),
-		TxsSent: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
-			Namespace: namespace,
-			Subsystem: MetricsSubsystem,
-			Name:      "txs_sent",
-			Help:      "Number of txs transmitted by each peer.",
-		}, append(labels, "peer_id")).With(labelsAndValues...),
 		StepDuration: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,

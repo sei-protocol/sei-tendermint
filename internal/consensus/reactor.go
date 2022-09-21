@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	protomem "github.com/tendermint/tendermint/proto/tendermint/mempool"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -1194,28 +1193,6 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		case <-ctx.Done():
 			return ctx.Err()
 		}
-	case *tmcons.TxRequest:
-		trMsg := msgI.(*TxRequestMessage)
-		logger.Info("PSULOG: Received request for Txs", "txKeys", trMsg.TxKeys)
-		var txKeys []types.TxKey
-		for _, txKey := range trMsg.TxKeys {
-			txKeys = append(txKeys, *txKey)
-		}
-		txs := r.state.blockExec.GetTxsForKeys(txKeys)
-		r.Metrics.TxsSent.With("peer_id", string(envelope.From)).Add(1)
-		// TODO(psu): send all txs in 1 msg
-		for _, tx := range txs {
-			//logger.Info("PSULOG: Sending mempool ch for tx", "tx", tx)
-			if err := r.channels.mempoolCh.Send(ctx, p2p.Envelope{
-				To: ps.peerID,
-				Message: &protomem.Txs{
-					Txs: [][]byte{tx},
-				},
-			}); err != nil {
-				logger.Error("Unable to send tx for tx request", "peerId", ps.peerID, "txKeys", txKeys)
-			}
-		}
-
 	default:
 		return fmt.Errorf("received unknown message on DataChannel: %T", msg)
 	}

@@ -28,6 +28,14 @@ func (txKey *TxKey) ToProto() *tmproto.TxKey {
 	return tp
 }
 
+func TxKeysListToProto(txKeys []*TxKey) []*tmproto.TxKey {
+	var tps []*tmproto.TxKey
+	for _, txKey := range txKeys {
+		tps = append(tps, txKey.ToProto())
+	}
+	return tps
+}
+
 // TxKeyFromProto takes a protobuf representation of TxKey &
 // returns the native type.
 func TxKeyFromProto(dp *tmproto.TxKey) (TxKey, error) {
@@ -40,6 +48,18 @@ func TxKeyFromProto(dp *tmproto.TxKey) (TxKey, error) {
 	}
 
 	return txBzs, nil
+}
+
+func TxKeysListFromProto(dps []*tmproto.TxKey) ([]TxKey, error) {
+	var txKeys []TxKey
+	for _, txKey := range dps {
+		txKey, err := TxKeyFromProto(txKey)
+		if err != nil {
+			return nil, err
+		}
+		txKeys = append(txKeys, txKey)
+	}
+	return txKeys, nil
 }
 
 // ErrTxTooLarge defines an error when a transaction is too big to be sent in a

@@ -1006,6 +1006,14 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 		// TODO should we handle context cancels here?
 	}
 }
+func (cs *State) fsyncAndCompleteProposal(ctx context.Context, fsyncUponCompletion bool, height int64, span otrace.Span) {
+	if fsyncUponCompletion {
+		if err := cs.wal.FlushAndSync(); err != nil { // fsync
+			panic("error flushing wal after receiving all block parts")
+		}
+	}
+	cs.handleCompleteProposal(ctx, height, span)
+}
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
 func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion bool) {
@@ -1032,18 +1040,12 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			created := cs.tryCreateProposalBlock(msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
 			cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(created)).Add(1)
 			if created {
-				if fsyncUponCompletion {
-					if err := cs.wal.FlushAndSync(); err != nil { // fsync
-						panic("error flushing wal after receiving all block parts")
-					}
-				}
-				cs.handleCompleteProposal(ctx, msg.Proposal.Height, span)
-
+				cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
 			}
 		}
 
 	case *BlockPartMessage:
-		spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleBlockPartMsg")
+		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleBlockPartMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Round)))
 		defer span.End()
 
@@ -1065,16 +1067,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		cs.mtx.Lock()
 		if added && cs.ProposalBlockParts.IsComplete() {
-			if fsyncUponCompletion {
-				_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.handleBlockPartMsg.fsync")
-				if err := cs.wal.FlushAndSync(); err != nil { // fsync
-					panic("error flushing wal after receiving all block parts")
-				}
-				fsyncSpan.End()
-			}
-			cs.handleCompleteProposal(ctx, msg.Height, span)
-		} else {
-			//cs.logger.Info("PSULOG - did not complete proposal", "added", added, "proposalblockparts", cs.ProposalBlockParts, "proposal", cs.Proposal)
+			cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Height, span)
 		}
 		if added {
 			select {

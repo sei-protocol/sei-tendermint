@@ -32,7 +32,6 @@ func init() {
 	jsontypes.MustRegister(&HasVoteMessage{})
 	jsontypes.MustRegister(&VoteSetMaj23Message{})
 	jsontypes.MustRegister(&VoteSetBitsMessage{})
-	jsontypes.MustRegister(&TxRequestMessage{})
 }
 
 // NewRoundStepMessage is sent for every step taken in the ConsensusState.
@@ -184,25 +183,6 @@ func (m *ProposalPOLMessage) ValidateBasic() error {
 // String returns a string representation.
 func (m *ProposalPOLMessage) String() string {
 	return fmt.Sprintf("[ProposalPOL H:%v POLR:%v POL:%v]", m.Height, m.ProposalPOLRound, m.ProposalPOL)
-}
-
-// TxRequestMessage is sent when a set of Txs are requested
-type TxRequestMessage struct {
-	Height int64 `json:",string"`
-	Round  int32
-	TxKeys []*types.TxKey
-}
-
-func (*TxRequestMessage) TypeTag() string { return "tendermint/TxRequest" }
-
-func (m *TxRequestMessage) ValidateBasic() error {
-	if m.Height < 0 {
-		return errors.New("negative Height")
-	}
-	if m.Round < 0 {
-		return errors.New("negative Round")
-	}
-	return nil
 }
 
 // BlockPartMessage is sent when gossipping a piece of the proposed block.
@@ -476,22 +456,6 @@ func MsgToProto(msg Message) (*tmcons.Message, error) {
 			Sum: vsb,
 		}
 
-	case *TxRequestMessage:
-		var txKeys []*tmproto.TxKey
-		for _, txKey := range msg.TxKeys {
-			key := txKey.ToProto()
-			txKeys = append(txKeys, key)
-		}
-		pb = tmcons.Message{
-			Sum: &tmcons.Message_TxRequest{
-				TxRequest: &tmcons.TxRequest{
-					Height: msg.Height,
-					Round:  msg.Round,
-					TxKeys: txKeys,
-				},
-			},
-		}
-
 	default:
 		return nil, fmt.Errorf("consensus: message not recognized: %T", msg)
 	}
@@ -615,17 +579,6 @@ func MsgFromProto(msg *tmcons.Message) (Message, error) {
 			Type:    msg.VoteSetBits.Type,
 			BlockID: *bi,
 			Votes:   bits,
-		}
-	case *tmcons.Message_TxRequest:
-		var txKeys []*types.TxKey
-		for _, txKey := range msg.TxRequest.TxKeys {
-			key, _ := types.TxKeyFromProto(txKey)
-			txKeys = append(txKeys, &key)
-		}
-		pb = &TxRequestMessage{
-			Height: msg.TxRequest.Height,
-			Round:  msg.TxRequest.Round,
-			TxKeys: txKeys,
 		}
 	default:
 		return nil, fmt.Errorf("consensus: message not recognized: %T", msg)

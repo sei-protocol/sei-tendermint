@@ -82,7 +82,7 @@ func DefaultConfig() *Config {
 		P2P:             DefaultP2PConfig(),
 		Mempool:         DefaultMempoolConfig(),
 		StateSync:       DefaultStateSyncConfig(),
-		Consensus:       DefaultConsensusConfig(),
+		Consensus:       DefaultConsensusConfig().AB,
 		TxIndex:         DefaultTxIndexConfig(),
 		Instrumentation: DefaultInstrumentationConfig(),
 		PrivValidator:   DefaultPrivValidatorConfig(),
