@@ -171,11 +171,10 @@ func NewReactor(
 }
 
 type channelBundle struct {
-	state     *p2p.Channel
-	data      *p2p.Channel
-	vote      *p2p.Channel
-	votSet    *p2p.Channel
-	mempoolCh *p2p.Channel
+	state  *p2p.Channel
+	data   *p2p.Channel
+	vote   *p2p.Channel
+	votSet *p2p.Channel
 }
 
 func (r *Reactor) SetStateChannel(ch *p2p.Channel) {
@@ -527,7 +526,7 @@ OUTER_LOOP:
 					return
 				}
 
-				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round, "partProto", partProto)
+				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.BlockPart{
