@@ -1616,18 +1616,18 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	// If we're not the proposer, we need to build the block
 	if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
 		txKeys := cs.Proposal.TxKeys
-		if len(cs.blockExec.GetMissingTxs(txKeys)) != 0 {
-			return
-		} else if !cs.ProposalBlockParts.IsComplete() {
-			return
-		} else {
+		if cs.ProposalBlockParts.IsComplete() {
 			block, err := cs.getBlockFromBlockParts()
 			if err != nil {
 				cs.logger.Error("Encountered error building block from parts", "block parts", cs.ProposalBlockParts)
 				return
 			}
-			// We have full proposal block. Build proposal block with txKeys
-			cs.ProposalBlock = cs.buildProposalBlock(height, block.Header, block.LastCommit, block.Evidence, block.ProposerAddress, txKeys)
+			// We have full proposal block and txs. Build proposal block with txKeys
+			proposalBlock := cs.buildProposalBlock(height, block.Header, block.LastCommit, block.Evidence, block.ProposerAddress, txKeys)
+			if proposalBlock == nil {
+				return
+			}
+			cs.ProposalBlock = proposalBlock
 		}
 	}
 
@@ -1701,7 +1701,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	*/
 	if cs.Proposal.POLRound == -1 {
 		if cs.LockedRound == -1 {
-			logger.Info("prevote step: ProposalBlock is valid and there is no locked block; prevoting the proposal", "blockId", cs.Proposal.BlockID)
+			logger.Info("prevote step: ProposalBlock is valid and there is no locked block; prevoting the proposal")
 			cs.signAddVote(ctx, tmproto.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
 			return
 		}
@@ -2083,7 +2083,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		"num_txs", len(block.Txs),
 		"time", time.Now().UnixMilli(),
 	)
-	logger.Info(fmt.Sprintf("%v", block))
+	logger.Debug(fmt.Sprintf("%v", block))
 
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
@@ -2262,7 +2262,6 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
 	// Already have one
 	// TODO: possibly catch double proposals
-
 	if cs.Proposal != nil || proposal == nil {
 		return nil
 	}
@@ -2297,6 +2296,8 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 		cs.metrics.MarkBlockGossipStarted()
 		cs.ProposalBlockParts = types.NewPartSetFromHeader(proposal.BlockID.PartSetHeader)
 	}
+
+	cs.logger.Info("received proposal", "proposal", proposal)
 	return nil
 }
 
@@ -2396,32 +2397,36 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false
 	}
+	// We may not have a valid proposal yet (e.g. only received proposal for a wrong height)
 	if cs.Proposal == nil {
 		return false
 	}
-	txKeys := cs.Proposal.TxKeys
-	cs.metrics.ProposalTxs.Set(float64(len(cs.Proposal.TxKeys)))
-	missingTxKeys := cs.blockExec.GetMissingTxs(txKeys)
-	if len(missingTxKeys) != 0 {
-		cs.metrics.ProposalMissingTxs.Set(float64(len(cs.blockExec.GetMissingTxs(cs.Proposal.TxKeys))))
+	block := cs.buildProposalBlock(height, header, lastCommit, evidence, proposerAddress, cs.Proposal.TxKeys)
+	if block == nil {
 		cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(false)).Add(1)
 		return false
-	} else {
-		block := cs.buildProposalBlock(height, header, lastCommit, evidence, proposerAddress, txKeys)
-		cs.ProposalBlock = block
-		partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
-		if err != nil {
-			return false
-		}
-		cs.ProposalBlockParts = partSet
-		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-		cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(true)).Add(1)
-		return true
 	}
+	cs.ProposalBlock = block
+	partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
+	if err != nil {
+		return false
+	}
+	cs.ProposalBlockParts = partSet
+	// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+	cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(true)).Add(1)
+	return true
 }
 
+// Build a proposal block from mempool txs. If cs.config.GossipTransactionKeyOnly=true
+// proposals only contain txKeys so we rebuild the block using mempool txs
 func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommit *types.Commit, evidence []types.Evidence, proposerAddress types.Address, txKeys []types.TxKey) *types.Block {
 	block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress)
+	missingTxs := cs.blockExec.GetMissingTxs(txKeys)
+	if len(missingTxs) > 0 {
+		cs.metrics.ProposalMissingTxs.Set(float64(len(missingTxs)))
+		cs.logger.Error("Missing txs when trying to build block", "missing_txs", cs.blockExec.GetMissingTxs(txKeys))
+		return nil
+	}
 	txs := cs.blockExec.GetTxsForKeys(txKeys)
 	block.Version = header.Version
 	block.Data.Txs = txs

@@ -479,6 +479,7 @@ func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundSta
 			return
 		}
 
+		logger.Debug("sending block part for catchup", "round", prs.Round, "index", index)
 		_ = dataCh.Send(ctx, p2p.Envelope{
 			To: ps.peerID,
 			Message: &tmcons.BlockPart{
@@ -516,6 +517,7 @@ OUTER_LOOP:
 
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
+
 		// Send proposal Block parts?
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
@@ -1136,6 +1138,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		case <-ctx.Done():
 			return ctx.Err()
 		}
+
 	default:
 		return fmt.Errorf("received unknown message on DataChannel: %T", msg)
 	}
