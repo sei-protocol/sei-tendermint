@@ -75,7 +75,7 @@ func (b *Block) ValidateBasic() error {
 	}
 
 	// NOTE: b.Data.Txs may be nil, but b.Data.Hash() still works fine.
-	if w, g := b.Data.Hash(), b.DataHash; !bytes.Equal(w, g) {
+	if w, g := b.Data.Hash(false), b.DataHash; !bytes.Equal(w, g) {
 		return fmt.Errorf("wrong Header.DataHash. Expected %X, got %X. Len of txs %d", w, g, len(b.Data.Txs))
 	}
 
@@ -99,7 +99,7 @@ func (b *Block) fillHeader() {
 		b.LastCommitHash = b.LastCommit.Hash()
 	}
 	if b.DataHash == nil {
-		b.DataHash = b.Data.Hash()
+		b.DataHash = b.Data.Hash(false)
 	}
 	if b.EvidenceHash == nil {
 		b.EvidenceHash = b.Evidence.Hash()
@@ -1298,13 +1298,16 @@ type Data struct {
 }
 
 // Hash returns the hash of the data
-func (data *Data) Hash() tmbytes.HexBytes {
+func (data *Data) Hash(overwrite bool) tmbytes.HexBytes {
 	if data == nil {
 		return (Txs{}).Hash()
 	}
-	//if data.hash == nil {
-	data.hash = data.Txs.Hash() // NOTE: leaves of merkle tree are TxIDs
-	//}
+	if data.hash != nil && overwrite {
+		data.hash = data.Txs.Hash()
+	}
+	if data.hash == nil {
+		data.hash = data.Txs.Hash() // NOTE: leaves of merkle tree are TxIDs
+	}
 	return data.hash
 }
 

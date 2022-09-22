@@ -2421,7 +2421,7 @@ func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommi
 	txs := cs.blockExec.GetTxsForKeys(txKeys)
 	block.Version = header.Version
 	block.Data.Txs = txs
-	block.DataHash = block.Data.Hash()
+	block.DataHash = block.Data.Hash(true)
 	block.Header.Time = header.Time
 	block.Header.ProposerAddress = header.ProposerAddress
 	return block

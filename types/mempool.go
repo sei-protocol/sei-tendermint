@@ -28,14 +28,6 @@ func (txKey *TxKey) ToProto() *tmproto.TxKey {
 	return tp
 }
 
-func TxKeysListToProto(txKeys []*TxKey) []*tmproto.TxKey {
-	var tps []*tmproto.TxKey
-	for _, txKey := range txKeys {
-		tps = append(tps, txKey.ToProto())
-	}
-	return tps
-}
-
 // TxKeyFromProto takes a protobuf representation of TxKey &
 // returns the native type.
 func TxKeyFromProto(dp *tmproto.TxKey) (TxKey, error) {

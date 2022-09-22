@@ -143,7 +143,6 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 }
 
 func (blockExec *BlockExecutor) GetTxsForKeys(txKeys []types.TxKey) types.Txs {
-	//blockExec.logger.Info("PSULOG getting txs for keys", "txKeys", txKeys)
 	return blockExec.mempool.GetTxsForKeys(txKeys)
 }
 
@@ -420,7 +419,6 @@ func (blockExec *BlockExecutor) Commit(
 func (blockExec *BlockExecutor) GetMissingTxs(txKeys []types.TxKey) []types.TxKey {
 	var missingTxKeys []types.TxKey
 	for _, txKey := range txKeys {
-		//blockExec.logger.Info("PSULOG - GetMissingTxs", "txKey", txKey, "hasTx", blockExec.mempool.HasTx(txKey))
 		if !blockExec.mempool.HasTx(txKey) {
 			missingTxKeys = append(missingTxKeys, txKey)
 		}

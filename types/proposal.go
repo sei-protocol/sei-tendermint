@@ -217,10 +217,9 @@ func ProposalFromProto(pp *tmproto.Proposal) (*Proposal, error) {
 	p.POLRound = pp.PolRound
 	p.Timestamp = pp.Timestamp
 	p.Signature = pp.Signature
-	var txKeys []TxKey
-	for _, txKey := range pp.TxKeys {
-		key, _ := TxKeyFromProto(txKey)
-		txKeys = append(txKeys, key)
+	txKeys, err := TxKeysListFromProto(pp.TxKeys)
+	if err != nil {
+		return nil, err
 	}
 	p.TxKeys = txKeys
 	header, err := HeaderFromProto(&pp.Header)
