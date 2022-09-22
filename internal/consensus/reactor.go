@@ -194,10 +194,6 @@ func (r *Reactor) SetVoteSetChannel(ch *p2p.Channel) {
 	r.channels.votSet = ch
 }
 
-func (r *Reactor) SetMempoolChannel(ch *p2p.Channel) {
-	r.channels.mempoolCh = ch
-}
-
 // OnStart starts separate go routines for each p2p Channel and listens for
 // envelopes on each. In addition, it also listens for peer updates and handles
 // messages on that p2p channel accordingly. The caller must be sure to execute
@@ -213,7 +209,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	// leak the goroutine when stopping the reactor.
 	go r.peerStatsRoutine(ctx, peerUpdates)
 
-	r.subscribeToBroadcastEvents(ctx, r.channels.state, r.channels.data)
+	r.subscribeToBroadcastEvents(ctx, r.channels.state)
 
 	if !r.WaitSync() {
 		if err := r.state.Start(ctx); err != nil {
@@ -346,19 +342,10 @@ func (r *Reactor) broadcastHasVoteMessage(ctx context.Context, vote *types.Vote,
 	})
 }
 
-func (r *Reactor) broadcastHasProposalMessage(ctx context.Context, proposal *types.Proposal, dataCh *p2p.Channel) error {
-	return dataCh.Send(ctx, p2p.Envelope{
-		Broadcast: true,
-		Message: &tmcons.Proposal{
-			Proposal: *proposal.ToProto(),
-		},
-	})
-}
-
 // subscribeToBroadcastEvents subscribes for new round steps and votes using the
 // internal pubsub defined in the consensus state to broadcast them to peers
 // upon receiving.
-func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.Channel, dataCh *p2p.Channel) {
+func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.Channel) {
 	onStopCh := r.state.getOnStopCh()
 
 	err := r.state.evsw.AddListenerForEvent(
@@ -403,12 +390,6 @@ func (r *Reactor) subscribeToBroadcastEvents(ctx context.Context, stateCh *p2p.C
 	if err != nil {
 		r.logger.Error("failed to add listener for events", "err", err)
 	}
-	err = r.state.evsw.AddListenerForEvent(
-		listenerIDConsensus,
-		types.EventNewProposal,
-		func(data tmevents.EventData) error {
-			return r.broadcastHasProposalMessage(ctx, data.(*types.Proposal), dataCh)
-		})
 }
 
 func makeRoundStepMessage(rs *cstypes.RoundState) *tmcons.NewRoundStep {
@@ -499,7 +480,6 @@ func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundSta
 			return
 		}
 
-		//logger.Debug("sending block part for catchup", "round", prs.Round, "index", index)
 		_ = dataCh.Send(ctx, p2p.Envelope{
 			To: ps.peerID,
 			Message: &tmcons.BlockPart{
@@ -538,11 +518,8 @@ OUTER_LOOP:
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 		// Send proposal Block parts?
-		//logger.Info("PSULOG - OUTERLOOP - sending block parts?", "rs.ProposalBlockParts", rs.ProposalBlockParts, "prs.ProposalPartSetHeader", prs.ProposalBlockPartSetHeader, "cond", rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader), "rs header", rs.ProposalBlockParts.Header(), "prs header", prs.ProposalBlockPartSetHeader)
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
-			//logger.Info("PSULOG - OUTERLOOP - sending block parts!", "rs bit array", rs.ProposalBlockParts.BitArray())
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
-				//logger.Info("PSULOG - OUTERLOOP - sending block part !!", "index", index)
 				part := rs.ProposalBlockParts.GetPart(index)
 				partProto, err := part.ToProto()
 				if err != nil {
@@ -563,14 +540,10 @@ OUTER_LOOP:
 				}
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
-				//logger.Info("PSULOG - OUTERLOOP - finished sending block parts, continuing back to OUTERLOOP")
 				continue OUTER_LOOP
-			} else {
-				//logger.Info("PSULOG - OUTERLOOP - sending block part !! NOT OK", "rs bit array", rs.ProposalBlockParts.BitArray())
 			}
 		}
 
-		//logger.Info("PSULOG - OUTERLOOP - help peer catch up")
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
 		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
@@ -610,7 +583,6 @@ OUTER_LOOP:
 		// Now consider sending other things, like the Proposal itself.
 
 		// Send Proposal && ProposalPOL BitArray?
-		//logger.Info("PSULOG - OUTERLOOP - checking if we should send proposal", "height", prs.Height, "round", prs.Round, "rs proposal", rs.Proposal, "prs proposal", prs.Proposal, "cs.ProposalBlock", r.state.ProposalBlock)
 		if rs.Proposal != nil && !prs.Proposal {
 			// Proposal: share the proposal metadata with peer.
 			{
@@ -1144,36 +1116,9 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 
 	switch msg := envelope.Message.(type) {
 	case *tmcons.Proposal:
-		//logger.Info("PSULOG - received proposal", "msg", msgI, "msg as proposal", msgI.(*ProposalMessage))
 		pMsg := msgI.(*ProposalMessage)
 
 		ps.SetHasProposal(pMsg.Proposal)
-		height := pMsg.Proposal.Height
-		round := pMsg.Proposal.Round
-		proposalTxs := pMsg.Proposal.TxKeys
-		// Check if we there are missing txs and request if necessary
-		if r.state.config.GossipTransactionKeyOnly {
-			missingTxKeys := r.state.blockExec.GetMissingTxs(proposalTxs)
-			//logger.Info("PSULOG - checking for missing keys", "proposal height", pMsg.Proposal.Height, "proposal round", pMsg.Proposal.Round, "txkeys", pMsg.Proposal.TxKeys, "missingTxKeys", missingTxKeys)
-			r.Metrics.MissingTxs.With("proposer_address", pMsg.Proposal.ProposerAddress.String()).Set(float64(len(missingTxKeys)))
-			if len(missingTxKeys) > 0 {
-				var txKeys []*tmproto.TxKey
-				for _, txKey := range missingTxKeys {
-					txKeys = append(txKeys, txKey.ToProto())
-				}
-
-				if err := r.channels.data.Send(ctx, p2p.Envelope{
-					To: ps.peerID,
-					Message: &tmcons.TxRequest{
-						Height: height,
-						Round:  round,
-						TxKeys: txKeys,
-					},
-				}); err != nil {
-					logger.Error("Error sending TxRequest message", "peer", ps.peerID, "height", height, "round", round, "txKeys", txKeys)
-				}
-			}
-		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -1183,7 +1128,6 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		ps.ApplyProposalPOLMessage(msgI.(*ProposalPOLMessage))
 	case *tmcons.BlockPart:
 		bpMsg := msgI.(*BlockPartMessage)
-		//logger.Info("Received block part message", "blockpartmesage", bpMsg)
 
 		ps.SetHasProposalBlockPart(bpMsg.Height, bpMsg.Round, int(bpMsg.Part.Index))
 		r.Metrics.BlockParts.With("peer_id", string(envelope.From)).Add(1)

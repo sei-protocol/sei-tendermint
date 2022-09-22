@@ -102,7 +102,6 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	commit := lastExtCommit.ToCommit()
-	// Always include tx (hashOnly=false) for abci
 	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 	rpp, err := blockExec.appClient.PrepareProposal(
 		ctx,

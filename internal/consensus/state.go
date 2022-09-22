@@ -1028,7 +1028,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
-		//cs.logger.Info("PSULOG - state handleMsg received proposal", "proposal", msg, "cs.ProposalBlockParts", cs.ProposalBlockParts)
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
@@ -1036,6 +1035,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
+		// See if we can try creating the proposal block if keys exist
 		if cs.config.GossipTransactionKeyOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) {
 			created := cs.tryCreateProposalBlock(msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
 			cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(created)).Add(1)
@@ -2463,15 +2463,11 @@ func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.
 	cs.metrics.ProposalTxs.Set(float64(len(cs.Proposal.TxKeys)))
 	missingTxKeys := cs.blockExec.GetMissingTxs(txKeys)
 	if len(missingTxKeys) != 0 {
-		//cs.logger.Info("PSULOG - cannot create block, either proposal is missing or we have missing keys", "proposal", cs.Proposal)
 		cs.metrics.ProposalMissingTxs.Set(float64(len(cs.blockExec.GetMissingTxs(cs.Proposal.TxKeys))))
 		return false
 	} else {
-		//block := types.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, false)
 		block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress)
 		// We have full proposal block. Set txs in proposal block from mempool
-		//cs.logger.Info("PSULOG - populating txs with keys", "keys", txKeys)
-		//cs.logger.Info("PSULOG - recreating proposal block in tryCreate", "block", block)
 		txs := cs.blockExec.GetTxsForKeys(txKeys)
 		block.Version = header.Version
 		block.Data.Txs = txs
@@ -2479,14 +2475,12 @@ func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.
 		block.Header.Time = header.Time
 		block.Header.ProposerAddress = header.ProposerAddress
 		cs.ProposalBlock = block
-		//cs.logger.Info("PSULOG - setting proposal block", "block", block)
 		partSet, err := block.MakePartSet(types.BlockPartSizeBytes)
 		if err != nil {
 			return false
 		}
 		cs.ProposalBlockParts = partSet
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
-		//cs.logger.Info("Successfully recreated proposal block", "block", block)
 		return true
 	}
 }
