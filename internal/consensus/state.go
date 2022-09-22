@@ -1028,7 +1028,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
-		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
+		spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
 
@@ -1037,7 +1037,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
 		// See if we can try creating the proposal block if keys exist
 		if cs.config.GossipTransactionKeyOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) {
-			created := cs.tryCreateProposalBlock(msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
+			created := cs.tryCreateProposalBlock(spanCtx, msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
 			cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(created)).Add(1)
 			if created {
 				cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
@@ -2386,7 +2386,10 @@ func (cs *State) getBlockFromBlockParts() (*types.Block, error) {
 	return block, nil
 }
 
-func (cs *State) tryCreateProposalBlock(height int64, round int32, header types.Header, lastCommit *types.Commit, evidence []types.Evidence, proposerAddress types.Address) bool {
+func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round int32, header types.Header, lastCommit *types.Commit, evidence []types.Evidence, proposerAddress types.Address) bool {
+	_, span := cs.tracer.Start(ctx, "cs.state.tryCreateProposalBlock")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	defer span.End()
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
