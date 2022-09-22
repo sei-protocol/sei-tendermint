@@ -36,9 +36,6 @@ func (m *Message) Wrap(pb proto.Message) error {
 	case *VoteSetBits:
 		m.Sum = &Message_VoteSetBits{VoteSetBits: msg}
 
-	case *TxRequest:
-		m.Sum = &Message_TxRequest{TxRequest: msg}
-
 	default:
 		return fmt.Errorf("unknown message: %T", msg)
 	}
@@ -76,9 +73,6 @@ func (m *Message) Unwrap() (proto.Message, error) {
 
 	case *Message_VoteSetBits:
 		return m.GetVoteSetBits(), nil
-
-	case *Message_TxRequest:
-		return m.GetTxRequest(), nil
 
 	default:
 		return nil, fmt.Errorf("unknown message: %T", msg)

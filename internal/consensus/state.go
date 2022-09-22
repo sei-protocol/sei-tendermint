@@ -1038,7 +1038,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// See if we can try creating the proposal block if keys exist
 		if cs.config.GossipTransactionKeyOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) && cs.ProposalBlock == nil {
 			created := cs.tryCreateProposalBlock(spanCtx, msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
-			cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(created)).Add(1)
 			if created {
 				cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
 			}
@@ -2405,6 +2404,7 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 	missingTxKeys := cs.blockExec.GetMissingTxs(txKeys)
 	if len(missingTxKeys) != 0 {
 		cs.metrics.ProposalMissingTxs.Set(float64(len(cs.blockExec.GetMissingTxs(cs.Proposal.TxKeys))))
+		cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(false)).Add(1)
 		return false
 	} else {
 		block := cs.buildProposalBlock(height, header, lastCommit, evidence, proposerAddress, txKeys)
@@ -2415,6 +2415,7 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 		}
 		cs.ProposalBlockParts = partSet
 		// NOTE: it's possible to receive complete proposal blocks for future rounds without having the proposal
+		cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(true)).Add(1)
 		return true
 	}
 }
