@@ -307,7 +307,7 @@ func MaxDataBytesNoEvidence(maxBytes int64, valsCount int) int64 {
 // computed from itself.
 // It populates the same set of fields validated by ValidateBasic.
 func MakeBlock(height int64, txs []Tx, lastCommit *Commit, evidence []Evidence) *Block {
-	var txKeys []TxKey
+	txKeys := make([]TxKey, 0, len(txs))
 	for _, tx := range txs {
 		txKeys = append(txKeys, tx.Key())
 	}

@@ -179,12 +179,11 @@ func (p *Proposal) ToProto() *tmproto.Proposal {
 	pb.PolRound = p.POLRound
 	pb.Timestamp = p.Timestamp
 	pb.Signature = p.Signature
-	var txKeys []*tmproto.TxKey
+	txKeys := make([]*tmproto.TxKey, 0, len(p.TxKeys))
 	for _, txKey := range p.TxKeys {
 		txKeys = append(txKeys, txKey.ToProto())
 	}
 	pb.TxKeys = txKeys
-	pb.ProposerAddress = p.ProposerAddress
 	pb.LastCommit = p.LastCommit.ToProto()
 	eviD, err := p.Evidence.ToProto()
 	if err != nil {
@@ -232,7 +231,6 @@ func ProposalFromProto(pp *tmproto.Proposal) (*Proposal, error) {
 	eviD := new(EvidenceList)
 	eviD.FromProto(pp.Evidence)
 	p.Evidence = *eviD
-	p.ProposerAddress = pp.ProposerAddress
 
 	return p, p.ValidateBasic()
 }
