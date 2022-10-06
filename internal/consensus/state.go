@@ -1026,8 +1026,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 	)
 
 	msg, peerID := mi.Msg, mi.PeerID
-	cs.logger.Info("TENDERMINT: handleMsg: msg")
-	pp.Println(msg)
 	switch msg := msg.(type) {
 	case *ProposalMessage:
 		cs.logger.Info("TENDERMINT: Recieved ProposalMessage")
