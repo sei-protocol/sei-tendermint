@@ -1028,7 +1028,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 	msg, peerID := mi.Msg, mi.PeerID
 	cs.logger.Info("TENDERMINT: handleMsg: msg")
 	pp.Println(msg)
-
 	switch msg := msg.(type) {
 	case *ProposalMessage:
 		cs.logger.Info("TENDERMINT: Recieved ProposalMessage")
@@ -1048,10 +1047,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 				cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
 			}
 		}
-		cs.logger.Info("TENDERMINT: handleMsg: ProposalMessage: ProposalBlock")
-		pp.Println(cs.ProposalBlock)
-		cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
-
 	case *BlockPartMessage:
 		cs.logger.Info("TENDERMINT: Recieved BlockPartMessage")
 		// // If we have already created block parts, we can exit early if block part matches
@@ -1103,20 +1098,12 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		} else if err != nil {
 			cs.logger.Error("added block part but received error", "error", err, "height", cs.Height, "cs_round", cs.Round, "block_round", msg.Round)
 		}
-
-		cs.logger.Info("TENDERMINT: handleMsg: BlockPartMessage: ProposalBlock")
-		pp.Println(cs.ProposalBlock)
-		cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
-
 	case *VoteMessage:
 		cs.logger.Info("TENDERMINT: handleMsg: Recieved VoteMessage")
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleVoteMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
 		defer span.End()
 
-		cs.logger.Info("TENDERMINT: handleMsg: VoteMessage: ProposalBlock")
-		pp.Println(cs.ProposalBlock)
-		cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		added, err = cs.tryAddVote(ctx, msg.Vote, peerID, span)
@@ -1145,6 +1132,10 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		cs.logger.Error("unknown msg type", "type", fmt.Sprintf("%T", msg))
 		return
 	}
+
+	pp.Println(cs.ProposalBlock.TxKeys)
+	pp.Println(cs.ProposalBlock.Txs)
+	cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 
 	if err != nil {
 		cs.logger.Error(
@@ -1666,7 +1657,6 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 
 	logger.Info("Tendermint:defaultDoPrevote: ProposalBlock: \n", cs.ProposalBlock.String())
-	pp.Println(cs.ProposalBlock)
 	if !cs.Proposal.Timestamp.Equal(cs.ProposalBlock.Header.Time) {
 		logger.Info("prevote step: proposal timestamp not equal; prevoting nil")
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})

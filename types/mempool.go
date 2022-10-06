@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
