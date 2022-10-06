@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/k0kubun/pp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/trace"
 	otrace "go.opentelemetry.io/otel/trace"
@@ -1130,7 +1129,8 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		cs.logger.Error("unknown msg type", "type", fmt.Sprintf("%T", msg))
 		return
 	}
-	cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
+
+	// cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 
 	if err != nil {
 		cs.logger.Error(
@@ -2463,7 +2463,7 @@ func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommi
 func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handleBlockPartSpan otrace.Span) {
 	// Update Valid* if we can.
 	prevotes := cs.Votes.Prevotes(cs.Round)
-	pp.Println(prevotes)
+	// pp.Println(prevotes)
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
 	if hasTwoThirds && !blockID.IsNil() && (cs.ValidRound < cs.Round) {
 		cs.logger.Info("Tendermint:handleCompleteProposal: hasTwoThirds!")
