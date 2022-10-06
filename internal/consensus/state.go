@@ -1477,7 +1477,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 
 	// Make proposal
 	propBlockID := types.BlockID{Hash: block.Hash(), PartSetHeader: blockParts.Header()}
-	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time, block.Data.TxKeys, block.Header, block.LastCommit, block.Evidence, cs.privValidatorPubKey.Address())
+	proposal := types.NewProposal(height, round, cs.ValidRound, propBlockID, block.Header.Time, block.GetTxKeys(), block.Header, block.LastCommit, block.Evidence, cs.privValidatorPubKey.Address())
 	p := proposal.ToProto()
 
 	// wait the max amount we would wait for a proposal

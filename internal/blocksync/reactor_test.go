@@ -2,6 +2,7 @@ package blocksync
 
 import (
 	"context"
+	"github.com/tendermint/tendermint/internal/mempool"
 	"os"
 	"testing"
 	"time"
@@ -128,6 +129,7 @@ func makeReactor(
 		mock.Anything,
 		mock.Anything,
 		mock.Anything).Return(nil)
+	mp.On("TxStore").Return(&mempool.TxStore{})
 
 	eventbus := eventbus.NewDefault(logger)
 	require.NoError(t, eventbus.Start(ctx))
