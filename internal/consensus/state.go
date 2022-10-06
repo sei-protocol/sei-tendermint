@@ -1132,9 +1132,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		cs.logger.Error("unknown msg type", "type", fmt.Sprintf("%T", msg))
 		return
 	}
-
-	pp.Println(cs.ProposalBlock.TxKeys)
-	pp.Println(cs.ProposalBlock.Txs)
 	cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 
 	if err != nil {
