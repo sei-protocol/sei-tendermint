@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/k0kubun/pp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/trace"
 	otrace "go.opentelemetry.io/otel/trace"
@@ -1025,6 +1026,8 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 	)
 
 	msg, peerID := mi.Msg, mi.PeerID
+	cs.logger.Info("TENDERMINT: handleMsg: msg")
+	pp.Println(msg)
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
@@ -1039,10 +1042,14 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// See if we can try creating the proposal block if keys exist
 		if cs.config.GossipTransactionKeyOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) && cs.ProposalBlock == nil {
 			created := cs.tryCreateProposalBlock(spanCtx, msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
+			cs.logger.Info("TENDERMINT: handleMsg: maybe Created Proposal Block from gossip", created)
 			if created {
+				cs.logger.Info("TENDERMINT: handleMsg: fsync")
 				cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
 			}
 		}
+		cs.logger.Info("TENDERMINT: handleMsg: ProposalMessage: ProposalBlock")
+		pp.Println(cs.ProposalBlock)
 
 	case *BlockPartMessage:
 		cs.logger.Info("TENDERMINT: Recieved BlockPartMessage")
@@ -1085,7 +1092,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		}
 
 		if err != nil && msg.Round != cs.Round {
-			cs.logger.Debug(
+			cs.logger.Error(
 				"received block part from wrong round",
 				"height", cs.Height,
 				"cs_round", cs.Round,
@@ -1093,14 +1100,22 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			)
 			err = nil
 		} else if err != nil {
-			cs.logger.Debug("added block part but received error", "error", err, "height", cs.Height, "cs_round", cs.Round, "block_round", msg.Round)
+			cs.logger.Error("added block part but received error", "error", err, "height", cs.Height, "cs_round", cs.Round, "block_round", msg.Round)
 		}
 
+		cs.logger.Info("TENDERMINT: handleMsg: BlockPartMessage: ProposalBlock")
+		pp.Println(cs.ProposalBlock)
+
 	case *VoteMessage:
+		cs.logger.Info("TENDERMINT: handleMsg: Recieved VoteMessage")
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleVoteMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
 		defer span.End()
 
+		cs.logger.Info("TENDERMINT: handleMsg: VoteMessage: ProposalBlock")
+		pp.Println(cs.ProposalBlock)
+		cs.logger.Info("TENDERMINT: handleMsg: VoteMessage: Vote")
+		pp.Println(msg.Vote)
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		added, err = cs.tryAddVote(ctx, msg.Vote, peerID, span)
@@ -1148,11 +1163,11 @@ func (cs *State) handleTimeout(
 	ti timeoutInfo,
 	rs cstypes.RoundState,
 ) {
-	cs.logger.Debug("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	cs.logger.Error("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
 	// timeouts must be for current height, round, step
 	if ti.Height != rs.Height || ti.Round < rs.Round || (ti.Round == rs.Round && ti.Step < rs.Step) {
-		cs.logger.Debug("ignoring tock because we are ahead", "height", rs.Height, "round", rs.Round, "step", rs.Step)
+		cs.logger.Error("ignoring tock because we are ahead", "height", rs.Height, "round", rs.Round, "step", rs.Step)
 		return
 	}
 
@@ -1650,6 +1665,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 
 	logger.Info("Tendermint:defaultDoPrevote: ProposalBlock: \n", cs.ProposalBlock.String())
+	pp.Println(cs.ProposalBlock)
 	if !cs.Proposal.Timestamp.Equal(cs.ProposalBlock.Header.Time) {
 		logger.Info("prevote step: proposal timestamp not equal; prevoting nil")
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
@@ -2500,6 +2516,7 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 func (cs *State) tryAddVote(ctx context.Context, vote *types.Vote, peerID types.NodeID, handleVoteMsgSpan otrace.Span) (bool, error) {
 	added, err := cs.addVote(ctx, vote, peerID, handleVoteMsgSpan)
 	if err != nil {
+		cs.logger.Info("TENDERMINT: handleMsg: tryAddVote: Failed")
 		// If the vote height is off, we'll just ignore it,
 		// But if it's a conflicting sig, add it to the cs.evpool.
 		// If it's otherwise invalid, punish peer.
@@ -2530,7 +2547,7 @@ func (cs *State) tryAddVote(ctx context.Context, vote *types.Vote, peerID types.
 
 			return added, err
 		} else if errors.Is(err, types.ErrVoteNonDeterministicSignature) {
-			cs.logger.Debug("vote has non-deterministic signature", "err", err)
+			cs.logger.Info("vote has non-deterministic signature", "err", err)
 		} else {
 			// Either
 			// 1) bad peer OR
@@ -2541,7 +2558,7 @@ func (cs *State) tryAddVote(ctx context.Context, vote *types.Vote, peerID types.
 			return added, ErrAddingVote
 		}
 	}
-
+	cs.logger.Info("TENDERMINT: handleMsg: tryAddVote: Success!")
 	return added, nil
 }
 
@@ -2663,7 +2680,7 @@ func (cs *State) addVote(
 	switch vote.Type {
 	case tmproto.PrevoteType:
 		prevotes := cs.Votes.Prevotes(vote.Round)
-		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
+		cs.logger.Info("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
 
 		// Check to see if >2/3 of the voting power on the network voted for any non-nil block.
 		if blockID, ok := prevotes.TwoThirdsMajority(); ok && !blockID.IsNil() {
@@ -2673,12 +2690,12 @@ func (cs *State) addVote(
 			// Update Valid* if we can.
 			if cs.ValidRound < vote.Round && vote.Round == cs.Round {
 				if cs.ProposalBlock.HashesTo(blockID.Hash) {
-					cs.logger.Debug("updating valid block because of POL", "valid_round", cs.ValidRound, "pol_round", vote.Round)
+					cs.logger.Info("updating valid block because of POL", "valid_round", cs.ValidRound, "pol_round", vote.Round)
 					cs.ValidRound = vote.Round
 					cs.ValidBlock = cs.ProposalBlock
 					cs.ValidBlockParts = cs.ProposalBlockParts
 				} else {
-					cs.logger.Debug(
+					cs.logger.Info(
 						"valid block we do not know about; set ProposalBlock=nil",
 						"proposal", cs.ProposalBlock.Hash(),
 						"block_id", blockID.Hash,
@@ -2724,7 +2741,7 @@ func (cs *State) addVote(
 
 	case tmproto.PrecommitType:
 		precommits := cs.Votes.Precommits(vote.Round)
-		cs.logger.Debug("added vote to precommit",
+		cs.logger.Info("added vote to precommit",
 			"height", vote.Height,
 			"round", vote.Round,
 			"validator", vote.ValidatorAddress.String(),
