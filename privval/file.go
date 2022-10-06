@@ -404,7 +404,7 @@ func (pv *FilePV) signVote(chainID string, vote *tmproto.Vote) error {
 				return err
 			}
 			if !ok {
-				return errors.New("conflicting data")
+				return errors.New("can't sign vote conflicting data")
 			}
 
 			vote.Timestamp = timestamp
@@ -448,7 +448,7 @@ func (pv *FilePV) signProposal(chainID string, proposal *tmproto.Proposal) error
 	// If signbytes are the same, use the last signature.
 	if sameHRS {
 		if !bytes.Equal(signBytes, lss.SignBytes) {
-			return errors.New("conflicting data")
+			return errors.New("can't sign proposal conflicting data")
 		}
 		proposal.Signature = lss.Signature
 		return nil

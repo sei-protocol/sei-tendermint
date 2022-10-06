@@ -1028,6 +1028,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
+		cs.logger.Info("TENDERMINT: Recieved ProposalMessage")
 		spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
@@ -1044,6 +1045,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		}
 
 	case *BlockPartMessage:
+		cs.logger.Info("TENDERMINT: Recieved BlockPartMessage")
 		// // If we have already created block parts, we can exit early if block part matches
 		// if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlockParts != nil {
 		// 	// Check hash proof matches. If so, we can return
@@ -1606,10 +1608,13 @@ func (cs *State) proposalIsTimely() bool {
 }
 
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
+
 	logger := cs.logger.With("height", height, "round", round)
+	logger.Info("Tendermint:defaultDoPrevote: default prevote")
 
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
 	if !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil {
+		logger.Info("Tendermint:defaultDoPrevote: !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil")
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
@@ -1622,22 +1627,29 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 	// If we're not the proposer, we need to build the block
 	if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
+		logger.Info("Tendermint:defaultDoPrevote: we're building the block!")
 		txKeys := cs.Proposal.TxKeys
 		if cs.ProposalBlockParts.IsComplete() {
 			block, err := cs.getBlockFromBlockParts()
+			logger.Info("Tendermint:defaultDoPrevote: Got block from parts")
 			if err != nil {
 				cs.logger.Error("Encountered error building block from parts", "block parts", cs.ProposalBlockParts)
 				return
 			}
 			// We have full proposal block and txs. Build proposal block with txKeys
+			logger.Info("Tendermint:defaultDoPrevote: building block with txKeys", txKeys)
 			proposalBlock := cs.buildProposalBlock(height, block.Header, block.LastCommit, block.Evidence, block.ProposerAddress, txKeys)
 			if proposalBlock == nil {
+				logger.Info("Tendermint:defaultDoPrevote: Proposal block is nil :(")
 				return
 			}
 			cs.ProposalBlock = proposalBlock
+			logger.Info("Tendermint:defaultDoPrevote: ProposalBlock: \n", cs.ProposalBlock.String())
 		}
 	}
 
+
+	logger.Info("Tendermint:defaultDoPrevote: ProposalBlock: \n", cs.ProposalBlock.String())
 	if !cs.Proposal.Timestamp.Equal(cs.ProposalBlock.Header.Time) {
 		logger.Info("prevote step: proposal timestamp not equal; prevoting nil")
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
@@ -2315,6 +2327,7 @@ func (cs *State) addProposalBlockPart(
 	msg *BlockPartMessage,
 	peerID types.NodeID,
 ) (added bool, err error) {
+	cs.logger.Info("TENDERMINT: Recieved addProposalBlockPart")
 	height, round, part := msg.Height, msg.Round, msg.Part
 
 	// Blocks might be reused, so round mismatch is OK
@@ -2408,6 +2421,7 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 	if cs.Proposal == nil {
 		return false
 	}
+	cs.logger.Info("Tendermint: trying to create proposal block at ", "height", height, "round", round)
 	block := cs.buildProposalBlock(height, header, lastCommit, evidence, proposerAddress, cs.Proposal.TxKeys)
 	if block == nil {
 		cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(false)).Add(1)
