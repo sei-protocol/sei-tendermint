@@ -1044,13 +1044,13 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		}
 
 	case *BlockPartMessage:
-		// If we have already created block parts, we can exit early if block part matches
-		if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlockParts != nil {
-			// Check hash proof matches. If so, we can return
-			if msg.Part.Proof.Verify(cs.ProposalBlockParts.Hash(), msg.Part.Bytes) != nil {
-				return
-			}
-		}
+		// // If we have already created block parts, we can exit early if block part matches
+		// if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlockParts != nil {
+		// 	// Check hash proof matches. If so, we can return
+		// 	if msg.Part.Proof.Verify(cs.ProposalBlockParts.Hash(), msg.Part.Bytes) != nil {
+		// 		return
+		// 	}
+		// }
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleBlockPartMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Round)))
 		defer span.End()
