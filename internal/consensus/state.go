@@ -1050,6 +1050,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		}
 		cs.logger.Info("TENDERMINT: handleMsg: ProposalMessage: ProposalBlock")
 		pp.Println(cs.ProposalBlock)
+		cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 
 	case *BlockPartMessage:
 		cs.logger.Info("TENDERMINT: Recieved BlockPartMessage")
@@ -1105,6 +1106,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		cs.logger.Info("TENDERMINT: handleMsg: BlockPartMessage: ProposalBlock")
 		pp.Println(cs.ProposalBlock)
+		cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 
 	case *VoteMessage:
 		cs.logger.Info("TENDERMINT: handleMsg: Recieved VoteMessage")
@@ -1114,8 +1116,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 		cs.logger.Info("TENDERMINT: handleMsg: VoteMessage: ProposalBlock")
 		pp.Println(cs.ProposalBlock)
-		cs.logger.Info("TENDERMINT: handleMsg: VoteMessage: Vote")
-		pp.Println(msg.Vote)
+		cs.logger.Info(cs.ProposalBlock.StringIndented("	"))
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		added, err = cs.tryAddVote(ctx, msg.Vote, peerID, span)
@@ -2477,10 +2478,12 @@ func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommi
 func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handleBlockPartSpan otrace.Span) {
 	// Update Valid* if we can.
 	prevotes := cs.Votes.Prevotes(cs.Round)
+	pp.Println(prevotes)
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
 	if hasTwoThirds && !blockID.IsNil() && (cs.ValidRound < cs.Round) {
+		cs.logger.Info("Tendermint:handleCompleteProposal: hasTwoThirds!")
 		if cs.ProposalBlock.HashesTo(blockID.Hash) {
-			cs.logger.Debug(
+			cs.logger.Info(
 				"updating valid block to new proposal block",
 				"valid_round", cs.Round,
 				"valid_block_hash", cs.ProposalBlock.Hash(),
@@ -2501,6 +2504,7 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 	handleBlockPartSpan.End()
 
 	if cs.Step <= cstypes.RoundStepPropose && cs.isProposalComplete() {
+		cs.logger.Info("Tendermint:handleCompleteProposal: Proposal is complete - entering PreVote")
 		// Move onto the next step
 		cs.enterPrevote(ctx, height, cs.Round, "complete-proposal")
 		if hasTwoThirds { // this is optimisation as this will be triggered when prevote is added
