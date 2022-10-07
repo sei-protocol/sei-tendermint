@@ -98,6 +98,10 @@ func setup(
 			true,
 			NopMetrics(),
 		)
+		reactor.SetStateChannel(rts.stateChannels[nodeID])
+		reactor.SetDataChannel(rts.dataChannels[nodeID])
+		reactor.SetVoteChannel(rts.voteChannels[nodeID])
+		reactor.SetVoteSetChannel(rts.voteSetBitsChannels[nodeID])
 
 		blocksSub, err := state.eventBus.SubscribeWithArgs(ctx, tmpubsub.SubscribeArgs{
 			ClientID: testSubscriber,

@@ -76,6 +76,7 @@ func setup(
 	i := 0
 	for nodeID := range rts.network.Nodes {
 		rts.addNode(ctx, t, nodeID, genDoc, privVal, maxBlockHeights[i])
+		rts.reactors[nodeID].SetChannel(rts.blockSyncChannels[nodeID])
 		i++
 	}
 
@@ -185,6 +186,7 @@ func (rts *reactorTestSuite) addNode(
 	peerEvents := func(ctx context.Context) *p2p.PeerUpdates { return rts.peerUpdates[nodeID] }
 	reactor := makeReactor(ctx, t, nodeID, genDoc, privVal, chCreator, peerEvents)
 
+	reactor.SetChannel(rts.blockSyncChannels[nodeID])
 	lastExtCommit := &types.ExtendedCommit{}
 
 	state, err := reactor.stateStore.Load()
