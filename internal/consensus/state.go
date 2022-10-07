@@ -1635,6 +1635,8 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 				return
 			}
 			cs.ProposalBlock = proposalBlock
+		} else {
+			return
 		}
 	}
 
