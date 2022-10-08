@@ -237,7 +237,7 @@ func TestStateBadProposal(t *testing.T) {
 	propBlockParts, err := propBlock.MakePartSet(partSize)
 	require.NoError(t, err)
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
-	proposal := types.NewProposal(vs2.Height, round, -1, blockID, propBlock.Header.Time)
+	proposal := types.NewProposal(vs2.Height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := proposal.ToProto()
 	err = vs2.SignProposal(ctx, config.ChainID(), p)
 	require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestStateOversizedBlock(t *testing.T) {
 	propBlock, err := cs1.createProposalBlock(ctx)
 	require.NoError(t, err)
 	propBlock.Data.Txs = []types.Tx{tmrand.Bytes(2001)}
-	propBlock.Header.DataHash = propBlock.Data.Hash()
+	propBlock.Header.DataHash = propBlock.Data.Hash(false)
 
 	// make the second validator the proposer by incrementing round
 	round++
@@ -294,7 +294,7 @@ func TestStateOversizedBlock(t *testing.T) {
 	propBlockParts, err := propBlock.MakePartSet(partSize)
 	require.NoError(t, err)
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
-	proposal := types.NewProposal(height, round, -1, blockID, propBlock.Header.Time)
+	proposal := types.NewProposal(height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := proposal.ToProto()
 	err = vs2.SignProposal(ctx, config.ChainID(), p)
 	require.NoError(t, err)
@@ -802,7 +802,7 @@ func TestStateLock_POLRelock(t *testing.T) {
 	*/
 	incrementRound(vs2, vs3, vs4)
 	round++
-	propR1 := types.NewProposal(height, round, cs1.ValidRound, blockID, theBlock.Header.Time)
+	propR1 := types.NewProposal(height, round, cs1.ValidRound, blockID, theBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := propR1.ToProto()
 	err = vs2.SignProposal(ctx, cs1.state.ChainID, p)
 	require.NoError(t, err)
@@ -1498,7 +1498,7 @@ func TestStateLock_POLSafety2(t *testing.T) {
 
 	round++ // moving to the next round
 	// in round 2 we see the polkad block from round 0
-	newProp := types.NewProposal(height, round, 0, propBlockID0, propBlock0.Header.Time)
+	newProp := types.NewProposal(height, round, 0, propBlockID0, propBlock0.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := newProp.ToProto()
 	err = vs3.SignProposal(ctx, config.ChainID(), p)
 	require.NoError(t, err)
@@ -1637,7 +1637,7 @@ func TestState_PrevotePOLFromPreviousRound(t *testing.T) {
 	*/
 	incrementRound(vs2, vs3, vs4)
 	round++
-	propR2 := types.NewProposal(height, round, 1, r1BlockID, propBlockR1.Header.Time)
+	propR2 := types.NewProposal(height, round, 1, r1BlockID, propBlockR1.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := propR2.ToProto()
 	err = vs3.SignProposal(ctx, cs1.state.ChainID, p)
 	require.NoError(t, err)
@@ -3019,7 +3019,7 @@ func TestStateTimestamp_ProposalNotMatch(t *testing.T) {
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
 
 	// Create a proposal with a timestamp that does not match the timestamp of the block.
-	proposal := types.NewProposal(vs2.Height, round, -1, blockID, propBlock.Header.Time.Add(time.Millisecond))
+	proposal := types.NewProposal(vs2.Height, round, -1, blockID, propBlock.Header.Time.Add(time.Millisecond), []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := proposal.ToProto()
 	err = vs2.SignProposal(ctx, config.ChainID(), p)
 	require.NoError(t, err)
@@ -3067,7 +3067,7 @@ func TestStateTimestamp_ProposalMatch(t *testing.T) {
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
 
 	// Create a proposal with a timestamp that matches the timestamp of the block.
-	proposal := types.NewProposal(vs2.Height, round, -1, blockID, propBlock.Header.Time)
+	proposal := types.NewProposal(vs2.Height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := proposal.ToProto()
 	err = vs2.SignProposal(ctx, config.ChainID(), p)
 	require.NoError(t, err)

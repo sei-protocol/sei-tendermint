@@ -386,7 +386,7 @@ func setupSimulator(ctx context.Context, t *testing.T) *simulatorTestSuite {
 	require.NoError(t, err)
 	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
 
-	proposal := types.NewProposal(vss[1].Height, round, -1, blockID, propBlock.Header.Time)
+	proposal := types.NewProposal(vss[1].Height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p := proposal.ToProto()
 	if err := vss[1].SignProposal(ctx, cfg.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -420,7 +420,7 @@ func setupSimulator(ctx context.Context, t *testing.T) *simulatorTestSuite {
 	require.NoError(t, err)
 	blockID = types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
 
-	proposal = types.NewProposal(vss[2].Height, round, -1, blockID, propBlock.Header.Time)
+	proposal = types.NewProposal(vss[2].Height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p = proposal.ToProto()
 	if err := vss[2].SignProposal(ctx, cfg.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -483,7 +483,7 @@ func setupSimulator(ctx context.Context, t *testing.T) *simulatorTestSuite {
 	selfIndex := valIndexFn(0)
 	require.NotEqual(t, -1, selfIndex)
 
-	proposal = types.NewProposal(vss[3].Height, round, -1, blockID, propBlock.Header.Time)
+	proposal = types.NewProposal(vss[3].Height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p = proposal.ToProto()
 	if err := vss[3].SignProposal(ctx, cfg.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)
@@ -554,7 +554,7 @@ func setupSimulator(ctx context.Context, t *testing.T) *simulatorTestSuite {
 
 	selfIndex = valIndexFn(0)
 	require.NotEqual(t, -1, selfIndex)
-	proposal = types.NewProposal(vss[1].Height, round, -1, blockID, propBlock.Header.Time)
+	proposal = types.NewProposal(vss[1].Height, round, -1, blockID, propBlock.Header.Time, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	p = proposal.ToProto()
 	if err := vss[1].SignProposal(ctx, cfg.ChainID(), p); err != nil {
 		t.Fatal("failed to sign bad proposal", err)

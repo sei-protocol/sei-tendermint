@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/abci/example/kvstore"
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	tmpubsub "github.com/tendermint/tendermint/internal/pubsub"
 	"github.com/tendermint/tendermint/internal/test/factory"
@@ -216,7 +217,7 @@ func (p *pbtsTestHarness) nextHeight(ctx context.Context, t *testing.T, proposer
 	ps, err := b.MakePartSet(types.BlockPartSizeBytes)
 	require.NoError(t, err)
 	bid := types.BlockID{Hash: b.Hash(), PartSetHeader: ps.Header()}
-	prop := types.NewProposal(p.currentHeight, 0, -1, bid, proposedTime)
+	prop := types.NewProposal(p.currentHeight, 0, -1, bid, proposedTime, []types.TxKey{}, types.Header{}, &types.Commit{}, types.EvidenceList{}, crypto.AddressHash([]byte{}))
 	tp := prop.ToProto()
 
 	if err := proposer.SignProposal(ctx, p.observedState.state.ChainID, tp); err != nil {
