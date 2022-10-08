@@ -98,6 +98,7 @@ func setup(
 			true,
 			NopMetrics(),
 		)
+
 		reactor.SetStateChannel(rts.stateChannels[nodeID])
 		reactor.SetDataChannel(rts.dataChannels[nodeID])
 		reactor.SetVoteChannel(rts.voteChannels[nodeID])
