@@ -237,6 +237,7 @@ func TestByzantinePrevoteEquivocation(t *testing.T) {
 	}
 
 	for _, reactor := range rts.reactors {
+		reactor.StopWaitSync()
 		reactor.SwitchToConsensus(ctx, reactor.state.GetState(), false)
 	}
 
