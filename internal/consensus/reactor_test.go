@@ -555,7 +555,7 @@ func TestReactorCreatesBlockWhenEmptyBlocksFalse(t *testing.T) {
 	)
 	t.Cleanup(cleanup)
 
-	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
+	rts := setup(ctx, t, n, states, 1048576) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
 		state := reactor.state.GetState()
@@ -787,7 +787,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 
 	t.Cleanup(cleanup)
 
-	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
+	rts := setup(ctx, t, n, states, 1048576) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
 		state := reactor.state.GetState()

@@ -110,7 +110,7 @@ func TestByzantinePrevoteEquivocation(t *testing.T) {
 		}()
 	}
 
-	rts := setup(ctx, t, nValidators, states, 512) // buffer must be large enough to not deadlock
+	rts := setup(ctx, t, nValidators, states, 1048576) // buffer must be large enough to not deadlock
 
 	var bzNodeID types.NodeID
 

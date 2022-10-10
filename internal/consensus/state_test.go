@@ -2030,9 +2030,9 @@ func TestFinalizeBlockCalled(t *testing.T) {
 			m.AssertExpectations(t)
 
 			if !testCase.expectCalled {
-				m.AssertNotCalled(t, "FinalizeBlock", ctx, mock.Anything)
+				m.AssertNotCalled(t, "FinalizeBlock", mock.Anything, mock.Anything)
 			} else {
-				m.AssertCalled(t, "FinalizeBlock", ctx, mock.Anything)
+				m.AssertCalled(t, "FinalizeBlock", mock.Anything, mock.Anything)
 			}
 		})
 	}
