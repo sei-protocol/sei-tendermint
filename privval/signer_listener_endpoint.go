@@ -1,14 +1,13 @@
 package privval
 
 import (
-	"context"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
 	privvalproto "github.com/tendermint/tendermint/proto/tendermint/privval"
 )
 
@@ -39,7 +38,7 @@ type SignerListenerEndpoint struct {
 	pingTimer     *time.Ticker
 	pingInterval  time.Duration
 
-	instanceMtx sync.Mutex // Ensures instance public methods access, i.e. SendRequest
+	instanceMtx tmsync.Mutex // Ensures instance public methods access, i.e. SendRequest
 }
 
 // NewSignerListenerEndpoint returns an instance of SignerListenerEndpoint.
@@ -53,7 +52,6 @@ func NewSignerListenerEndpoint(
 		timeoutAccept: defaultTimeoutAcceptSeconds * time.Second,
 	}
 
-	sl.signerEndpoint.logger = logger
 	sl.BaseService = *service.NewBaseService(logger, "SignerListenerEndpoint", sl)
 	sl.signerEndpoint.timeoutReadWrite = defaultTimeoutReadWriteSeconds * time.Second
 
@@ -65,7 +63,7 @@ func NewSignerListenerEndpoint(
 }
 
 // OnStart implements service.Service.
-func (sl *SignerListenerEndpoint) OnStart(ctx context.Context) error {
+func (sl *SignerListenerEndpoint) OnStart() error {
 	sl.connectRequestCh = make(chan struct{})
 	sl.connectionAvailableCh = make(chan net.Conn)
 
@@ -73,8 +71,8 @@ func (sl *SignerListenerEndpoint) OnStart(ctx context.Context) error {
 	sl.pingInterval = time.Duration(sl.signerEndpoint.timeoutReadWrite.Milliseconds()*2/3) * time.Millisecond
 	sl.pingTimer = time.NewTicker(sl.pingInterval)
 
-	go sl.serviceLoop(ctx)
-	go sl.pingLoop(ctx)
+	go sl.serviceLoop()
+	go sl.pingLoop()
 
 	sl.connectRequestCh <- struct{}{}
 
@@ -90,7 +88,7 @@ func (sl *SignerListenerEndpoint) OnStop() {
 	// Stop listening
 	if sl.listener != nil {
 		if err := sl.listener.Close(); err != nil {
-			sl.logger.Error("Closing Listener", "err", err)
+			sl.Logger.Error("Closing Listener", "err", err)
 			sl.listener = nil
 		}
 	}
@@ -99,18 +97,18 @@ func (sl *SignerListenerEndpoint) OnStop() {
 }
 
 // WaitForConnection waits maxWait for a connection or returns a timeout error
-func (sl *SignerListenerEndpoint) WaitForConnection(ctx context.Context, maxWait time.Duration) error {
+func (sl *SignerListenerEndpoint) WaitForConnection(maxWait time.Duration) error {
 	sl.instanceMtx.Lock()
 	defer sl.instanceMtx.Unlock()
-	return sl.ensureConnection(ctx, maxWait)
+	return sl.ensureConnection(maxWait)
 }
 
 // SendRequest ensures there is a connection, sends a request and waits for a response
-func (sl *SignerListenerEndpoint) SendRequest(ctx context.Context, request privvalproto.Message) (*privvalproto.Message, error) {
+func (sl *SignerListenerEndpoint) SendRequest(request privvalproto.Message) (*privvalproto.Message, error) {
 	sl.instanceMtx.Lock()
 	defer sl.instanceMtx.Unlock()
 
-	err := sl.ensureConnection(ctx, sl.timeoutAccept)
+	err := sl.ensureConnection(sl.timeoutAccept)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +129,7 @@ func (sl *SignerListenerEndpoint) SendRequest(ctx context.Context, request privv
 	return &res, nil
 }
 
-func (sl *SignerListenerEndpoint) ensureConnection(ctx context.Context, maxWait time.Duration) error {
+func (sl *SignerListenerEndpoint) ensureConnection(maxWait time.Duration) error {
 	if sl.IsConnected() {
 		return nil
 	}
@@ -142,9 +140,14 @@ func (sl *SignerListenerEndpoint) ensureConnection(ctx context.Context, maxWait 
 	}
 
 	// block until connected or timeout
-	sl.logger.Info("SignerListener: Blocking for connection")
+	sl.Logger.Info("SignerListener: Blocking for connection")
 	sl.triggerConnect()
-	return sl.WaitConnection(ctx, sl.connectionAvailableCh, maxWait)
+	err := sl.WaitConnection(sl.connectionAvailableCh, maxWait)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (sl *SignerListenerEndpoint) acceptNewConnection() (net.Conn, error) {
@@ -153,7 +156,7 @@ func (sl *SignerListenerEndpoint) acceptNewConnection() (net.Conn, error) {
 	}
 
 	// wait for a new conn
-	sl.logger.Info("SignerListener: Listening for new connection")
+	sl.Logger.Info("SignerListener: Listening for new connection")
 	conn, err := sl.listener.Accept()
 	if err != nil {
 		return nil, err
@@ -174,19 +177,19 @@ func (sl *SignerListenerEndpoint) triggerReconnect() {
 	sl.triggerConnect()
 }
 
-func (sl *SignerListenerEndpoint) serviceLoop(ctx context.Context) {
+func (sl *SignerListenerEndpoint) serviceLoop() {
 	for {
 		select {
 		case <-sl.connectRequestCh:
 			{
 				conn, err := sl.acceptNewConnection()
 				if err == nil {
-					sl.logger.Info("SignerListener: Connected")
+					sl.Logger.Info("SignerListener: Connected")
 
 					// We have a good connection, wait for someone that needs one otherwise cancellation
 					select {
 					case sl.connectionAvailableCh <- conn:
-					case <-ctx.Done():
+					case <-sl.Quit():
 						return
 					}
 				}
@@ -196,24 +199,24 @@ func (sl *SignerListenerEndpoint) serviceLoop(ctx context.Context) {
 				default:
 				}
 			}
-		case <-ctx.Done():
+		case <-sl.Quit():
 			return
 		}
 	}
 }
 
-func (sl *SignerListenerEndpoint) pingLoop(ctx context.Context) {
+func (sl *SignerListenerEndpoint) pingLoop() {
 	for {
 		select {
 		case <-sl.pingTimer.C:
 			{
-				_, err := sl.SendRequest(ctx, mustWrapMsg(&privvalproto.PingRequest{}))
+				_, err := sl.SendRequest(mustWrapMsg(&privvalproto.PingRequest{}))
 				if err != nil {
-					sl.logger.Error("SignerListener: Ping timeout")
+					sl.Logger.Error("SignerListener: Ping timeout")
 					sl.triggerReconnect()
 				}
 			}
-		case <-ctx.Done():
+		case <-sl.Quit():
 			return
 		}
 	}

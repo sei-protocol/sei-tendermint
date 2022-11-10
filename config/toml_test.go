@@ -14,57 +14,65 @@ func ensureFiles(t *testing.T, rootDir string, files ...string) {
 	for _, f := range files {
 		p := rootify(rootDir, f)
 		_, err := os.Stat(p)
-		assert.NoError(t, err, p)
+		assert.Nil(t, err, p)
 	}
 }
 
 func TestEnsureRoot(t *testing.T) {
+	require := require.New(t)
+
 	// setup temp dir for test
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp("", "config-test")
+	require.Nil(err)
+	defer os.RemoveAll(tmpDir)
 
 	// create root dir
 	EnsureRoot(tmpDir)
 
-	require.NoError(t, WriteConfigFile(tmpDir, DefaultConfig()))
-
 	// make sure config is set properly
 	data, err := os.ReadFile(filepath.Join(tmpDir, defaultConfigFilePath))
-	require.NoError(t, err)
+	require.Nil(err)
 
-	checkConfig(t, string(data))
+	if !checkConfig(string(data)) {
+		t.Fatalf("config file missing some information")
+	}
 
 	ensureFiles(t, tmpDir, "data")
 }
 
 func TestEnsureTestRoot(t *testing.T) {
+	require := require.New(t)
+
 	testName := "ensureTestRoot"
 
 	// create root dir
-	cfg, err := ResetTestRoot(t.TempDir(), testName)
-	require.NoError(t, err)
+	cfg := ResetTestRoot(testName)
 	defer os.RemoveAll(cfg.RootDir)
 	rootDir := cfg.RootDir
 
 	// make sure config is set properly
 	data, err := os.ReadFile(filepath.Join(rootDir, defaultConfigFilePath))
-	require.NoError(t, err)
+	require.Nil(err)
 
-	checkConfig(t, string(data))
+	if !checkConfig(string(data)) {
+		t.Fatalf("config file missing some information")
+	}
 
 	// TODO: make sure the cfg returned and testconfig are the same!
 	baseConfig := DefaultBaseConfig()
-	pvConfig := DefaultPrivValidatorConfig()
-	ensureFiles(t, rootDir, defaultDataDir, baseConfig.Genesis, pvConfig.Key, pvConfig.State)
+	ensureFiles(t, rootDir, defaultDataDir, baseConfig.Genesis, baseConfig.PrivValidatorKey, baseConfig.PrivValidatorState)
 }
 
-func checkConfig(t *testing.T, configFile string) {
-	t.Helper()
+func checkConfig(configFile string) bool {
+	var valid bool
+
 	// list of words we expect in the config
 	var elems = []string{
 		"moniker",
 		"seeds",
-		"proxy-app",
-		"create-empty-blocks",
+		"proxy_app",
+		"fast_sync",
+		"create_empty_blocks",
 		"peer",
 		"timeout",
 		"broadcast",
@@ -77,7 +85,10 @@ func checkConfig(t *testing.T, configFile string) {
 	}
 	for _, e := range elems {
 		if !strings.Contains(configFile, e) {
-			t.Errorf("config file was expected to contain %s but did not", e)
+			valid = false
+		} else {
+			valid = true
 		}
 	}
+	return valid
 }

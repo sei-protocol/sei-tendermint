@@ -18,11 +18,11 @@ graceful here, but that's for another day.
 
 It's possible to fool lite clients without there being a fork on the
 main chain - so called Fork-Lite. See the
-[fork accountability](https://github.com/tendermint/tendermint/blob/master/spec/light-client/accountability/README.md)
+[fork accountability](https://github.com/tendermint/tendermint/blob/v0.37.x/spec/light-client/accountability/README.md)
 document for more details. For a sequential lite client, this can happen via
 equivocation or amnesia attacks. For a skipping lite client this can also happen
 via lunatic validator attacks. There must be some way for applications to punish
-all forms of misbehaviour.
+all forms of misbehavior.
 
 The essential question is whether Tendermint should manage the evidence
 verification, or whether it should treat evidence more like a transaction (ie.
@@ -31,7 +31,7 @@ checking).
 
 Currently, evidence verification is handled by Tendermint. Once committed,
 [evidence is passed over
-ABCI](https://github.com/tendermint/tendermint/blob/master/proto/tendermint/abci/types.proto#L354)
+ABCI](https://github.com/tendermint/tendermint/blob/v0.37.x/proto/tendermint/abci/types.proto#L354)
 in BeginBlock in a reduced form that includes only
 the type of evidence, its height and timestamp, the validator it's from, and the
 total voting power of the validator set at the height. The app trusts Tendermint
@@ -52,7 +52,7 @@ Arguments in favor of leaving evidence handling in Tendermint:
   currently](https://github.com/tendermint/tendermint/blob/c67154232ca8be8f5c21dff65d154127adc4f7bb/docs/spec/consensus/fork-detection.md)
   is via a centralized
   monitor service that is trusted for liveness to aggregate data from
-  current and past validators, but which produces a proof of misbehaviour (ie.
+  current and past validators, but which produces a proof of misbehavior (ie.
   via amnesia) that can be verified by anyone, including the blockchain.
   Validators must submit all the votes they saw for the relevant consensus
   height to justify their precommits. This is quite specific to the Tendermint

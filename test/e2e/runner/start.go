@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -10,7 +9,7 @@ import (
 	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
 )
 
-func Start(ctx context.Context, logger log.Logger, testnet *e2e.Testnet) error {
+func Start(testnet *e2e.Testnet) error {
 	if len(testnet.Nodes) == 0 {
 		return fmt.Errorf("no nodes in testnet")
 	}
@@ -47,18 +46,10 @@ func Start(ctx context.Context, logger log.Logger, testnet *e2e.Testnet) error {
 		if err := execCompose(testnet.Dir, "up", "-d", node.Name); err != nil {
 			return err
 		}
-
-		if err := func() error {
-			ctx, cancel := context.WithTimeout(ctx, time.Minute)
-			defer cancel()
-
-			_, err := waitForNode(ctx, logger, node, 0)
-			return err
-		}(); err != nil {
+		if _, err := waitForNode(node, 0, 15*time.Second); err != nil {
 			return err
 		}
-		node.HasStarted = true
-		logger.Info(fmt.Sprintf("Node %v up on http://127.0.0.1:%v", node.Name, node.ProxyPort))
+		logger.Info("start", "msg", log.NewLazySprintf("Node %v up on http://127.0.0.1:%v", node.Name, node.ProxyPort))
 	}
 
 	networkHeight := testnet.InitialHeight
@@ -69,9 +60,19 @@ func Start(ctx context.Context, logger log.Logger, testnet *e2e.Testnet) error {
 		"nodes", len(testnet.Nodes)-len(nodeQueue),
 		"pending", len(nodeQueue))
 
-	block, blockID, err := waitForHeight(ctx, testnet, networkHeight)
+	block, blockID, err := waitForHeight(testnet, networkHeight)
 	if err != nil {
 		return err
+	}
+
+	// Update any state sync nodes with a trusted height and hash
+	for _, node := range nodeQueue {
+		if node.StateSync || node.Mode == e2e.ModeLight {
+			err = UpdateConfigStateSync(node, block.Height, blockID.Hash.Bytes())
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	for _, node := range nodeQueue {
@@ -83,53 +84,28 @@ func Start(ctx context.Context, logger log.Logger, testnet *e2e.Testnet) error {
 			// that this node will start at before we
 			// start the node.
 
-			logger.Info("Waiting for network to advance to height",
-				"node", node.Name,
-				"last_height", networkHeight,
-				"waiting_for", node.StartAt,
-				"size", len(testnet.Nodes)-len(nodeQueue),
-				"pending", len(nodeQueue))
-
 			networkHeight = node.StartAt
 
-			block, blockID, err = waitForHeight(ctx, testnet, networkHeight)
-			if err != nil {
+			logger.Info("Waiting for network to advance before starting catch up node",
+				"node", node.Name,
+				"height", networkHeight)
+
+			if _, _, err := waitForHeight(testnet, networkHeight); err != nil {
 				return err
 			}
 		}
 
-		// Update any state sync nodes with a trusted height and hash
-		if node.StateSync != e2e.StateSyncDisabled || node.Mode == e2e.ModeLight {
-			err = UpdateConfigStateSync(node, block.Height, blockID.Hash.Bytes())
-			if err != nil {
-				return err
-			}
-		}
+		logger.Info("Starting catch up node", "node", node.Name, "height", node.StartAt)
 
 		if err := execCompose(testnet.Dir, "up", "-d", node.Name); err != nil {
 			return err
 		}
-
-		wctx, wcancel := context.WithTimeout(ctx, 8*time.Minute)
-		status, err := waitForNode(wctx, logger, node, node.StartAt)
+		status, err := waitForNode(node, node.StartAt, 3*time.Minute)
 		if err != nil {
-			wcancel()
 			return err
 		}
-		wcancel()
-
-		node.HasStarted = true
-
-		var lastNodeHeight int64
-
-		// If the node is a light client, we fetch its current height
-		if node.Mode == e2e.ModeLight {
-			lastNodeHeight = status.LightClientInfo.LastTrustedHeight
-		} else {
-			lastNodeHeight = status.SyncInfo.LatestBlockHeight
-		}
-		logger.Info(fmt.Sprintf("Node %v up on http://127.0.0.1:%v at height %v",
-			node.Name, node.ProxyPort, lastNodeHeight))
+		logger.Info("start", "msg", log.NewLazySprintf("Node %v up on http://127.0.0.1:%v at height %v",
+			node.Name, node.ProxyPort, status.SyncInfo.LatestBlockHeight))
 	}
 
 	return nil

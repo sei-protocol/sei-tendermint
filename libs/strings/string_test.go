@@ -4,69 +4,38 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestSplitAndTrimEmpty(t *testing.T) {
-	testCases := []struct {
-		s        string
-		sep      string
-		cutset   string
-		expected []string
-	}{
-		{"a,b,c", ",", " ", []string{"a", "b", "c"}},
-		{" a , b , c ", ",", " ", []string{"a", "b", "c"}},
-		{" a, b, c ", ",", " ", []string{"a", "b", "c"}},
-		{" a, ", ",", " ", []string{"a"}},
-		{"   ", ",", " ", []string{}},
-	}
-
-	for _, tc := range testCases {
-		require.Equal(t, tc.expected, SplitAndTrimEmpty(tc.s, tc.sep, tc.cutset), "%s", tc.s)
-	}
+func TestStringInSlice(t *testing.T) {
+	assert.True(t, StringInSlice("a", []string{"a", "b", "c"}))
+	assert.False(t, StringInSlice("d", []string{"a", "b", "c"}))
+	assert.True(t, StringInSlice("", []string{""}))
+	assert.False(t, StringInSlice("", []string{}))
 }
 
-func assertCorrectTrim(t *testing.T, input, expected string) {
-	t.Helper()
-	output, err := ASCIITrim(input)
-	require.NoError(t, err)
-	require.Equal(t, expected, output)
+func TestIsASCIIText(t *testing.T) {
+	notASCIIText := []string{
+		"", "\xC2", "\xC2\xA2", "\xFF", "\x80", "\xF0", "\n", "\t",
+	}
+	for _, v := range notASCIIText {
+		assert.False(t, IsASCIIText(v), "%q is not ascii-text", v)
+	}
+	asciiText := []string{
+		" ", ".", "x", "$", "_", "abcdefg;", "-", "0x00", "0", "123",
+	}
+	for _, v := range asciiText {
+		assert.True(t, IsASCIIText(v), "%q is ascii-text", v)
+	}
 }
 
 func TestASCIITrim(t *testing.T) {
-	t.Run("Validation", func(t *testing.T) {
-		t.Run("NonASCII", func(t *testing.T) {
-			notASCIIText := []string{
-				"\xC2", "\xC2\xA2", "\xFF", "\x80", "\xF0", "\n", "\t",
-			}
-			for _, v := range notASCIIText {
-				_, err := ASCIITrim(v)
-				require.Error(t, err, "%q is not ascii-text", v)
-			}
-		})
-		t.Run("EmptyString", func(t *testing.T) {
-			out, err := ASCIITrim("")
-			require.NoError(t, err)
-			require.Zero(t, out)
-		})
-		t.Run("ASCIIText", func(t *testing.T) {
-			asciiText := []string{
-				" ", ".", "x", "$", "_", "abcdefg;", "-", "0x00", "0", "123",
-			}
-			for _, v := range asciiText {
-				_, err := ASCIITrim(v)
-				require.NoError(t, err, "%q is  ascii-text", v)
-			}
-		})
-		_, err := ASCIITrim("\xC2\xA2")
-		require.Error(t, err)
-	})
-	t.Run("Trimming", func(t *testing.T) {
-		assertCorrectTrim(t, " ", "")
-		assertCorrectTrim(t, " a", "a")
-		assertCorrectTrim(t, "a ", "a")
-		assertCorrectTrim(t, " a ", "a")
-	})
-
+	assert.Equal(t, ASCIITrim(" "), "")
+	assert.Equal(t, ASCIITrim(" a"), "a")
+	assert.Equal(t, ASCIITrim("a "), "a")
+	assert.Equal(t, ASCIITrim(" a "), "a")
+	assert.Panics(t, func() { ASCIITrim("\xC2\xA2") })
 }
 
 func TestStringSliceEqual(t *testing.T) {

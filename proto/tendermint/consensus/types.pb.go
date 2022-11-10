@@ -5,8 +5,8 @@ package consensus
 
 import (
 	fmt "fmt"
-	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
+	_ "github.com/cosmos/gogoproto/gogoproto"
+	proto "github.com/cosmos/gogoproto/proto"
 	bits "github.com/tendermint/tendermint/proto/tendermint/libs/bits"
 	types "github.com/tendermint/tendermint/proto/tendermint/types"
 	io "io"
@@ -103,10 +103,8 @@ func (m *NewRoundStep) GetLastCommitRound() int32 {
 	return 0
 }
 
-// NewValidBlock is sent when a validator observes a valid block B in some round
-// r,
-// i.e., there is a Proposal for block B and 2/3+ prevotes for the block B in
-// the round r.
+// NewValidBlock is sent when a validator observes a valid block B in some round r,
+// i.e., there is a Proposal for block B and 2/3+ prevotes for the block B in the round r.
 // In case the block is also committed, then IsCommit flag is set to true.
 type NewValidBlock struct {
 	Height             int64               `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
@@ -465,8 +463,8 @@ func (m *HasVote) GetIndex() int32 {
 	return 0
 }
 
+// VoteSetMaj23 is sent to indicate that a given BlockID has seen +2/3 votes.
 type VoteSetMaj23 struct {
-	// VoteSetMaj23 is sent to indicate that a given BlockID has seen +2/3 votes.
 	Height  int64               `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
 	Round   int32               `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`
 	Type    types.SignedMsgType `protobuf:"varint,3,opt,name=type,proto3,enum=tendermint.types.SignedMsgType" json:"type,omitempty"`
@@ -534,8 +532,7 @@ func (m *VoteSetMaj23) GetBlockID() types.BlockID {
 	return types.BlockID{}
 }
 
-// VoteSetBits is sent to communicate the bit-array of votes seen for the
-// BlockID.
+// VoteSetBits is sent to communicate the bit-array of votes seen for the BlockID.
 type VoteSetBits struct {
 	Height  int64               `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
 	Round   int32               `protobuf:"varint,2,opt,name=round,proto3" json:"round,omitempty"`

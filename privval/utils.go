@@ -27,17 +27,13 @@ func IsConnTimeout(err error) bool {
 
 // NewSignerListener creates a new SignerListenerEndpoint using the corresponding listen address
 func NewSignerListener(listenAddr string, logger log.Logger) (*SignerListenerEndpoint, error) {
-	protocol, address := tmnet.ProtocolAndAddress(listenAddr)
-	if protocol != "unix" && protocol != "tcp" { //nolint:goconst
-		return nil, fmt.Errorf("unsupported address family %q, want unix or tcp", protocol)
-	}
+	var listener net.Listener
 
+	protocol, address := tmnet.ProtocolAndAddress(listenAddr)
 	ln, err := net.Listen(protocol, address)
 	if err != nil {
 		return nil, err
 	}
-
-	var listener net.Listener
 	switch protocol {
 	case "unix":
 		listener = NewUnixListener(ln)
@@ -45,8 +41,22 @@ func NewSignerListener(listenAddr string, logger log.Logger) (*SignerListenerEnd
 		// TODO: persist this key so external signer can actually authenticate us
 		listener = NewTCPListener(ln, ed25519.GenPrivKey())
 	default:
-		panic("invalid protocol: " + protocol) // semantically unreachable
+		return nil, fmt.Errorf(
+			"wrong listen address: expected either 'tcp' or 'unix' protocols, got %s",
+			protocol,
+		)
 	}
 
-	return NewSignerListenerEndpoint(logger.With("module", "privval"), listener), nil
+	pve := NewSignerListenerEndpoint(logger.With("module", "privval"), listener)
+
+	return pve, nil
+}
+
+// GetFreeLocalhostAddrPort returns a free localhost:port address
+func GetFreeLocalhostAddrPort() string {
+	port, err := tmnet.GetFreePort()
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("127.0.0.1:%d", port)
 }

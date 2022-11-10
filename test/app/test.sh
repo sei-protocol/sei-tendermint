@@ -1,5 +1,5 @@
-#!/bin/bash
-set -exo pipefail
+#! /bin/bash
+set -ex
 
 #- kvstore over socket, curl
 
@@ -8,23 +8,13 @@ set -exo pipefail
 export PATH="$GOBIN:$PATH"
 export TMHOME=$HOME/.tendermint_app
 
-function init_validator() {
-    rm -rf -- "$TMHOME"
-    tendermint init validator
-
-    # The default configuration sets a null indexer, but these tests require
-    # indexing to be enabled. Rewrite the config file to set the "kv" indexer
-    # before starting up the node.
-    sed -i'' -e '/indexer = \["null"\]/c\
-indexer = ["kv"]' "$TMHOME/config/config.toml"
-}
-
-function kvstore_over_socket() {
-    init_validator
+function kvstore_over_socket(){
+    rm -rf $TMHOME
+    tendermint init
     echo "Starting kvstore_over_socket"
     abci-cli kvstore > /dev/null &
     pid_kvstore=$!
-    tendermint start --mode validator > tendermint.log &
+    tendermint node > tendermint.log &
     pid_tendermint=$!
     sleep 5
 
@@ -35,10 +25,11 @@ function kvstore_over_socket() {
 }
 
 # start tendermint first
-function kvstore_over_socket_reorder() {
-    init_validator
+function kvstore_over_socket_reorder(){
+    rm -rf $TMHOME
+    tendermint init
     echo "Starting kvstore_over_socket_reorder (ie. start tendermint first)"
-    tendermint start --mode validator > tendermint.log &
+    tendermint node > tendermint.log &
     pid_tendermint=$!
     sleep 2
     abci-cli kvstore > /dev/null &
@@ -51,7 +42,7 @@ function kvstore_over_socket_reorder() {
     kill -9 $pid_kvstore $pid_tendermint
 }
 
-case "$1" in
+case "$1" in 
     "kvstore_over_socket")
     kvstore_over_socket
     ;;

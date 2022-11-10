@@ -6,8 +6,6 @@ services:
     image: "tendermint/localnode"
     ports:
       - "26656-26657:26656-26657"
-      - "6060:6060"
-      - "27000:26660"
     environment:
       - ID=0
       - LOG=${LOG:-tendermint.log}
@@ -65,5 +63,4 @@ networks:
     ipam:
       driver: default
       config:
-        -
-          subnet: 192.167.10.0/16
+        - subnet: 192.167.10.0/16

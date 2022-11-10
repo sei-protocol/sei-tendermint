@@ -1,24 +1,23 @@
 ---
 order: 1
 parent:
-  title: Understanding Tendermint
-  order: 5
+  title: Tendermint Core
+  order: 4
 ---
 
 # Overview
 
-This section dives into the internals of Go-Tendermint.
+This section dives into the internals of Tendermint the implementation.
 
 - [Using Tendermint](./using-tendermint.md)
+- [Configuration](./configuration.md)
+- [Running in Production](./running-in-production.md)
+- [Metrics](./metrics.md)
+- [Validators](./validators.md)
 - [Subscribing to events](./subscription.md)
 - [Block Structure](./block-structure.md)
 - [RPC](./rpc.md)
-- [Block Sync](./block-sync/README.md)
-- [State Sync](./state-sync/README.md)
-- [Mempool](./mempool/README.md)
+- [Block Sync](./block-sync.md)
+- [State Sync](./state-sync.md)
+- [Mempool](./mempool.md)
 - [Light Client](./light-client.md)
-- [Consensus](./consensus/README.md)
-- [Peer Exchange (PEX)](./pex/README.md)
-- [Evidence](./evidence/README.md)
-
-For full specifications refer to the [spec repo](https://github.com/tendermint/spec).

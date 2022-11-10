@@ -1,4 +1,3 @@
-//nolint: goconst
 package main
 
 import (
@@ -24,6 +23,7 @@ type Config struct {
 	PrivValServer    string                      `toml:"privval_server"`
 	PrivValKey       string                      `toml:"privval_key"`
 	PrivValState     string                      `toml:"privval_state"`
+	Misbehaviors     map[string]string           `toml:"misbehaviors"`
 	KeyType          string                      `toml:"key_type"`
 }
 
@@ -55,6 +55,8 @@ func LoadConfig(file string) (*Config, error) {
 
 // Validate validates the configuration. We don't do exhaustive config
 // validation here, instead relying on Testnet.Validate() to handle it.
+//
+//nolint:goconst
 func (cfg Config) Validate() error {
 	switch {
 	case cfg.ChainID == "":

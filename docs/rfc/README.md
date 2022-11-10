@@ -58,5 +58,8 @@ sections.
 - [RFC-018: BLS Signature Aggregation Exploration](./rfc-018-bls-agg-exploration.md)
 - [RFC-019: Configuration File Versioning](./rfc-019-config-version.md)
 - [RFC-020: Onboarding Projects](./rfc-020-onboarding-projects.rst)
+- [RFC-021: The Future of the Socket Protocol](./rfc-021-socket-protocol.md)
+- [RFC-023: Semi-permanent Testnet](./rfc-023-semi-permanent-testnet.md)
+- [RFC-024: Block Structure Consolidation](./rfc-024-block-structure-consolidation.md)
 
 <!-- - [RFC-NNN: Title](./rfc-NNN-title.md) -->

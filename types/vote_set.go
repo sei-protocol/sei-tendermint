@@ -2,13 +2,12 @@ package types
 
 import (
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/tendermint/tendermint/libs/bits"
+	tmjson "github.com/tendermint/tendermint/libs/json"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
@@ -19,59 +18,63 @@ const (
 	MaxVotesCount = 10000
 )
 
+// UNSTABLE
+// XXX: duplicate of p2p.ID to avoid dependence between packages.
+// Perhaps we can have a minimal types package containing this (and other things?)
+// that both `types` and `p2p` import ?
+type P2PID string
+
 /*
-	VoteSet helps collect signatures from validators at each height+round for a
-	predefined vote type.
+VoteSet helps collect signatures from validators at each height+round for a
+predefined vote type.
 
-	We need VoteSet to be able to keep track of conflicting votes when validators
-	double-sign.  Yet, we can't keep track of *all* the votes seen, as that could
-	be a DoS attack vector.
+We need VoteSet to be able to keep track of conflicting votes when validators
+double-sign.  Yet, we can't keep track of *all* the votes seen, as that could
+be a DoS attack vector.
 
-	There are two storage areas for votes.
-	1. voteSet.votes
-	2. voteSet.votesByBlock
+There are two storage areas for votes.
+1. voteSet.votes
+2. voteSet.votesByBlock
 
-	`.votes` is the "canonical" list of votes.  It always has at least one vote,
-	if a vote from a validator had been seen at all.  Usually it keeps track of
-	the first vote seen, but when a 2/3 majority is found, votes for that get
-	priority and are copied over from `.votesByBlock`.
+`.votes` is the "canonical" list of votes.  It always has at least one vote,
+if a vote from a validator had been seen at all.  Usually it keeps track of
+the first vote seen, but when a 2/3 majority is found, votes for that get
+priority and are copied over from `.votesByBlock`.
 
-	`.votesByBlock` keeps track of a list of votes for a particular block.  There
-	are two ways a &blockVotes{} gets created in `.votesByBlock`.
-	1. the first vote seen by a validator was for the particular block.
-	2. a peer claims to have seen 2/3 majority for the particular block.
+`.votesByBlock` keeps track of a list of votes for a particular block.  There
+are two ways a &blockVotes{} gets created in `.votesByBlock`.
+1. the first vote seen by a validator was for the particular block.
+2. a peer claims to have seen 2/3 majority for the particular block.
 
-	Since the first vote from a validator will always get added in `.votesByBlock`
-	, all votes in `.votes` will have a corresponding entry in `.votesByBlock`.
+Since the first vote from a validator will always get added in `.votesByBlock`
+, all votes in `.votes` will have a corresponding entry in `.votesByBlock`.
 
-	When a &blockVotes{} in `.votesByBlock` reaches a 2/3 majority quorum, its
-	votes are copied into `.votes`.
+When a &blockVotes{} in `.votesByBlock` reaches a 2/3 majority quorum, its
+votes are copied into `.votes`.
 
-	All this is memory bounded because conflicting votes only get added if a peer
-	told us to track that block, each peer only gets to tell us 1 such block, and,
-	there's only a limited number of peers.
+All this is memory bounded because conflicting votes only get added if a peer
+told us to track that block, each peer only gets to tell us 1 such block, and,
+there's only a limited number of peers.
 
-	NOTE: Assumes that the sum total of voting power does not exceed MaxUInt64.
+NOTE: Assumes that the sum total of voting power does not exceed MaxUInt64.
 */
 type VoteSet struct {
-	chainID           string
-	height            int64
-	round             int32
-	signedMsgType     tmproto.SignedMsgType
-	valSet            *ValidatorSet
-	extensionsEnabled bool
+	chainID       string
+	height        int64
+	round         int32
+	signedMsgType tmproto.SignedMsgType
+	valSet        *ValidatorSet
 
-	mtx           sync.Mutex
+	mtx           tmsync.Mutex
 	votesBitArray *bits.BitArray
 	votes         []*Vote                // Primary votes to share
 	sum           int64                  // Sum of voting power for seen votes, discounting conflicts
 	maj23         *BlockID               // First 2/3 majority seen
 	votesByBlock  map[string]*blockVotes // string(blockHash|blockParts) -> blockVotes
-	peerMaj23s    map[string]BlockID     // Maj23 for each peer
+	peerMaj23s    map[P2PID]BlockID      // Maj23 for each peer
 }
 
-// NewVoteSet instantiates all fields of a new vote set. This constructor requires
-// that no vote extension data be present on the votes that are added to the set.
+// Constructs a new VoteSet struct used to accumulate votes for given height/round.
 func NewVoteSet(chainID string, height int64, round int32,
 	signedMsgType tmproto.SignedMsgType, valSet *ValidatorSet) *VoteSet {
 	if height == 0 {
@@ -88,18 +91,8 @@ func NewVoteSet(chainID string, height int64, round int32,
 		sum:           0,
 		maj23:         nil,
 		votesByBlock:  make(map[string]*blockVotes, valSet.Size()),
-		peerMaj23s:    make(map[string]BlockID),
+		peerMaj23s:    make(map[P2PID]BlockID),
 	}
-}
-
-// NewExtendedVoteSet constructs a vote set with additional vote verification logic.
-// The VoteSet constructed with NewExtendedVoteSet verifies the vote extension
-// data for every vote added to the set.
-func NewExtendedVoteSet(chainID string, height int64, round int32,
-	signedMsgType tmproto.SignedMsgType, valSet *ValidatorSet) *VoteSet {
-	vs := NewVoteSet(chainID, height, round, signedMsgType, valSet)
-	vs.extensionsEnabled = true
-	return vs
 }
 
 func (voteSet *VoteSet) ChainID() string {
@@ -140,8 +133,10 @@ func (voteSet *VoteSet) Size() int {
 
 // Returns added=true if vote is valid and new.
 // Otherwise returns err=ErrVote[
-//		UnexpectedStep | InvalidIndex | InvalidAddress |
-//		InvalidSignature | InvalidBlockHash | ConflictingVotes ]
+//
+//	UnexpectedStep | InvalidIndex | InvalidAddress |
+//	InvalidSignature | InvalidBlockHash | ConflictingVotes ]
+//
 // Duplicate votes return added=false, err=nil.
 // Conflicting votes return added=*, err=ErrVoteConflictingVotes.
 // NOTE: vote should not be mutated after adding.
@@ -207,17 +202,8 @@ func (voteSet *VoteSet) addVote(vote *Vote) (added bool, err error) {
 	}
 
 	// Check signature.
-	if voteSet.extensionsEnabled {
-		if err := vote.VerifyVoteAndExtension(voteSet.chainID, val.PubKey); err != nil {
-			return false, fmt.Errorf("failed to verify vote with ChainID %s and PubKey %s: %w", voteSet.chainID, val.PubKey, err)
-		}
-	} else {
-		if err := vote.Verify(voteSet.chainID, val.PubKey); err != nil {
-			return false, fmt.Errorf("failed to verify vote with ChainID %s and PubKey %s: %w", voteSet.chainID, val.PubKey, err)
-		}
-		if len(vote.ExtensionSignature) > 0 || len(vote.Extension) > 0 {
-			return false, errors.New("unexpected vote extension data present in vote")
-		}
+	if err := vote.Verify(voteSet.chainID, val.PubKey); err != nil {
+		return false, fmt.Errorf("failed to verify vote with ChainID %s and PubKey %s: %w", voteSet.chainID, val.PubKey, err)
 	}
 
 	// Add vote and get conflicting vote if any.
@@ -240,6 +226,13 @@ func (voteSet *VoteSet) getVote(valIndex int32, blockKey string) (vote *Vote, ok
 		return existing, true
 	}
 	return nil, false
+}
+
+func (voteSet *VoteSet) GetVotes() []*Vote {
+	if voteSet == nil {
+		return nil
+	}
+	return voteSet.votes
 }
 
 // Assumes signature is valid.
@@ -322,7 +315,7 @@ func (voteSet *VoteSet) addVerifiedVote(
 // this can cause memory issues.
 // TODO: implement ability to remove peers too
 // NOTE: VoteSet must not be nil
-func (voteSet *VoteSet) SetPeerMaj23(peerID string, blockID BlockID) error {
+func (voteSet *VoteSet) SetPeerMaj23(peerID P2PID, blockID BlockID) error {
 	if voteSet == nil {
 		panic("SetPeerMaj23() on nil VoteSet")
 	}
@@ -388,9 +381,6 @@ func (voteSet *VoteSet) GetByIndex(valIndex int32) *Vote {
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	if int(valIndex) >= len(voteSet.votes) {
-		return nil
-	}
 	return voteSet.votes[valIndex]
 }
 
@@ -528,7 +518,7 @@ func (voteSet *VoteSet) StringIndented(indent string) string {
 func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
-	return json.Marshal(VoteSetJSON{
+	return tmjson.Marshal(VoteSetJSON{
 		voteSet.voteStrings(),
 		voteSet.bitArrayString(),
 		voteSet.peerMaj23s,
@@ -536,12 +526,12 @@ func (voteSet *VoteSet) MarshalJSON() ([]byte, error) {
 }
 
 // More human readable JSON of the vote set
-// NOTE: insufficient for unmarshaling from (compressed votes)
+// NOTE: insufficient for unmarshalling from (compressed votes)
 // TODO: make the peerMaj23s nicer to read (eg just the block hash)
 type VoteSetJSON struct {
-	Votes         []string           `json:"votes"`
-	VotesBitArray string             `json:"votes_bit_array"`
-	PeerMaj23s    map[string]BlockID `json:"peer_maj_23s"`
+	Votes         []string          `json:"votes"`
+	VotesBitArray string            `json:"votes_bit_array"`
+	PeerMaj23s    map[P2PID]BlockID `json:"peer_maj_23s"`
 }
 
 // Return the bit-array of votes including
@@ -621,50 +611,45 @@ func (voteSet *VoteSet) sumTotalFrac() (int64, int64, float64) {
 //--------------------------------------------------------------------------------
 // Commit
 
-// MakeExtendedCommit constructs a Commit from the VoteSet. It only includes
-// precommits for the block, which has 2/3+ majority, and nil.
+// MakeCommit constructs a Commit from the VoteSet. It only includes precommits
+// for the block, which has 2/3+ majority, and nil.
 //
 // Panics if the vote type is not PrecommitType or if there's no +2/3 votes for
 // a single block.
-func (voteSet *VoteSet) MakeExtendedCommit() *ExtendedCommit {
+func (voteSet *VoteSet) MakeCommit() *Commit {
 	if voteSet.signedMsgType != tmproto.PrecommitType {
-		panic("Cannot MakeExtendCommit() unless VoteSet.Type is PrecommitType")
+		panic("Cannot MakeCommit() unless VoteSet.Type is PrecommitType")
 	}
 	voteSet.mtx.Lock()
 	defer voteSet.mtx.Unlock()
 
 	// Make sure we have a 2/3 majority
 	if voteSet.maj23 == nil {
-		panic("Cannot MakeExtendCommit() unless a blockhash has +2/3")
+		panic("Cannot MakeCommit() unless a blockhash has +2/3")
 	}
 
-	// For every validator, get the precommit with extensions
-	sigs := make([]ExtendedCommitSig, len(voteSet.votes))
+	// For every validator, get the precommit
+	commitSigs := make([]CommitSig, len(voteSet.votes))
 	for i, v := range voteSet.votes {
-		sig := v.ExtendedCommitSig()
+		commitSig := v.CommitSig()
 		// if block ID exists but doesn't match, exclude sig
-		if sig.BlockIDFlag == BlockIDFlagCommit && !v.BlockID.Equals(*voteSet.maj23) {
-			sig = NewExtendedCommitSigAbsent()
+		if commitSig.ForBlock() && !v.BlockID.Equals(*voteSet.maj23) {
+			commitSig = NewCommitSigAbsent()
 		}
 
-		sigs[i] = sig
+		commitSigs[i] = commitSig
 	}
 
-	return &ExtendedCommit{
-		Height:             voteSet.GetHeight(),
-		Round:              voteSet.GetRound(),
-		BlockID:            *voteSet.maj23,
-		ExtendedSignatures: sigs,
-	}
+	return NewCommit(voteSet.GetHeight(), voteSet.GetRound(), *voteSet.maj23, commitSigs)
 }
 
 //--------------------------------------------------------------------------------
 
 /*
-	Votes for a particular block
-	There are two ways a *blockVotes gets created for a blockKey.
-	1. first (non-conflicting) vote of a validator w/ blockKey (peerMaj23=false)
-	2. A peer claims to have a 2/3 majority w/ blockKey (peerMaj23=true)
+Votes for a particular block
+There are two ways a *blockVotes gets created for a blockKey.
+1. first (non-conflicting) vote of a validator w/ blockKey (peerMaj23=false)
+2. A peer claims to have a 2/3 majority w/ blockKey (peerMaj23=true)
 */
 type blockVotes struct {
 	peerMaj23 bool           // peer claims to have maj23

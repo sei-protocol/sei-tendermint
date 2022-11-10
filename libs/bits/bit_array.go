@@ -2,15 +2,13 @@ package bits
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"math"
-	"math/rand"
 	"regexp"
 	"strings"
 	"sync"
 
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	tmrand "github.com/tendermint/tendermint/libs/rand"
 	tmprotobits "github.com/tendermint/tendermint/proto/tendermint/libs/bits"
 )
 
@@ -27,21 +25,9 @@ func NewBitArray(bits int) *BitArray {
 	if bits <= 0 {
 		return nil
 	}
-	bA := &BitArray{}
-	bA.reset(bits)
-	return bA
-}
-
-// reset changes size of BitArray to `bits` and re-allocates (zeroed) data buffer
-func (bA *BitArray) reset(bits int) {
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
-
-	bA.Bits = bits
-	if bits == 0 {
-		bA.Elems = nil
-	} else {
-		bA.Elems = make([]uint64, numElems(bits))
+	return &BitArray{
+		Bits:  bits,
+		Elems: make([]uint64, (bits+63)/64),
 	}
 }
 
@@ -72,7 +58,7 @@ func (bA *BitArray) getIndex(i int) bool {
 }
 
 // SetIndex sets the bit at index i within the bit array.
-// This method returns false if i is out of range of the BitArray.
+// The behavior is undefined if i >= bA.Bits
 func (bA *BitArray) SetIndex(i int, v bool) bool {
 	if bA == nil {
 		return false
@@ -83,7 +69,7 @@ func (bA *BitArray) SetIndex(i int, v bool) bool {
 }
 
 func (bA *BitArray) setIndex(i int, v bool) bool {
-	if i < 0 || i >= bA.Bits {
+	if i >= bA.Bits {
 		return false
 	}
 	if v {
@@ -114,7 +100,7 @@ func (bA *BitArray) copy() *BitArray {
 }
 
 func (bA *BitArray) copyBits(bits int) *BitArray {
-	c := make([]uint64, numElems(bits))
+	c := make([]uint64, (bits+63)/64)
 	copy(c, bA.Elems)
 	return &BitArray{
 		Bits:  bits,
@@ -254,7 +240,7 @@ func (bA *BitArray) IsFull() bool {
 
 // PickRandom returns a random index for a set bit in the bit array.
 // If there is no such value, it returns 0, false.
-// It uses math/rand's global randomness Source to get this index.
+// It uses the global randomness in `random.go` to get this index.
 func (bA *BitArray) PickRandom() (int, bool) {
 	if bA == nil {
 		return 0, false
@@ -268,13 +254,7 @@ func (bA *BitArray) PickRandom() (int, bool) {
 		return 0, false
 	}
 
-	// NOTE: using the default math/rand might result in somewhat
-	// amount of determinism here. It would be possible to use
-	// rand.New(rand.NewSeed(time.Now().Unix())).Intn() to
-	// counteract this possibility if it proved to be material.
-	//
-	// nolint:gosec // G404: Use of weak random number generator
-	return trueIndices[rand.Intn(len(trueIndices))], true
+	return trueIndices[tmrand.Intn(len(trueIndices))], true
 }
 
 func (bA *BitArray) getTrueIndices() []int {
@@ -414,7 +394,8 @@ func (bA *BitArray) UnmarshalJSON(bz []byte) error {
 	if b == "null" {
 		// This is required e.g. for encoding/json when decoding
 		// into a pointer with pre-allocated BitArray.
-		bA.reset(0)
+		bA.Bits = 0
+		bA.Elems = nil
 		return nil
 	}
 
@@ -424,63 +405,40 @@ func (bA *BitArray) UnmarshalJSON(bz []byte) error {
 		return fmt.Errorf("bitArray in JSON should be a string of format %q but got %s", bitArrayJSONRegexp.String(), b)
 	}
 	bits := match[1]
-	numBits := len(bits)
 
-	bA.reset(numBits)
+	// Construct new BitArray and copy over.
+	numBits := len(bits)
+	bA2 := NewBitArray(numBits)
 	for i := 0; i < numBits; i++ {
 		if bits[i] == 'x' {
-			bA.SetIndex(i, true)
+			bA2.SetIndex(i, true)
 		}
 	}
-
+	*bA = *bA2 //nolint:govet
 	return nil
 }
 
-// ToProto converts BitArray to protobuf. It returns nil if BitArray is
-// nil/empty.
+// ToProto converts BitArray to protobuf
 func (bA *BitArray) ToProto() *tmprotobits.BitArray {
-	if bA == nil ||
-		(len(bA.Elems) == 0 && bA.Bits == 0) { // empty
+	if bA == nil || len(bA.Elems) == 0 {
 		return nil
 	}
 
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
-
-	bc := bA.copy()
-	return &tmprotobits.BitArray{Bits: int64(bc.Bits), Elems: bc.Elems}
+	return &tmprotobits.BitArray{
+		Bits:  int64(bA.Bits),
+		Elems: bA.Elems,
+	}
 }
 
-// FromProto sets BitArray to the given protoBitArray. It returns an error if
-// protoBitArray is invalid.
-func (bA *BitArray) FromProto(protoBitArray *tmprotobits.BitArray) error {
+// FromProto sets a protobuf BitArray to the given pointer.
+func (bA *BitArray) FromProto(protoBitArray *tmprotobits.BitArray) {
 	if protoBitArray == nil {
-		return nil
+		bA = nil
+		return
 	}
-
-	// Validate protoBitArray.
-	if protoBitArray.Bits < 0 {
-		return errors.New("negative Bits")
-	}
-	// #[32bit]
-	if protoBitArray.Bits > math.MaxInt32 { // prevent overflow on 32bit systems
-		return errors.New("too many Bits")
-	}
-	if got, exp := len(protoBitArray.Elems), numElems(int(protoBitArray.Bits)); got != exp {
-		return fmt.Errorf("invalid number of Elems: got %d, but exp %d", got, exp)
-	}
-
-	bA.mtx.Lock()
-	defer bA.mtx.Unlock()
-
-	ec := make([]uint64, len(protoBitArray.Elems))
-	copy(ec, protoBitArray.Elems)
 
 	bA.Bits = int(protoBitArray.Bits)
-	bA.Elems = ec
-	return nil
-}
-
-func numElems(bits int) int {
-	return (bits + 63) / 64
+	if len(protoBitArray.Elems) > 0 {
+		bA.Elems = protoBitArray.Elems
+	}
 }

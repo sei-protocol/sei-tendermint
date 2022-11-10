@@ -9,20 +9,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fortytw2/leaktest"
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	"github.com/tendermint/tendermint/libs/log"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
+	types "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 )
 
-const wsCallTimeout = 5 * time.Second
+var wsCallTimeout = 5 * time.Second
 
-type myTestHandler struct {
+type myHandler struct {
 	closeConnAfterRead bool
-	mtx                sync.RWMutex
-	t                  *testing.T
+	mtx                tmsync.RWMutex
 }
 
 var upgrader = websocket.Upgrader{
@@ -30,10 +29,11 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func (h *myTestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *myHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-	require.NoError(h.t, err)
-
+	if err != nil {
+		panic(err)
+	}
 	defer conn.Close()
 	for {
 		messageType, in, err := conn.ReadMessage()
@@ -41,23 +41,22 @@ func (h *myTestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		var req rpctypes.RPCRequest
+		var req types.RPCRequest
 		err = json.Unmarshal(in, &req)
-		require.NoError(h.t, err)
+		if err != nil {
+			panic(err)
+		}
 
-		func() {
-			h.mtx.RLock()
-			defer h.mtx.RUnlock()
-
-			if h.closeConnAfterRead {
-				require.NoError(h.t, conn.Close())
+		h.mtx.RLock()
+		if h.closeConnAfterRead {
+			if err := conn.Close(); err != nil {
+				panic(err)
 			}
-		}()
+		}
+		h.mtx.RUnlock()
 
 		res := json.RawMessage(`{}`)
-
-		emptyRespBytes, err := json.Marshal(req.MakeResponse(res))
-		require.NoError(h.t, err)
+		emptyRespBytes, _ := json.Marshal(types.RPCResponse{Result: res, ID: req.ID})
 		if err := conn.WriteMessage(messageType, emptyRespBytes); err != nil {
 			return
 		}
@@ -65,26 +64,25 @@ func (h *myTestHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestWSClientReconnectsAfterReadFailure(t *testing.T) {
-	t.Cleanup(leaktest.Check(t))
+	var wg sync.WaitGroup
 
 	// start server
-	h := &myTestHandler{t: t}
+	h := &myHandler{}
 	s := httptest.NewServer(h)
 	defer s.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	c := startClient(t, "//"+s.Listener.Addr().String())
+	defer c.Stop() //nolint:errcheck // ignore for tests
 
-	c := startClient(ctx, t, "//"+s.Listener.Addr().String())
-
-	go handleResponses(ctx, t, c)
+	wg.Add(1)
+	go callWgDoneOnResult(t, c, &wg)
 
 	h.mtx.Lock()
 	h.closeConnAfterRead = true
 	h.mtx.Unlock()
 
 	// results in WS read error, no send retry because write succeeded
-	call(ctx, t, "a", c)
+	call(t, "a", c)
 
 	// expect to reconnect almost immediately
 	time.Sleep(10 * time.Millisecond)
@@ -93,23 +91,23 @@ func TestWSClientReconnectsAfterReadFailure(t *testing.T) {
 	h.mtx.Unlock()
 
 	// should succeed
-	call(ctx, t, "b", c)
+	call(t, "b", c)
+
+	wg.Wait()
 }
 
 func TestWSClientReconnectsAfterWriteFailure(t *testing.T) {
-	t.Cleanup(leaktest.Check(t))
+	var wg sync.WaitGroup
 
 	// start server
-	h := &myTestHandler{t: t}
+	h := &myHandler{}
 	s := httptest.NewServer(h)
-	defer s.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	c := startClient(t, "//"+s.Listener.Addr().String())
+	defer c.Stop() //nolint:errcheck // ignore for tests
 
-	c := startClient(ctx, t, "//"+s.Listener.Addr().String())
-
-	go handleResponses(ctx, t, c)
+	wg.Add(2)
+	go callWgDoneOnResult(t, c, &wg)
 
 	// hacky way to abort the connection before write
 	if err := c.conn.Close(); err != nil {
@@ -117,32 +115,30 @@ func TestWSClientReconnectsAfterWriteFailure(t *testing.T) {
 	}
 
 	// results in WS write error, the client should resend on reconnect
-	call(ctx, t, "a", c)
+	call(t, "a", c)
 
 	// expect to reconnect almost immediately
 	time.Sleep(10 * time.Millisecond)
 
 	// should succeed
-	call(ctx, t, "b", c)
+	call(t, "b", c)
+
+	wg.Wait()
 }
 
 func TestWSClientReconnectFailure(t *testing.T) {
-	t.Cleanup(leaktest.Check(t))
-
 	// start server
-	h := &myTestHandler{t: t}
+	h := &myHandler{}
 	s := httptest.NewServer(h)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	c := startClient(ctx, t, "//"+s.Listener.Addr().String())
+	c := startClient(t, "//"+s.Listener.Addr().String())
+	defer c.Stop() //nolint:errcheck // ignore for tests
 
 	go func() {
 		for {
 			select {
 			case <-c.ResponsesCh:
-			case <-ctx.Done():
+			case <-c.Quit():
 				return
 			}
 		}
@@ -156,9 +152,9 @@ func TestWSClientReconnectFailure(t *testing.T) {
 
 	// results in WS write error
 	// provide timeout to avoid blocking
-	cctx, cancel := context.WithTimeout(ctx, wsCallTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), wsCallTimeout)
 	defer cancel()
-	if err := c.Call(cctx, "a", make(map[string]interface{})); err != nil {
+	if err := c.Call(ctx, "a", make(map[string]interface{})); err != nil {
 		t.Error(err)
 	}
 
@@ -168,7 +164,7 @@ func TestWSClientReconnectFailure(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		// client should block on this
-		call(ctx, t, "b", c)
+		call(t, "b", c)
 		close(done)
 	}()
 
@@ -182,55 +178,44 @@ func TestWSClientReconnectFailure(t *testing.T) {
 }
 
 func TestNotBlockingOnStop(t *testing.T) {
-	t.Cleanup(leaktest.Check(t))
-
-	s := httptest.NewServer(&myTestHandler{t: t})
-	defer s.Close()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	c := startClient(ctx, t, "//"+s.Listener.Addr().String())
-	require.NoError(t, c.Call(ctx, "a", make(map[string]interface{})))
-
-	time.Sleep(200 * time.Millisecond) // give service routines time to start ⚠️
-	done := make(chan struct{})
+	timeout := 2 * time.Second
+	s := httptest.NewServer(&myHandler{})
+	c := startClient(t, "//"+s.Listener.Addr().String())
+	c.Call(context.Background(), "a", make(map[string]interface{})) //nolint:errcheck // ignore for tests
+	// Let the readRoutine get around to blocking
+	time.Sleep(time.Second)
+	passCh := make(chan struct{})
 	go func() {
-		cancel()
-		if assert.NoError(t, c.Stop()) {
-			close(done)
-		}
+		// Unless we have a non-blocking write to ResponsesCh from readRoutine
+		// this blocks forever ont the waitgroup
+		err := c.Stop()
+		require.NoError(t, err)
+		passCh <- struct{}{}
 	}()
 	select {
-	case <-done:
-		t.Log("Stopped client successfully")
-	case <-time.After(2 * time.Second):
-		t.Fatal("Timed out waiting for client to stop")
+	case <-passCh:
+		// Pass
+	case <-time.After(timeout):
+		t.Fatalf("WSClient did failed to stop within %v seconds - is one of the read/write routines blocking?",
+			timeout.Seconds())
 	}
 }
 
-func startClient(ctx context.Context, t *testing.T, addr string) *WSClient {
-	t.Helper()
-
-	t.Cleanup(leaktest.Check(t))
-
+func startClient(t *testing.T, addr string) *WSClient {
 	c, err := NewWS(addr, "/websocket")
-	require.NoError(t, err)
-	require.NoError(t, c.Start(ctx))
+	require.Nil(t, err)
+	err = c.Start()
+	require.Nil(t, err)
+	c.SetLogger(log.TestingLogger())
 	return c
 }
 
-func call(ctx context.Context, t *testing.T, method string, c *WSClient) {
-	t.Helper()
-
-	err := c.Call(ctx, method, make(map[string]interface{}))
-	if ctx.Err() == nil {
-		require.NoError(t, err)
-	}
+func call(t *testing.T, method string, c *WSClient) {
+	err := c.Call(context.Background(), method, make(map[string]interface{}))
+	require.NoError(t, err)
 }
 
-func handleResponses(ctx context.Context, t *testing.T, c *WSClient) {
-	t.Helper()
-
+func callWgDoneOnResult(t *testing.T, c *WSClient, wg *sync.WaitGroup) {
 	for {
 		select {
 		case resp := <-c.ResponsesCh:
@@ -239,9 +224,9 @@ func handleResponses(ctx context.Context, t *testing.T, c *WSClient) {
 				return
 			}
 			if resp.Result != nil {
-				return
+				wg.Done()
 			}
-		case <-ctx.Done():
+		case <-c.Quit():
 			return
 		}
 	}

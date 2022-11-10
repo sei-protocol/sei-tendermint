@@ -1,27 +1,20 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fortytw2/leaktest"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/libs/log"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	types "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 )
 
 func TestWebsocketManagerHandler(t *testing.T) {
-	logger := log.NewNopLogger()
-
-	s := newWSServer(t, logger)
+	s := newWSServer()
 	defer s.Close()
-
-	t.Cleanup(leaktest.Check(t))
 
 	// check upgrader works
 	d := websocket.Dialer{}
@@ -33,33 +26,31 @@ func TestWebsocketManagerHandler(t *testing.T) {
 	}
 
 	// check basic functionality works
-	req := rpctypes.NewRequest(1001)
-	require.NoError(t, req.SetMethodAndParams("c", map[string]interface{}{"s": "a", "i": 10}))
-	require.NoError(t, c.WriteJSON(req))
+	req, err := types.MapToRequest(
+		types.JSONRPCStringID("TestWebsocketManager"),
+		"c",
+		map[string]interface{}{"s": "a", "i": 10},
+	)
+	require.NoError(t, err)
+	err = c.WriteJSON(req)
+	require.NoError(t, err)
 
-	var resp rpctypes.RPCResponse
+	var resp types.RPCResponse
 	err = c.ReadJSON(&resp)
 	require.NoError(t, err)
 	require.Nil(t, resp.Error)
 	dialResp.Body.Close()
 }
 
-func newWSServer(t *testing.T, logger log.Logger) *httptest.Server {
-	type args struct {
-		S string      `json:"s"`
-		I json.Number `json:"i"`
-	}
+func newWSServer() *httptest.Server {
 	funcMap := map[string]*RPCFunc{
-		"c": NewWSRPCFunc(func(context.Context, *args) (string, error) { return "foo", nil }),
+		"c": NewWSRPCFunc(func(ctx *types.Context, s string, i int) (string, error) { return "foo", nil }, "s,i"),
 	}
-	wm := NewWebsocketManager(logger, funcMap)
+	wm := NewWebsocketManager(funcMap)
+	wm.SetLogger(log.TestingLogger())
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/websocket", wm.WebsocketHandler)
 
-	srv := httptest.NewServer(mux)
-
-	t.Cleanup(srv.Close)
-
-	return srv
+	return httptest.NewServer(mux)
 }

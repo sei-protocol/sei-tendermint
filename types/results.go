@@ -18,10 +18,12 @@ func NewResults(responses []*abci.ResponseDeliverTx) ABCIResults {
 	return res
 }
 
+// Hash returns a merkle hash of all results.
 func (a ABCIResults) Hash() []byte {
 	return merkle.HashFromByteSlices(a.toByteSlices())
 }
 
+// ProveResult returns a merkle proof of one result from the set
 func (a ABCIResults) ProveResult(i int) merkle.Proof {
 	_, proofs := merkle.ProofsFromByteSlices(a.toByteSlices())
 	return *proofs[i]
@@ -40,6 +42,8 @@ func (a ABCIResults) toByteSlices() [][]byte {
 	return bzs
 }
 
+// deterministicResponseDeliverTx strips non-deterministic fields from
+// ResponseDeliverTx and returns another ResponseDeliverTx.
 func deterministicResponseDeliverTx(response *abci.ResponseDeliverTx) *abci.ResponseDeliverTx {
 	return &abci.ResponseDeliverTx{
 		Code:      response.Code,

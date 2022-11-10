@@ -8,14 +8,6 @@ order: 3
 
 To download pre-built binaries, see the [releases page](https://github.com/tendermint/tendermint/releases).
 
-## Using Homebrew
-
-You can also install the Tendermint binary by simply using homebrew,
-
-```
-brew install tendermint
-```
-
 ## From Source
 
 You'll need `go` [installed](https://golang.org/doc/install) and the required
@@ -26,14 +18,14 @@ echo export GOPATH=\"\$HOME/go\" >> ~/.bash_profile
 echo export PATH=\"\$PATH:\$GOPATH/bin\" >> ~/.bash_profile
 ```
 
-Get the source code:
+### Get Source Code
 
 ```sh
 git clone https://github.com/tendermint/tendermint.git
 cd tendermint
 ```
 
-Then run:
+### Compile
 
 ```sh
 make install
@@ -64,8 +56,8 @@ tendermint version
 To start a one-node blockchain with a simple in-process application:
 
 ```sh
-tendermint init validator
-tendermint start --proxy-app=kvstore
+tendermint init
+tendermint node --proxy_app=kvstore
 ```
 
 ## Reinstall

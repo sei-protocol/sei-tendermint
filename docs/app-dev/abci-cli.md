@@ -27,17 +27,16 @@ Usage:
   abci-cli [command]
 
 Available Commands:
-  batch          Run a batch of abci commands against an application
-  check_tx       Validate a tx
-  commit         Commit the application state and return the Merkle root hash
-  console        Start an interactive abci console for multiple commands
-  finalize_block Send a set of transactions to the application
-  kvstore        ABCI demo example
-  echo           Have the application echo a message
-  help           Help about any command
-  info           Get some info about the application
-  query          Query the application state
-  set_option     Set an options on the application
+  batch       Run a batch of abci commands against an application
+  check_tx    Validate a tx
+  commit      Commit the application state and return the Merkle root hash
+  console     Start an interactive abci console for multiple commands
+  deliver_tx  Deliver a new tx to the application
+  kvstore     ABCI demo example
+  echo        Have the application echo a message
+  help        Help about any command
+  info        Get some info about the application
+  query       Query the application state
 
 Flags:
       --abci string      socket or grpc (default "socket")
@@ -53,7 +52,7 @@ Use "abci-cli [command] --help" for more information about a command.
 The `abci-cli` tool lets us send ABCI messages to our application, to
 help build and debug them.
 
-The most important messages are `finalize_block`, `check_tx`, and `commit`,
+The most important messages are `deliver_tx`, `check_tx`, and `commit`,
 but there are others for convenience, configuration, and information
 purposes.
 
@@ -62,7 +61,7 @@ as `abci-cli` above. The kvstore just stores transactions in a merkle
 tree.
 
 Its code can be found
-[here](https://github.com/tendermint/tendermint/blob/master/abci/cmd/abci-cli/abci-cli.go)
+[here](https://github.com/tendermint/tendermint/blob/v0.34.x/abci/cmd/abci-cli/abci-cli.go)
 and looks like:
 
 ```go
@@ -83,19 +82,19 @@ func cmdKVStore(cmd *cobra.Command, args []string) error {
     if err != nil {
         return err
     }
-
-    // Stop upon receiving SIGTERM or CTRL-C.
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
     srv.SetLogger(logger.With("module", "abci-server"))
-    if err := srv.Start(ctx); err != nil {
+    if err := srv.Start(); err != nil {
         return err
     }
 
-    // Run until shutdown.
-<-ctx.Done()
-srv.Wait()
+    // Stop upon receiving SIGTERM or CTRL-C.
+    tmos.TrapSignal(logger, func() {
+        // Cleanup
+        srv.Stop()
+    })
+
+    // Run forever.
+    select {}
 }
 ```
 
@@ -137,7 +136,7 @@ response.
 
 The server may be generic for a particular language, and we provide a
 [reference implementation in
-Golang](https://github.com/tendermint/tendermint/tree/master/abci/server). See the
+Golang](https://github.com/tendermint/tendermint/tree/v0.37.x/abci/server). See the
 [list of other ABCI implementations](https://github.com/tendermint/awesome#ecosystem) for servers in
 other languages.
 
@@ -169,12 +168,19 @@ Try running these commands:
 -> data: {"size":0}
 -> data.hex: 0x7B2273697A65223A307D
 
-> finalize_block "abc"
+> prepare_proposal "abc"
 -> code: OK
+-> log: Succeeded. Tx: abc action: UNMODIFIED
+
+> process_proposal "abc"
 -> code: OK
--> data.hex: 0x0200000000000000
+-> status: ACCEPT
 
 > commit
+-> code: OK
+-> data.hex: 0x0000000000000000
+
+> deliver_tx "abc"
 -> code: OK
 
 > info
@@ -182,36 +188,62 @@ Try running these commands:
 -> data: {"size":1}
 -> data.hex: 0x7B2273697A65223A317D
 
+> commit
+-> code: OK
+-> data.hex: 0x0200000000000000
+
 > query "abc"
 -> code: OK
 -> log: exists
--> height: 1
+-> height: 2
 -> key: abc
 -> key.hex: 616263
 -> value: abc
 -> value.hex: 616263
 
-> finalize_block "def=xyz" "ghi=123"
+> deliver_tx "def=xyz"
 -> code: OK
--> code: OK
--> code: OK
--> data.hex: 0x0600000000000000
 
 > commit
 -> code: OK
+-> data.hex: 0x0400000000000000
 
 > query "def"
 -> code: OK
 -> log: exists
--> height: 2
+-> height: 3
 -> key: def
 -> key.hex: 646566
 -> value: xyz
 -> value.hex: 78797A
+
+> prepare_proposal "preparedef"
+-> code: OK
+-> log: Succeeded. Tx: def action: ADDED
+-> code: OK
+-> log: Succeeded. Tx: preparedef action: REMOVED
+
+> process_proposal "def"
+-> code: OK
+-> status: ACCEPT
+
+> process_proposal "preparedef"
+-> code: OK
+-> status: REJECT
+
+> prepare_proposal 
+
+> process_proposal 
+-> code: OK
+-> status: ACCEPT
+
+> commit 
+-> code: OK
+-> data.hex: 0x0400000000000000
 ```
 
-Note that if we do `finalize_block "abc" ...` it will store `(abc, abc)`, but if
-we do `finalize_block "abc=efg" ...` it will store `(abc, efg)`.
+Note that if we do `deliver_tx "abc"` it will store `(abc, abc)`, but if
+we do `deliver_tx "abc=efg"` it will store `(abc, efg)`.
 
 Similarly, you could put the commands in a file and run
 `abci-cli --verbose batch < myfile`.
@@ -228,6 +260,7 @@ deployment, the role of sending messages is taken by Tendermint, which
 connects to the app using three separate connections, each with its own
 pattern of messages.
 
-For examples of running an ABCI app with
+For more information, see the [application developers
+guide](./app-development.md). For examples of running an ABCI app with
 Tendermint, see the [getting started guide](./getting-started.md).
 Next is the ABCI specification.

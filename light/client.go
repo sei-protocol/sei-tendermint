@@ -11,9 +11,9 @@ import (
 
 	"github.com/tendermint/tendermint/libs/log"
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
 	"github.com/tendermint/tendermint/light/provider"
 	"github.com/tendermint/tendermint/light/store"
-
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -23,24 +23,11 @@ const (
 	sequential mode = iota + 1
 	skipping
 
-	defaultPruningSize = 1000
-
-	// For verifySkipping, we need an algorithm to find what height to check
-	// next to see if it has sufficient validator set overlap. The most
-	// intuitive method is to take the halfway point i.e. if you trusted block
-	// 1 and were not able to verify block 128 then your next try would be 64.
-	//
-	// However, because this implementation caches all the prior results, instead of always taking halfpoints
-	// it is more efficient to re-check cached blocks. Take this simple example. Say
-	// you failed to verify 64 but were able to verify block 32. Following a strict half-way policy,
-	// you would start over again and try verify to block 128. If this failed
-	// then the halfway point between 32 and 128 is 80. But you already have
-	// block 64. Instead of requesting and waiting for another block it is far
-	// better to try again with block 64. This is of course not directly in the
-	// middle. In fact, no matter how the algrorithm plays out, the blocks in
-	// cache are always going to be a little less than the halfway point (
-	// maximum 1/8 less). To account for this we add a heuristic, bumping the
-	// next height to 9/16 instead of 1/2
+	defaultPruningSize      = 1000
+	defaultMaxRetryAttempts = 10
+	// For verifySkipping, when using the cache of headers from the previous batch,
+	// they will always be at a height greater than 1/2 (normal verifySkipping) so to
+	// find something in between the range, 9/16 is used.
 	verifySkippingNumerator   = 9
 	verifySkippingDenominator = 16
 
@@ -61,7 +48,9 @@ type Option func(*Client)
 // check the blocks (every block, in ascending height order). Note this is
 // much slower than SkippingVerification, albeit more secure.
 func SequentialVerification() Option {
-	return func(c *Client) { c.verificationMode = sequential }
+	return func(c *Client) {
+		c.verificationMode = sequential
+	}
 }
 
 // SkippingVerification option configures the light client to skip blocks as
@@ -85,18 +74,41 @@ func SkippingVerification(trustLevel tmmath.Fraction) Option {
 // the h amount of light blocks will be removed from the store.
 // Default: 1000. A pruning size of 0 will not prune the light client at all.
 func PruningSize(h uint16) Option {
-	return func(c *Client) { c.pruningSize = h }
+	return func(c *Client) {
+		c.pruningSize = h
+	}
+}
+
+// ConfirmationFunction option can be used to prompt to confirm an action. For
+// example, remove newer headers if the light client is being reset with an
+// older header. No confirmation is required by default!
+func ConfirmationFunction(fn func(action string) bool) Option {
+	return func(c *Client) {
+		c.confirmationFn = fn
+	}
 }
 
 // Logger option can be used to set a logger for the client.
 func Logger(l log.Logger) Option {
-	return func(c *Client) { c.logger = l }
+	return func(c *Client) {
+		c.logger = l
+	}
+}
+
+// MaxRetryAttempts option can be used to set max attempts before replacing
+// primary with a witness.
+func MaxRetryAttempts(max uint16) Option {
+	return func(c *Client) {
+		c.maxRetryAttempts = max
+	}
 }
 
 // MaxClockDrift defines how much new header's time can drift into
 // the future relative to the light clients local time. Default: 10s.
 func MaxClockDrift(d time.Duration) Option {
-	return func(c *Client) { c.maxClockDrift = d }
+	return func(c *Client) {
+		c.maxClockDrift = d
+	}
 }
 
 // MaxBlockLag represents the maximum time difference between the realtime
@@ -108,7 +120,9 @@ func MaxClockDrift(d time.Duration) Option {
 // was 12:00. Then the lag here is 5 minutes.
 // Default: 10s
 func MaxBlockLag(d time.Duration) Option {
-	return func(c *Client) { c.maxBlockLag = d }
+	return func(c *Client) {
+		c.maxBlockLag = d
+	}
 }
 
 // Client represents a light client, connected to a single chain, which gets
@@ -121,11 +135,12 @@ type Client struct {
 	trustingPeriod   time.Duration // see TrustOptions.Period
 	verificationMode mode
 	trustLevel       tmmath.Fraction
+	maxRetryAttempts uint16 // see MaxRetryAttempts option
 	maxClockDrift    time.Duration
 	maxBlockLag      time.Duration
 
 	// Mutex for locking during changes of the light clients providers
-	providerMutex sync.Mutex
+	providerMutex tmsync.Mutex
 	// Primary provider of new headers.
 	primary provider.Provider
 	// Providers used to "witness" new headers.
@@ -136,35 +151,24 @@ type Client struct {
 	// Highest trusted light block from the store (height=H).
 	latestTrustedBlock *types.LightBlock
 
-	// See PruningSize option
+	// See RemoveNoLongerTrustedHeadersPeriod option
 	pruningSize uint16
+	// See ConfirmationFunction option
+	confirmationFn func(action string) bool
+
+	quit chan struct{}
 
 	logger log.Logger
 }
 
-func validatePrimaryAndWitnesses(primary provider.Provider, witnesses []provider.Provider) error {
-	witnessMap := make(map[string]struct{})
-	for _, w := range witnesses {
-		if w.ID() == primary.ID() {
-			return fmt.Errorf("primary (%s) cannot be also configured as witness", primary.ID())
-		}
-		if _, duplicate := witnessMap[w.ID()]; duplicate {
-			return fmt.Errorf("witness list must not contain duplicates; duplicate found: %s", w.ID())
-		}
-		witnessMap[w.ID()] = struct{}{}
-	}
-	return nil
-}
-
 // NewClient returns a new light client. It returns an error if it fails to
-// obtain the light block from the primary, or they are invalid (e.g. trust
+// obtain the light block from the primary or they are invalid (e.g. trust
 // hash does not match with the one from the headers).
 //
 // Witnesses are providers, which will be used for cross-checking the primary
-// provider. At least one witness should be given when skipping verification is
-// used (default). A verified header is compared with the headers at same height
-// obtained from the specified witnesses. A witness can become a primary iff the
-// current primary is unavailable.
+// provider. At least one witness must be given when skipping verification is
+// used (default). A witness can become a primary iff the current primary is
+// unavailable.
 //
 // See all Option(s) for the additional configuration.
 func NewClient(
@@ -176,87 +180,57 @@ func NewClient(
 	trustedStore store.Store,
 	options ...Option,
 ) (*Client, error) {
-
-	// Check whether the trusted store already has a trusted block. If so, then create
-	// a new client from the trusted store instead of the trust options.
-	lastHeight, err := trustedStore.LastLightBlockHeight()
-	if err != nil {
-		return nil, err
-	}
-	if lastHeight > 0 {
-		return NewClientFromTrustedStore(
-			chainID, trustOptions.Period, primary, witnesses, trustedStore, options...,
-		)
-	}
-
-	// Check that the witness list does not include duplicates or the primary
-	if err := validatePrimaryAndWitnesses(primary, witnesses); err != nil {
-		return nil, err
-	}
-
-	// Validate trust options
 	if err := trustOptions.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("invalid TrustOptions: %w", err)
 	}
 
-	c := &Client{
-		chainID:          chainID,
-		trustingPeriod:   trustOptions.Period,
-		verificationMode: skipping,
-		primary:          primary,
-		witnesses:        witnesses,
-		trustedStore:     trustedStore,
-		trustLevel:       DefaultTrustLevel,
-		maxClockDrift:    defaultMaxClockDrift,
-		maxBlockLag:      defaultMaxBlockLag,
-		pruningSize:      defaultPruningSize,
-		logger:           log.NewNopLogger(),
-	}
-
-	for _, o := range options {
-		o(c)
-	}
-
-	// Validate trust level.
-	if err := ValidateTrustLevel(c.trustLevel); err != nil {
+	c, err := NewClientFromTrustedStore(chainID, trustOptions.Period, primary, witnesses, trustedStore, options...)
+	if err != nil {
 		return nil, err
 	}
 
-	// Use the trusted hash and height to fetch the first weakly-trusted block
-	// from the primary provider. Assert that all the witnesses have the same block
-	if err := c.initializeWithTrustOptions(ctx, trustOptions); err != nil {
-		return nil, err
+	if c.latestTrustedBlock != nil {
+		c.logger.Info("Checking trusted light block using options")
+		if err := c.checkTrustedHeaderUsingOptions(ctx, trustOptions); err != nil {
+			return nil, err
+		}
 	}
 
-	return c, nil
+	if c.latestTrustedBlock == nil || c.latestTrustedBlock.Height < trustOptions.Height {
+		c.logger.Info("Downloading trusted light block using options")
+		if err := c.initializeWithTrustOptions(ctx, trustOptions); err != nil {
+			return nil, err
+		}
+	}
+
+	return c, err
 }
 
-// NewClientFromTrustedStore initializes an existing client from the trusted store.
-// It does not check that the providers have the same trusted block.
+// NewClientFromTrustedStore initializes existing client from the trusted store.
+//
+// See NewClient
 func NewClientFromTrustedStore(
 	chainID string,
 	trustingPeriod time.Duration,
 	primary provider.Provider,
 	witnesses []provider.Provider,
 	trustedStore store.Store,
-	options ...Option) (*Client, error) {
-
-	// Check that the witness list does not include duplicates or the primary
-	if err := validatePrimaryAndWitnesses(primary, witnesses); err != nil {
-		return nil, err
-	}
-
+	options ...Option,
+) (*Client, error) {
 	c := &Client{
 		chainID:          chainID,
 		trustingPeriod:   trustingPeriod,
 		verificationMode: skipping,
 		trustLevel:       DefaultTrustLevel,
+		maxRetryAttempts: defaultMaxRetryAttempts,
 		maxClockDrift:    defaultMaxClockDrift,
 		maxBlockLag:      defaultMaxBlockLag,
 		primary:          primary,
 		witnesses:        witnesses,
 		trustedStore:     trustedStore,
 		pruningSize:      defaultPruningSize,
+		confirmationFn:   func(action string) bool { return true },
+		quit:             make(chan struct{}),
 		logger:           log.NewNopLogger(),
 	}
 
@@ -264,12 +238,24 @@ func NewClientFromTrustedStore(
 		o(c)
 	}
 
+	// Validate the number of witnesses.
+	if len(c.witnesses) == 0 {
+		return nil, ErrNoWitnesses
+	}
+
+	// Verify witnesses are all on the same chain.
+	for i, w := range witnesses {
+		if w.ChainID() != chainID {
+			return nil, fmt.Errorf("witness #%d: %v is on another chain %s, expected %s",
+				i, w, w.ChainID(), chainID)
+		}
+	}
+
 	// Validate trust level.
 	if err := ValidateTrustLevel(c.trustLevel); err != nil {
 		return nil, err
 	}
 
-	// Check that the trusted store has at least one block and
 	if err := c.restoreTrustedLightBlock(); err != nil {
 		return nil, err
 	}
@@ -283,58 +269,136 @@ func (c *Client) restoreTrustedLightBlock() error {
 	if err != nil {
 		return fmt.Errorf("can't get last trusted light block height: %w", err)
 	}
-	if lastHeight <= 0 {
-		return errors.New("trusted store is empty")
+
+	if lastHeight > 0 {
+		trustedBlock, err := c.trustedStore.LightBlock(lastHeight)
+		if err != nil {
+			return fmt.Errorf("can't get last trusted light block: %w", err)
+		}
+		c.latestTrustedBlock = trustedBlock
+		c.logger.Info("Restored trusted light block", "height", lastHeight)
 	}
 
-	trustedBlock, err := c.trustedStore.LightBlock(lastHeight)
-	if err != nil {
-		return fmt.Errorf("can't get last trusted light block: %w", err)
+	return nil
+}
+
+// if options.Height:
+//
+//  1. ahead of trustedLightBlock.Height => fetch light blocks (same height as
+//     trustedLightBlock) from primary provider and check it's hash matches the
+//     trustedLightBlock's hash (if not, remove trustedLightBlock and all the light blocks
+//     before)
+//
+//  2. equals trustedLightBlock.Height => check options.Hash matches the
+//     trustedLightBlock's hash (if not, remove trustedLightBlock and all the light blocks
+//     before)
+//
+//  3. behind trustedLightBlock.Height => remove all the light blocks between
+//     options.Height and trustedLightBlock.Height, update trustedLightBlock, then
+//     check options.Hash matches the trustedLightBlock's hash (if not, remove
+//     trustedLightBlock and all the light blocks before)
+//
+// The intuition here is the user is always right. I.e. if she decides to reset
+// the light client with an older header, there must be a reason for it.
+func (c *Client) checkTrustedHeaderUsingOptions(ctx context.Context, options TrustOptions) error {
+	var primaryHash []byte
+	switch {
+	case options.Height > c.latestTrustedBlock.Height:
+		h, err := c.lightBlockFromPrimary(ctx, c.latestTrustedBlock.Height)
+		if err != nil {
+			return err
+		}
+		primaryHash = h.Hash()
+	case options.Height == c.latestTrustedBlock.Height:
+		primaryHash = options.Hash
+	case options.Height < c.latestTrustedBlock.Height:
+		c.logger.Info("Client initialized with old header (trusted is more recent)",
+			"old", options.Height,
+			"trustedHeight", c.latestTrustedBlock.Height,
+			"trustedHash", c.latestTrustedBlock.Hash())
+
+		action := fmt.Sprintf(
+			"Rollback to %d (%X)? Note this will remove newer light blocks up to %d (%X)",
+			options.Height, options.Hash,
+			c.latestTrustedBlock.Height, c.latestTrustedBlock.Hash())
+		if c.confirmationFn(action) {
+			// remove all the headers (options.Height, trustedHeader.Height]
+			err := c.cleanupAfter(options.Height)
+			if err != nil {
+				return fmt.Errorf("cleanupAfter(%d): %w", options.Height, err)
+			}
+
+			c.logger.Info("Rolled back to older header (newer headers were removed)",
+				"old", options.Height)
+		} else {
+			return nil
+		}
+
+		primaryHash = options.Hash
 	}
-	c.latestTrustedBlock = trustedBlock
-	c.logger.Info("restored trusted light block", "height", lastHeight)
+
+	if !bytes.Equal(primaryHash, c.latestTrustedBlock.Hash()) {
+		c.logger.Info("Prev. trusted header's hash (h1) doesn't match hash from primary provider (h2)",
+			"h1", c.latestTrustedBlock.Hash(), "h2", primaryHash)
+
+		action := fmt.Sprintf(
+			"Prev. trusted header's hash %X doesn't match hash %X from primary provider. Remove all the stored light blocks?",
+			c.latestTrustedBlock.Hash(), primaryHash)
+		if c.confirmationFn(action) {
+			err := c.Cleanup()
+			if err != nil {
+				return fmt.Errorf("failed to cleanup: %w", err)
+			}
+		} else {
+			return errors.New("refused to remove the stored light blocks despite hashes mismatch")
+		}
+	}
 
 	return nil
 }
 
 // initializeWithTrustOptions fetches the weakly-trusted light block from
-// primary provider, matches it to the trusted hash, and sets it as the
-// lastTrustedBlock. It then asserts that all witnesses have the same light block.
+// primary provider.
 func (c *Client) initializeWithTrustOptions(ctx context.Context, options TrustOptions) error {
-	// 1) Fetch and verify the light block. Note that we do not verify the time of the first block
+	// 1) Fetch and verify the light block.
 	l, err := c.lightBlockFromPrimary(ctx, options.Height)
 	if err != nil {
 		return err
 	}
 
-	// 2) Assert that the hashes match
-	if !bytes.Equal(l.Header.Hash(), options.Hash) {
+	// NOTE: - Verify func will check if it's expired or not.
+	//       - h.Time is not being checked against time.Now() because we don't
+	//         want to add yet another argument to NewClient* functions.
+	if err := l.ValidateBasic(c.chainID); err != nil {
+		return err
+	}
+
+	if !bytes.Equal(l.Hash(), options.Hash) {
 		return fmt.Errorf("expected header's hash %X, but got %X", options.Hash, l.Hash())
 	}
 
-	// 3) Ensure that +2/3 of validators signed correctly. This also sanity checks that the
-	// chain ID is the same.
+	// 2) Ensure that +2/3 of validators signed correctly.
 	err = l.ValidatorSet.VerifyCommitLight(c.chainID, l.Commit.BlockID, l.Height, l.Commit)
 	if err != nil {
 		return fmt.Errorf("invalid commit: %w", err)
 	}
 
-	// 4) Cross-verify with witnesses to ensure everybody has the same state.
+	// 3) Cross-verify with witnesses to ensure everybody has the same state.
 	if err := c.compareFirstHeaderWithWitnesses(ctx, l.SignedHeader); err != nil {
 		return err
 	}
 
-	// 5) Persist both of them and continue.
+	// 4) Persist both of them and continue.
 	return c.updateTrustedLightBlock(l)
 }
 
 // TrustedLightBlock returns a trusted light block at the given height (0 - the latest).
 //
 // It returns an error if:
-//  - there are some issues with the trusted store, although that should not
-//  happen normally;
-//  - negative height is passed;
-//  - header has not been verified yet and is therefore not in the store
+//   - there are some issues with the trusted store, although that should not
+//     happen normally;
+//   - negative height is passed;
+//   - header has not been verified yet and is therefore not in the store
 //
 // Safe for concurrent use by multiple goroutines.
 func (c *Client) TrustedLightBlock(height int64) (*types.LightBlock, error) {
@@ -385,18 +449,16 @@ func (c *Client) Update(ctx context.Context, now time.Time) (*types.LightBlock, 
 		return nil, err
 	}
 
-	// If there is a new light block then verify it
 	if latestBlock.Height > lastTrustedHeight {
 		err = c.verifyLightBlock(ctx, latestBlock, now)
 		if err != nil {
 			return nil, err
 		}
-		c.logger.Info("advanced to new state", "height", latestBlock.Height, "hash", latestBlock.Hash())
+		c.logger.Info("Advanced to new state", "height", latestBlock.Height, "hash", latestBlock.Hash())
 		return latestBlock, nil
 	}
 
-	// else return the latestTrustedBlock
-	return c.latestTrustedBlock, nil
+	return nil, nil
 }
 
 // VerifyLightBlockAtHeight fetches the light block at the given height
@@ -414,10 +476,10 @@ func (c *Client) VerifyLightBlockAtHeight(ctx context.Context, height int64, now
 		return nil, errors.New("negative or zero height")
 	}
 
-	// Check if the light block is already verified.
+	// Check if the light block already verified.
 	h, err := c.TrustedLightBlock(height)
 	if err == nil {
-		c.logger.Debug("header has already been verified", "height", height, "hash", h.Hash())
+		c.logger.Info("Header has already been verified", "height", height, "hash", h.Hash())
 		// Return already trusted light block
 		return h, nil
 	}
@@ -444,12 +506,13 @@ func (c *Client) VerifyLightBlockAtHeight(ctx context.Context, height int64, now
 // headers are not adjacent, verifySkipping is performed and necessary (not all)
 // intermediate headers will be requested. See the specification for details.
 // Intermediate headers are not saved to database.
-// https://github.com/tendermint/tendermint/blob/master/spec/light-client/README.md
+// https://github.com/tendermint/tendermint/blob/v0.37.x/spec/consensus/light-client.md
 //
 // If the header, which is older than the currently trusted header, is
 // requested and the light client does not have it, VerifyHeader will perform:
-//		a) verifySkipping verification if nearest trusted header is found & not expired
-//		b) backwards verification in all other cases
+//
+//	a) verifySkipping verification if nearest trusted header is found & not expired
+//	b) backwards verification in all other cases
 //
 // It returns ErrOldHeaderExpired if the latest trusted header expired.
 //
@@ -474,7 +537,7 @@ func (c *Client) VerifyHeader(ctx context.Context, newHeader *types.Header, now 
 		if !bytes.Equal(l.Hash(), newHeader.Hash()) {
 			return fmt.Errorf("existing trusted header %X does not match newHeader %X", l.Hash(), newHeader.Hash())
 		}
-		c.logger.Debug("header has already been verified",
+		c.logger.Info("Header has already been verified",
 			"height", newHeader.Height, "hash", newHeader.Hash())
 		return nil
 	}
@@ -486,14 +549,14 @@ func (c *Client) VerifyHeader(ctx context.Context, newHeader *types.Header, now 
 	}
 
 	if !bytes.Equal(l.Hash(), newHeader.Hash()) {
-		return fmt.Errorf("header from primary %X does not match newHeader %X", l.Hash(), newHeader.Hash())
+		return fmt.Errorf("light block header %X does not match newHeader %X", l.Hash(), newHeader.Hash())
 	}
 
 	return c.verifyLightBlock(ctx, l, now)
 }
 
 func (c *Client) verifyLightBlock(ctx context.Context, newLightBlock *types.LightBlock, now time.Time) error {
-	c.logger.Info("verify light block", "height", newLightBlock.Height, "hash", newLightBlock.Hash())
+	c.logger.Info("VerifyHeader", "height", newLightBlock.Height, "hash", newLightBlock.Hash())
 
 	var (
 		verifyFunc func(ctx context.Context, trusted *types.LightBlock, new *types.LightBlock, now time.Time) error
@@ -528,9 +591,7 @@ func (c *Client) verifyLightBlock(ctx context.Context, newLightBlock *types.Ligh
 		}
 		err = c.backwards(ctx, firstBlock.Header, newLightBlock.Header)
 
-	// Verifying between first and last trusted light block. In this situation
-	// we find the closest block prior to the target height then perform
-	// verification forwards.
+	// Verifying between first and last trusted light block
 	default:
 		var closestBlock *types.LightBlock
 		closestBlock, err = c.trustedStore.LightBlockBefore(newLightBlock.Height)
@@ -540,7 +601,7 @@ func (c *Client) verifyLightBlock(ctx context.Context, newLightBlock *types.Ligh
 		err = verifyFunc(ctx, closestBlock, newLightBlock, now)
 	}
 	if err != nil {
-		c.logger.Error("failed to verify", "err", err)
+		c.logger.Error("Can't verify", "err", err)
 		return err
 	}
 
@@ -553,8 +614,8 @@ func (c *Client) verifySequential(
 	ctx context.Context,
 	trustedBlock *types.LightBlock,
 	newLightBlock *types.LightBlock,
-	now time.Time) error {
-
+	now time.Time,
+) error {
 	var (
 		verifiedBlock = trustedBlock
 		interimBlock  *types.LightBlock
@@ -574,7 +635,7 @@ func (c *Client) verifySequential(
 		}
 
 		// 2) Verify them
-		c.logger.Debug("verify adjacent newLightBlock against verifiedBlock",
+		c.logger.Debug("Verify adjacent newLightBlock against verifiedBlock",
 			"trustedHeight", verifiedBlock.Height,
 			"trustedHash", verifiedBlock.Hash(),
 			"newHeight", interimBlock.Height,
@@ -589,12 +650,13 @@ func (c *Client) verifySequential(
 			case ErrInvalidHeader:
 				// If the target header is invalid, return immediately.
 				if err.To == newLightBlock.Height {
-					c.logger.Debug("target header is invalid", "err", err)
+					c.logger.Debug("Target header is invalid", "err", err)
 					return err
 				}
 
-				// If some intermediate header is invalid, remove the primary and try again.
-				c.logger.Info("primary sent invalid header -> removing", "err", err, "primary", c.primary)
+				// If some intermediate header is invalid, replace the primary and try
+				// again.
+				c.logger.Error("primary sent invalid header -> replacing", "err", err)
 
 				replacementBlock, removeErr := c.findNewPrimary(ctx, newLightBlock.Height, true)
 				if removeErr != nil {
@@ -603,7 +665,10 @@ func (c *Client) verifySequential(
 				}
 
 				if !bytes.Equal(replacementBlock.Hash(), newLightBlock.Hash()) {
-					c.logger.Debug("replaced primary but new primary has a different block to the initial one")
+					c.logger.Error("Replacement provider has a different light block",
+						"newHash", newLightBlock.Hash(),
+						"replHash", replacementBlock.Hash())
+					// return original error
 					return err
 				}
 
@@ -638,21 +703,14 @@ func (c *Client) verifySequential(
 // requested from source is kept such that when a verification is made, and the
 // light client tries again to verify the new light block in the middle, the light
 // client does not need to ask for all the same light blocks again.
-//
-// If this function errors, it should always wrap it in a `ErrVerifcationFailed`
-// struct so that the calling function can determine where it failed and handle
-// it accordingly.
 func (c *Client) verifySkipping(
 	ctx context.Context,
 	source provider.Provider,
 	trustedBlock *types.LightBlock,
 	newLightBlock *types.LightBlock,
-	now time.Time) ([]*types.LightBlock, error) {
-
+	now time.Time,
+) ([]*types.LightBlock, error) {
 	var (
-		// The block cache is ordered in height from highest to lowest. We start
-		// with the newLightBlock and for any height requested in between we add
-		// it.
 		blockCache = []*types.LightBlock{newLightBlock}
 		depth      = 0
 
@@ -661,20 +719,17 @@ func (c *Client) verifySkipping(
 	)
 
 	for {
-		c.logger.Debug("verify non-adjacent newHeader against verifiedBlock",
+		c.logger.Debug("Verify non-adjacent newHeader against verifiedBlock",
 			"trustedHeight", verifiedBlock.Height,
 			"trustedHash", verifiedBlock.Hash(),
 			"newHeight", blockCache[depth].Height,
 			"newHash", blockCache[depth].Hash())
 
-		// Verify the untrusted header. This function is equivalent to
-		// ValidAndVerified in the spec
 		err := Verify(verifiedBlock.SignedHeader, verifiedBlock.ValidatorSet, blockCache[depth].SignedHeader,
 			blockCache[depth].ValidatorSet, c.trustingPeriod, now, c.maxClockDrift, c.trustLevel)
 		switch err.(type) {
 		case nil:
-			// If we have verified the last header then depth will be 0 and we
-			// can return a success along with the trace of intermediate headers
+			// Have we verified the last header
 			if depth == 0 {
 				trace = append(trace, newLightBlock)
 				return trace, nil
@@ -689,37 +744,32 @@ func (c *Client) verifySkipping(
 			trace = append(trace, verifiedBlock)
 
 		case ErrNewValSetCantBeTrusted:
-			// the light block current passed validation, but the validator
-			// set is too different to verify it. We keep the block because it
-			// may become valuable later on.
-			//
-			// If we have reached the end of the cache we need to request a
-			// completely new block else we recycle a previously requested one.
-			// In both cases we are taking a block with a closer height to the
-			// previously verified one in the hope that it has a better chance
-			// of having a similar validator set
+			// do add another header to the end of the cache
 			if depth == len(blockCache)-1 {
-				// schedule what the next height we need to fetch is
-				pivotHeight := c.schedule(verifiedBlock.Height, blockCache[depth].Height)
-				interimBlock, providerErr := c.getLightBlock(ctx, source, pivotHeight)
-				if providerErr != nil {
+				pivotHeight := verifiedBlock.Height + (blockCache[depth].Height-verifiedBlock.
+					Height)*verifySkippingNumerator/verifySkippingDenominator
+				interimBlock, providerErr := source.LightBlock(ctx, pivotHeight)
+				switch providerErr {
+				case nil:
+					blockCache = append(blockCache, interimBlock)
+
+				// if the error is benign, the client does not need to replace the primary
+				case provider.ErrLightBlockNotFound, provider.ErrNoResponse, provider.ErrHeightTooHigh:
+					return nil, err
+
+				// all other errors such as ErrBadLightBlock or ErrUnreliableProvider are seen as malevolent and the
+				// provider is removed
+				default:
 					return nil, ErrVerificationFailed{From: verifiedBlock.Height, To: pivotHeight, Reason: providerErr}
 				}
 				blockCache = append(blockCache, interimBlock)
 			}
 			depth++
 
-		// for any verification error we abort the operation and return the error
 		default:
 			return nil, ErrVerificationFailed{From: verifiedBlock.Height, To: blockCache[depth].Height, Reason: err}
 		}
 	}
-}
-
-// schedule works out the next height to attempt sequential verification
-func (c *Client) schedule(lastVerifiedHeight, lastFailedHeight int64) int64 {
-	return lastVerifiedHeight +
-		(lastFailedHeight-lastVerifiedHeight)*verifySkippingNumerator/verifySkippingDenominator
 }
 
 // verifySkippingAgainstPrimary does verifySkipping plus it compares new header with
@@ -728,11 +778,41 @@ func (c *Client) verifySkippingAgainstPrimary(
 	ctx context.Context,
 	trustedBlock *types.LightBlock,
 	newLightBlock *types.LightBlock,
-	now time.Time) error {
-
+	now time.Time,
+) error {
 	trace, err := c.verifySkipping(ctx, c.primary, trustedBlock, newLightBlock, now)
-	if err == nil {
-		// Success! Now compare the header with the witnesses to ensure it's not a fork.
+
+	switch errors.Unwrap(err).(type) {
+	case ErrInvalidHeader:
+		// If the target header is invalid, return immediately.
+		invalidHeaderHeight := err.(ErrVerificationFailed).To
+		if invalidHeaderHeight == newLightBlock.Height {
+			c.logger.Debug("Target header is invalid", "err", err)
+			return err
+		}
+
+		// If some intermediate header is invalid, replace the primary and try
+		// again.
+		c.logger.Error("primary sent invalid header -> replacing", "err", err)
+
+		replacementBlock, removeErr := c.findNewPrimary(ctx, newLightBlock.Height, true)
+		if removeErr != nil {
+			c.logger.Error("failed to replace primary. Returning original error", "err", removeErr)
+			return err
+		}
+
+		if !bytes.Equal(replacementBlock.Hash(), newLightBlock.Hash()) {
+			c.logger.Error("Replacement provider has a different light block",
+				"newHash", newLightBlock.Hash(),
+				"replHash", replacementBlock.Hash())
+			// return original error
+			return err
+		}
+
+		// attempt to verify the header again
+		return c.verifySkippingAgainstPrimary(ctx, trustedBlock, replacementBlock, now)
+	case nil:
+		// Compare header with the witnesses to ensure it's not a fork.
 		// More witnesses we have, more chance to notice one.
 		//
 		// CORRECTNESS ASSUMPTION: there's at least 1 correct full node
@@ -740,62 +820,11 @@ func (c *Client) verifySkippingAgainstPrimary(
 		if cmpErr := c.detectDivergence(ctx, trace, now); cmpErr != nil {
 			return cmpErr
 		}
-	}
-
-	var e = &ErrVerificationFailed{}
-	// all errors from verify skipping should be `ErrVerificationFailed`
-	// if it's not we just return the error directly
-	if !errors.As(err, e) {
-		return err
-	}
-
-	replace := true
-	switch e.Reason.(type) {
-	// Verification returned an invalid header
-	case ErrInvalidHeader:
-		// If it was the target header, return immediately.
-		if e.To == newLightBlock.Height {
-			c.logger.Debug("target header is invalid", "err", err)
-			return err
-		}
-
-		// If some intermediate header is invalid, remove the primary and try
-		// again.
-
-	// An intermediate header expired. We can no longer validate it as there is
-	// no longer the ability to punish invalid blocks as evidence of misbehavior
-	case ErrOldHeaderExpired:
-		return err
-
-	// This happens if there was a problem in finding the next block or a
-	// context was canceled.
 	default:
-		if errors.Is(e.Reason, context.Canceled) || errors.Is(e.Reason, context.DeadlineExceeded) {
-			return e.Reason
-		}
-
-		if !c.providerShouldBeRemoved(e.Reason) {
-			replace = false
-		}
+		return err
 	}
 
-	// if we've reached here we're attempting to retry verification with a
-	// different provider
-	c.logger.Info("primary returned error", "err", e, "primary", c.primary, "replace", replace)
-
-	replacementBlock, removeErr := c.findNewPrimary(ctx, newLightBlock.Height, replace)
-	if removeErr != nil {
-		c.logger.Error("failed to replace primary. Returning original error", "err", removeErr)
-		return e.Reason
-	}
-
-	if !bytes.Equal(replacementBlock.Hash(), newLightBlock.Hash()) {
-		c.logger.Debug("replaced primary but new primary has a different block to the initial one. Returning original error")
-		return e.Reason
-	}
-
-	// attempt to verify the header again from the trusted block
-	return c.verifySkippingAgainstPrimary(ctx, trustedBlock, replacementBlock, now)
+	return nil
 }
 
 // LastTrustedHeight returns a last trusted height. -1 and nil are returned if
@@ -839,21 +868,43 @@ func (c *Client) Witnesses() []provider.Provider {
 	return c.witnesses
 }
 
-// AddProvider adds a providers to the light clients set
-//
-// NOTE: The light client does not check for uniqueness
-func (c *Client) AddProvider(p provider.Provider) {
-	c.providerMutex.Lock()
-	defer c.providerMutex.Unlock()
-	c.witnesses = append(c.witnesses, p)
-}
-
 // Cleanup removes all the data (headers and validator sets) stored. Note: the
 // client must be stopped at this point.
 func (c *Client) Cleanup() error {
-	c.logger.Info("removing all light blocks")
+	c.logger.Info("Removing all the data")
 	c.latestTrustedBlock = nil
 	return c.trustedStore.Prune(0)
+}
+
+// cleanupAfter deletes all headers & validator sets after +height+. It also
+// resets latestTrustedBlock to the latest header.
+func (c *Client) cleanupAfter(height int64) error {
+	prevHeight := c.latestTrustedBlock.Height
+
+	for {
+		h, err := c.trustedStore.LightBlockBefore(prevHeight)
+		if err == store.ErrLightBlockNotFound || (h != nil && h.Height <= height) {
+			break
+		} else if err != nil {
+			return fmt.Errorf("failed to get header before %d: %w", prevHeight, err)
+		}
+
+		err = c.trustedStore.DeleteLightBlock(h.Height)
+		if err != nil {
+			c.logger.Error("can't remove a trusted header & validator set", "err", err,
+				"height", h.Height)
+		}
+
+		prevHeight = h.Height
+	}
+
+	c.latestTrustedBlock = nil
+	err := c.restoreTrustedLightBlock()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Client) updateTrustedLightBlock(l *types.LightBlock) error {
@@ -882,8 +933,8 @@ func (c *Client) updateTrustedLightBlock(l *types.LightBlock) error {
 func (c *Client) backwards(
 	ctx context.Context,
 	trustedHeader *types.Header,
-	newHeader *types.Header) error {
-
+	newHeader *types.Header,
+) error {
 	var (
 		verifiedHeader = trustedHeader
 		interimHeader  *types.Header
@@ -895,14 +946,14 @@ func (c *Client) backwards(
 			return fmt.Errorf("failed to obtain the header at height #%d: %w", verifiedHeader.Height-1, err)
 		}
 		interimHeader = interimBlock.Header
-		c.logger.Debug("verify newHeader against verifiedHeader",
+		c.logger.Debug("Verify newHeader against verifiedHeader",
 			"trustedHeight", verifiedHeader.Height,
 			"trustedHash", verifiedHeader.Hash(),
 			"newHeight", interimHeader.Height,
 			"newHash", interimHeader.Hash())
 		if err := VerifyBackwards(interimHeader, verifiedHeader); err != nil {
 			// verification has failed
-			c.logger.Info("backwards verification failed, replacing primary...", "err", err, "primary", c.primary)
+			c.logger.Error("backwards verification failed, replacing primary...", "err", err, "primary", c.primary)
 
 			// the client tries to see if it can get a witness to continue with the request
 			newPrimarysBlock, replaceErr := c.findNewPrimary(ctx, newHeader.Height, true)
@@ -930,15 +981,15 @@ func (c *Client) backwards(
 // lightBlockFromPrimary retrieves the lightBlock from the primary provider
 // at the specified height. This method also handles provider behavior as follows:
 //
-// 1. If the provider does not respond or does not have the block, it tries again
-//    with a different provider
-// 2. If all providers return the same error, the light client forwards the error to
-//    where the initial request came from
-// 3. If the provider provides an invalid light block, is deemed unreliable or returns
-//    any other error, the primary is permanently dropped and is replaced by a witness.
+//  1. If the provider does not respond or does not have the block, it tries again
+//     with a different provider
+//  2. If all providers return the same error, the light client forwards the error to
+//     where the initial request came from
+//  3. If the provider provides an invalid light block, is deemed unreliable or returns
+//     any other error, the primary is permanently dropped and is replaced by a witness.
 func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*types.LightBlock, error) {
 	c.providerMutex.Lock()
-	l, err := c.getLightBlock(ctx, c.primary, height)
+	l, err := c.primary.LightBlock(ctx, height)
 	c.providerMutex.Unlock()
 
 	switch err {
@@ -946,9 +997,8 @@ func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*type
 		// Everything went smoothly. We reset the lightBlockRequests and return the light block
 		return l, nil
 
-	// catch canceled contexts or deadlines
 	case context.Canceled, context.DeadlineExceeded:
-		return nil, err
+		return l, err
 
 	case provider.ErrNoResponse, provider.ErrLightBlockNotFound, provider.ErrHeightTooHigh:
 		// we find a new witness to replace the primary
@@ -965,16 +1015,9 @@ func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*type
 	}
 }
 
-func (c *Client) getLightBlock(ctx context.Context, p provider.Provider, height int64) (*types.LightBlock, error) {
-	l, err := p.LightBlock(ctx, height)
-	if ctx.Err() != nil {
-		return nil, provider.ErrNoResponse
-	}
-	return l, err
-}
-
 // NOTE: requires a providerMutex lock
 func (c *Client) removeWitnesses(indexes []int) error {
+	// check that we will still have witnesses remaining
 	if len(c.witnesses) <= len(indexes) {
 		return ErrNoWitnesses
 	}
@@ -1004,7 +1047,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
 
-	if len(c.witnesses) < 1 {
+	if len(c.witnesses) == 0 {
 		return nil, ErrNoWitnesses
 	}
 
@@ -1015,20 +1058,16 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		wg                sync.WaitGroup
 	)
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	// send out a light block request to all witnesses
+	subctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	for index := range c.witnesses {
 		wg.Add(1)
 		go func(witnessIndex int, witnessResponsesC chan witnessResponse) {
 			defer wg.Done()
 
-			lb, err := c.witnesses[witnessIndex].LightBlock(ctx, height)
-			select {
-			case witnessResponsesC <- witnessResponse{lb, witnessIndex, err}:
-			case <-ctx.Done():
-			}
-
+			lb, err := c.witnesses[witnessIndex].LightBlock(subctx, height)
+			witnessResponsesC <- witnessResponse{lb, witnessIndex, err}
 		}(index, witnessResponsesC)
 	}
 
@@ -1063,14 +1102,10 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 			// return the light block that new primary responded with
 			return response.lb, nil
 
-		// catch canceled contexts or deadlines
-		case context.Canceled, context.DeadlineExceeded:
-			return nil, response.err
-
 		// process benign errors by logging them only
 		case provider.ErrNoResponse, provider.ErrLightBlockNotFound, provider.ErrHeightTooHigh:
 			lastError = response.err
-			c.logger.Info("error on light block request from witness",
+			c.logger.Debug("error on light block request from witness",
 				"error", response.err, "primary", c.witnesses[response.witnessIndex])
 			continue
 
@@ -1083,10 +1118,15 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		}
 	}
 
+	// remove witnesses marked as bad. Removal is done in descending order
+	if err := c.removeWitnesses(witnessesToRemove); err != nil {
+		c.logger.Error("failed to remove witnesses", "err", err, "witnessesToRemove", witnessesToRemove)
+	}
+
 	return nil, lastError
 }
 
-// compareFirstHeaderWithWitnesses concurrently compares h with all witnesses. If any
+// compareFirstHeaderWithWitnesses compares h with all witnesses. If any
 // witness reports a different header than h, the function returns an error.
 func (c *Client) compareFirstHeaderWithWitnesses(ctx context.Context, h *types.SignedHeader) error {
 	compareCtx, cancel := context.WithCancel(ctx)
@@ -1095,8 +1135,8 @@ func (c *Client) compareFirstHeaderWithWitnesses(ctx context.Context, h *types.S
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
 
-	if len(c.witnesses) < 1 {
-		return nil
+	if len(c.witnesses) == 0 {
+		return ErrNoWitnesses
 	}
 
 	errc := make(chan error, len(c.witnesses))
@@ -1114,62 +1154,31 @@ func (c *Client) compareFirstHeaderWithWitnesses(ctx context.Context, h *types.S
 		case nil:
 			continue
 		case errConflictingHeaders:
-			c.logger.Error(`witness has a different header. Please check primary is
-correct and remove witness. Otherwise, use a different primary`,
-				"Witness", c.witnesses[e.WitnessIndex], "ExpHeader", h.Hash(), "GotHeader", e.Block.Hash())
+			c.logger.Error(fmt.Sprintf(`Witness #%d has a different header. Please check primary is correct
+and remove witness. Otherwise, use the different primary`, e.WitnessIndex), "witness", c.witnesses[e.WitnessIndex])
 			return err
 		case errBadWitness:
 			// If witness sent us an invalid header, then remove it
-			c.logger.Info("witness returned an error, removing...",
+			c.logger.Info("witness sent an invalid light block, removing...",
+				"witness", c.witnesses[e.WitnessIndex],
 				"err", err)
 			witnessesToRemove = append(witnessesToRemove, e.WitnessIndex)
-		default:
-			// check for canceled contexts or deadlines
+		default: // benign errors can be ignored with the exception of context errors
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return err
 			}
 
 			// the witness either didn't respond or didn't have the block. We ignore it.
-			c.logger.Debug("unable to compare first header with witness, ignoring",
+			c.logger.Info("error comparing first header with witness. You may want to consider removing the witness",
 				"err", err)
 		}
 
 	}
 
-	// remove all witnesses that misbehaved
-	return c.removeWitnesses(witnessesToRemove)
-}
-
-// providerShouldBeRemoved analyzes the nature of the error and whether the provider
-// should be removed from the light clients set
-func (c *Client) providerShouldBeRemoved(err error) bool {
-	return errors.As(err, &provider.ErrUnreliableProvider{}) ||
-		errors.As(err, &provider.ErrBadLightBlock{}) ||
-		errors.Is(err, provider.ErrConnectionClosed)
-}
-
-func (c *Client) Status(ctx context.Context) *types.LightClientInfo {
-	chunks := make([]string, len(c.witnesses))
-
-	// If primary is in witness list we do not want to count it twice in the number of peers
-	primaryNotInWitnessList := 1
-	for i, val := range c.witnesses {
-		chunks[i] = val.ID()
-		if chunks[i] == c.primary.ID() {
-			primaryNotInWitnessList = 0
-		}
+	// remove witnesses that have misbehaved
+	if err := c.removeWitnesses(witnessesToRemove); err != nil {
+		c.logger.Error("failed to remove witnesses", "err", err, "witnessesToRemove", witnessesToRemove)
 	}
 
-	return &types.LightClientInfo{
-		PrimaryID:         c.primary.ID(),
-		WitnessesID:       chunks,
-		NumPeers:          len(chunks) + primaryNotInWitnessList,
-		LastTrustedHeight: c.latestTrustedBlock.Height,
-		LastTrustedHash:   c.latestTrustedBlock.Hash(),
-		LatestBlockTime:   c.latestTrustedBlock.Time,
-		TrustingPeriod:    c.trustingPeriod.String(),
-		// The caller of /status can deduce this from the two variables above
-		// Having a boolean flag improves readbility
-		TrustedBlockExpired: HeaderExpired(c.latestTrustedBlock.SignedHeader, c.trustingPeriod, time.Now()),
-	}
+	return nil
 }

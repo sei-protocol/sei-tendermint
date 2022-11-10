@@ -1,4 +1,3 @@
-// nolint: gosec
 package app
 
 import (
@@ -15,9 +14,6 @@ import (
 
 const (
 	snapshotChunkSize = 1e6
-
-	// Keep only the most recent 10 snapshots. Older snapshots are pruned
-	maxSnapshotCount = 10
 )
 
 // SnapshotStore stores state sync snapshots. Snapshots are stored simply as
@@ -32,7 +28,7 @@ type SnapshotStore struct {
 // NewSnapshotStore creates a new snapshot store.
 func NewSnapshotStore(dir string) (*SnapshotStore, error) {
 	store := &SnapshotStore{dir: dir}
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 	if err := store.loadMetadata(); err != nil {
@@ -74,7 +70,7 @@ func (s *SnapshotStore) saveMetadata() error {
 	// save the file to a new file and move it to make saving atomic.
 	newFile := filepath.Join(s.dir, "metadata.json.new")
 	file := filepath.Join(s.dir, "metadata.json")
-	err = os.WriteFile(newFile, bz, 0644) // nolint: gosec
+	err = os.WriteFile(newFile, bz, 0o644) //nolint: gosec
 	if err != nil {
 		return err
 	}
@@ -92,10 +88,10 @@ func (s *SnapshotStore) Create(state *State) (abci.Snapshot, error) {
 	snapshot := abci.Snapshot{
 		Height: state.Height,
 		Format: 1,
-		Hash:   hashItems(state.Values, state.Height),
+		Hash:   hashItems(state.Values),
 		Chunks: byteChunks(bz),
 	}
-	err = os.WriteFile(filepath.Join(s.dir, fmt.Sprintf("%v.json", state.Height)), bz, 0644)
+	err = os.WriteFile(filepath.Join(s.dir, fmt.Sprintf("%v.json", state.Height)), bz, 0o644) //nolint:gosec
 	if err != nil {
 		return abci.Snapshot{}, err
 	}
@@ -105,27 +101,6 @@ func (s *SnapshotStore) Create(state *State) (abci.Snapshot, error) {
 		return abci.Snapshot{}, err
 	}
 	return snapshot, nil
-}
-
-// Prune removes old snapshots ensuring only the most recent n snapshots remain
-func (s *SnapshotStore) Prune(n int) error {
-	s.Lock()
-	defer s.Unlock()
-	// snapshots are appended to the metadata struct, hence pruning removes from
-	// the front of the array
-	i := 0
-	for ; i < len(s.metadata)-n; i++ {
-		h := s.metadata[i].Height
-		if err := os.Remove(filepath.Join(s.dir, fmt.Sprintf("%v.json", h))); err != nil {
-			return err
-		}
-	}
-
-	// update metadata by removing the deleted snapshots
-	pruned := make([]abci.Snapshot, len(s.metadata[i:]))
-	copy(pruned, s.metadata[i:])
-	s.metadata = pruned
-	return nil
 }
 
 // List lists available snapshots.

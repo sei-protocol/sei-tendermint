@@ -4,17 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
 
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
+	types "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 )
 
 const (
@@ -106,15 +104,15 @@ func (u parsedURL) GetTrimmedURL() string {
 
 //-------------------------------------------------------------
 
-// A Caller handles the round trip of a single JSON-RPC request.  The
-// implementation is responsible for assigning request IDs, marshaling
-// parameters, and unmarshaling results.
+// HTTPClient is a common interface for JSON-RPC HTTP clients.
+type HTTPClient interface {
+	// Call calls the given method with the params and returns a result.
+	Call(ctx context.Context, method string, params map[string]interface{}, result interface{}) (interface{}, error)
+}
+
+// Caller implementers can facilitate calling the JSON-RPC endpoint.
 type Caller interface {
-	// Call sends a new request for method to the server with the given
-	// parameters. If params == nil, the request has empty parameters.
-	// If result == nil, any result value must be discarded without error.
-	// Otherwise the concrete value of result must be a pointer.
-	Call(ctx context.Context, method string, params, result interface{}) error
+	Call(ctx context.Context, method string, params map[string]interface{}, result interface{}) (interface{}, error)
 }
 
 //-------------------------------------------------------------
@@ -130,9 +128,11 @@ type Client struct {
 
 	client *http.Client
 
-	mtx       sync.Mutex
+	mtx       tmsync.Mutex
 	nextReqID int
 }
+
+var _ HTTPClient = (*Client)(nil)
 
 // Both Client and RequestBatch can facilitate calls to the JSON
 // RPC endpoint.
@@ -149,12 +149,12 @@ func New(remote string) (*Client, error) {
 	return NewWithHTTPClient(remote, httpClient)
 }
 
-// NewWithHTTPClient returns a Client pointed at the given address using a
-// custom HTTP client. It reports an error if c == nil or if remote is not a
-// valid URL.
-func NewWithHTTPClient(remote string, c *http.Client) (*Client, error) {
-	if c == nil {
-		return nil, errors.New("nil client")
+// NewWithHTTPClient returns a Client pointed at the given
+// address using a custom http client. An error is returned on invalid remote.
+// The function panics when remote is nil.
+func NewWithHTTPClient(remote string, client *http.Client) (*Client, error) {
+	if client == nil {
+		panic("nil http.Client provided")
 	}
 
 	parsedURL, err := newParsedURL(remote)
@@ -172,7 +172,7 @@ func NewWithHTTPClient(remote string, c *http.Client) (*Client, error) {
 		address:  address,
 		username: username,
 		password: password,
-		client:   c,
+		client:   client,
 	}
 
 	return rpcClient, nil
@@ -180,23 +180,28 @@ func NewWithHTTPClient(remote string, c *http.Client) (*Client, error) {
 
 // Call issues a POST HTTP request. Requests are JSON encoded. Content-Type:
 // application/json.
-func (c *Client) Call(ctx context.Context, method string, params, result interface{}) error {
+func (c *Client) Call(
+	ctx context.Context,
+	method string,
+	params map[string]interface{},
+	result interface{},
+) (interface{}, error) {
 	id := c.nextRequestID()
 
-	request := rpctypes.NewRequest(id)
-	if err := request.SetMethodAndParams(method, params); err != nil {
-		return fmt.Errorf("failed to encode params: %w", err)
+	request, err := types.MapToRequest(id, method, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode params: %w", err)
 	}
 
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	requestBuf := bytes.NewBuffer(requestBytes)
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.address, requestBuf)
 	if err != nil {
-		return fmt.Errorf("request setup failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 
 	httpRequest.Header.Set("Content-Type", "application/json")
@@ -207,16 +212,17 @@ func (c *Client) Call(ctx context.Context, method string, params, result interfa
 
 	httpResponse, err := c.client.Do(httpRequest)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("post failed: %w", err)
 	}
+
+	defer httpResponse.Body.Close()
 
 	responseBytes, err := io.ReadAll(httpResponse.Body)
-	httpResponse.Body.Close()
 	if err != nil {
-		return fmt.Errorf("reading response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	return unmarshalResponseBytes(responseBytes, request.ID(), result)
+	return unmarshalResponseBytes(responseBytes, id, result)
 }
 
 // NewRequestBatch starts a batch of requests for this client.
@@ -228,7 +234,7 @@ func (c *Client) NewRequestBatch() *RequestBatch {
 }
 
 func (c *Client) sendBatch(ctx context.Context, requests []*jsonRPCBufferedRequest) ([]interface{}, error) {
-	reqs := make([]rpctypes.RPCRequest, 0, len(requests))
+	reqs := make([]types.RPCRequest, 0, len(requests))
 	results := make([]interface{}, 0, len(requests))
 	for _, req := range requests {
 		reqs = append(reqs, req.request)
@@ -257,30 +263,28 @@ func (c *Client) sendBatch(ctx context.Context, requests []*jsonRPCBufferedReque
 		return nil, fmt.Errorf("post: %w", err)
 	}
 
+	defer httpResponse.Body.Close()
+
 	responseBytes, err := io.ReadAll(httpResponse.Body)
-	httpResponse.Body.Close()
 	if err != nil {
-		return nil, fmt.Errorf("reading response body: %w", err)
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
 	// collect ids to check responses IDs in unmarshalResponseBytesArray
-	ids := make([]string, len(requests))
+	ids := make([]types.JSONRPCIntID, len(requests))
 	for i, req := range requests {
-		ids[i] = req.request.ID()
+		ids[i] = req.request.ID.(types.JSONRPCIntID)
 	}
 
-	if err := unmarshalResponseBytesArray(responseBytes, ids, results); err != nil {
-		return nil, err
-	}
-	return results, nil
+	return unmarshalResponseBytesArray(responseBytes, ids, results)
 }
 
-func (c *Client) nextRequestID() int {
+func (c *Client) nextRequestID() types.JSONRPCIntID {
 	c.mtx.Lock()
-	defer c.mtx.Unlock()
 	id := c.nextReqID
 	c.nextReqID++
-	return id
+	c.mtx.Unlock()
+	return types.JSONRPCIntID(id)
 }
 
 //------------------------------------------------------------------------------------
@@ -288,7 +292,7 @@ func (c *Client) nextRequestID() int {
 // jsonRPCBufferedRequest encapsulates a single buffered request, as well as its
 // anticipated response structure.
 type jsonRPCBufferedRequest struct {
-	request rpctypes.RPCRequest
+	request types.RPCRequest
 	result  interface{} // The result will be deserialized into this object.
 }
 
@@ -298,7 +302,7 @@ type jsonRPCBufferedRequest struct {
 type RequestBatch struct {
 	client *Client
 
-	mtx      sync.Mutex
+	mtx      tmsync.Mutex
 	requests []*jsonRPCBufferedRequest
 }
 
@@ -342,13 +346,19 @@ func (b *RequestBatch) Send(ctx context.Context) ([]interface{}, error) {
 
 // Call enqueues a request to call the given RPC method with the specified
 // parameters, in the same way that the `Client.Call` function would.
-func (b *RequestBatch) Call(_ context.Context, method string, params, result interface{}) error {
-	request := rpctypes.NewRequest(b.client.nextRequestID())
-	if err := request.SetMethodAndParams(method, params); err != nil {
-		return err
+func (b *RequestBatch) Call(
+	_ context.Context,
+	method string,
+	params map[string]interface{},
+	result interface{},
+) (interface{}, error) {
+	id := b.client.nextRequestID()
+	request, err := types.MapToRequest(id, method, params)
+	if err != nil {
+		return nil, err
 	}
 	b.enqueue(&jsonRPCBufferedRequest{request: request, result: result})
-	return nil
+	return result, nil
 }
 
 //-------------------------------------------------------------
@@ -360,7 +370,6 @@ func makeHTTPDialer(remoteAddr string) (func(string, string) (net.Conn, error), 
 	}
 
 	protocol := u.Scheme
-	padding := u.Scheme
 
 	// accept http(s) as an alias for tcp
 	switch protocol {
@@ -369,13 +378,7 @@ func makeHTTPDialer(remoteAddr string) (func(string, string) (net.Conn, error), 
 	}
 
 	dialFn := func(proto, addr string) (net.Conn, error) {
-		var timeout = 10 * time.Second
-		if !u.isUnixSocket && strings.LastIndex(u.Host, ":") == -1 {
-			u.Host = fmt.Sprintf("%s:%s", u.Host, padding)
-			return net.DialTimeout(protocol, u.GetDialAddress(), timeout)
-		}
-
-		return net.DialTimeout(protocol, u.GetDialAddress(), timeout)
+		return net.Dial(protocol, u.GetDialAddress())
 	}
 
 	return dialFn, nil

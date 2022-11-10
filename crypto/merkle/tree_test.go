@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/tendermint/crypto"
-	ctest "github.com/tendermint/tendermint/internal/libs/test"
 	tmrand "github.com/tendermint/tendermint/libs/rand"
+	. "github.com/tendermint/tendermint/libs/test"
+
+	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 
 type testItem []byte
@@ -53,7 +54,7 @@ func TestProof(t *testing.T) {
 
 	items := make([][]byte, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(tmrand.Bytes(crypto.HashSize))
+		items[i] = testItem(tmrand.Bytes(tmhash.Size))
 	}
 
 	rootHash = HashFromByteSlices(items)
@@ -91,11 +92,11 @@ func TestProof(t *testing.T) {
 		proof.Aunts = origAunts
 
 		// Mutating the itemHash should make it fail.
-		err = proof.Verify(rootHash, ctest.MutateByteSlice(item))
+		err = proof.Verify(rootHash, MutateByteSlice(item))
 		require.Error(t, err, "Expected verification to fail for mutated leaf hash")
 
 		// Mutating the rootHash should make it fail.
-		err = proof.Verify(ctest.MutateByteSlice(rootHash), item)
+		err = proof.Verify(MutateByteSlice(rootHash), item)
 		require.Error(t, err, "Expected verification to fail for mutated root hash")
 	}
 }
@@ -106,7 +107,7 @@ func TestHashAlternatives(t *testing.T) {
 
 	items := make([][]byte, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(tmrand.Bytes(crypto.HashSize))
+		items[i] = testItem(tmrand.Bytes(tmhash.Size))
 	}
 
 	rootHash1 := HashFromByteSlicesIterative(items)
@@ -119,7 +120,7 @@ func BenchmarkHashAlternatives(b *testing.B) {
 
 	items := make([][]byte, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(tmrand.Bytes(crypto.HashSize))
+		items[i] = testItem(tmrand.Bytes(tmhash.Size))
 	}
 
 	b.ResetTimer()

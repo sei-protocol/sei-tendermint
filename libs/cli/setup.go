@@ -12,31 +12,51 @@ import (
 )
 
 const (
-	HomeFlag   = "home"
-	TraceFlag  = "trace"
-	OutputFlag = "output" // used in the cli
+	HomeFlag     = "home"
+	TraceFlag    = "trace"
+	OutputFlag   = "output"
+	EncodingFlag = "encoding"
 )
 
+// Executable is the minimal interface to *corba.Command, so we can
+// wrap if desired before the test
 type Executable interface {
 	Execute() error
 }
 
 // PrepareBaseCmd is meant for tendermint and other servers
-func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defaultHome string) *cobra.Command {
-	// the primary caller of this command is in the SDK and
-	// returning the cobra.Command object avoids breaking that
-	// code. In the long term, the SDK could avoid this entirely.
-	cobra.OnInitialize(func() { InitEnv(envPrefix) })
+func PrepareBaseCmd(cmd *cobra.Command, envPrefix, defaultHome string) Executor {
+	cobra.OnInitialize(func() { initEnv(envPrefix) })
 	cmd.PersistentFlags().StringP(HomeFlag, "", defaultHome, "directory for config and data")
 	cmd.PersistentFlags().Bool(TraceFlag, false, "print out full stack trace on errors")
-	cmd.PersistentPreRunE = concatCobraCmdFuncs(BindFlagsLoadViper, cmd.PersistentPreRunE)
-	return cmd
+	cmd.PersistentPreRunE = concatCobraCmdFuncs(bindFlagsLoadViper, cmd.PersistentPreRunE)
+	return Executor{cmd, os.Exit}
 }
 
-// InitEnv sets to use ENV variables if set.
-func InitEnv(prefix string) {
-	// This copies all variables like TMROOT to TM_ROOT,
-	// so we can support both formats for the user
+// PrepareMainCmd is meant for client side libs that want some more flags
+//
+// This adds --encoding (hex, btc, base64) and --output (text, json) to
+// the command.  These only really make sense in interactive commands.
+func PrepareMainCmd(cmd *cobra.Command, envPrefix, defaultHome string) Executor {
+	cmd.PersistentFlags().StringP(EncodingFlag, "e", "hex", "Binary encoding (hex|b64|btc)")
+	cmd.PersistentFlags().StringP(OutputFlag, "o", "text", "Output format (text|json)")
+	cmd.PersistentPreRunE = concatCobraCmdFuncs(validateOutput, cmd.PersistentPreRunE)
+	return PrepareBaseCmd(cmd, envPrefix, defaultHome)
+}
+
+// initEnv sets to use ENV variables if set.
+func initEnv(prefix string) {
+	copyEnvVars(prefix)
+
+	// env variables with TM prefix (eg. TM_ROOT)
+	viper.SetEnvPrefix(prefix)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	viper.AutomaticEnv()
+}
+
+// This copies all variables like TMROOT to TM_ROOT,
+// so we can support both formats for the user
+func copyEnvVars(prefix string) {
 	prefix = strings.ToUpper(prefix)
 	ps := prefix + "_"
 	for _, e := range os.Environ() {
@@ -49,52 +69,6 @@ func InitEnv(prefix string) {
 			}
 		}
 	}
-
-	// env variables with TM prefix (eg. TM_ROOT)
-	viper.SetEnvPrefix(prefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-	viper.AutomaticEnv()
-}
-
-type cobraCmdFunc func(cmd *cobra.Command, args []string) error
-
-// Returns a single function that calls each argument function in sequence
-// RunE, PreRunE, PersistentPreRunE, etc. all have this same signature
-func concatCobraCmdFuncs(fs ...cobraCmdFunc) cobraCmdFunc {
-	return func(cmd *cobra.Command, args []string) error {
-		for _, f := range fs {
-			if f != nil {
-				if err := f(cmd, args); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-}
-
-// Bind all flags and read the config into viper
-func BindFlagsLoadViper(cmd *cobra.Command, args []string) error {
-	// cmd.Flags() includes flags from this command and all persistent flags from the parent
-	if err := viper.BindPFlags(cmd.Flags()); err != nil {
-		return err
-	}
-
-	homeDir := viper.GetString(HomeFlag)
-	viper.Set(HomeFlag, homeDir)
-	viper.SetConfigName("config")                         // name of config file (without extension)
-	viper.AddConfigPath(homeDir)                          // search root directory
-	viper.AddConfigPath(filepath.Join(homeDir, "config")) // search root directory /config
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		// stderr, so if we redirect output to json file, this doesn't appear
-		// fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	} else if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-		// ignore not found error, return other errors
-		return err
-	}
-	return nil
 }
 
 // Executor wraps the cobra Command with a nicer Execute method
@@ -131,6 +105,23 @@ func (e Executor) Execute() error {
 		e.Exit(exitCode)
 	}
 	return err
+}
+
+type cobraCmdFunc func(cmd *cobra.Command, args []string) error
+
+// Returns a single function that calls each argument function in sequence
+// RunE, PreRunE, PersistentPreRunE, etc. all have this same signature
+func concatCobraCmdFuncs(fs ...cobraCmdFunc) cobraCmdFunc {
+	return func(cmd *cobra.Command, args []string) error {
+		for _, f := range fs {
+			if f != nil {
+				if err := f(cmd, args); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
 }
 
 // Bind all flags and read the config into viper

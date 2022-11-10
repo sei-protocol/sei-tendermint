@@ -8,12 +8,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
-	"github.com/tendermint/tendermint/internal/consensus"
+	cs "github.com/tendermint/tendermint/consensus"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 )
 
 func main() {
@@ -24,22 +24,22 @@ func main() {
 
 	f, err := os.Open(os.Args[1])
 	if err != nil {
-		panic(fmt.Errorf("failed to open WAL file: %w", err))
+		panic(fmt.Errorf("failed to open WAL file: %v", err))
 	}
 	defer f.Close()
 
-	dec := consensus.NewWALDecoder(f)
+	dec := cs.NewWALDecoder(f)
 	for {
 		msg, err := dec.Decode()
 		if err == io.EOF {
 			break
 		} else if err != nil {
-			panic(fmt.Errorf("failed to decode msg: %w", err))
+			panic(fmt.Errorf("failed to decode msg: %v", err))
 		}
 
-		json, err := json.Marshal(msg)
+		json, err := tmjson.Marshal(msg)
 		if err != nil {
-			panic(fmt.Errorf("failed to marshal msg: %w", err))
+			panic(fmt.Errorf("failed to marshal msg: %v", err))
 		}
 
 		_, err = os.Stdout.Write(json)
@@ -48,7 +48,7 @@ func main() {
 		}
 
 		if err == nil {
-			if endMsg, ok := msg.Msg.(consensus.EndHeightMessage); ok {
+			if endMsg, ok := msg.Msg.(cs.EndHeightMessage); ok {
 				_, err = os.Stdout.Write([]byte(fmt.Sprintf("ENDHEIGHT %d\n", endMsg.Height)))
 			}
 		}

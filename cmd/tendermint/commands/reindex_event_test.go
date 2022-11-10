@@ -12,13 +12,12 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	abcitypes "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/internal/state/indexer"
-	"github.com/tendermint/tendermint/internal/state/mocks"
-	"github.com/tendermint/tendermint/libs/log"
+	tmcfg "github.com/tendermint/tendermint/config"
+	prototmstate "github.com/tendermint/tendermint/proto/tendermint/state"
+	blockmocks "github.com/tendermint/tendermint/state/indexer/mocks"
+	"github.com/tendermint/tendermint/state/mocks"
+	txmocks "github.com/tendermint/tendermint/state/txindex/mocks"
 	"github.com/tendermint/tendermint/types"
-
-	_ "github.com/lib/pq" // for the psql sink
 )
 
 const (
@@ -26,15 +25,13 @@ const (
 	base   int64 = 2
 )
 
-func setupReIndexEventCmd(ctx context.Context, conf *config.Config, logger log.Logger) *cobra.Command {
-	cmd := MakeReindexEventCommand(conf, logger)
-
+func setupReIndexEventCmd() *cobra.Command {
 	reIndexEventCmd := &cobra.Command{
-		Use: cmd.Use,
+		Use: ReIndexEventCmd.Use,
 		Run: func(cmd *cobra.Command, args []string) {},
 	}
 
-	_ = reIndexEventCmd.ExecuteContext(ctx)
+	_ = reIndexEventCmd.ExecuteContext(context.Background())
 
 	return reIndexEventCmd
 }
@@ -71,7 +68,10 @@ func TestReIndexEventCheckHeight(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		err := checkValidHeight(mockBlockStore, checkValidHeightArgs{startHeight: tc.startHeight, endHeight: tc.endHeight})
+		startHeight = tc.startHeight
+		endHeight = tc.endHeight
+
+		err := checkValidHeight(mockBlockStore)
 		if tc.validHeight {
 			require.NoError(t, err)
 		} else {
@@ -82,61 +82,56 @@ func TestReIndexEventCheckHeight(t *testing.T) {
 
 func TestLoadEventSink(t *testing.T) {
 	testCases := []struct {
-		sinks   []string
+		sinks   string
 		connURL string
 		loadErr bool
 	}{
-		{[]string{}, "", true},
-		{[]string{"NULL"}, "", true},
-		{[]string{"KV"}, "", false},
-		{[]string{"KV", "KV"}, "", true},
-		{[]string{"PSQL"}, "", true},         // true because empty connect url
-		{[]string{"PSQL"}, "wrongUrl", true}, // true because wrong connect url
+		{"", "", true},
+		{"NULL", "", true},
+		{"KV", "", false},
+		{"PSQL", "", true}, // true because empty connect url
 		// skip to test PSQL connect with correct url
-		{[]string{"UnsupportedSinkType"}, "wrongUrl", true},
+		{"UnsupportedSinkType", "wrongUrl", true},
 	}
 
-	for _, tc := range testCases {
-		cfg := config.TestConfig()
+	for idx, tc := range testCases {
+		cfg := tmcfg.TestConfig()
 		cfg.TxIndex.Indexer = tc.sinks
 		cfg.TxIndex.PsqlConn = tc.connURL
-		_, err := loadEventSinks(cfg)
+		_, _, err := loadEventSinks(cfg)
 		if tc.loadErr {
-			require.Error(t, err)
+			require.Error(t, err, idx)
 		} else {
-			require.NoError(t, err)
+			require.NoError(t, err, idx)
 		}
 	}
 }
 
 func TestLoadBlockStore(t *testing.T) {
-	testCfg, err := config.ResetTestRoot(t.TempDir(), t.Name())
-	require.NoError(t, err)
-	testCfg.DBBackend = "goleveldb"
-	_, _, err = loadStateAndBlockStore(testCfg)
-	// we should return an error because the state store and block store
-	// don't yet exist
+	cfg := tmcfg.TestConfig()
+	cfg.DBPath = t.TempDir()
+	_, _, err := loadStateAndBlockStore(cfg)
 	require.Error(t, err)
 
-	dbType := dbm.BackendType(testCfg.DBBackend)
-	bsdb, err := dbm.NewDB("blockstore", dbType, testCfg.DBDir())
+	_, err = dbm.NewDB("blockstore", dbm.GoLevelDBBackend, cfg.DBDir())
 	require.NoError(t, err)
-	bsdb.Close()
 
-	ssdb, err := dbm.NewDB("state", dbType, testCfg.DBDir())
+	// Get StateStore
+	_, err = dbm.NewDB("state", dbm.GoLevelDBBackend, cfg.DBDir())
 	require.NoError(t, err)
-	ssdb.Close()
 
-	bs, ss, err := loadStateAndBlockStore(testCfg)
+	bs, ss, err := loadStateAndBlockStore(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, bs)
 	require.NotNil(t, ss)
+
 }
 
 func TestReIndexEvent(t *testing.T) {
 	mockBlockStore := &mocks.BlockStore{}
 	mockStateStore := &mocks.Store{}
-	mockEventSink := &mocks.EventSink{}
+	mockBlockIndexer := &blockmocks.BlockIndexer{}
+	mockTxIndexer := &txmocks.TxIndexer{}
 
 	mockBlockStore.
 		On("Base").Return(base).
@@ -145,22 +140,25 @@ func TestReIndexEvent(t *testing.T) {
 		On("LoadBlock", base).Return(&types.Block{Data: types.Data{Txs: types.Txs{make(types.Tx, 1)}}}).
 		On("LoadBlock", height).Return(&types.Block{Data: types.Data{Txs: types.Txs{make(types.Tx, 1)}}})
 
-	mockEventSink.
-		On("Type").Return(indexer.KV).
-		On("IndexBlockEvents", mock.AnythingOfType("types.EventDataNewBlockHeader")).Return(errors.New("")).Once().
-		On("IndexBlockEvents", mock.AnythingOfType("types.EventDataNewBlockHeader")).Return(nil).
-		On("IndexTxEvents", mock.AnythingOfType("[]*types.TxResult")).Return(errors.New("")).Once().
-		On("IndexTxEvents", mock.AnythingOfType("[]*types.TxResult")).Return(nil)
-
-	dtx := abcitypes.ExecTxResult{}
-	abciResp := &abcitypes.ResponseFinalizeBlock{
-		TxResults: []*abcitypes.ExecTxResult{&dtx},
+	dtx := abcitypes.ResponseDeliverTx{}
+	abciResp := &prototmstate.ABCIResponses{
+		DeliverTxs: []*abcitypes.ResponseDeliverTx{&dtx},
+		EndBlock:   &abcitypes.ResponseEndBlock{},
+		BeginBlock: &abcitypes.ResponseBeginBlock{},
 	}
 
+	mockBlockIndexer.
+		On("Index", mock.AnythingOfType("types.EventDataNewBlockHeader")).Return(errors.New("")).Once().
+		On("Index", mock.AnythingOfType("types.EventDataNewBlockHeader")).Return(nil)
+
+	mockTxIndexer.
+		On("AddBatch", mock.AnythingOfType("*txindex.Batch")).Return(errors.New("")).Once().
+		On("AddBatch", mock.AnythingOfType("*txindex.Batch")).Return(nil)
+
 	mockStateStore.
-		On("LoadFinalizeBlockResponses", base).Return(nil, errors.New("")).Once().
-		On("LoadFinalizeBlockResponses", base).Return(abciResp, nil).
-		On("LoadFinalizeBlockResponses", height).Return(abciResp, nil)
+		On("LoadABCIResponses", base).Return(nil, errors.New("")).Once().
+		On("LoadABCIResponses", base).Return(abciResp, nil).
+		On("LoadABCIResponses", height).Return(abciResp, nil)
 
 	testCases := []struct {
 		startHeight int64
@@ -168,29 +166,24 @@ func TestReIndexEvent(t *testing.T) {
 		reIndexErr  bool
 	}{
 		{base, height, true}, // LoadBlock error
-		{base, height, true}, // LoadFinalizeBlockResponses error
+		{base, height, true}, // LoadABCIResponses error
 		{base, height, true}, // index block event error
 		{base, height, true}, // index tx event error
 		{base, base, false},
 		{height, height, false},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	logger := log.NewNopLogger()
-	conf := config.DefaultConfig()
-
 	for _, tc := range testCases {
-		err := eventReIndex(
-			setupReIndexEventCmd(ctx, conf, logger),
-			eventReIndexArgs{
-				sinks:       []indexer.EventSink{mockEventSink},
-				blockStore:  mockBlockStore,
-				stateStore:  mockStateStore,
-				startHeight: tc.startHeight,
-				endHeight:   tc.endHeight,
-			})
+		args := eventReIndexArgs{
+			startHeight:  tc.startHeight,
+			endHeight:    tc.endHeight,
+			blockIndexer: mockBlockIndexer,
+			txIndexer:    mockTxIndexer,
+			blockStore:   mockBlockStore,
+			stateStore:   mockStateStore,
+		}
 
+		err := eventReIndex(setupReIndexEventCmd(), args)
 		if tc.reIndexErr {
 			require.Error(t, err)
 		} else {

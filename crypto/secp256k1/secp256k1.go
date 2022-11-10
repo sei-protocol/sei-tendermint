@@ -2,7 +2,6 @@ package secp256k1
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"fmt"
@@ -10,15 +9,13 @@ import (
 	"math/big"
 
 	secp256k1 "github.com/btcsuite/btcd/btcec"
+	"golang.org/x/crypto/ripemd160" //nolint: staticcheck // necessary for Bitcoin address format
 
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/internal/jsontypes"
-
-	// necessary for Bitcoin address format
-	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
+	tmjson "github.com/tendermint/tendermint/libs/json"
 )
 
-//-------------------------------------
+// -------------------------------------
 const (
 	PrivKeyName = "tendermint/PrivKeySecp256k1"
 	PubKeyName  = "tendermint/PubKeySecp256k1"
@@ -28,17 +25,14 @@ const (
 )
 
 func init() {
-	jsontypes.MustRegister(PubKey{})
-	jsontypes.MustRegister(PrivKey{})
+	tmjson.RegisterType(PubKey{}, PubKeyName)
+	tmjson.RegisterType(PrivKey{}, PrivKeyName)
 }
 
 var _ crypto.PrivKey = PrivKey{}
 
 // PrivKey implements PrivKey.
 type PrivKey []byte
-
-// TypeTag satisfies the jsontypes.Tagged interface.
-func (PrivKey) TypeTag() string { return PrivKeyName }
 
 // Bytes marshalls the private key using amino encoding.
 func (privKey PrivKey) Bytes() []byte {
@@ -71,7 +65,7 @@ func (privKey PrivKey) Type() string {
 // GenPrivKey generates a new ECDSA private key on curve secp256k1 private key.
 // It uses OS randomness to generate the private key.
 func GenPrivKey() PrivKey {
-	return genPrivKey(rand.Reader)
+	return genPrivKey(crypto.CReader())
 }
 
 // genPrivKey generates a new secp256k1 private key using the provided reader.
@@ -128,6 +122,26 @@ func GenPrivKeySecp256k1(secret []byte) PrivKey {
 	return PrivKey(privKey32)
 }
 
+// used to reject malleable signatures
+// see:
+//   - https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/signature_nocgo.go#L90-L93
+//   - https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/crypto.go#L39
+var secp256k1halfN = new(big.Int).Rsh(secp256k1.S256().N, 1)
+
+// Sign creates an ECDSA signature on curve Secp256k1, using SHA256 on the msg.
+// The returned signature will be of the form R || S (in lower-S form).
+func (privKey PrivKey) Sign(msg []byte) ([]byte, error) {
+	priv, _ := secp256k1.PrivKeyFromBytes(secp256k1.S256(), privKey)
+
+	sig, err := priv.Sign(crypto.Sha256(msg))
+	if err != nil {
+		return nil, err
+	}
+
+	sigBytes := serializeSig(sig)
+	return sigBytes, nil
+}
+
 //-------------------------------------
 
 var _ crypto.PubKey = PubKey{}
@@ -142,9 +156,6 @@ const PubKeySize = 33
 // the x-coordinate. Otherwise the first byte is a 0x03.
 // This prefix is followed with the x-coordinate.
 type PubKey []byte
-
-// TypeTag satisfies the jsontypes.Tagged interface.
-func (PubKey) TypeTag() string { return PubKeyName }
 
 // Address returns a Bitcoin style addresses: RIPEMD160(SHA256(pubkey))
 func (pubKey PubKey) Address() crypto.Address {
@@ -181,26 +192,6 @@ func (pubKey PubKey) Type() string {
 	return KeyType
 }
 
-// used to reject malleable signatures
-// see:
-//  - https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/signature_nocgo.go#L90-L93
-//  - https://github.com/ethereum/go-ethereum/blob/f9401ae011ddf7f8d2d95020b7446c17f8d98dc1/crypto/crypto.go#L39
-var secp256k1halfN = new(big.Int).Rsh(secp256k1.S256().N, 1)
-
-// Sign creates an ECDSA signature on curve Secp256k1, using SHA256 on the msg.
-// The returned signature will be of the form R || S (in lower-S form).
-func (privKey PrivKey) Sign(msg []byte) ([]byte, error) {
-	priv, _ := secp256k1.PrivKeyFromBytes(secp256k1.S256(), privKey)
-	seed := sha256.Sum256(msg)
-	sig, err := priv.Sign(seed[:])
-	if err != nil {
-		return nil, err
-	}
-
-	sigBytes := serializeSig(sig)
-	return sigBytes, nil
-}
-
 // VerifySignature verifies a signature of the form R || S.
 // It rejects signatures which are not in lower-S form.
 func (pubKey PubKey) VerifySignature(msg []byte, sigStr []byte) bool {
@@ -221,8 +212,7 @@ func (pubKey PubKey) VerifySignature(msg []byte, sigStr []byte) bool {
 		return false
 	}
 
-	seed := sha256.Sum256(msg)
-	return signature.Verify(seed[:], pub)
+	return signature.Verify(crypto.Sha256(msg), pub)
 }
 
 // Read Signature struct from R || S. Caller needs to ensure

@@ -14,34 +14,16 @@ var (
 	// The light client will not remove the provider
 	ErrLightBlockNotFound = errors.New("light block not found")
 	// ErrNoResponse is returned if the provider doesn't respond to the
-	// request in a given time. The light client will not remove the provider
+	// request in a gieven time
 	ErrNoResponse = errors.New("client failed to respond")
-	// ErrConnectionClosed is returned if the provider closes the connection.
-	// In this case we remove the provider.
-	ErrConnectionClosed = errors.New("client closed connection")
 )
 
 // ErrBadLightBlock is returned when a provider returns an invalid
-// light block. The light client will remove the provider.
+// light block.
 type ErrBadLightBlock struct {
 	Reason error
 }
 
 func (e ErrBadLightBlock) Error() string {
-	return fmt.Sprintf("client provided bad signed header: %v", e.Reason)
+	return fmt.Sprintf("client provided bad signed header: %s", e.Reason.Error())
 }
-
-func (e ErrBadLightBlock) Unwrap() error { return e.Reason }
-
-// ErrUnreliableProvider is a generic error that indicates that the provider isn't
-// behaving in a reliable manner to the light client. The light client will
-// remove the provider
-type ErrUnreliableProvider struct {
-	Reason error
-}
-
-func (e ErrUnreliableProvider) Error() string {
-	return fmt.Sprintf("client deemed unreliable: %v", e.Reason)
-}
-
-func (e ErrUnreliableProvider) Unwrap() error { return e.Reason }

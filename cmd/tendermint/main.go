@@ -1,50 +1,37 @@
 package main
 
 import (
-	"context"
+	"os"
+	"path/filepath"
 
-	"github.com/tendermint/tendermint/cmd/tendermint/commands"
+	cmd "github.com/tendermint/tendermint/cmd/tendermint/commands"
 	"github.com/tendermint/tendermint/cmd/tendermint/commands/debug"
-	"github.com/tendermint/tendermint/config"
+	cfg "github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/libs/cli"
-	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/node"
+	nm "github.com/tendermint/tendermint/node"
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	conf, err := commands.ParseConfig(config.DefaultConfig())
-	if err != nil {
-		panic(err)
-	}
-
-	logger, err := log.NewDefaultLogger(conf.LogFormat, conf.LogLevel)
-	if err != nil {
-		panic(err)
-	}
-
-	rcmd := commands.RootCommand(conf, logger)
-	rcmd.AddCommand(
-		commands.MakeGenValidatorCommand(),
-		commands.MakeReindexEventCommand(conf, logger),
-		commands.MakeInitFilesCommand(conf, logger),
-		commands.MakeLightCommand(conf, logger),
-		commands.MakeReplayCommand(conf, logger),
-		commands.MakeReplayConsoleCommand(conf, logger),
-		commands.MakeResetCommand(conf, logger),
-		commands.MakeShowValidatorCommand(conf, logger),
-		commands.MakeTestnetFilesCommand(conf, logger),
-		commands.MakeShowNodeIDCommand(conf),
-		commands.GenNodeKeyCmd,
-		commands.VersionCmd,
-		commands.MakeInspectCommand(conf, logger),
-		commands.MakeRollbackStateCommand(conf),
-		commands.MakeKeyMigrateCommand(conf, logger),
-		debug.GetDebugCommand(logger),
-		commands.NewCompletionCmd(rcmd, true),
-		commands.MakeCompactDBCommand(conf, logger),
+	rootCmd := cmd.RootCmd
+	rootCmd.AddCommand(
+		cmd.GenValidatorCmd,
+		cmd.InitFilesCmd,
+		cmd.ProbeUpnpCmd,
+		cmd.LightCmd,
+		cmd.ReplayCmd,
+		cmd.ReplayConsoleCmd,
+		cmd.ResetAllCmd,
+		cmd.ResetPrivValidatorCmd,
+		cmd.ResetStateCmd,
+		cmd.ShowValidatorCmd,
+		cmd.TestnetFilesCmd,
+		cmd.ShowNodeIDCmd,
+		cmd.GenNodeKeyCmd,
+		cmd.VersionCmd,
+		cmd.RollbackStateCmd,
+		cmd.CompactGoLevelDBCmd,
+		debug.DebugCmd,
+		cli.NewCompletionCmd(rootCmd, true),
 	)
 
 	// NOTE:
@@ -54,13 +41,14 @@ func main() {
 	//	* Supply a genesis doc file from another source
 	//	* Provide their own DB implementation
 	// can copy this file and use something other than the
-	// node.NewDefault function
-	nodeFunc := node.NewDefault
+	// DefaultNewNode function
+	nodeFunc := nm.DefaultNewNode
 
 	// Create & start node
-	rcmd.AddCommand(commands.NewRunNodeCmd(nodeFunc, conf, logger))
+	rootCmd.AddCommand(cmd.NewRunNodeCmd(nodeFunc))
 
-	if err := cli.RunWithTrace(ctx, rcmd); err != nil {
+	cmd := cli.PrepareBaseCmd(rootCmd, "TM", os.ExpandEnv(filepath.Join("$HOME", cfg.DefaultTendermintDir)))
+	if err := cmd.Execute(); err != nil {
 		panic(err)
 	}
 }

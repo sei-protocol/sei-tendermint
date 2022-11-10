@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/encoding"
-	"github.com/tendermint/tendermint/internal/jsontypes"
+	"github.com/cosmos/gogoproto/jsonpb"
 )
 
 const (
@@ -35,16 +32,6 @@ func (r ResponseDeliverTx) IsErr() bool {
 }
 
 // IsOK returns true if Code is OK.
-func (r ExecTxResult) IsOK() bool {
-	return r.Code == CodeTypeOK
-}
-
-// IsErr returns true if Code is something other than OK.
-func (r ExecTxResult) IsErr() bool {
-	return r.Code != CodeTypeOK
-}
-
-// IsOK returns true if Code is OK.
 func (r ResponseQuery) IsOK() bool {
 	return r.Code == CodeTypeOK
 }
@@ -54,27 +41,14 @@ func (r ResponseQuery) IsErr() bool {
 	return r.Code != CodeTypeOK
 }
 
+// IsAccepted returns true if Code is ACCEPT
 func (r ResponseProcessProposal) IsAccepted() bool {
 	return r.Status == ResponseProcessProposal_ACCEPT
 }
 
+// IsStatusUnknown returns true if Code is UNKNOWN
 func (r ResponseProcessProposal) IsStatusUnknown() bool {
 	return r.Status == ResponseProcessProposal_UNKNOWN
-}
-
-// IsStatusUnknown returns true if Code is Unknown
-func (r ResponseVerifyVoteExtension) IsStatusUnknown() bool {
-	return r.Status == ResponseVerifyVoteExtension_UNKNOWN
-}
-
-// IsOK returns true if Code is OK
-func (r ResponseVerifyVoteExtension) IsOK() bool {
-	return r.Status == ResponseVerifyVoteExtension_ACCEPT
-}
-
-// IsErr returns true if Code is something other than OK.
-func (r ResponseVerifyVoteExtension) IsErr() bool {
-	return r.Status != ResponseVerifyVoteExtension_ACCEPT
 }
 
 //---------------------------------------------------------------------------
@@ -138,48 +112,6 @@ func (r *EventAttribute) UnmarshalJSON(b []byte) error {
 	return jsonpbUnmarshaller.Unmarshal(reader, r)
 }
 
-// validatorUpdateJSON is the JSON encoding of a validator update.
-//
-// It handles translation of public keys from the protobuf representation to
-// the legacy Amino-compatible format expected by RPC clients.
-type validatorUpdateJSON struct {
-	PubKey json.RawMessage `json:"pub_key,omitempty"`
-	Power  int64           `json:"power,string"`
-}
-
-func (v *ValidatorUpdate) MarshalJSON() ([]byte, error) {
-	key, err := encoding.PubKeyFromProto(v.PubKey)
-	if err != nil {
-		return nil, err
-	}
-	jkey, err := jsontypes.Marshal(key)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(validatorUpdateJSON{
-		PubKey: jkey,
-		Power:  v.GetPower(),
-	})
-}
-
-func (v *ValidatorUpdate) UnmarshalJSON(data []byte) error {
-	var vu validatorUpdateJSON
-	if err := json.Unmarshal(data, &vu); err != nil {
-		return err
-	}
-	var key crypto.PubKey
-	if err := jsontypes.Unmarshal(vu.PubKey, &key); err != nil {
-		return err
-	}
-	pkey, err := encoding.PubKeyToProto(key)
-	if err != nil {
-		return err
-	}
-	v.PubKey = pkey
-	v.Power = vu.Power
-	return nil
-}
-
 // Some compile time assertions to ensure we don't
 // have accidental runtime surprises later on.
 
@@ -196,44 +128,3 @@ var _ jsonRoundTripper = (*ResponseDeliverTx)(nil)
 var _ jsonRoundTripper = (*ResponseCheckTx)(nil)
 
 var _ jsonRoundTripper = (*EventAttribute)(nil)
-
-// -----------------------------------------------
-// construct Result data
-
-func RespondVerifyVoteExtension(ok bool) ResponseVerifyVoteExtension {
-	status := ResponseVerifyVoteExtension_REJECT
-	if ok {
-		status = ResponseVerifyVoteExtension_ACCEPT
-	}
-	return ResponseVerifyVoteExtension{
-		Status: status,
-	}
-}
-
-// deterministicExecTxResult constructs a copy of response that omits
-// non-deterministic fields. The input response is not modified.
-func deterministicExecTxResult(response *ExecTxResult) *ExecTxResult {
-	return &ExecTxResult{
-		Code:      response.Code,
-		Data:      response.Data,
-		GasWanted: response.GasWanted,
-		GasUsed:   response.GasUsed,
-	}
-}
-
-// MarshalTxResults encodes the the TxResults as a list of byte
-// slices. It strips off the non-deterministic pieces of the TxResults
-// so that the resulting data can be used for hash comparisons and used
-// in Merkle proofs.
-func MarshalTxResults(r []*ExecTxResult) ([][]byte, error) {
-	s := make([][]byte, len(r))
-	for i, e := range r {
-		d := deterministicExecTxResult(e)
-		b, err := d.Marshal()
-		if err != nil {
-			return nil, err
-		}
-		s[i] = b
-	}
-	return s, nil
-}

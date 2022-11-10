@@ -33,7 +33,7 @@ See the [references](#references) for more.
 
 The native proto library in Go generates inflexible and verbose code.
 Many in the Go community have adopted a fork called
-[gogoproto](https://github.com/gogo/protobuf) that provides a
+[gogoproto](https://github.com/cosmos/gogoproto) that provides a
 variety of features aimed to improve the developer experience.
 While `gogoproto` is nice, it creates an additional dependency, and compiling
 the protobuf types for other languages has been reported to fail when `gogoproto` is used.
@@ -74,7 +74,7 @@ convenient to work with address information, and for it to be simple to do so.
 ### AbsentValidators
 
 Tendermint also provides a list of validators in BeginBlock who did not sign the
-last block. This allows applications to reflect availability behaviour in the
+last block. This allows applications to reflect availability behavior in the
 application, for instance by punishing validators for not having votes included
 in commits.
 

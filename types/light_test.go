@@ -1,7 +1,6 @@
 package types
 
 import (
-	"context"
 	"math"
 	"testing"
 	"time"
@@ -9,23 +8,19 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tendermint/tendermint/crypto"
+	tmversion "github.com/tendermint/tendermint/proto/tendermint/version"
 	"github.com/tendermint/tendermint/version"
 )
 
 func TestLightBlockValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	header := MakeRandHeader()
-	commit := randCommit(ctx, t, time.Now())
-	vals, _ := randValidatorPrivValSet(ctx, t, 5, 1)
-
+	header := makeRandHeader()
+	commit := randCommit(time.Now())
+	vals, _ := RandValidatorSet(5, 1)
 	header.Height = commit.Height
 	header.LastBlockID = commit.BlockID
 	header.ValidatorsHash = vals.Hash()
 	header.Version.Block = version.BlockProtocol
-	vals2, _ := randValidatorPrivValSet(ctx, t, 3, 1)
-
+	vals2, _ := RandValidatorSet(3, 1)
 	vals3 := vals.Copy()
 	vals3.Proposer = &Validator{}
 	commit.BlockID.Hash = header.Hash()
@@ -44,7 +39,7 @@ func TestLightBlockValidateBasic(t *testing.T) {
 		{"valid light block", sh, vals, false},
 		{"hashes don't match", sh, vals2, true},
 		{"invalid validator set", sh, vals3, true},
-		{"invalid signed header", &SignedHeader{Header: &header, Commit: randCommit(ctx, t, time.Now())}, vals, true},
+		{"invalid signed header", &SignedHeader{Header: &header, Commit: randCommit(time.Now())}, vals, true},
 	}
 
 	for _, tc := range testCases {
@@ -63,12 +58,9 @@ func TestLightBlockValidateBasic(t *testing.T) {
 }
 
 func TestLightBlockProtobuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	header := MakeRandHeader()
-	commit := randCommit(ctx, t, time.Now())
-	vals, _ := randValidatorPrivValSet(ctx, t, 5, 1)
-
+	header := makeRandHeader()
+	commit := randCommit(time.Now())
+	vals, _ := RandValidatorSet(5, 1)
 	header.Height = commit.Height
 	header.LastBlockID = commit.BlockID
 	header.Version.Block = version.BlockProtocol
@@ -119,15 +111,11 @@ func TestLightBlockProtobuf(t *testing.T) {
 }
 
 func TestSignedHeaderValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	commit := randCommit(ctx, t, time.Now())
-
+	commit := randCommit(time.Now())
 	chainID := "𠜎"
 	timestamp := time.Date(math.MaxInt64, 0, 0, 0, 0, 0, math.MaxInt64, time.UTC)
 	h := Header{
-		Version:            version.Consensus{Block: version.BlockProtocol, App: math.MaxInt64},
+		Version:            tmversion.Consensus{Block: version.BlockProtocol, App: math.MaxInt64},
 		ChainID:            chainID,
 		Height:             commit.Height,
 		Time:               timestamp,

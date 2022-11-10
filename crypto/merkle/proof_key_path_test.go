@@ -28,14 +28,13 @@ func TestKeyPath(t *testing.T) {
 			case KeyEncodingHex:
 				rand.Read(keys[i])
 			default:
-				require.Fail(t, "Unexpected encoding")
+				panic("Unexpected encoding")
 			}
 			path = path.AppendKey(keys[i], enc)
 		}
 
 		res, err := KeyPathToKeys(path.String())
-		require.NoError(t, err)
-		require.Equal(t, len(keys), len(res))
+		require.Nil(t, err)
 
 		for i, key := range keys {
 			require.Equal(t, key, res[i])

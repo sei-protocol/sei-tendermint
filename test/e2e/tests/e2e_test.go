@@ -3,14 +3,14 @@ package e2e_test
 import (
 	"context"
 	"os"
-	"sort"
+	"path/filepath"
 	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
-	rpctypes "github.com/tendermint/tendermint/rpc/coretypes"
+	rpctypes "github.com/tendermint/tendermint/rpc/core/types"
 	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
 	"github.com/tendermint/tendermint/types"
 )
@@ -23,21 +23,21 @@ func init() {
 }
 
 var (
+	ctx             = context.Background()
 	testnetCache    = map[string]e2e.Testnet{}
 	testnetCacheMtx = sync.Mutex{}
 	blocksCache     = map[string][]*types.Block{}
 	blocksCacheMtx  = sync.Mutex{}
 )
 
-// testNode runs tests for testnet nodes. The callback function is
-// given a single stateful node to test, running as a subtest in
-// parallel with other subtests.
+// testNode runs tests for testnet nodes. The callback function is given a
+// single node to test, running as a subtest in parallel with other subtests.
 //
 // The testnet manifest must be given as the envvar E2E_MANIFEST. If not set,
 // these tests are skipped so that they're not picked up during normal unit
 // test runs. If E2E_NODE is also set, only the specified node is tested,
 // otherwise all nodes are tested.
-func testNode(t *testing.T, testFunc func(context.Context, *testing.T, e2e.Node)) {
+func testNode(t *testing.T, testFunc func(*testing.T, e2e.Node)) {
 	t.Helper()
 
 	testnet := loadTestnet(t)
@@ -47,24 +47,17 @@ func testNode(t *testing.T, testFunc func(context.Context, *testing.T, e2e.Node)
 		node := testnet.LookupNode(name)
 		require.NotNil(t, node, "node %q not found in testnet %q", name, testnet.Name)
 		nodes = []*e2e.Node{node}
-	} else {
-		sort.Slice(nodes, func(i, j int) bool {
-			return nodes[i].Name < nodes[j].Name
-		})
 	}
 
 	for _, node := range nodes {
-		node := *node
-
 		if node.Stateless() {
 			continue
 		}
 
+		node := *node
 		t.Run(node.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			testFunc(ctx, t, node)
+			t.Parallel()
+			testFunc(t, node)
 		})
 	}
 }
@@ -76,6 +69,9 @@ func loadTestnet(t *testing.T) e2e.Testnet {
 	manifest := os.Getenv("E2E_MANIFEST")
 	if manifest == "" {
 		t.Skip("E2E_MANIFEST not set, not an end-to-end test run")
+	}
+	if !filepath.IsAbs(manifest) {
+		manifest = filepath.Join("..", manifest)
 	}
 
 	testnetCacheMtx.Lock()
@@ -92,7 +88,7 @@ func loadTestnet(t *testing.T) e2e.Testnet {
 
 // fetchBlockChain fetches a complete, up-to-date block history from
 // the freshest testnet archive node.
-func fetchBlockChain(ctx context.Context, t *testing.T) []*types.Block {
+func fetchBlockChain(t *testing.T) []*types.Block {
 	t.Helper()
 
 	testnet := loadTestnet(t)

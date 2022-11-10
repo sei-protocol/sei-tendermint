@@ -1,4 +1,4 @@
-package os_test
+package os
 
 import (
 	"bytes"
@@ -8,12 +8,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	tmos "github.com/tendermint/tendermint/libs/os"
 )
 
 func TestCopyFile(t *testing.T) {
-	tmpfile, err := os.CreateTemp(t.TempDir(), "example")
+	tmpfile, err := os.CreateTemp("", "example")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +22,7 @@ func TestCopyFile(t *testing.T) {
 	}
 
 	copyfile := fmt.Sprintf("%s.copy", tmpfile.Name())
-	if err := tmos.CopyFile(tmpfile.Name(), copyfile); err != nil {
+	if err := CopyFile(tmpfile.Name(), copyfile); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(copyfile); os.IsNotExist(err) {
@@ -41,33 +39,35 @@ func TestCopyFile(t *testing.T) {
 }
 
 func TestEnsureDir(t *testing.T) {
-	tmp := t.TempDir()
+	tmp, err := os.MkdirTemp("", "ensure-dir")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmp)
 
 	// Should be possible to create a new directory.
-	err := tmos.EnsureDir(filepath.Join(tmp, "dir"), 0755)
+	err = EnsureDir(filepath.Join(tmp, "dir"), 0755)
 	require.NoError(t, err)
 	require.DirExists(t, filepath.Join(tmp, "dir"))
 
 	// Should succeed on existing directory.
-	err = tmos.EnsureDir(filepath.Join(tmp, "dir"), 0755)
+	err = EnsureDir(filepath.Join(tmp, "dir"), 0755)
 	require.NoError(t, err)
 
 	// Should fail on file.
 	err = os.WriteFile(filepath.Join(tmp, "file"), []byte{}, 0644)
 	require.NoError(t, err)
-	err = tmos.EnsureDir(filepath.Join(tmp, "file"), 0755)
+	err = EnsureDir(filepath.Join(tmp, "file"), 0755)
 	require.Error(t, err)
 
 	// Should allow symlink to dir.
 	err = os.Symlink(filepath.Join(tmp, "dir"), filepath.Join(tmp, "linkdir"))
 	require.NoError(t, err)
-	err = tmos.EnsureDir(filepath.Join(tmp, "linkdir"), 0755)
+	err = EnsureDir(filepath.Join(tmp, "linkdir"), 0755)
 	require.NoError(t, err)
 
 	// Should error on symlink to file.
 	err = os.Symlink(filepath.Join(tmp, "file"), filepath.Join(tmp, "linkfile"))
 	require.NoError(t, err)
-	err = tmos.EnsureDir(filepath.Join(tmp, "linkfile"), 0755)
+	err = EnsureDir(filepath.Join(tmp, "linkfile"), 0755)
 	require.Error(t, err)
 }
 
@@ -75,7 +75,11 @@ func TestEnsureDir(t *testing.T) {
 // the origin is positively a non-directory and that it is ready for copying.
 // See https://github.com/tendermint/tendermint/issues/6427
 func TestTrickedTruncation(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "pwn_truncate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpDir)
 
 	originalWALPath := filepath.Join(tmpDir, "wal")
 	originalWALContent := []byte("I AM BECOME DEATH, DESTROYER OF ALL WORLDS!")
@@ -94,7 +98,7 @@ func TestTrickedTruncation(t *testing.T) {
 
 	// 2. Now cause the truncation of the original file.
 	// It is absolutely legal to invoke os.Open on a directory.
-	if err := tmos.CopyFile(tmpDir, originalWALPath); err == nil {
+	if err := CopyFile(tmpDir, originalWALPath); err == nil {
 		t.Fatal("Expected an error")
 	}
 

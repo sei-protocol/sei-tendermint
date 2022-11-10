@@ -1,15 +1,13 @@
 package privval
 
 import (
-	"context"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
-	"github.com/tendermint/tendermint/internal/libs/protoio"
-	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/protoio"
 	"github.com/tendermint/tendermint/libs/service"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
 	privvalproto "github.com/tendermint/tendermint/proto/tendermint/privval"
 )
 
@@ -19,9 +17,8 @@ const (
 
 type signerEndpoint struct {
 	service.BaseService
-	logger log.Logger
 
-	connMtx sync.Mutex
+	connMtx tmsync.Mutex
 	conn    net.Conn
 
 	timeoutReadWrite time.Duration
@@ -55,13 +52,11 @@ func (se *signerEndpoint) GetAvailableConnection(connectionAvailableCh chan net.
 }
 
 // TryGetConnection retrieves a connection if it is already available
-func (se *signerEndpoint) WaitConnection(ctx context.Context, connectionAvailableCh chan net.Conn, maxWait time.Duration) error {
+func (se *signerEndpoint) WaitConnection(connectionAvailableCh chan net.Conn, maxWait time.Duration) error {
 	se.connMtx.Lock()
 	defer se.connMtx.Unlock()
 
 	select {
-	case <-ctx.Done():
-		return ctx.Err()
 	case se.conn = <-connectionAvailableCh:
 	case <-time.After(maxWait):
 		return ErrConnectionTimeout
@@ -109,7 +104,7 @@ func (se *signerEndpoint) ReadMessage() (msg privvalproto.Message, err error) {
 			err = fmt.Errorf("empty error: %w", ErrReadTimeout)
 		}
 
-		se.logger.Debug("Dropping [read]", "obj", se)
+		se.Logger.Debug("Dropping [read]", "obj", se)
 		se.dropConnection()
 	}
 
@@ -154,7 +149,7 @@ func (se *signerEndpoint) isConnected() bool {
 func (se *signerEndpoint) dropConnection() {
 	if se.conn != nil {
 		if err := se.conn.Close(); err != nil {
-			se.logger.Error("signerEndpoint::dropConnection", "err", err)
+			se.Logger.Error("signerEndpoint::dropConnection", "err", err)
 		}
 		se.conn = nil
 	}

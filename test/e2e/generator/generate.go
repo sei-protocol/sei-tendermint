@@ -5,9 +5,9 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"time"
 
 	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
-	"github.com/tendermint/tendermint/types"
 )
 
 var (
@@ -21,128 +21,69 @@ var (
 			map[string]string{"initial01": "a", "initial02": "b", "initial03": "c"},
 		},
 		"validators": {"genesis", "initchain"},
-		"abci":       {"builtin", "outofprocess"},
 	}
 
 	// The following specify randomly chosen values for testnet nodes.
-	nodeDatabases = weightedChoice{
-		"goleveldb": 35,
-		"badgerdb":  35,
-		"boltdb":    15,
-		"rocksdb":   10,
-		"cleveldb":  5,
-	}
-	ABCIProtocols = weightedChoice{
-		"tcp":  20,
-		"grpc": 20,
-		"unix": 10,
-	}
-	nodePrivvalProtocols = weightedChoice{
-		"file": 50,
-		"grpc": 20,
-		"tcp":  20,
-		"unix": 10,
-	}
-	nodeStateSyncs = weightedChoice{
-		e2e.StateSyncDisabled: 10,
-		e2e.StateSyncP2P:      45,
-		e2e.StateSyncRPC:      45,
-	}
+	nodeDatabases = uniformChoice{"goleveldb", "cleveldb", "rocksdb", "boltdb", "badgerdb"}
+	ipv6          = uniformChoice{false, true}
+	// FIXME: grpc disabled due to https://github.com/tendermint/tendermint/issues/5439
+	nodeABCIProtocols     = uniformChoice{"unix", "tcp", "builtin"} // "grpc"
+	nodePrivvalProtocols  = uniformChoice{"file", "unix", "tcp"}
+	nodeBlockSyncs        = uniformChoice{"v0"} // "v2"
+	nodeStateSyncs        = uniformChoice{false, true}
+	nodeMempools          = uniformChoice{"v0", "v1"}
 	nodePersistIntervals  = uniformChoice{0, 1, 5}
-	nodeSnapshotIntervals = uniformChoice{0, 5}
+	nodeSnapshotIntervals = uniformChoice{0, 3}
 	nodeRetainBlocks      = uniformChoice{
 		0,
 		2 * int(e2e.EvidenceAgeHeight),
 		4 * int(e2e.EvidenceAgeHeight),
 	}
+	evidence          = uniformChoice{0, 1, 10}
+	abciDelays        = uniformChoice{"none", "small", "large"}
 	nodePerturbations = probSetChoice{
 		"disconnect": 0.1,
 		"pause":      0.1,
 		"kill":       0.1,
 		"restart":    0.1,
 	}
-
-	// the following specify random chosen values for the entire testnet
-	evidence   = uniformChoice{0, 1, 10}
-	txSize     = uniformChoice{1024, 4096} // either 1kb or 4kb
-	ipv6       = uniformChoice{false, true}
-	keyType    = uniformChoice{types.ABCIPubKeyTypeEd25519, types.ABCIPubKeyTypeSecp256k1}
-	abciDelays = uniformChoice{"none", "small", "large"}
-
-	voteExtensionEnableHeightOffset = uniformChoice{int64(0), int64(10), int64(100)}
-	voteExtensionEnabled            = uniformChoice{true, false}
 )
 
 // Generate generates random testnets using the given RNG.
-func Generate(r *rand.Rand, opts Options) ([]e2e.Manifest, error) {
+func Generate(r *rand.Rand) ([]e2e.Manifest, error) {
 	manifests := []e2e.Manifest{}
-
 	for _, opt := range combinations(testnetCombinations) {
 		manifest, err := generateTestnet(r, opt)
 		if err != nil {
 			return nil, err
 		}
-
-		if len(manifest.Nodes) < opts.MinNetworkSize {
-			continue
-		}
-
-		if opts.MaxNetworkSize > 0 && len(manifest.Nodes) >= opts.MaxNetworkSize {
-			continue
-		}
-
 		manifests = append(manifests, manifest)
 	}
-
 	return manifests, nil
-}
-
-type Options struct {
-	MinNetworkSize int
-	MaxNetworkSize int
-	NumGroups      int
-	Directory      string
-	Reverse        bool
 }
 
 // generateTestnet generates a single testnet with the given options.
 func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, error) {
 	manifest := e2e.Manifest{
 		IPv6:             ipv6.Choose(r).(bool),
+		ABCIProtocol:     nodeABCIProtocols.Choose(r).(string),
 		InitialHeight:    int64(opt["initialHeight"].(int)),
 		InitialState:     opt["initialState"].(map[string]string),
 		Validators:       &map[string]int64{},
 		ValidatorUpdates: map[string]map[string]int64{},
-		Nodes:            map[string]*e2e.ManifestNode{},
-		KeyType:          keyType.Choose(r).(string),
 		Evidence:         evidence.Choose(r).(int),
-		QueueType:        "priority",
-		TxSize:           txSize.Choose(r).(int),
-	}
-
-	if voteExtensionEnabled.Choose(r).(bool) {
-		manifest.VoteExtensionsEnableHeight = manifest.InitialHeight + voteExtensionEnableHeightOffset.Choose(r).(int64)
-	}
-
-	if opt["abci"] == "builtin" {
-		manifest.ABCIProtocol = string(e2e.ProtocolBuiltin)
-	} else {
-		manifest.ABCIProtocol = ABCIProtocols.Choose(r)
+		Nodes:            map[string]*e2e.ManifestNode{},
 	}
 
 	switch abciDelays.Choose(r).(string) {
 	case "none":
 	case "small":
-		manifest.PrepareProposalDelayMS = 100
-		manifest.ProcessProposalDelayMS = 100
-		manifest.VoteExtensionDelayMS = 20
-		manifest.FinalizeBlockDelayMS = 200
+		manifest.PrepareProposalDelay = 100 * time.Millisecond
+		manifest.ProcessProposalDelay = 100 * time.Millisecond
 	case "large":
-		manifest.PrepareProposalDelayMS = 200
-		manifest.ProcessProposalDelayMS = 200
-		manifest.CheckTxDelayMS = 20
-		manifest.VoteExtensionDelayMS = 100
-		manifest.FinalizeBlockDelayMS = 500
+		manifest.PrepareProposalDelay = 200 * time.Millisecond
+		manifest.ProcessProposalDelay = 200 * time.Millisecond
+		manifest.CheckTxDelay = 20 * time.Millisecond
 	}
 
 	var numSeeds, numValidators, numFulls, numLightClients int
@@ -153,8 +94,8 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 		numValidators = 4
 	case "large":
 		// FIXME Networks are kept small since large ones use too much CPU.
-		numSeeds = r.Intn(1)
-		numLightClients = r.Intn(2)
+		numSeeds = r.Intn(2)
+		numLightClients = r.Intn(3)
 		numValidators = 4 + r.Intn(4)
 		numFulls = r.Intn(4)
 	default:
@@ -163,11 +104,9 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 
 	// First we generate seed nodes, starting at the initial height.
 	for i := 1; i <= numSeeds; i++ {
-		node := generateNode(r, manifest, e2e.ModeSeed, 0, false)
-		manifest.Nodes[fmt.Sprintf("seed%02d", i)] = node
+		manifest.Nodes[fmt.Sprintf("seed%02d", i)] = generateNode(
+			r, e2e.ModeSeed, 0, manifest.InitialHeight, false)
 	}
-
-	var numSyncingNodes = 0
 
 	// Next, we generate validators. We make sure a BFT quorum of validators start
 	// at the initial height, and that we have two archive nodes. We also set up
@@ -176,15 +115,13 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 	quorum := numValidators*2/3 + 1
 	for i := 1; i <= numValidators; i++ {
 		startAt := int64(0)
-		if i > quorum && numSyncingNodes < 2 && r.Float64() >= 0.25 {
-			numSyncingNodes++
+		if i > quorum {
 			startAt = nextStartAt
 			nextStartAt += 5
 		}
 		name := fmt.Sprintf("validator%02d", i)
-		node := generateNode(r, manifest, e2e.ModeValidator, startAt, i <= 2)
-
-		manifest.Nodes[name] = node
+		manifest.Nodes[name] = generateNode(
+			r, e2e.ModeValidator, startAt, manifest.InitialHeight, i <= 2)
 
 		if startAt == 0 {
 			(*manifest.Validators)[name] = int64(30 + r.Intn(71))
@@ -208,14 +145,12 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 	// Finally, we generate random full nodes.
 	for i := 1; i <= numFulls; i++ {
 		startAt := int64(0)
-		if numSyncingNodes < 2 && r.Float64() >= 0.5 {
-			numSyncingNodes++
+		if r.Float64() >= 0.5 {
 			startAt = nextStartAt
 			nextStartAt += 5
 		}
-		node := generateNode(r, manifest, e2e.ModeFull, startAt, false)
-
-		manifest.Nodes[fmt.Sprintf("full%02d", i)] = node
+		manifest.Nodes[fmt.Sprintf("full%02d", i)] = generateNode(
+			r, e2e.ModeFull, startAt, manifest.InitialHeight, false)
 	}
 
 	// We now set up peer discovery for nodes. Seed nodes are fully meshed with
@@ -255,32 +190,19 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 		}
 	})
 	for i, name := range peerNames {
-		// there are seeds, statesync is disabled, and it's
-		// either the first peer by the sort order, and
-		// (randomly half of the remaining peers use a seed
-		// node; otherwise, choose some remaining set of the
-		// peers.
-
-		if len(seedNames) > 0 &&
-			manifest.Nodes[name].StateSync == e2e.StateSyncDisabled &&
-			(i == 0 || r.Float64() >= 0.5) {
-
-			// choose one of the seeds
+		if len(seedNames) > 0 && (i == 0 || r.Float64() >= 0.5) {
 			manifest.Nodes[name].Seeds = uniformSetChoice(seedNames).Choose(r)
-		} else if i > 1 && r.Float64() >= 0.5 {
-			peers := uniformSetChoice(peerNames[:i])
-			manifest.Nodes[name].PersistentPeers = peers.ChooseAtLeast(r, 2)
+		} else if i > 0 {
+			manifest.Nodes[name].PersistentPeers = uniformSetChoice(peerNames[:i]).Choose(r)
 		}
 	}
 
 	// lastly, set up the light clients
 	for i := 1; i <= numLightClients; i++ {
 		startAt := manifest.InitialHeight + 5
-
-		node := generateLightNode(r, startAt+(5*int64(i)), lightProviders)
-
-		manifest.Nodes[fmt.Sprintf("light%02d", i)] = node
-
+		manifest.Nodes[fmt.Sprintf("light%02d", i)] = generateLightNode(
+			r, startAt+(5*int64(i)), lightProviders,
+		)
 	}
 
 	return manifest, nil
@@ -291,37 +213,20 @@ func generateTestnet(r *rand.Rand, opt map[string]interface{}) (e2e.Manifest, er
 // here, since we need to know the overall network topology and startup
 // sequencing.
 func generateNode(
-	r *rand.Rand,
-	manifest e2e.Manifest,
-	mode e2e.Mode,
-	startAt int64,
-	forceArchive bool,
+	r *rand.Rand, mode e2e.Mode, startAt int64, initialHeight int64, forceArchive bool,
 ) *e2e.ManifestNode {
 	node := e2e.ManifestNode{
 		Mode:             string(mode),
 		StartAt:          startAt,
-		Database:         nodeDatabases.Choose(r),
-		PrivvalProtocol:  nodePrivvalProtocols.Choose(r),
-		StateSync:        e2e.StateSyncDisabled,
+		Database:         nodeDatabases.Choose(r).(string),
+		PrivvalProtocol:  nodePrivvalProtocols.Choose(r).(string),
+		BlockSync:        nodeBlockSyncs.Choose(r).(string),
+		Mempool:          nodeMempools.Choose(r).(string),
+		StateSync:        nodeStateSyncs.Choose(r).(bool) && startAt > 0,
 		PersistInterval:  ptrUint64(uint64(nodePersistIntervals.Choose(r).(int))),
 		SnapshotInterval: uint64(nodeSnapshotIntervals.Choose(r).(int)),
 		RetainBlocks:     uint64(nodeRetainBlocks.Choose(r).(int)),
 		Perturb:          nodePerturbations.Choose(r),
-	}
-
-	if node.PrivvalProtocol == "" {
-		node.PrivvalProtocol = "file"
-	}
-
-	if startAt > 0 {
-		node.StateSync = nodeStateSyncs.Choose(r)
-		if manifest.InitialHeight-startAt <= 5 && node.StateSync == e2e.StateSyncDisabled {
-			// avoid needing to blocsync more than five total blocks.
-			node.StateSync = uniformSetChoice([]string{
-				e2e.StateSyncP2P,
-				e2e.StateSyncRPC,
-			}).Choose(r)[0]
-		}
 	}
 
 	// If this node is forced to be an archive node, retain all blocks and
@@ -359,7 +264,7 @@ func generateLightNode(r *rand.Rand, startAt int64, providers []string) *e2e.Man
 	return &e2e.ManifestNode{
 		Mode:            string(e2e.ModeLight),
 		StartAt:         startAt,
-		Database:        nodeDatabases.Choose(r),
+		Database:        nodeDatabases.Choose(r).(string),
 		PersistInterval: ptrUint64(0),
 		PersistentPeers: providers,
 	}

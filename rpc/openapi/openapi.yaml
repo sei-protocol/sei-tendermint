@@ -8,8 +8,8 @@ info:
     Tendermint supports the following RPC protocols:
 
     * URI over HTTP
-    * JSON-RPC 2.0 over HTTP
-    * JSON-RPC 2.0 over websockets (deprecated)
+    * JSONRPC over HTTP
+    * JSONRPC over websockets
 
     ## Configuration
 
@@ -30,7 +30,7 @@ info:
 
     ## URI/HTTP
 
-    A GET request with arguments encoded as query parameters:
+    A REST like interface.
 
         curl localhost:26657/block?height=5
 
@@ -42,22 +42,19 @@ info:
 
     ## JSONRPC/websockets
 
-    In Tendermint v0.35 and earlier, JSONRPC requests can be also made via
-    websocket.  The websocket interface is deprecated in Tendermint v0.36, and
-    will be removed in v0.37.
-
+    JSONRPC requests can be also made via websocket.
     The websocket endpoint is at `/websocket`, e.g. `localhost:26657/websocket`.
-    The RPC methods for event subscription (`subscribe`, `unsubscribe`, and
-    `unsubscribe_all`) are only available via websockets.
+    Asynchronous RPC functions like event `subscribe` and `unsubscribe` are
+    only available via websockets.
 
     Example using https://github.com/hashrocket/ws:
 
         ws ws://localhost:26657/websocket
         > { "jsonrpc": "2.0", "method": "subscribe", "params": ["tm.event='NewBlock'"], "id": 1 }
-  version: "Master"
+  version: "main"
   license:
     name: Apache 2.0
-    url: https://github.com/tendermint/tendermint/blob/master/LICENSE
+    url: https://github.com/tendermint/tendermint/blob/main/LICENSE
 servers:
   - url: https://rpc.cosmos.network
     description: Cosmos mainnet node to interact with the Tendermint RPC
@@ -72,8 +69,6 @@ tags:
     description: Transactions broadcast APIs
   - name: ABCI
     description: ABCI APIs
-  - name: Events
-    description: Event subscription APIs
   - name: Evidence
     description: Evidence APIs
   - name: Unsafe
@@ -82,58 +77,25 @@ paths:
   /broadcast_tx_sync:
     get:
       summary: Returns with the response from CheckTx. Does not wait for DeliverTx result.
-      deprecated: true
       tags:
         - Tx
       operationId: broadcast_tx_sync
       description: |
-        This method is deprecated in Tendermint v0.36, and will be
-        removed in v0.37. Use `broadcast_tx`, which has similar
-        semantics.
+        If you want to be sure that the transaction is included in a block, you can
+        subscribe for the result using JSONRPC via a websocket. See
+        https://docs.tendermint.com/v0.37/app-dev/subscribing-to-events-via-websocket.html
+        If you haven't received anything after a couple of blocks, resend it. If the
+        same happens again, send it to some other node. A few reasons why it could
+        happen:
 
-        This method blocks until CheckTx returns and reports its result, but
-        does not wait for the transaction to be included in a block. To know
-        when the transaction is included in a block, check for the transaction
-        event using JSON-RPC.  See
-        https://docs.tendermint.com/master/app-dev/subscribing-to-events-via-websocket.html
+        1. malicious node can drop or pretend it had committed your tx
+        2. malicious proposer (not necessary the one you're communicating with) can
+        drop transactions, which might become valid in the future
+        (https://github.com/tendermint/tendermint/issues/3322)
 
-        See https://docs.tendermint.com/master/tendermint-core/using-tendermint.html#formatting
-        for formatting/encoding rules.
-      parameters:
-        - in: query
-          name: tx
-          required: true
-          schema:
-            type: string
-          example: "456"
-          description: The transaction
-      responses:
-        "200":
-          description: Empty
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BroadcastTxResponse"
-        "500":
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /broadcast_tx:
-    get:
-      summary: Returns with the response from CheckTx. Does not wait for DeliverTx result.
-      tags:
-        - Tx
-      operationId: broadcast_tx
-      description: |
-        This method blocks until CheckTx returns and reports its result, but
-        does not wait for the transaction to be included in a block. To know
-        when the transaction is included in a block, check for the transaction
-        event using JSON-RPC.  See
-        https://docs.tendermint.com/master/app-dev/subscribing-to-events-via-websocket.html
 
-        See https://docs.tendermint.com/master/tendermint-core/using-tendermint.html#formatting
+        Please refer to
+        https://docs.tendermint.com/v0.37/tendermint-core/using-tendermint.html#formatting
         for formatting/encoding rules.
       parameters:
         - in: query
@@ -159,21 +121,25 @@ paths:
   /broadcast_tx_async:
     get:
       summary: Returns right away, with no response. Does not wait for CheckTx nor DeliverTx results.
-      deprecated: true
       tags:
         - Tx
       operationId: broadcast_tx_async
       description: |
-        This method is deprecated in Tendermint v0.36, and will be
-        removed in v0.37. Use `broadcast_tx`.
+        If you want to be sure that the transaction is included in a block, you can
+        subscribe for the result using JSONRPC via a websocket. See
+        https://docs.tendermint.com/v0.37/app-dev/subscribing-to-events-via-websocket.html
+        If you haven't received anything after a couple of blocks, resend it. If the
+        same happens again, send it to some other node. A few reasons why it could
+        happen:
 
-        This method submits the transaction and returns immediately without
-        waiting for the transaction to be checked (CheckTx) or committed.  Too
-        know when the transaction is included in a block, you can check for the
-        transaction event using JSON-RPC.  See
-        https://docs.tendermint.com/master/app-dev/subscribing-to-events-via-websocket.html
+        1. malicious node can drop or pretend it had committed your tx
+        2. malicious proposer (not necessary the one you're communicating with) can
+        drop transactions, which might become valid in the future
+        (https://github.com/tendermint/tendermint/issues/3322)
+        3. node can be offline
 
-        See https://docs.tendermint.com/master/tendermint-core/using-tendermint.html#formatting
+        Please refer to
+        https://docs.tendermint.com/v0.37/tendermint-core/using-tendermint.html#formatting
         for formatting/encoding rules.
       parameters:
         - in: query
@@ -199,25 +165,23 @@ paths:
   /broadcast_tx_commit:
     get:
       summary: Returns with the responses from CheckTx and DeliverTx.
-      deprecated: true
       tags:
         - Tx
       operationId: broadcast_tx_commit
       description: |
-        This method waits for the transaction to be checked (CheckTx) and makes
-        a best effort to wait for it to be committed into a block before
-        returning.  It will report an error if the request times out before the
-        transaction commits.  If CheckTx or DeliverTx fails, the RPC will
-        succeed and report the failing (non-zero) ABCI result code.
+        IMPORTANT: use only for testing and development. In production, use
+        BroadcastTxSync or BroadcastTxAsync. You can subscribe for the transaction
+        result using JSONRPC via a websocket. See
+        https://docs.tendermint.com/v0.37/app-dev/subscribing-to-events-via-websocket.html
 
-        WARNING: Use this only for testing and development. For production use,
-        call broadcast_tx.
+        CONTRACT: only returns error if mempool.CheckTx() errs or if we timeout
+        waiting for tx to commit.
 
-        To know when a transaction is included in a block, check for the
-        transaction event using JSON-RPC.  See
-        https://docs.tendermint.com/master/app-dev/subscribing-to-events-via-websocket.html
+        If CheckTx or DeliverTx fail, no error will be returned, but the returned result
+        will contain a non-OK ABCI code.
 
-        See https://docs.tendermint.com/master/tendermint-core/using-tendermint.html#formatting
+        Please refer to
+        https://docs.tendermint.com/v0.37/tendermint-core/using-tendermint.html#formatting
         for formatting/encoding rules.
       parameters:
         - in: query
@@ -247,10 +211,10 @@ paths:
         - Tx
       operationId: check_tx
       description: |
-        The transaction won\'t be added to the mempool.
+        The transaction won't be added to the mempool.
 
         Please refer to
-        https://docs.tendermint.com/master/tendermint-core/using-tendermint.html#formatting
+        https://docs.tendermint.com/v0.37/tendermint-core/using-tendermint.html#formatting
         for formatting/encoding rules.
       parameters:
         - in: query
@@ -273,127 +237,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /remove_tx:
-    get:
-      summary: Removes a transaction from the mempool.
-      tags:
-        - TxKey
-      operationId: remove_tx
-      parameters:
-        - in: query
-          name: txKey
-          required: true
-          schema:
-            type: string
-            example: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-          description: The transaction key
-      responses:
-        "200":
-          description: empty response.
-        "500":
-          description: empty error.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /events:
-    get:
-      summary: Fetch events posted by the consensus node.
-      tags:
-        - Events
-      operationId: events
-      description: |
-        Fetch a batch of events posted by the consensus node and matching a
-        specified query string.
-
-        The query grammar is defined in [pubsub/query/syntax](https://godoc.org/github.com/tendermint/tendermint/internal/pubsub/query/syntax).
-        An empty query matches all events; otherwise a query comprises one or
-        more terms comparing event metadata to target values. For example, to
-        select new block events:
-
-            tm.event = 'NewBlock'
-
-        Multiple terms can be combined with AND, for example to match the
-        transaction event with a given hash, use:
-
-            tm.event = 'Tx' AND tx.hash = 'EA7B33F'
-
-        The comparison operators include `=`, `<`, `<=`, `>`, `>=`, and
-        `CONTAINS`. Operands may be strings (in single quotes), numbers, dates,
-        or timestamps. In addition, the `EXISTS` operator allows you to check
-        for the presence of an attribute regardless of its value.
-
-        Tendermint defines a `tm.event` attribute for all events. Transactions
-        are also assigned `tx.hash` and `tx.height` attributes. Other attributes
-        are provided by the application as ABCI Event records. The name of the
-        event in the query is formed by combining the type and attribute key
-        with a period. For example, given:
-
-            []abci.Event{{
-                Type: "reward",
-                Attributes: []abci.EventAttribute{
-                    {Key: "address", Value: "cosmos1xyz012pdq"},
-                    {Key: "amount", Value: "45.62"},
-                    {Key: "balance", Value: "100.390001"},
-                },
-            }}
-
-        the query may refer to the names`"reward.address`,`"reward.amount`, and
-        `reward.balance`, as in:
-
-            reward.address EXISTS AND reward.balance > 45
-
-        The node maintains a log of all events within an operator-defined time
-        window. The /events method returns the most recent items from the log
-        that match the query. Each item returned includes a cursor that marks
-        its location in the log. Cursors can be passed via the `before` and
-        `after` parameters to fetch events earlier in the log.
-      parameters:
-        - in: query
-          name: filter
-          schema:
-            $ref: "#/components/schemas/EventFilter"
-        - in: query
-          name: maxItems
-          schema:
-            type: integer
-            example: 10
-        - in: query
-          name: after
-          schema:
-            type: string
-            example: "0005d7c09065e9a7-01cf"
-        - in: query
-          name: before
-          schema:
-            type: string
-            example: "0005d7c09065e9a7-01cf"
-        - in: query
-          name: waitTime
-          schema:
-            type: integer
-            example: 5000000000
-      responses:
-        "200":
-          description: Reports a batch of matching events
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EventsResponse"
-        "500":
-          description: Reports an error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /subscribe:
     get:
       summary: Subscribe for events via WebSocket.
       tags:
-        - Events
         - Websocket
       operationId: subscribe
       description: |
@@ -424,28 +271,28 @@ paths:
           Events: []abci.Event{
               {
                   Type: "rewards.withdraw",
-                  Attributes: []abci.EventAttribute{
-                      {Key: "address", Value: "AddrA", Index: true},
-                      {Key: "source", Value: "SrcX", Index: true},
-                      {Key: "amount", Value: "...", Index: true},
-                      {Key: "balance", Value: "...", Index: true},
+                  Attributes: abci.EventAttribute{
+                      {Key: []byte("address"), Value: []byte("AddrA"), Index: true},
+                      {Key: []byte("source"), Value: []byte("SrcX"), Index: true},
+                      {Key: []byte("amount"), Value: []byte("..."), Index: true},
+                      {Key: []byte("balance"), Value: []byte("..."), Index: true},
                   },
               },
               {
                   Type: "rewards.withdraw",
-                  Attributes: []abci.EventAttribute{
-                      {Key: "address", Value: "AddrB", Index: true},
-                      {Key: "source", Value: "SrcY", Index: true},
-                      {Key: "amount", Value: "...", Index: true},
-                      {Key: "balance", Value: "...", Index: true},
+                  Attributes: abci.EventAttribute{
+                      {Key: []byte("address"), Value: []byte("AddrB"), Index: true},
+                      {Key: []byte("source"), Value: []byte("SrcY"), Index: true},
+                      {Key: []byte("amount"), Value: []byte("..."), Index: true},
+                      {Key: []byte("balance"), Value: []byte("..."), Index: true},
                   },
               },
               {
                   Type: "transfer",
-                  Attributes: []abci.EventAttribute{
-                      {Key: "sender", Value: "AddrC", Index: true},
-                      {Key: "recipient", Value: "AddrD", Index: true},
-                      {Key: "amount", Value: "...", Index: true},
+                  Attributes: abci.EventAttribute{
+                      {Key: []byte("sender"), Value: []byte("AddrC"), Index: true},
+                      {Key: []byte("recipient"), Value: []byte("AddrD"), Index: true},
+                      {Key: []byte("amount"), Value: []byte("..."), Index: true},
                   },
               },
           },
@@ -493,14 +340,10 @@ paths:
         import rpchttp "github.com/tendermint/rpc/client/http"
         import "github.com/tendermint/tendermint/types"
 
-        client, err := rpchttp.New("tcp://0.0.0.0:26657", "/websocket")
+        client := rpchttp.New("tcp:0.0.0.0:26657", "/websocket")
+        err := client.Start()
         if err != nil {
-          // handle error
-        }
-
-        err = client.Start()
-        if err != nil {
-          // handle error
+          handle error
         }
         defer client.Stop()
         ctx, cancel := context.WithTimeout(context.Background(), 1 * time.Second)
@@ -508,7 +351,7 @@ paths:
         query := "tm.event = 'Tx' AND tx.height = 3"
         txs, err := client.Subscribe(ctx, "test-client", query)
         if err != nil {
-          // handle error
+          handle error
         }
 
         go func() {
@@ -550,25 +393,20 @@ paths:
     get:
       summary: Unsubscribe from event on Websocket
       tags:
-        - Events
         - Websocket
       operationId: unsubscribe
       description: |
         ```go
-        client, err := rpchttp.New("tcp://0.0.0.0:26657", "/websocket")
-        if err != nil {
-          // handle error
-        }
-
+        client := rpchttp.New("tcp:0.0.0.0:26657", "/websocket")
         err := client.Start()
         if err != nil {
-          // handle error
+           handle error
         }
         defer client.Stop()
         query := "tm.event = 'Tx' AND tx.height = 3"
         err = client.Unsubscribe(context.Background(), "test-client", query)
         if err != nil {
-          // handle error
+           handle error
         }
         ```
       parameters:
@@ -601,7 +439,6 @@ paths:
     get:
       summary: Unsubscribe from all events via WebSocket
       tags:
-        - Events
         - Websocket
       operationId: unsubscribe_all
       description: |
@@ -647,7 +484,7 @@ paths:
       tags:
         - Info
       description: |
-        Get Tendermint status including node info, pubkey, latest block hash, app hash, block height, current max peer height, and time.
+        Get Tendermint status including node info, pubkey, latest block hash, app hash, block height and time.
       responses:
         "200":
           description: Status of the node
@@ -764,32 +601,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-  /unsafe_flush_mempool:
-    get:
-      summary: Flush mempool of all unconfirmed transactions
-      operationId: unsafe_flush_mempool
-      tags:
-        - Unsafe
-      description: |
-        Flush flushes out the mempool. It acquires a read-lock, fetches all the
-        transactions currently in the transaction store and removes each transaction
-        from the store and all indexes and finally resets the cache.
-
-        Note, flushing the mempool may leave the mempool in an inconsistent state.
-      responses:
-        "200":
-          description: empty answer
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "500":
-          description: empty error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /blockchain:
     get:
       summary: "Get block headers (max: 20) for minHeight <= height <= maxHeight."
@@ -812,12 +623,7 @@ paths:
       description: |
         Get block headers for minHeight <= height maxHeight.
 
-        If maxHeight does not yet exist, blocks up to the current height will
-        be returned. If minHeight does not exist (due to pruning), earliest
-        existing height will be used.
-
-        At most 20 items will be returned. Block headers are returned in
-        descending order (highest first).
+        At most 20 items will be returned.
       responses:
         "200":
           description: Block headers, returned in descending order (highest first).
@@ -833,7 +639,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
   /header:
     get:
-      summary: Get the header at a specified height
+      summary: Get header at a specified height
       operationId: header
       parameters:
         - in: query
@@ -842,18 +648,18 @@ paths:
             type: integer
             default: 0
             example: 1
-          description: height to return. If no height is provided, it will fetch the latest height.
+          description: height to return. If no height is provided, it will fetch the latest header.
       tags:
         - Info
       description: |
-        Retrieve the block header corresponding to a specified height.
+        Get Header.
       responses:
         "200":
-          description: Header information.
+          description: Header informations.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HeaderResponse"
+                $ref: "#/components/schemas/BlockHeader"
         "500":
           description: Error
           content:
@@ -875,14 +681,14 @@ paths:
       tags:
         - Info
       description: |
-        Retrieve the block header corresponding to a block hash.
+        Get Header By Hash.
       responses:
         "200":
-          description: Header information.
+          description: Header informations.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HeaderResponse"
+                $ref: "#/components/schemas/BlockHeader"
         "500":
           description: Error
           content:
@@ -907,7 +713,7 @@ paths:
         Get Block.
       responses:
         "200":
-          description: Block information.
+          description: Block informations.
           content:
             application/json:
               schema:
@@ -936,7 +742,7 @@ paths:
         Get Block By Hash.
       responses:
         "200":
-          description: Block information.
+          description: Block informations.
           content:
             application/json:
               schema:
@@ -954,7 +760,7 @@ paths:
       parameters:
         - in: query
           name: height
-          description: height to return. If no height is provided, it will fetch information regarding the latest block.
+          description: height to return. If no height is provided, it will fetch informations regarding the latest block.
           schema:
             type: integer
             default: 0
@@ -969,7 +775,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockSearchResponse"
+                $ref: "#/components/schemas/BlockResultsResponse"
         "500":
           description: Error
           content:
@@ -983,7 +789,7 @@ paths:
       parameters:
         - in: query
           name: height
-          description: height to return. If no height is provided, it will fetch commit information regarding the latest block.
+          description: height to return. If no height is provided, it will fetch commit informations regarding the latest block.
           schema:
             type: integer
             default: 0
@@ -1053,7 +859,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
   /genesis:
     get:
       summary: Get Genesis
@@ -1061,7 +866,7 @@ paths:
       tags:
         - Info
       description: |
-        Get the genesis document.
+        Get genesis.
       responses:
         "200":
           description: Genesis results.
@@ -1075,39 +880,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-
-  /genesis_chunked:
-    get:
-      summary: Get Genesis in paginated chunks
-      operationId: genesis_chunked
-      tags:
-        - Info
-      description: |
-        Get genesis document in a paginated/chunked format to make it
-        easier to iterate through larger genesis structures.
-      parameters:
-        - in: query
-          name: chunkID
-          description: Sequence number of the chunk to download.
-          schema:
-            type: integer
-            default: 0
-            example: 1
-      responses:
-        "200":
-          description: Genesis results.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GenesisChunkedResponse"
-        "500":
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-
   /dump_consensus_state:
     get:
       summary: Get consensus state
@@ -1164,7 +936,7 @@ paths:
       parameters:
         - in: query
           name: height
-          description: height to return. If no height is provided, it will fetch commit information regarding the latest block.
+          description: height to return. If no height is provided, it will fetch commit informations regarding the latest block.
           schema:
             type: integer
             default: 0
@@ -1192,21 +964,13 @@ paths:
       operationId: unconfirmed_txs
       parameters:
         - in: query
-          name: page
-          description: "Page number (1-based)"
+          name: limit
+          description: Maximum number of unconfirmed transactions to return (max 100)
           required: false
           schema:
             type: integer
-            default: 1
-            example: 1
-        - in: query
-          name: per_page
-          description: "Number of entries per page (max: 100)"
-          required: false
-          schema:
-            type: integer
-            example: 100
             default: 30
+            example: 1
       tags:
         - Info
       description: |
@@ -1291,13 +1055,13 @@ paths:
           required: false
           schema:
             type: string
-            default: "desc"
+            default: "asc"
             example: "asc"
       tags:
         - Info
       responses:
         "200":
-          description: List of transactions
+          description: List of unconfirmed transactions
           content:
             application/json:
               schema:
@@ -1356,7 +1120,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockResultsResponse"
+                $ref: "#/components/schemas/BlockSearchResponse"
         "500":
           description: Error
           content:
@@ -1387,10 +1151,10 @@ paths:
       tags:
         - Info
       description: |
-        Get a transaction
+        Get a trasasction
       responses:
         "200":
-          description: Get a transaction
+          description: Get a transaction`
           content:
             application/json:
               schema:
@@ -1487,7 +1251,7 @@ paths:
             type: string
             example: "JSON_EVIDENCE_encoded"
       tags:
-        - Evidence
+        - Info
       description: |
         Broadcast evidence of the misbehavior.
       responses:
@@ -1533,47 +1297,6 @@ components:
             error:
               type: string
               example: "Description of failure"
-    EventItem:
-      description: Event item metadata
-      type: object
-      properties:
-        cursor:
-          type: string
-          example: "0005d7c09065e9a7-01cf"
-        data:
-          type: object
-          properties:
-            type:
-              type: string
-              example: "tendermint/event/Tx"
-            value:
-              type: string
-              format: json
-    EventFilter:
-      description: Event filter query
-      type: object
-      properties:
-        query:
-          type: string
-          example: "tm.event = 'Tx'"
-    EventsResponse:
-      description: Events response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            items:
-              type: array
-              items:
-                $ref: "#/components/schemas/EventItem"
-            more:
-              type: boolean
-            oldest:
-              type: string
-              example: "0005d7c09065e9a7-01cf"
-            newest:
-              type: string
-              example: "0005d7c090660099-0200"
     ProtocolVersion:
       type: object
       properties:
@@ -1605,7 +1328,7 @@ components:
           example: "5576458aef205977e18fd50b274e9b5d9014525a"
         listen_addr:
           type: string
-          example: "tcp://0.0.0.0:26656"
+          example: "tcp:0.0.0.0:26656"
         network:
           type: string
           example: "cosmoshub-2"
@@ -1626,7 +1349,7 @@ components:
               example: "on"
             rpc_address:
               type: string
-              example: "tcp://0.0.0.0:26657"
+              example: "tcp:0.0.0.0:26657"
     SyncInfo:
       type: object
       properties:
@@ -1654,39 +1377,9 @@ components:
         earliest_block_time:
           type: string
           example: "2019-08-01T11:52:22.818762194Z"
-        max_peer_block_height:
-          type: string
-          example: "1262196"
         catching_up:
           type: boolean
           example: false
-        total_synced_time:
-          type: string
-          example: "1000000000"
-        remaining_time:
-          type: string
-          example: "0"
-        total_snapshots:
-          type: string
-          example: "10"
-        chunk_process_avg_time:
-          type: string
-          example: "1000000000"
-        snapshot_height:
-          type: string
-          example: "1262196"
-        snapshot_chunks_count:
-          type: string
-          example: "10"
-        snapshot_chunks_total:
-          type: string
-          example: "100"
-        backfilled_blocks:
-          type: string
-          example: "10"
-        backfill_blocks_total:
-          type: string
-          example: "100"
     ValidatorInfo:
       type: object
       properties:
@@ -1793,12 +1486,16 @@ components:
     Peer:
       type: object
       properties:
-        node_id:
+        node_info:
+          $ref: "#/components/schemas/NodeInfo"
+        is_outbound:
+          type: boolean
+          example: true
+        connection_status:
+          $ref: "#/components/schemas/ConnectionStatus"
+        remote_ip:
           type: string
-          example: ""
-        url:
-          type: string
-          example: "<id>@95.179.155.35:2385>"
+          example: "95.179.155.35"
     NetInfo:
       type: object
       properties:
@@ -1948,21 +1645,13 @@ components:
         block:
           $ref: "#/components/schemas/Block"
     BlockResponse:
-      description: Block info
+      description: Blockc info
       allOf:
         - $ref: "#/components/schemas/JSONRPC"
         - type: object
           properties:
             result:
               $ref: "#/components/schemas/BlockComplete"
-    HeaderResponse:
-      description: Block Header info
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/BlockHeader"
 
     ################## FROM NOW ON NEEDS REFACTOR ##################
     BlockResultsResponse:
@@ -2027,9 +1716,6 @@ components:
                   codespace:
                     type: string
                     example: "ibc"
-            total_gas_used:
-              type: string
-              example: "100"
             begin_block_events:
               type: array
               nullable: true
@@ -2044,7 +1730,7 @@ components:
                     nullable: false
                     items:
                       $ref: "#/components/schemas/Event"
-            end_block:
+            end_block_events:
               type: array
               nullable: true
               items:
@@ -2079,7 +1765,7 @@ components:
                   power:
                     type: string
                     example: "300"
-            consensus_params_updates:
+            consensus_param_updates:
               $ref: "#/components/schemas/ConsensusParams"
 
     CommitResponse:
@@ -2248,35 +1934,6 @@ components:
                 app_state:
                   properties: {}
                   type: object
-
-    GenesisChunkedResponse:
-      type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
-      properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "chunk"
-            - "total"
-            - "data"
-          properties:
-            chunk:
-              type: integer
-              example: 0
-            total:
-              type: integer
-              example: 1
-            data:
-              type: string
-              example: "Z2VuZXNpcwo="
 
     DumpConsensusResponse:
       type: object

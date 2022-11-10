@@ -48,7 +48,7 @@ to the node.  Unlike the other methods of the service, for which each call is
 serviced by a short-lived HTTP round trip, subscription delivers a continuous
 stream of events to the client by hijacking the HTTP channel for a websocket.
 The stream (and hence the HTTP request) persists until either the subscription
-is explicitly cancelled, or the connection is closed.
+is explicitly canceled, or the connection is closed.
 
 There are several problems with this API:
 
@@ -664,8 +664,8 @@ The following alternative approaches were considered:
    - [indexer: unbuffered event subscription slow down the consensus][i7247] (#7247)
    - [rpc: remove duplication of events when querying][i7273] (#7273)
 
-[rfc006]:        https://github.com/tendermint/tendermint/blob/master/docs/rfc/rfc-006-event-subscription.md
-[rpc-service]:   https://github.com/tendermint/tendermint/blob/master/rpc/openapi/openapi.yaml
+[rfc006]:        https://github.com/tendermint/tendermint/blob/v0.37.x/docs/rfc/rfc-006-event-subscription.md
+[rpc-service]:   https://github.com/tendermint/tendermint/blob/v0.37.x/rpc/openapi/openapi.yaml
 [query-grammar]: https://pkg.go.dev/github.com/tendermint/tendermint@master/internal/pubsub/query/syntax
 [ws]:            https://datatracker.ietf.org/doc/html/rfc6455
 [jsonrpc2]:      https://www.jsonrpc.org/specification
@@ -675,8 +675,8 @@ The following alternative approaches were considered:
 <!-- markdown-link-check-disable-next-line -->
 [ng-xm]:         https://www.nginx.com/resources/wiki/extending/
 [abci-event]:    https://pkg.go.dev/github.com/tendermint/tendermint/abci/types#Event
-[rfc001]:        https://github.com/tendermint/tendermint/blob/master/docs/rfc/rfc-001-storage-engine.rst
-[rfc002]:        https://github.com/tendermint/tendermint/blob/master/docs/rfc/rfc-002-ipc-ecosystem.md
+[rfc001]:        https://github.com/tendermint/tendermint/blob/v0.37.x/docs/rfc/rfc-001-storage-engine.rst
+[rfc002]:        https://github.com/tendermint/tendermint/blob/v0.37.x/docs/rfc/rfc-002-ipc-ecosystem.md
 [i3380]:         https://github.com/tendermint/tendermint/issues/3380
 [i6439]:         https://github.com/tendermint/tendermint/issues/6439
 [i6729]:         https://github.com/tendermint/tendermint/issues/6729

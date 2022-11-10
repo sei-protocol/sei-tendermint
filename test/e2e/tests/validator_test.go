@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,21 +13,17 @@ import (
 // Tests that validator sets are available and correct according to
 // scheduled validator updates.
 func TestValidator_Sets(t *testing.T) {
-	testNode(t, func(ctx context.Context, t *testing.T, node e2e.Node) {
+	testNode(t, func(t *testing.T, node e2e.Node) {
+		if node.Mode == e2e.ModeSeed {
+			return
+		}
+
 		client, err := node.Client()
 		require.NoError(t, err)
 		status, err := client.Status(ctx)
 		require.NoError(t, err)
 
 		first := status.SyncInfo.EarliestBlockHeight
-
-		// for nodes that have to catch up, we should only
-		// check the validator sets for nodes after this
-		// point, to avoid inconsistencies with backfill.
-		if node.StartAt > first {
-			first = node.StartAt
-		}
-
 		last := status.SyncInfo.LatestBlockHeight
 
 		// skip first block if node is pruning blocks, to avoid race conditions
@@ -37,7 +32,7 @@ func TestValidator_Sets(t *testing.T) {
 		}
 
 		valSchedule := newValidatorSchedule(*node.Testnet)
-		require.NoError(t, valSchedule.Increment(first-node.Testnet.InitialHeight))
+		valSchedule.Increment(first - node.Testnet.InitialHeight)
 
 		for h := first; h <= last; h++ {
 			validators := []*types.Validator{}
@@ -52,7 +47,7 @@ func TestValidator_Sets(t *testing.T) {
 			}
 			require.Equal(t, valSchedule.Set.Validators, validators,
 				"incorrect validator set at height %v", h)
-			require.NoError(t, valSchedule.Increment(1))
+			valSchedule.Increment(1)
 		}
 	})
 }
@@ -60,11 +55,8 @@ func TestValidator_Sets(t *testing.T) {
 // Tests that a validator proposes blocks when it's supposed to. It tolerates some
 // missed blocks, e.g. due to testnet perturbations.
 func TestValidator_Propose(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	blocks := fetchBlockChain(ctx, t)
-	testNode(t, func(ctx context.Context, t *testing.T, node e2e.Node) {
+	blocks := fetchBlockChain(t)
+	testNode(t, func(t *testing.T, node e2e.Node) {
 		if node.Mode != e2e.ModeValidator {
 			return
 		}
@@ -80,7 +72,7 @@ func TestValidator_Propose(t *testing.T) {
 					proposeCount++
 				}
 			}
-			require.NoError(t, valSchedule.Increment(1))
+			valSchedule.Increment(1)
 		}
 
 		require.False(t, proposeCount == 0 && expectCount > 0,
@@ -94,11 +86,8 @@ func TestValidator_Propose(t *testing.T) {
 // Tests that a validator signs blocks when it's supposed to. It tolerates some
 // missed blocks, e.g. due to testnet perturbations.
 func TestValidator_Sign(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	blocks := fetchBlockChain(ctx, t)
-	testNode(t, func(ctx context.Context, t *testing.T, node e2e.Node) {
+	blocks := fetchBlockChain(t)
+	testNode(t, func(t *testing.T, node e2e.Node) {
 		if node.Mode != e2e.ModeValidator {
 			return
 		}
@@ -123,7 +112,7 @@ func TestValidator_Sign(t *testing.T) {
 			} else {
 				require.False(t, signed, "unexpected signature for block %v", block.LastCommit.Height)
 			}
-			require.NoError(t, valSchedule.Increment(1))
+			valSchedule.Increment(1)
 		}
 
 		require.False(t, signCount == 0 && expectCount > 0,
@@ -154,7 +143,7 @@ func newValidatorSchedule(testnet e2e.Testnet) *validatorSchedule {
 	}
 }
 
-func (s *validatorSchedule) Increment(heights int64) error {
+func (s *validatorSchedule) Increment(heights int64) {
 	for i := int64(0); i < heights; i++ {
 		s.height++
 		if s.height > 2 {
@@ -162,13 +151,12 @@ func (s *validatorSchedule) Increment(heights int64) error {
 			// two blocks after they're returned.
 			if update, ok := s.updates[s.height-2]; ok {
 				if err := s.Set.UpdateWithChangeSet(makeVals(update)); err != nil {
-					return err
+					panic(err)
 				}
 			}
 		}
 		s.Set.IncrementProposerPriority(1)
 	}
-	return nil
 }
 
 func makeVals(valMap map[*e2e.Node]int64) []*types.Validator {

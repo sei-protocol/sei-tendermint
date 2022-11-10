@@ -2,13 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
-	"path/filepath"
 	"time"
 
-	"github.com/tendermint/tendermint/libs/log"
 	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
 	"github.com/tendermint/tendermint/types"
 )
@@ -22,29 +19,26 @@ import (
 //
 // Metrics are based of the `benchmarkLength`, the amount of consecutive blocks
 // sampled from in the testnet
-func Benchmark(ctx context.Context, logger log.Logger, testnet *e2e.Testnet, benchmarkLength int64) error {
-	block, err := getLatestBlock(ctx, testnet)
+func Benchmark(testnet *e2e.Testnet, benchmarkLength int64) error {
+	block, _, err := waitForHeight(testnet, 0)
 	if err != nil {
 		return err
 	}
 
 	logger.Info("Beginning benchmark period...", "height", block.Height)
-	startAt := time.Now()
+
 	// wait for the length of the benchmark period in blocks to pass. We allow 5 seconds for each block
 	// which should be sufficient.
 	waitingTime := time.Duration(benchmarkLength*5) * time.Second
-	ctx, cancel := context.WithTimeout(ctx, waitingTime)
-	defer cancel()
-	block, _, err = waitForHeight(ctx, testnet, block.Height+benchmarkLength)
+	endHeight, err := waitForAllNodes(testnet, block.Height+benchmarkLength, waitingTime)
 	if err != nil {
 		return err
 	}
-	dur := time.Since(startAt)
 
-	logger.Info("Ending benchmark period", "height", block.Height)
+	logger.Info("Ending benchmark period", "height", endHeight)
 
 	// fetch a sample of blocks
-	blocks, err := fetchBlockChainSample(ctx, testnet, benchmarkLength)
+	blocks, err := fetchBlockChainSample(testnet, benchmarkLength)
 	if err != nil {
 		return err
 	}
@@ -52,34 +46,18 @@ func Benchmark(ctx context.Context, logger log.Logger, testnet *e2e.Testnet, ben
 	// slice into time intervals and collate data
 	timeIntervals := splitIntoBlockIntervals(blocks)
 	testnetStats := extractTestnetStats(timeIntervals)
-
-	// populate data
-	testnetStats.populateTxns(blocks)
-	testnetStats.totalTime = dur
-	testnetStats.benchmarkLength = benchmarkLength
 	testnetStats.startHeight = blocks[0].Header.Height
 	testnetStats.endHeight = blocks[len(blocks)-1].Header.Height
 
 	// print and return
 	logger.Info(testnetStats.String())
-	logger.Info(testnetStats.getReportJSON(testnet))
 	return nil
-}
-
-func (t *testnetStats) populateTxns(blocks []*types.BlockMeta) {
-	t.numtxns = 0
-	for _, b := range blocks {
-		t.numtxns += int64(b.NumTxs)
-	}
 }
 
 type testnetStats struct {
 	startHeight int64
 	endHeight   int64
 
-	benchmarkLength int64
-	numtxns         int64
-	totalTime       time.Duration
 	// average time to produce a block
 	mean time.Duration
 	// standard deviation of block production
@@ -88,27 +66,6 @@ type testnetStats struct {
 	max time.Duration
 	// shortest time to produce a block
 	min time.Duration
-}
-
-func (t *testnetStats) getReportJSON(net *e2e.Testnet) string {
-	jsn, err := json.Marshal(map[string]interface{}{
-		"case":   filepath.Base(net.File),
-		"blocks": t.endHeight - t.startHeight,
-		"stddev": t.std,
-		"mean":   t.mean.Seconds(),
-		"max":    t.max.Seconds(),
-		"min":    t.min.Seconds(),
-		"size":   len(net.Nodes),
-		"txns":   t.numtxns,
-		"dur":    t.totalTime.Seconds(),
-		"length": t.benchmarkLength,
-	})
-
-	if err != nil {
-		return ""
-	}
-
-	return string(jsn)
 }
 
 func (t *testnetStats) String() string {
@@ -129,7 +86,7 @@ func (t *testnetStats) String() string {
 
 // fetchBlockChainSample waits for `benchmarkLength` amount of blocks to pass, fetching
 // all of the headers for these blocks from an archive node and returning it.
-func fetchBlockChainSample(ctx context.Context, testnet *e2e.Testnet, benchmarkLength int64) ([]*types.BlockMeta, error) {
+func fetchBlockChainSample(testnet *e2e.Testnet, benchmarkLength int64) ([]*types.BlockMeta, error) {
 	var blocks []*types.BlockMeta
 
 	// Find the first archive node
@@ -140,6 +97,7 @@ func fetchBlockChainSample(ctx context.Context, testnet *e2e.Testnet, benchmarkL
 	}
 
 	// find the latest height
+	ctx := context.Background()
 	s, err := c.Status(ctx)
 	if err != nil {
 		return nil, err

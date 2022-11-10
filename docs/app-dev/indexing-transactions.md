@@ -15,7 +15,7 @@ the block itself is never stored.
 Each event contains a type and a list of attributes, which are key-value pairs
 denoting something about what happened during the method's execution. For more
 details on `Events`, see the
-[ABCI](https://github.com/tendermint/tendermint/blob/master/spec/abci/abci.md#events)
+[ABCI](https://github.com/tendermint/tendermint/blob/v0.37.x/spec/abci/abci.md#events)
 documentation.
 
 An `Event` has a composite key associated with it. A `compositeKey` is
@@ -43,8 +43,8 @@ be turned off regardless of other values provided.
 ```toml
 [tx-index]
 
-# The backend database list to back the indexer.
-# If list contains null, meaning no indexer service will be used.
+# The backend database to back the indexer.
+# If indexer is "null", no indexer service will be used.
 #
 # The application will set which txs to index. In some cases a node operator will be able
 # to decide which txs to index based on configuration set in the application.
@@ -54,7 +54,7 @@ be turned off regardless of other values provided.
 #   2) "kv" (default) - the simplest possible indexer, backed by key-value storage (defaults to levelDB; see DBBackend).
 #     - When "kv" is chosen "tx.height" and "tx.hash" will always be indexed.
 #   3) "psql" - the indexer services backed by PostgreSQL.
-# indexer = []
+# indexer = "kv"
 ```
 
 ### Supported Indexers
@@ -146,7 +146,7 @@ You can query for a paginated set of transaction by their events by calling the
 curl "localhost:26657/tx_search?query=\"message.sender='cosmos1...'\"&prove=true"
 ```
 
-Check out [API docs](https://docs.tendermint.com/master/rpc/#/Info/tx_search)
+Check out [API docs](https://docs.tendermint.com/v0.37/rpc/#/Info/tx_search)
 for more information on query syntax and other options.
 
 ## Subscribing to Transactions
@@ -165,7 +165,7 @@ a query to `/subscribe` RPC endpoint.
 }
 ```
 
-Check out [API docs](https://docs.tendermint.com/master/rpc/#subscribe) for more information
+Check out [API docs](https://docs.tendermint.com/v0.37/rpc/#subscribe) for more information
 on query syntax and other options.
 
 ## Querying Blocks Events
@@ -177,5 +177,5 @@ You can query for a paginated set of blocks by their events by calling the
 curl "localhost:26657/block_search?query=\"block.height > 10 AND val_set.num_changed > 0\""
 ```
 
-Check out [API docs](https://docs.tendermint.com/master/rpc/#/Info/block_search)
+Check out [API docs](https://docs.tendermint.com/v0.37/rpc/#/Info/block_search)
 for more information on query syntax and other options.

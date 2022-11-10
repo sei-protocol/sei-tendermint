@@ -3,35 +3,34 @@ package bits
 import (
 	"bytes"
 	"encoding/json"
-	"math"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	tmrand "github.com/tendermint/tendermint/libs/rand"
-	tmprotobits "github.com/tendermint/tendermint/proto/tendermint/libs/bits"
 )
 
-func randBitArray(bits int) *BitArray {
+func randBitArray(bits int) (*BitArray, []byte) {
 	src := tmrand.Bytes((bits + 7) / 8)
 	bA := NewBitArray(bits)
 	for i := 0; i < len(src); i++ {
 		for j := 0; j < 8; j++ {
 			if i*8+j >= bits {
-				return bA
+				return bA, src
 			}
 			setBit := src[i]&(1<<uint(j)) > 0
 			bA.SetIndex(i*8+j, setBit)
 		}
 	}
-	return bA
+	return bA, src
 }
 
 func TestAnd(t *testing.T) {
 
-	bA1 := randBitArray(51)
-	bA2 := randBitArray(31)
+	bA1, _ := randBitArray(51)
+	bA2, _ := randBitArray(31)
 	bA3 := bA1.And(bA2)
 
 	var bNil *BitArray
@@ -54,8 +53,9 @@ func TestAnd(t *testing.T) {
 }
 
 func TestOr(t *testing.T) {
-	bA1 := randBitArray(51)
-	bA2 := randBitArray(31)
+
+	bA1, _ := randBitArray(51)
+	bA2, _ := randBitArray(31)
 	bA3 := bA1.Or(bA2)
 
 	bNil := (*BitArray)(nil)
@@ -97,11 +97,11 @@ func TestSub(t *testing.T) {
 	for _, tc := range testCases {
 		var bA *BitArray
 		err := json.Unmarshal([]byte(tc.initBA), &bA)
-		require.NoError(t, err)
+		require.Nil(t, err)
 
 		var o *BitArray
 		err = json.Unmarshal([]byte(tc.subtractingBA), &o)
-		require.NoError(t, err)
+		require.Nil(t, err)
 
 		got, _ := json.Marshal(bA.Sub(o))
 		require.Equal(
@@ -147,8 +147,9 @@ func TestBytes(t *testing.T) {
 	bA := NewBitArray(4)
 	bA.SetIndex(0, true)
 	check := func(bA *BitArray, bz []byte) {
-		require.True(t, bytes.Equal(bA.Bytes(), bz),
-			"Expected %X but got %X", bz, bA.Bytes())
+		if !bytes.Equal(bA.Bytes(), bz) {
+			panic(fmt.Sprintf("Expected %X but got %X", bz, bA.Bytes()))
+		}
 	}
 	check(bA, []byte{0x01})
 	bA.SetIndex(3, true)
@@ -169,8 +170,6 @@ func TestBytes(t *testing.T) {
 	check(bA, []byte{0x80, 0x01})
 	bA.SetIndex(9, true)
 	check(bA, []byte{0x80, 0x03})
-
-	require.False(t, bA.SetIndex(-1, true))
 }
 
 func TestEmptyFull(t *testing.T) {
@@ -190,7 +189,10 @@ func TestEmptyFull(t *testing.T) {
 }
 
 func TestUpdateNeverPanics(t *testing.T) {
-	newRandBitArray := func(n int) *BitArray { return randBitArray(n) }
+	newRandBitArray := func(n int) *BitArray {
+		ba, _ := randBitArray(n)
+		return ba
+	}
 	pairs := []struct {
 		a, b *BitArray
 	}{
@@ -264,7 +266,7 @@ func TestJSONMarshalUnmarshal(t *testing.T) {
 	}
 }
 
-func TestBitArrayToFromProto(t *testing.T) {
+func TestBitArrayProtoBuf(t *testing.T) {
 	testCases := []struct {
 		msg     string
 		bA1     *BitArray
@@ -278,41 +280,11 @@ func TestBitArrayToFromProto(t *testing.T) {
 	for _, tc := range testCases {
 		protoBA := tc.bA1.ToProto()
 		ba := new(BitArray)
-		err := ba.FromProto(protoBA)
+		ba.FromProto(protoBA)
 		if tc.expPass {
-			assert.NoError(t, err)
 			require.Equal(t, tc.bA1, ba, tc.msg)
 		} else {
 			require.NotEqual(t, tc.bA1, ba, tc.msg)
-		}
-	}
-}
-
-func TestBitArrayFromProto(t *testing.T) {
-	testCases := []struct {
-		pbA    *tmprotobits.BitArray
-		resA   *BitArray
-		expErr bool
-	}{
-		0: {nil, &BitArray{}, false},
-		1: {&tmprotobits.BitArray{}, &BitArray{Elems: []uint64{}}, false},
-
-		2: {&tmprotobits.BitArray{Bits: 1, Elems: make([]uint64, 1)}, &BitArray{Bits: 1, Elems: make([]uint64, 1)}, false},
-
-		3: {&tmprotobits.BitArray{Bits: -1, Elems: make([]uint64, 1)}, &BitArray{}, true},
-		4: {&tmprotobits.BitArray{Bits: math.MaxInt32 + 1, Elems: make([]uint64, 1)}, &BitArray{}, true},
-		5: {&tmprotobits.BitArray{Bits: 1, Elems: make([]uint64, 2)}, &BitArray{}, true},
-	}
-
-	for i, tc := range testCases {
-		bA := new(BitArray)
-		err := bA.FromProto(tc.pbA)
-		if tc.expErr {
-			assert.Error(t, err, "#%d", i)
-			assert.Equal(t, tc.resA, bA, "#%d", i)
-		} else {
-			assert.NoError(t, err, "#%d", i)
-			assert.Equal(t, tc.resA, bA, "#%d", i)
 		}
 	}
 }

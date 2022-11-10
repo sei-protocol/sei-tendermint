@@ -5,13 +5,14 @@ import (
 	"math/big"
 	"testing"
 
-	underlyingSecp256k1 "github.com/btcsuite/btcd/btcec"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
+
+	underlyingSecp256k1 "github.com/btcsuite/btcd/btcec"
 )
 
 type keyData struct {
@@ -36,6 +37,7 @@ func TestPubKeySecp256k1Address(t *testing.T) {
 		addrB := crypto.Address(addrBbz)
 
 		priv := secp256k1.PrivKey(privB)
+
 		pubKey := priv.PubKey()
 		pubT, _ := pubKey.(secp256k1.PubKey)
 		pub := pubT
@@ -52,7 +54,7 @@ func TestSignAndValidateSecp256k1(t *testing.T) {
 
 	msg := crypto.CRandBytes(128)
 	sig, err := privKey.Sign(msg)
-	require.NoError(t, err)
+	require.Nil(t, err)
 
 	assert.True(t, pubKey.VerifySignature(msg, sig))
 

@@ -26,11 +26,6 @@ import (
 // If there are no conflictinge headers, the light client deems the verified target header
 // trusted and saves it to the trusted store.
 func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.LightBlock, now time.Time) error {
-	c.providerMutex.Lock()
-	defer c.providerMutex.Unlock()
-	if len(c.witnesses) < 1 {
-		return nil
-	}
 	if primaryTrace == nil || len(primaryTrace) < 2 {
 		return errors.New("nil or single block primary trace")
 	}
@@ -39,8 +34,15 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 		lastVerifiedHeader = primaryTrace[len(primaryTrace)-1].SignedHeader
 		witnessesToRemove  = make([]int, 0)
 	)
-	c.logger.Debug("running detector against trace", "finalizeBlockHeight", lastVerifiedHeader.Height,
-		"finalizeBlockHash", lastVerifiedHeader.Hash, "length", len(primaryTrace))
+	c.logger.Debug("Running detector against trace", "endBlockHeight", lastVerifiedHeader.Height,
+		"endBlockHash", lastVerifiedHeader.Hash, "length", len(primaryTrace))
+
+	c.providerMutex.Lock()
+	defer c.providerMutex.Unlock()
+
+	if len(c.witnesses) == 0 {
+		return ErrNoWitnesses
+	}
 
 	// launch one goroutine per witness to retrieve the light block of the target height
 	// and compare it with the header from the primary
@@ -72,10 +74,14 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 			witnessesToRemove = append(witnessesToRemove, e.WitnessIndex)
 
 		case errBadWitness:
+			// these are all melevolent errors and should result in removing the
+			// witness
 			c.logger.Info("witness returned an error during header comparison, removing...",
 				"witness", c.witnesses[e.WitnessIndex], "err", err)
 			witnessesToRemove = append(witnessesToRemove, e.WitnessIndex)
 		default:
+			// Benign errors which can be ignored unless there was a context
+			// canceled
 			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
 				return e
 			}
@@ -103,12 +109,14 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 //
 // 1: errConflictingHeaders -> there may have been an attack on this light client
 // 2: errBadWitness -> the witness has either not responded, doesn't have the header or has given us an invalid one
-//    Note: In the case of an invalid header we remove the witness
+//
+//	Note: In the case of an invalid header we remove the witness
+//
 // 3: nil -> the hashes of the two headers match
 func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan error, h *types.SignedHeader,
 	witness provider.Provider, witnessIndex int) {
 
-	lightBlock, err := c.getLightBlock(ctx, witness, h.Height)
+	lightBlock, err := witness.LightBlock(ctx, h.Height)
 	switch err {
 	// no error means we move on to checking the hash of the two headers
 	case nil:
@@ -129,11 +137,7 @@ func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan erro
 		var isTargetHeight bool
 		isTargetHeight, lightBlock, err = c.getTargetBlockOrLatest(ctx, h.Height, witness)
 		if err != nil {
-			if c.providerShouldBeRemoved(err) {
-				errc <- errBadWitness{Reason: err, WitnessIndex: witnessIndex}
-			} else {
-				errc <- err
-			}
+			errc <- err
 			return
 		}
 
@@ -157,10 +161,10 @@ func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan erro
 		time.Sleep(2*c.maxClockDrift + c.maxBlockLag)
 		isTargetHeight, lightBlock, err = c.getTargetBlockOrLatest(ctx, h.Height, witness)
 		if err != nil {
-			if c.providerShouldBeRemoved(err) {
-				errc <- errBadWitness{Reason: err, WitnessIndex: witnessIndex}
-			} else {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				errc <- err
+			} else {
+				errc <- errBadWitness{Reason: err, WitnessIndex: witnessIndex}
 			}
 			return
 		}
@@ -192,11 +196,11 @@ func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan erro
 		return
 	}
 
-	if !bytes.Equal(h.Header.Hash(), lightBlock.Header.Hash()) {
+	if !bytes.Equal(h.Hash(), lightBlock.Hash()) {
 		errc <- errConflictingHeaders{Block: lightBlock, WitnessIndex: witnessIndex}
 	}
 
-	c.logger.Debug("matching header received by witness", "height", h.Height, "witness", witnessIndex)
+	c.logger.Debug("Matching header received by witness", "height", h.Height, "witness", witnessIndex)
 	errc <- nil
 }
 
@@ -204,7 +208,7 @@ func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan erro
 func (c *Client) sendEvidence(ctx context.Context, ev *types.LightClientAttackEvidence, receiver provider.Provider) {
 	err := receiver.ReportEvidence(ctx, ev)
 	if err != nil {
-		c.logger.Error("failed to report evidence to provider", "ev", ev, "provider", receiver)
+		c.logger.Error("Failed to report evidence to provider", "ev", ev, "provider", receiver)
 	}
 }
 
@@ -255,7 +259,7 @@ func (c *Client) handleConflictingHeaders(
 		now,
 	)
 	if err != nil {
-		c.logger.Info("error validating primary's divergent header", "primary", c.primary, "err", err)
+		c.logger.Info("Error validating primary's divergent header", "primary", c.primary, "err", err)
 		return ErrLightClientAttack
 	}
 
@@ -273,16 +277,16 @@ func (c *Client) handleConflictingHeaders(
 // it has received from another and preforms verifySkipping at the heights of each of the intermediate
 // headers in the trace until it reaches the divergentHeader. 1 of 2 things can happen.
 //
-// 1. The light client verifies a header that is different to the intermediate header in the trace. This
-//    is the bifurcation point and the light client can create evidence from it
-// 2. The source stops responding, doesn't have the block or sends an invalid header in which case we
-//    return the error and remove the witness
+//  1. The light client verifies a header that is different to the intermediate header in the trace. This
+//     is the bifurcation point and the light client can create evidence from it
+//  2. The source stops responding, doesn't have the block or sends an invalid header in which case we
+//     return the error and remove the witness
 //
 // CONTRACT:
-// 1. Trace can not be empty len(trace) > 0
-// 2. The last block in the trace can not be of a lower height than the target block
-//    trace[len(trace)-1].Height >= targetBlock.Height
-// 3. The
+//  1. Trace can not be empty len(trace) > 0
+//  2. The last block in the trace can not be of a lower height than the target block
+//     trace[len(trace)-1].Height >= targetBlock.Height
+//  3. The
 func (c *Client) examineConflictingHeaderAgainstTrace(
 	ctx context.Context,
 	trace []*types.LightBlock,
@@ -329,7 +333,7 @@ func (c *Client) examineConflictingHeaderAgainstTrace(
 		if traceBlock.Height == targetBlock.Height {
 			sourceBlock = targetBlock
 		} else {
-			sourceBlock, err = c.getLightBlock(ctx, source, traceBlock.Height)
+			sourceBlock, err = source.LightBlock(ctx, traceBlock.Height)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to examine trace: %w", err)
 			}
@@ -377,7 +381,7 @@ func (c *Client) getTargetBlockOrLatest(
 	height int64,
 	witness provider.Provider,
 ) (bool, *types.LightBlock, error) {
-	lightBlock, err := c.getLightBlock(ctx, witness, 0)
+	lightBlock, err := witness.LightBlock(ctx, 0)
 	if err != nil {
 		return false, nil, err
 	}
@@ -392,7 +396,7 @@ func (c *Client) getTargetBlockOrLatest(
 		// the witness has caught up. We recursively call the function again. However in order
 		// to avoud a wild goose chase where the witness sends us one header below and one header
 		// above the height we set a timeout to the context
-		lightBlock, err := c.getLightBlock(ctx, witness, height)
+		lightBlock, err := witness.LightBlock(ctx, height)
 		return true, lightBlock, err
 	}
 
@@ -403,10 +407,9 @@ func (c *Client) getTargetBlockOrLatest(
 // all the fields such that it is ready to be sent to a full node.
 func newLightClientAttackEvidence(conflicted, trusted, common *types.LightBlock) *types.LightClientAttackEvidence {
 	ev := &types.LightClientAttackEvidence{ConflictingBlock: conflicted}
-	// We use the common height to indicate the form of the attack.
 	// if this is an equivocation or amnesia attack, i.e. the validator sets are the same, then we
-	// return the height of the conflicting block as the common height. If instead it is a lunatic
-	// attack and the validator sets are not the same then we send the height of the common header.
+	// return the height of the conflicting block else if it is a lunatic attack and the validator sets
+	// are not the same then we send the height of the common header.
 	if ev.ConflictingHeaderIsInvalid(trusted.Header) {
 		ev.CommonHeight = common.Height
 		ev.Timestamp = common.Time

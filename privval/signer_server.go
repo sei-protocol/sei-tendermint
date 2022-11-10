@@ -1,18 +1,16 @@
 package privval
 
 import (
-	"context"
 	"io"
-	"sync"
 
 	"github.com/tendermint/tendermint/libs/service"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
 	privvalproto "github.com/tendermint/tendermint/proto/tendermint/privval"
 	"github.com/tendermint/tendermint/types"
 )
 
 // ValidationRequestHandlerFunc handles different remoteSigner requests
 type ValidationRequestHandlerFunc func(
-	ctx context.Context,
 	privVal types.PrivValidator,
 	requestMessage privvalproto.Message,
 	chainID string) (privvalproto.Message, error)
@@ -24,7 +22,7 @@ type SignerServer struct {
 	chainID  string
 	privVal  types.PrivValidator
 
-	handlerMtx               sync.Mutex
+	handlerMtx               tmsync.Mutex
 	validationRequestHandler ValidationRequestHandlerFunc
 }
 
@@ -36,20 +34,20 @@ func NewSignerServer(endpoint *SignerDialerEndpoint, chainID string, privVal typ
 		validationRequestHandler: DefaultValidationRequestHandler,
 	}
 
-	ss.BaseService = *service.NewBaseService(endpoint.logger, "SignerServer", ss)
+	ss.BaseService = *service.NewBaseService(endpoint.Logger, "SignerServer", ss)
 
 	return ss
 }
 
 // OnStart implements service.Service.
-func (ss *SignerServer) OnStart(ctx context.Context) error {
-	go ss.serviceLoop(ctx)
+func (ss *SignerServer) OnStart() error {
+	go ss.serviceLoop()
 	return nil
 }
 
 // OnStop implements service.Service.
 func (ss *SignerServer) OnStop() {
-	ss.endpoint.logger.Debug("SignerServer: OnStop calling Close")
+	ss.endpoint.Logger.Debug("SignerServer: OnStop calling Close")
 	_ = ss.endpoint.Close()
 }
 
@@ -60,7 +58,7 @@ func (ss *SignerServer) SetRequestHandler(validationRequestHandler ValidationReq
 	ss.validationRequestHandler = validationRequestHandler
 }
 
-func (ss *SignerServer) servicePendingRequest(ctx context.Context) {
+func (ss *SignerServer) servicePendingRequest() {
 	if !ss.IsRunning() {
 		return // Ignore error from closing.
 	}
@@ -68,7 +66,7 @@ func (ss *SignerServer) servicePendingRequest(ctx context.Context) {
 	req, err := ss.endpoint.ReadMessage()
 	if err != nil {
 		if err != io.EOF {
-			ss.endpoint.logger.Error("SignerServer: HandleMessage", "err", err)
+			ss.Logger.Error("SignerServer: HandleMessage", "err", err)
 		}
 		return
 	}
@@ -78,29 +76,31 @@ func (ss *SignerServer) servicePendingRequest(ctx context.Context) {
 		// limit the scope of the lock
 		ss.handlerMtx.Lock()
 		defer ss.handlerMtx.Unlock()
-		res, err = ss.validationRequestHandler(ctx, ss.privVal, req, ss.chainID) // todo
+		res, err = ss.validationRequestHandler(ss.privVal, req, ss.chainID)
 		if err != nil {
 			// only log the error; we'll reply with an error in res
-			ss.endpoint.logger.Error("SignerServer: handleMessage", "err", err)
+			ss.Logger.Error("SignerServer: handleMessage", "err", err)
 		}
 	}
 
 	err = ss.endpoint.WriteMessage(res)
 	if err != nil {
-		ss.endpoint.logger.Error("SignerServer: writeMessage", "err", err)
+		ss.Logger.Error("SignerServer: writeMessage", "err", err)
 	}
 }
 
-func (ss *SignerServer) serviceLoop(ctx context.Context) {
+func (ss *SignerServer) serviceLoop() {
 	for {
 		select {
-		case <-ctx.Done():
-			return
 		default:
-			if err := ss.endpoint.ensureConnection(ctx); err != nil {
+			err := ss.endpoint.ensureConnection()
+			if err != nil {
 				return
 			}
-			ss.servicePendingRequest(ctx)
+			ss.servicePendingRequest()
+
+		case <-ss.Quit():
+			return
 		}
 	}
 }

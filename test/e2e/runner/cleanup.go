@@ -11,17 +11,21 @@ import (
 )
 
 // Cleanup removes the Docker Compose containers and testnet directory.
-func Cleanup(logger log.Logger, testnet *e2e.Testnet) error {
-	err := cleanupDocker(logger)
+func Cleanup(testnet *e2e.Testnet) error {
+	err := cleanupDocker()
 	if err != nil {
 		return err
 	}
-	return cleanupDir(logger, testnet.Dir)
+	err = cleanupDir(testnet.Dir)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // cleanupDocker removes all E2E resources (with label e2e=True), regardless
 // of testnet.
-func cleanupDocker(logger log.Logger) error {
+func cleanupDocker() error {
 	logger.Info("Removing Docker containers and networks")
 
 	// GNU xargs requires the -r flag to not run when input is empty, macOS
@@ -34,12 +38,17 @@ func cleanupDocker(logger log.Logger) error {
 		return err
 	}
 
-	return exec("bash", "-c", fmt.Sprintf(
+	err = exec("bash", "-c", fmt.Sprintf(
 		"docker network ls -q --filter label=e2e | xargs %v docker network rm", xargsR))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // cleanupDir cleans up a testnet directory
-func cleanupDir(logger log.Logger, dir string) error {
+func cleanupDir(dir string) error {
 	if dir == "" {
 		return errors.New("no directory set")
 	}
@@ -51,7 +60,7 @@ func cleanupDir(logger log.Logger, dir string) error {
 		return err
 	}
 
-	logger.Info(fmt.Sprintf("Removing testnet directory %q", dir))
+	logger.Info("cleanup dir", "msg", log.NewLazySprintf("Removing testnet directory %q", dir))
 
 	// On Linux, some local files in the volume will be owned by root since Tendermint
 	// runs as root inside the container, so we need to clean them up from within a
@@ -66,5 +75,10 @@ func cleanupDir(logger log.Logger, dir string) error {
 		return err
 	}
 
-	return os.RemoveAll(dir)
+	err = os.RemoveAll(dir)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

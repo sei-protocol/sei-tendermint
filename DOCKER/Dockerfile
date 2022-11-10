@@ -1,14 +1,18 @@
+# Use a build arg to ensure that both stages use the same,
+# hopefully current, go version.
+ARG GOLANG_BASE_IMAGE=golang:1.18-alpine
+
 # stage 1 Generate Tendermint Binary
-FROM golang:1.17-alpine as builder
+FROM --platform=$BUILDPLATFORM $GOLANG_BASE_IMAGE as builder
 RUN apk update && \
     apk upgrade && \
-    apk --no-cache add make git
+    apk --no-cache add make
 COPY / /tendermint
 WORKDIR /tendermint
-RUN make build-linux
+RUN TARGETPLATFORM=$TARGETPLATFORM make build-linux
 
 # stage 2
-FROM golang:1.17-alpine
+FROM $GOLANG_BASE_IMAGE
 LABEL maintainer="hello@tendermint.com"
 
 # Tendermint will be looking for the genesis file in /tendermint/config/genesis.json
@@ -49,7 +53,8 @@ ENV PROXY_APP=kvstore MONIKER=dockernode CHAIN_ID=dockerchain
 COPY ./DOCKER/docker-entrypoint.sh /usr/local/bin/
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["start"]
+CMD ["node"]
 
 # Expose the data directory as a volume since there's mutable state in there
 VOLUME [ "$TMHOME" ]
+

@@ -407,14 +407,14 @@ discussed.
 
 ## References
 
-[abci]: https://github.com/tendermint/tendermint/tree/master/spec/abci
-[rpc-service]: https://docs.tendermint.com/master/rpc/
-[light-client]: https://docs.tendermint.com/master/tendermint-core/light-client.html
-[tm-cli]: https://github.com/tendermint/tendermint/tree/master/cmd/tendermint
+[abci]: https://github.com/tendermint/tendermint/tree/v0.37.x/spec/abci
+[rpc-service]: https://docs.tendermint.com/v0.34/rpc/
+[light-client]: https://docs.tendermint.com/v0.34/tendermint-core/light-client.html
+[tm-cli]: https://github.com/tendermint/tendermint/tree/v0.37.x/cmd/tendermint
 [cosmos-sdk]: https://github.com/cosmos/cosmos-sdk/
-[local-client]: https://github.com/tendermint/tendermint/blob/master/abci/client/local_client.go
-[socket-server]: https://github.com/tendermint/tendermint/blob/master/abci/server/socket_server.go
+[local-client]: https://github.com/tendermint/tendermint/blob/v0.37.x/abci/client/local_client.go
+[socket-server]: https://github.com/tendermint/tendermint/blob/v0.37.x/abci/server/socket_server.go
 [sdk-grpc]: https://pkg.go.dev/github.com/cosmos/cosmos-sdk/types/tx#ServiceServer
 [json-rpc]: https://www.jsonrpc.org/specification
-[abci-conn]: https://github.com/tendermint/tendermint/blob/master/spec/abci/apps.md#state
-[adr-57]: https://github.com/tendermint/tendermint/blob/master/docs/architecture/adr-057-RPC.md
+[abci-conn]: https://github.com/tendermint/tendermint/blob/v0.37.x/spec/abci/apps.md#state
+[adr-57]: https://github.com/tendermint/tendermint/blob/v0.37.x/docs/architecture/adr-057-RPC.md

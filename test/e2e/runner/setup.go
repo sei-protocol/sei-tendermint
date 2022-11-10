@@ -1,4 +1,3 @@
-// nolint: gosec
 package main
 
 import (
@@ -11,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -20,6 +20,7 @@ import (
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/p2p"
 	"github.com/tendermint/tendermint/privval"
 	e2e "github.com/tendermint/tendermint/test/e2e/pkg"
 	"github.com/tendermint/tendermint/types"
@@ -30,7 +31,6 @@ const (
 	AppAddressUNIX = "unix:///var/run/app.sock"
 
 	PrivvalAddressTCP     = "tcp://0.0.0.0:27559"
-	PrivvalAddressGRPC    = "grpc://0.0.0.0:27559"
 	PrivvalAddressUNIX    = "unix:///var/run/privval.sock"
 	PrivvalKeyFile        = "config/priv_validator_key.json"
 	PrivvalStateFile      = "data/priv_validator_state.json"
@@ -39,8 +39,8 @@ const (
 )
 
 // Setup sets up the testnet configuration.
-func Setup(logger log.Logger, testnet *e2e.Testnet) error {
-	logger.Info(fmt.Sprintf("Generating testnet files in %q", testnet.Dir))
+func Setup(testnet *e2e.Testnet) error {
+	logger.Info("setup", "msg", log.NewLazySprintf("Generating testnet files in %q", testnet.Dir))
 
 	err := os.MkdirAll(testnet.Dir, os.ModePerm)
 	if err != nil {
@@ -51,7 +51,7 @@ func Setup(logger log.Logger, testnet *e2e.Testnet) error {
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(filepath.Join(testnet.Dir, "docker-compose.yml"), compose, 0644)
+	err = os.WriteFile(filepath.Join(testnet.Dir, "docker-compose.yml"), compose, 0o644) //nolint:gosec
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func Setup(logger log.Logger, testnet *e2e.Testnet) error {
 			if node.Mode == e2e.ModeLight && strings.Contains(dir, "app") {
 				continue
 			}
-			err := os.MkdirAll(dir, 0755)
+			err := os.MkdirAll(dir, 0o755)
 			if err != nil {
 				return err
 			}
@@ -84,15 +84,13 @@ func Setup(logger log.Logger, testnet *e2e.Testnet) error {
 		if err != nil {
 			return err
 		}
-		if err := config.WriteConfigFile(nodeDir, cfg); err != nil {
-			return err
-		}
+		config.WriteConfigFile(filepath.Join(nodeDir, "config", "config.toml"), cfg) // panics
 
 		appCfg, err := MakeAppConfig(node)
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(filepath.Join(nodeDir, "config", "app.toml"), appCfg, 0644)
+		err = os.WriteFile(filepath.Join(nodeDir, "config", "app.toml"), appCfg, 0o644) //nolint:gosec
 		if err != nil {
 			return err
 		}
@@ -107,28 +105,22 @@ func Setup(logger log.Logger, testnet *e2e.Testnet) error {
 			return err
 		}
 
-		err = (&types.NodeKey{PrivKey: node.NodeKey}).SaveAs(filepath.Join(nodeDir, "config", "node_key.json"))
+		err = (&p2p.NodeKey{PrivKey: node.NodeKey}).SaveAs(filepath.Join(nodeDir, "config", "node_key.json"))
 		if err != nil {
 			return err
 		}
 
-		err = (privval.NewFilePV(node.PrivvalKey,
+		(privval.NewFilePV(node.PrivvalKey,
 			filepath.Join(nodeDir, PrivvalKeyFile),
 			filepath.Join(nodeDir, PrivvalStateFile),
 		)).Save()
-		if err != nil {
-			return err
-		}
 
 		// Set up a dummy validator. Tendermint requires a file PV even when not used, so we
 		// give it a dummy such that it will fail if it actually tries to use it.
-		err = (privval.NewFilePV(ed25519.GenPrivKey(),
+		(privval.NewFilePV(ed25519.GenPrivKey(),
 			filepath.Join(nodeDir, PrivvalDummyKeyFile),
 			filepath.Join(nodeDir, PrivvalDummyStateFile),
 		)).Save()
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -138,11 +130,17 @@ func Setup(logger log.Logger, testnet *e2e.Testnet) error {
 func MakeDockerCompose(testnet *e2e.Testnet) ([]byte, error) {
 	// Must use version 2 Docker Compose format, to support IPv6.
 	tmpl, err := template.New("docker-compose").Funcs(template.FuncMap{
-		"addUint32": func(x, y uint32) uint32 {
-			return x + y
-		},
-		"isBuiltin": func(protocol e2e.Protocol, mode e2e.Mode) bool {
-			return mode == e2e.ModeLight || protocol == e2e.ProtocolBuiltin
+		"misbehaviorsToString": func(misbehaviors map[int64]string) string {
+			str := ""
+			for height, misbehavior := range misbehaviors {
+				// after the first behavior set, a comma must be prepended
+				if str != "" {
+					str += ","
+				}
+				heightString := strconv.Itoa(int(height))
+				str += misbehavior + "," + heightString
+			}
+			return str
 		},
 	}).Parse(`version: '2.4'
 
@@ -166,15 +164,12 @@ services:
       e2e: true
     container_name: {{ .Name }}
     image: tendermint/e2e-node
-{{- if isBuiltin $.ABCIProtocol .Mode }}
+{{- if eq .ABCIProtocol "builtin" }}
     entrypoint: /usr/bin/entrypoint-builtin
-{{- else if .LogLevel }}
-    command: start --log-level {{ .LogLevel }}
 {{- end }}
     init: true
     ports:
     - 26656
-    - {{ if .ProxyPort }}{{ addUint32 .ProxyPort 1000 }}:{{ end }}26660
     - {{ if .ProxyPort }}{{ .ProxyPort }}:{{ end }}26657
     - 6060
     volumes:
@@ -203,16 +198,8 @@ func MakeGenesis(testnet *e2e.Testnet) (types.GenesisDoc, error) {
 		ConsensusParams: types.DefaultConsensusParams(),
 		InitialHeight:   testnet.InitialHeight,
 	}
-	switch testnet.KeyType {
-	case "", types.ABCIPubKeyTypeEd25519, types.ABCIPubKeyTypeSecp256k1:
-		genesis.ConsensusParams.Validator.PubKeyTypes =
-			append(genesis.ConsensusParams.Validator.PubKeyTypes, types.ABCIPubKeyTypeSecp256k1)
-	default:
-		return genesis, errors.New("unsupported KeyType")
-	}
-	genesis.ConsensusParams.Evidence.MaxAgeNumBlocks = e2e.EvidenceAgeHeight
-	genesis.ConsensusParams.Evidence.MaxAgeDuration = e2e.EvidenceAgeTime
-	genesis.ConsensusParams.ABCI.VoteExtensionsEnableHeight = testnet.VoteExtensionsEnableHeight
+	// set the app version to 1
+	genesis.ConsensusParams.Version.App = 1
 	for validator, power := range testnet.Validators {
 		genesis.Validators = append(genesis.Validators, types.GenesisValidator{
 			Name:    validator.Name,
@@ -241,23 +228,14 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 	cfg := config.DefaultConfig()
 	cfg.Moniker = node.Name
 	cfg.ProxyApp = AppAddressTCP
-	cfg.TxIndex = config.TestTxIndexConfig()
-
-	if node.LogLevel != "" {
-		cfg.LogLevel = node.LogLevel
-	}
-
 	cfg.RPC.ListenAddress = "tcp://0.0.0.0:26657"
 	cfg.RPC.PprofListenAddress = ":6060"
 	cfg.P2P.ExternalAddress = fmt.Sprintf("tcp://%v", node.AddressP2P(false))
-	cfg.P2P.QueueType = node.QueueType
+	cfg.P2P.AddrBookStrict = false
 	cfg.DBBackend = node.Database
 	cfg.StateSync.DiscoveryTime = 5 * time.Second
-	if node.Mode != e2e.ModeLight {
-		cfg.Mode = string(node.Mode)
-	}
 
-	switch node.Testnet.ABCIProtocol {
+	switch node.ABCIProtocol {
 	case e2e.ProtocolUNIX:
 		cfg.ProxyApp = AppAddressUNIX
 	case e2e.ProtocolTCP:
@@ -269,45 +247,49 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 		cfg.ProxyApp = ""
 		cfg.ABCI = ""
 	default:
-		return nil, fmt.Errorf("unexpected ABCI protocol setting %q", node.Testnet.ABCIProtocol)
+		return nil, fmt.Errorf("unexpected ABCI protocol setting %q", node.ABCIProtocol)
 	}
 
 	// Tendermint errors if it does not have a privval key set up, regardless of whether
 	// it's actually needed (e.g. for remote KMS or non-validators). We set up a dummy
 	// key here by default, and use the real key for actual validators that should use
 	// the file privval.
-	cfg.PrivValidator.ListenAddr = ""
-	cfg.PrivValidator.Key = PrivvalDummyKeyFile
-	cfg.PrivValidator.State = PrivvalDummyStateFile
+	cfg.PrivValidatorListenAddr = ""
+	cfg.PrivValidatorKey = PrivvalDummyKeyFile
+	cfg.PrivValidatorState = PrivvalDummyStateFile
 
 	switch node.Mode {
 	case e2e.ModeValidator:
 		switch node.PrivvalProtocol {
 		case e2e.ProtocolFile:
-			cfg.PrivValidator.Key = PrivvalKeyFile
-			cfg.PrivValidator.State = PrivvalStateFile
+			cfg.PrivValidatorKey = PrivvalKeyFile
+			cfg.PrivValidatorState = PrivvalStateFile
 		case e2e.ProtocolUNIX:
-			cfg.PrivValidator.ListenAddr = PrivvalAddressUNIX
+			cfg.PrivValidatorListenAddr = PrivvalAddressUNIX
 		case e2e.ProtocolTCP:
-			cfg.PrivValidator.ListenAddr = PrivvalAddressTCP
-		case e2e.ProtocolGRPC:
-			cfg.PrivValidator.ListenAddr = PrivvalAddressGRPC
+			cfg.PrivValidatorListenAddr = PrivvalAddressTCP
 		default:
 			return nil, fmt.Errorf("invalid privval protocol setting %q", node.PrivvalProtocol)
 		}
 	case e2e.ModeSeed:
+		cfg.P2P.SeedMode = true
 		cfg.P2P.PexReactor = true
 	case e2e.ModeFull, e2e.ModeLight:
 		// Don't need to do anything, since we're using a dummy privval key by default.
 	default:
 		return nil, fmt.Errorf("unexpected mode %q", node.Mode)
 	}
+	if node.Mempool != "" {
+		cfg.Mempool.Version = node.Mempool
+	}
 
-	switch node.StateSync {
-	case e2e.StateSyncP2P:
-		cfg.StateSync.Enable = true
-		cfg.StateSync.UseP2P = true
-	case e2e.StateSyncRPC:
+	if node.BlockSync == "" {
+		cfg.BlockSyncMode = false
+	} else {
+		cfg.BlockSync.Version = node.BlockSync
+	}
+
+	if node.StateSync {
 		cfg.StateSync.Enable = true
 		cfg.StateSync.RPCServers = []string{}
 		for _, peer := range node.Testnet.ArchiveNodes() {
@@ -316,12 +298,18 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 			}
 			cfg.StateSync.RPCServers = append(cfg.StateSync.RPCServers, peer.AddressRPC())
 		}
-
 		if len(cfg.StateSync.RPCServers) < 2 {
 			return nil, errors.New("unable to find 2 suitable state sync RPC servers")
 		}
 	}
 
+	cfg.P2P.Seeds = ""
+	for _, seed := range node.Seeds {
+		if len(cfg.P2P.Seeds) > 0 {
+			cfg.P2P.Seeds += ","
+		}
+		cfg.P2P.Seeds += seed.AddressP2P(true)
+	}
 	cfg.P2P.PersistentPeers = ""
 	for _, peer := range node.PersistentPeers {
 		if len(cfg.P2P.PersistentPeers) > 0 {
@@ -329,33 +317,27 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 		}
 		cfg.P2P.PersistentPeers += peer.AddressP2P(true)
 	}
-
-	cfg.Instrumentation.Prometheus = true
-
 	return cfg, nil
 }
 
 // MakeAppConfig generates an ABCI application config for a node.
 func MakeAppConfig(node *e2e.Node) ([]byte, error) {
 	cfg := map[string]interface{}{
-		"chain_id":                  node.Testnet.Name,
-		"dir":                       "data/app",
-		"listen":                    AppAddressUNIX,
-		"mode":                      node.Mode,
-		"proxy_port":                node.ProxyPort,
-		"protocol":                  "socket",
-		"persist_interval":          node.PersistInterval,
-		"snapshot_interval":         node.SnapshotInterval,
-		"retain_blocks":             node.RetainBlocks,
-		"key_type":                  node.PrivvalKey.Type(),
-		"prepare_proposal_delay_ms": node.Testnet.PrepareProposalDelayMS,
-		"process_proposal_delay_ms": node.Testnet.ProcessProposalDelayMS,
-		"check_tx_delay_ms":         node.Testnet.CheckTxDelayMS,
-		"vote_extension_delay_ms":   node.Testnet.VoteExtensionDelayMS,
-		"finalize_block_delay_ms":   node.Testnet.FinalizeBlockDelayMS,
+		"chain_id":               node.Testnet.Name,
+		"dir":                    "data/app",
+		"listen":                 AppAddressUNIX,
+		"mode":                   node.Mode,
+		"proxy_port":             node.ProxyPort,
+		"protocol":               "socket",
+		"persist_interval":       node.PersistInterval,
+		"snapshot_interval":      node.SnapshotInterval,
+		"retain_blocks":          node.RetainBlocks,
+		"key_type":               node.PrivvalKey.Type(),
+		"prepare_proposal_delay": node.Testnet.PrepareProposalDelay,
+		"process_proposal_delay": node.Testnet.ProcessProposalDelay,
+		"check_tx_delay":         node.Testnet.CheckTxDelay,
 	}
-
-	switch node.Testnet.ABCIProtocol {
+	switch node.ABCIProtocol {
 	case e2e.ProtocolUNIX:
 		cfg["listen"] = AppAddressUNIX
 	case e2e.ProtocolTCP:
@@ -367,7 +349,7 @@ func MakeAppConfig(node *e2e.Node) ([]byte, error) {
 		delete(cfg, "listen")
 		cfg["protocol"] = "builtin"
 	default:
-		return nil, fmt.Errorf("unexpected ABCI protocol setting %q", node.Testnet.ABCIProtocol)
+		return nil, fmt.Errorf("unexpected ABCI protocol setting %q", node.ABCIProtocol)
 	}
 	if node.Mode == e2e.ModeValidator {
 		switch node.PrivvalProtocol {
@@ -378,10 +360,6 @@ func MakeAppConfig(node *e2e.Node) ([]byte, error) {
 			cfg["privval_state"] = PrivvalStateFile
 		case e2e.ProtocolUNIX:
 			cfg["privval_server"] = PrivvalAddressUNIX
-			cfg["privval_key"] = PrivvalKeyFile
-			cfg["privval_state"] = PrivvalStateFile
-		case e2e.ProtocolGRPC:
-			cfg["privval_server"] = PrivvalAddressGRPC
 			cfg["privval_key"] = PrivvalKeyFile
 			cfg["privval_state"] = PrivvalStateFile
 		default:
@@ -419,7 +397,7 @@ func UpdateConfigStateSync(node *e2e.Node, height int64, hash []byte) error {
 	if err != nil {
 		return err
 	}
-	bz = regexp.MustCompile(`(?m)^trust-height =.*`).ReplaceAll(bz, []byte(fmt.Sprintf(`trust-height = %v`, height)))
-	bz = regexp.MustCompile(`(?m)^trust-hash =.*`).ReplaceAll(bz, []byte(fmt.Sprintf(`trust-hash = "%X"`, hash)))
-	return os.WriteFile(cfgPath, bz, 0644)
+	bz = regexp.MustCompile(`(?m)^trust_height =.*`).ReplaceAll(bz, []byte(fmt.Sprintf(`trust_height = %v`, height)))
+	bz = regexp.MustCompile(`(?m)^trust_hash =.*`).ReplaceAll(bz, []byte(fmt.Sprintf(`trust_hash = "%X"`, hash)))
+	return os.WriteFile(cfgPath, bz, 0o644) //nolint:gosec
 }

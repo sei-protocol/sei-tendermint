@@ -18,30 +18,35 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/tendermint/tendermint/internal/rpc/core"
 	"github.com/tendermint/tendermint/libs/bytes"
+	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/rpc/client"
-	"github.com/tendermint/tendermint/rpc/coretypes"
+	"github.com/tendermint/tendermint/rpc/core"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 	"github.com/tendermint/tendermint/types"
 )
 
 // Client wraps arbitrary implementations of the various interfaces.
+//
+// We provide a few choices to mock out each one in this package.
+// Nothing hidden here, so no New function, just construct it from
+// some parts, and swap them out them during the tests.
 type Client struct {
-	client.Client
-	env *core.Environment
-}
-
-func New() Client {
-	return Client{
-		env: &core.Environment{},
-	}
+	client.ABCIClient
+	client.SignClient
+	client.HistoryClient
+	client.StatusClient
+	client.EventsClient
+	client.EvidenceClient
+	client.MempoolClient
+	service.Service
 }
 
 var _ client.Client = Client{}
 
 // Call is used by recorders to save a call and response.
 // It can also be used to configure mock responses.
-//
 type Call struct {
 	Name     string
 	Args     interface{}
@@ -74,15 +79,15 @@ func (c Call) GetResponse(args interface{}) (interface{}, error) {
 	return nil, c.Error
 }
 
-func (c Client) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
-	return c.env.Status(ctx)
+func (c Client) Status(ctx context.Context) (*ctypes.ResultStatus, error) {
+	return core.Status(&rpctypes.Context{})
 }
 
-func (c Client) ABCIInfo(ctx context.Context) (*coretypes.ResultABCIInfo, error) {
-	return c.env.ABCIInfo(ctx)
+func (c Client) ABCIInfo(ctx context.Context) (*ctypes.ResultABCIInfo, error) {
+	return core.ABCIInfo(&rpctypes.Context{})
 }
 
-func (c Client) ABCIQuery(ctx context.Context, path string, data bytes.HexBytes) (*coretypes.ResultABCIQuery, error) {
+func (c Client) ABCIQuery(ctx context.Context, path string, data bytes.HexBytes) (*ctypes.ResultABCIQuery, error) {
 	return c.ABCIQueryWithOptions(ctx, path, data, client.DefaultABCIQueryOptions)
 }
 
@@ -90,79 +95,84 @@ func (c Client) ABCIQueryWithOptions(
 	ctx context.Context,
 	path string,
 	data bytes.HexBytes,
-	opts client.ABCIQueryOptions) (*coretypes.ResultABCIQuery, error) {
-	return c.env.ABCIQuery(ctx, &coretypes.RequestABCIQuery{
-		Path: path, Data: data, Height: coretypes.Int64(opts.Height), Prove: opts.Prove,
-	})
+	opts client.ABCIQueryOptions) (*ctypes.ResultABCIQuery, error) {
+	return core.ABCIQuery(&rpctypes.Context{}, path, data, opts.Height, opts.Prove)
 }
 
-func (c Client) BroadcastTxCommit(ctx context.Context, tx types.Tx) (*coretypes.ResultBroadcastTxCommit, error) {
-	return c.env.BroadcastTxCommit(ctx, &coretypes.RequestBroadcastTx{Tx: tx})
+func (c Client) BroadcastTxCommit(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTxCommit, error) {
+	return core.BroadcastTxCommit(&rpctypes.Context{}, tx)
 }
 
-func (c Client) BroadcastTxAsync(ctx context.Context, tx types.Tx) (*coretypes.ResultBroadcastTx, error) {
-	return c.env.BroadcastTxAsync(ctx, &coretypes.RequestBroadcastTx{Tx: tx})
+func (c Client) BroadcastTxAsync(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+	return core.BroadcastTxAsync(&rpctypes.Context{}, tx)
 }
 
-func (c Client) BroadcastTxSync(ctx context.Context, tx types.Tx) (*coretypes.ResultBroadcastTx, error) {
-	return c.env.BroadcastTxSync(ctx, &coretypes.RequestBroadcastTx{Tx: tx})
+func (c Client) BroadcastTxSync(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+	return core.BroadcastTxSync(&rpctypes.Context{}, tx)
 }
 
-func (c Client) CheckTx(ctx context.Context, tx types.Tx) (*coretypes.ResultCheckTx, error) {
-	return c.env.CheckTx(ctx, &coretypes.RequestCheckTx{Tx: tx})
+func (c Client) CheckTx(ctx context.Context, tx types.Tx) (*ctypes.ResultCheckTx, error) {
+	return core.CheckTx(&rpctypes.Context{}, tx)
 }
 
-func (c Client) NetInfo(ctx context.Context) (*coretypes.ResultNetInfo, error) {
-	return c.env.NetInfo(ctx)
+func (c Client) NetInfo(ctx context.Context) (*ctypes.ResultNetInfo, error) {
+	return core.NetInfo(&rpctypes.Context{})
 }
 
-func (c Client) ConsensusState(ctx context.Context) (*coretypes.ResultConsensusState, error) {
-	return c.env.GetConsensusState(ctx)
+func (c Client) ConsensusState(ctx context.Context) (*ctypes.ResultConsensusState, error) {
+	return core.ConsensusState(&rpctypes.Context{})
 }
 
-func (c Client) DumpConsensusState(ctx context.Context) (*coretypes.ResultDumpConsensusState, error) {
-	return c.env.DumpConsensusState(ctx)
+func (c Client) DumpConsensusState(ctx context.Context) (*ctypes.ResultDumpConsensusState, error) {
+	return core.DumpConsensusState(&rpctypes.Context{})
 }
 
-func (c Client) ConsensusParams(ctx context.Context, height *int64) (*coretypes.ResultConsensusParams, error) {
-	return c.env.ConsensusParams(ctx, &coretypes.RequestConsensusParams{Height: (*coretypes.Int64)(height)})
+func (c Client) ConsensusParams(ctx context.Context, height *int64) (*ctypes.ResultConsensusParams, error) {
+	return core.ConsensusParams(&rpctypes.Context{}, height)
 }
 
-func (c Client) Health(ctx context.Context) (*coretypes.ResultHealth, error) {
-	return c.env.Health(ctx)
+func (c Client) Health(ctx context.Context) (*ctypes.ResultHealth, error) {
+	return core.Health(&rpctypes.Context{})
 }
 
-func (c Client) BlockchainInfo(ctx context.Context, minHeight, maxHeight int64) (*coretypes.ResultBlockchainInfo, error) {
-	return c.env.BlockchainInfo(ctx, &coretypes.RequestBlockchainInfo{
-		MinHeight: coretypes.Int64(minHeight),
-		MaxHeight: coretypes.Int64(maxHeight),
-	})
+func (c Client) DialSeeds(ctx context.Context, seeds []string) (*ctypes.ResultDialSeeds, error) {
+	return core.UnsafeDialSeeds(&rpctypes.Context{}, seeds)
 }
 
-func (c Client) Genesis(ctx context.Context) (*coretypes.ResultGenesis, error) {
-	return c.env.Genesis(ctx)
+func (c Client) DialPeers(
+	ctx context.Context,
+	peers []string,
+	persistent,
+	unconditional,
+	private bool,
+) (*ctypes.ResultDialPeers, error) {
+	return core.UnsafeDialPeers(&rpctypes.Context{}, peers, persistent, unconditional, private)
 }
 
-func (c Client) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
-	return c.env.Block(ctx, &coretypes.RequestBlockInfo{Height: (*coretypes.Int64)(height)})
+func (c Client) BlockchainInfo(ctx context.Context, minHeight, maxHeight int64) (*ctypes.ResultBlockchainInfo, error) {
+	return core.BlockchainInfo(&rpctypes.Context{}, minHeight, maxHeight)
 }
 
-func (c Client) BlockByHash(ctx context.Context, hash bytes.HexBytes) (*coretypes.ResultBlock, error) {
-	return c.env.BlockByHash(ctx, &coretypes.RequestBlockByHash{Hash: hash})
+func (c Client) Genesis(ctx context.Context) (*ctypes.ResultGenesis, error) {
+	return core.Genesis(&rpctypes.Context{})
 }
 
-func (c Client) Commit(ctx context.Context, height *int64) (*coretypes.ResultCommit, error) {
-	return c.env.Commit(ctx, &coretypes.RequestBlockInfo{Height: (*coretypes.Int64)(height)})
+func (c Client) Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error) {
+	return core.Block(&rpctypes.Context{}, height)
 }
 
-func (c Client) Validators(ctx context.Context, height *int64, page, perPage *int) (*coretypes.ResultValidators, error) {
-	return c.env.Validators(ctx, &coretypes.RequestValidators{
-		Height:  (*coretypes.Int64)(height),
-		Page:    coretypes.Int64Ptr(page),
-		PerPage: coretypes.Int64Ptr(perPage),
-	})
+func (c Client) BlockByHash(ctx context.Context, hash []byte) (*ctypes.ResultBlock, error) {
+	return core.BlockByHash(&rpctypes.Context{}, hash)
 }
 
-func (c Client) BroadcastEvidence(ctx context.Context, ev types.Evidence) (*coretypes.ResultBroadcastEvidence, error) {
-	return c.env.BroadcastEvidence(ctx, &coretypes.RequestBroadcastEvidence{Evidence: ev})
+func (c Client) Commit(ctx context.Context, height *int64) (*ctypes.ResultCommit, error) {
+	return core.Commit(&rpctypes.Context{}, height)
+}
+
+func (c Client) Validators(ctx context.Context, height *int64, page, perPage *int) (*ctypes.ResultValidators, error) {
+	return core.Validators(&rpctypes.Context{}, height, page, perPage)
+}
+
+func (c Client) BroadcastEvidence(ctx context.Context, ev types.Evidence) (*ctypes.ResultBroadcastEvidence, error) {
+	return core.BroadcastEvidence(&rpctypes.Context{}, ev)
 }

@@ -1,7 +1,6 @@
 package privval
 
 import (
-	"context"
 	"time"
 
 	"github.com/tendermint/tendermint/libs/log"
@@ -59,7 +58,6 @@ func NewSignerDialerEndpoint(
 		retryWait:      defaultRetryWaitMilliseconds * time.Millisecond,
 		maxConnRetries: defaultMaxDialRetries,
 	}
-	sd.signerEndpoint.logger = logger
 
 	sd.BaseService = *service.NewBaseService(logger, "SignerDialerEndpoint", sd)
 	sd.signerEndpoint.timeoutReadWrite = defaultTimeoutReadWriteSeconds * time.Second
@@ -71,42 +69,28 @@ func NewSignerDialerEndpoint(
 	return sd
 }
 
-func (sd *SignerDialerEndpoint) OnStart(context.Context) error { return nil }
-func (sd *SignerDialerEndpoint) OnStop()                       {}
-
-func (sd *SignerDialerEndpoint) ensureConnection(ctx context.Context) error {
+func (sd *SignerDialerEndpoint) ensureConnection() error {
 	if sd.IsConnected() {
 		return nil
 	}
 
-	timer := time.NewTimer(0)
-	defer timer.Stop()
 	retries := 0
 	for retries < sd.maxConnRetries {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
 		conn, err := sd.dialer()
 
 		if err != nil {
 			retries++
-			sd.logger.Debug("SignerDialer: Reconnection failed", "retries", retries, "max", sd.maxConnRetries, "err", err)
-
+			sd.Logger.Debug("SignerDialer: Reconnection failed", "retries", retries, "max", sd.maxConnRetries, "err", err)
 			// Wait between retries
-			timer.Reset(sd.retryWait)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-timer.C:
-			}
+			time.Sleep(sd.retryWait)
 		} else {
 			sd.SetConnection(conn)
-			sd.logger.Debug("SignerDialer: Connection Ready")
+			sd.Logger.Debug("SignerDialer: Connection Ready")
 			return nil
 		}
 	}
 
-	sd.logger.Debug("SignerDialer: Max retries exceeded", "retries", retries, "max", sd.maxConnRetries)
+	sd.Logger.Debug("SignerDialer: Max retries exceeded", "retries", retries, "max", sd.maxConnRetries)
 
 	return ErrNoConnection
 }

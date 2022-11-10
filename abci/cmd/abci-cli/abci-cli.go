@@ -7,27 +7,27 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/version"
+	tmos "github.com/tendermint/tendermint/libs/os"
 
-	abciclient "github.com/tendermint/tendermint/abci/client"
+	abcicli "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/example/code"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
 	"github.com/tendermint/tendermint/abci/server"
 	servertest "github.com/tendermint/tendermint/abci/tests/server"
 	"github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/abci/version"
 	"github.com/tendermint/tendermint/proto/tendermint/crypto"
 )
 
 // client is a global variable so it can be reused by the console
 var (
-	client abciclient.Client
+	client abcicli.Client
+	logger log.Logger
 )
 
 // flags
@@ -47,41 +47,47 @@ var (
 	flagPersist string
 )
 
-func RootCmmand(logger log.Logger) *cobra.Command {
-	return &cobra.Command{
-		Use:   "abci-cli",
-		Short: "the ABCI CLI tool wraps an ABCI client",
-		Long:  "the ABCI CLI tool wraps an ABCI client and is used for testing ABCI servers",
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
+var RootCmd = &cobra.Command{
+	Use:   "abci-cli",
+	Short: "the ABCI CLI tool wraps an ABCI client",
+	Long:  "the ABCI CLI tool wraps an ABCI client and is used for testing ABCI servers",
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 
-			switch cmd.Use {
-			case "kvstore", "version":
-				return nil
-			}
-
-			if client == nil {
-				var err error
-				client, err = abciclient.NewClient(logger.With("module", "abci-client"), flagAddress, flagAbci, false)
-				if err != nil {
-					return err
-				}
-
-				if err := client.Start(cmd.Context()); err != nil {
-					return err
-				}
-			}
+		switch cmd.Use {
+		case "kvstore", "version":
 			return nil
-		},
-	}
+		}
+
+		if logger == nil {
+			allowLevel, err := log.AllowLevel(flagLogLevel)
+			if err != nil {
+				return err
+			}
+			logger = log.NewFilter(log.NewTMLogger(log.NewSyncWriter(os.Stdout)), allowLevel)
+		}
+		if client == nil {
+			var err error
+			client, err = abcicli.NewClient(flagAddress, flagAbci, false)
+			if err != nil {
+				return err
+			}
+			client.SetLogger(logger.With("module", "abci-client"))
+			if err := client.Start(); err != nil {
+				return err
+			}
+		}
+		return nil
+	},
 }
 
 // Structure for data passed to print response.
 type response struct {
 	// generic abci response
-	Data []byte
-	Code uint32
-	Info string
-	Log  string
+	Data   []byte
+	Code   uint32
+	Info   string
+	Log    string
+	Status int32
 
 	Query *queryResponse
 }
@@ -94,46 +100,58 @@ type queryResponse struct {
 }
 
 func Execute() error {
-	logger, err := log.NewDefaultLogger(log.LogFormatPlain, log.LogLevelInfo)
-	if err != nil {
-		return err
-	}
-
-	cmd := RootCmmand(logger)
-	addGlobalFlags(cmd)
-	addCommands(cmd, logger)
-	return cmd.Execute()
+	addGlobalFlags()
+	addCommands()
+	return RootCmd.Execute()
 }
 
-func addGlobalFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVarP(&flagAddress,
+func addGlobalFlags() {
+	RootCmd.PersistentFlags().StringVarP(&flagAddress,
 		"address",
 		"",
 		"tcp://0.0.0.0:26658",
 		"address of application socket")
-	cmd.PersistentFlags().StringVarP(&flagAbci, "abci", "", "socket", "either socket or grpc")
-	cmd.PersistentFlags().BoolVarP(&flagVerbose,
+	RootCmd.PersistentFlags().StringVarP(&flagAbci, "abci", "", "socket", "either socket or grpc")
+	RootCmd.PersistentFlags().BoolVarP(&flagVerbose,
 		"verbose",
 		"v",
 		false,
 		"print the command and results as if it were a console session")
-	cmd.PersistentFlags().StringVarP(&flagLogLevel, "log_level", "", "debug", "set the logger level")
+	RootCmd.PersistentFlags().StringVarP(&flagLogLevel, "log_level", "", "debug", "set the logger level")
 }
 
-func addCommands(cmd *cobra.Command, logger log.Logger) {
-	cmd.AddCommand(batchCmd)
-	cmd.AddCommand(consoleCmd)
-	cmd.AddCommand(echoCmd)
-	cmd.AddCommand(infoCmd)
-	cmd.AddCommand(finalizeBlockCmd)
-	cmd.AddCommand(checkTxCmd)
-	cmd.AddCommand(commitCmd)
-	cmd.AddCommand(versionCmd)
-	cmd.AddCommand(testCmd)
-	cmd.AddCommand(getQueryCmd())
+func addQueryFlags() {
+	queryCmd.PersistentFlags().StringVarP(&flagPath, "path", "", "/store", "path to prefix query with")
+	queryCmd.PersistentFlags().IntVarP(&flagHeight, "height", "", 0, "height to query the blockchain at")
+	queryCmd.PersistentFlags().BoolVarP(&flagProve,
+		"prove",
+		"",
+		false,
+		"whether or not to return a merkle proof of the query result")
+}
+
+func addKVStoreFlags() {
+	kvstoreCmd.PersistentFlags().StringVarP(&flagPersist, "persist", "", "", "directory to use for a database")
+}
+
+func addCommands() {
+	RootCmd.AddCommand(batchCmd)
+	RootCmd.AddCommand(consoleCmd)
+	RootCmd.AddCommand(echoCmd)
+	RootCmd.AddCommand(infoCmd)
+	RootCmd.AddCommand(deliverTxCmd)
+	RootCmd.AddCommand(checkTxCmd)
+	RootCmd.AddCommand(commitCmd)
+	RootCmd.AddCommand(versionCmd)
+	RootCmd.AddCommand(testCmd)
+	RootCmd.AddCommand(prepareProposalCmd)
+	RootCmd.AddCommand(processProposalCmd)
+	addQueryFlags()
+	RootCmd.AddCommand(queryCmd)
 
 	// examples
-	cmd.AddCommand(getKVStoreCmd(logger))
+	addKVStoreFlags()
+	RootCmd.AddCommand(kvstoreCmd)
 }
 
 var batchCmd = &cobra.Command{
@@ -150,11 +168,10 @@ where example.file looks something like:
 
     check_tx 0x00
     check_tx 0xff
-    finalize_block 0x00
-    commit
+    deliver_tx 0x00
     check_tx 0x00
-    finalize_block 0x01 0x04 0xff
-    commit
+    deliver_tx 0x01
+    deliver_tx 0x04
     info
 `,
 	Args: cobra.ExactArgs(0),
@@ -170,7 +187,7 @@ This command opens an interactive console for running any of the other commands
 without opening a new connection each time
 `,
 	Args:      cobra.ExactArgs(0),
-	ValidArgs: []string{"echo", "info", "finalize_block", "check_tx", "commit", "query"},
+	ValidArgs: []string{"echo", "info", "deliver_tx", "check_tx", "prepare_proposal", "process_proposal", "commit", "query"},
 	RunE:      cmdConsole,
 }
 
@@ -189,12 +206,12 @@ var infoCmd = &cobra.Command{
 	RunE:  cmdInfo,
 }
 
-var finalizeBlockCmd = &cobra.Command{
-	Use:   "finalize_block",
-	Short: "deliver a block of transactions to the application",
-	Long:  "deliver a block of transactions to the application",
-	Args:  cobra.MinimumNArgs(1),
-	RunE:  cmdFinalizeBlock,
+var deliverTxCmd = &cobra.Command{
+	Use:   "deliver_tx",
+	Short: "deliver a new transaction to the application",
+	Long:  "deliver a new transaction to the application",
+	Args:  cobra.ExactArgs(1),
+	RunE:  cmdDeliverTx,
 }
 
 var checkTxCmd = &cobra.Command{
@@ -219,43 +236,41 @@ var versionCmd = &cobra.Command{
 	Long:  "print ABCI console version",
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println(version.ABCIVersion)
+		fmt.Println(version.Version)
 		return nil
 	},
 }
 
-func getQueryCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "query",
-		Short: "query the application state",
-		Long:  "query the application state",
-		Args:  cobra.ExactArgs(1),
-		RunE:  cmdQuery,
-	}
-
-	cmd.PersistentFlags().StringVarP(&flagPath, "path", "", "/store", "path to prefix query with")
-	cmd.PersistentFlags().IntVarP(&flagHeight, "height", "", 0, "height to query the blockchain at")
-	cmd.PersistentFlags().BoolVarP(&flagProve,
-		"prove",
-		"",
-		false,
-		"whether or not to return a merkle proof of the query result")
-
-	return cmd
+var prepareProposalCmd = &cobra.Command{
+	Use:   "prepare_proposal",
+	Short: "prepare proposal",
+	Long:  "prepare proposal",
+	Args:  cobra.MinimumNArgs(0),
+	RunE:  cmdPrepareProposal,
 }
 
-func getKVStoreCmd(logger log.Logger) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "kvstore",
-		Short: "ABCI demo example",
-		Long:  "ABCI demo example",
-		Args:  cobra.ExactArgs(0),
-		RunE:  makeKVStoreCmd(logger),
-	}
+var processProposalCmd = &cobra.Command{
+	Use:   "process_proposal",
+	Short: "process proposal",
+	Long:  "process proposal",
+	Args:  cobra.MinimumNArgs(0),
+	RunE:  cmdProcessProposal,
+}
 
-	cmd.PersistentFlags().StringVarP(&flagPersist, "persist", "", "", "directory to use for a database")
-	return cmd
+var queryCmd = &cobra.Command{
+	Use:   "query",
+	Short: "query the application state",
+	Long:  "query the application state",
+	Args:  cobra.ExactArgs(1),
+	RunE:  cmdQuery,
+}
 
+var kvstoreCmd = &cobra.Command{
+	Use:   "kvstore",
+	Short: "ABCI demo example",
+	Long:  "ABCI demo example",
+	Args:  cobra.ExactArgs(0),
+	RunE:  cmdKVStore,
 }
 
 var testCmd = &cobra.Command{
@@ -296,45 +311,33 @@ func compose(fs []func() error) error {
 }
 
 func cmdTest(cmd *cobra.Command, args []string) error {
-	ctx := cmd.Context()
 	return compose(
 		[]func() error{
-			func() error { return servertest.InitChain(ctx, client) },
-			func() error { return servertest.Commit(ctx, client) },
+			func() error { return servertest.InitChain(client) },
+			func() error { return servertest.Commit(client, nil) },
+			func() error { return servertest.DeliverTx(client, []byte("abc"), code.CodeTypeBadNonce, nil) },
+			func() error { return servertest.Commit(client, nil) },
+			func() error { return servertest.DeliverTx(client, []byte{0x00}, code.CodeTypeOK, nil) },
+			func() error { return servertest.Commit(client, []byte{0, 0, 0, 0, 0, 0, 0, 1}) },
+			func() error { return servertest.DeliverTx(client, []byte{0x00}, code.CodeTypeBadNonce, nil) },
+			func() error { return servertest.DeliverTx(client, []byte{0x01}, code.CodeTypeOK, nil) },
+			func() error { return servertest.DeliverTx(client, []byte{0x00, 0x02}, code.CodeTypeOK, nil) },
+			func() error { return servertest.DeliverTx(client, []byte{0x00, 0x03}, code.CodeTypeOK, nil) },
+			func() error { return servertest.DeliverTx(client, []byte{0x00, 0x00, 0x04}, code.CodeTypeOK, nil) },
 			func() error {
-				return servertest.FinalizeBlock(ctx, client, [][]byte{
-					[]byte("abc"),
-				}, []uint32{
-					code.CodeTypeBadNonce,
-				}, nil, nil)
+				return servertest.DeliverTx(client, []byte{0x00, 0x00, 0x06}, code.CodeTypeBadNonce, nil)
 			},
-			func() error { return servertest.Commit(ctx, client) },
+			func() error { return servertest.Commit(client, []byte{0, 0, 0, 0, 0, 0, 0, 5}) },
 			func() error {
-				return servertest.FinalizeBlock(ctx, client, [][]byte{
-					{0x00},
-				}, []uint32{
-					code.CodeTypeOK,
-				}, nil, []byte{0, 0, 0, 0, 0, 0, 0, 1})
-			},
-			func() error { return servertest.Commit(ctx, client) },
-			func() error {
-				return servertest.FinalizeBlock(ctx, client, [][]byte{
-					{0x00},
+				return servertest.PrepareProposal(client, [][]byte{
 					{0x01},
-					{0x00, 0x02},
-					{0x00, 0x03},
-					{0x00, 0x00, 0x04},
-					{0x00, 0x00, 0x06},
-				}, []uint32{
-					code.CodeTypeBadNonce,
-					code.CodeTypeOK,
-					code.CodeTypeOK,
-					code.CodeTypeOK,
-					code.CodeTypeOK,
-					code.CodeTypeBadNonce,
-				}, nil, []byte{0, 0, 0, 0, 0, 0, 0, 5})
+				}, [][]byte{{0x01}}, nil)
 			},
-			func() error { return servertest.Commit(ctx, client) },
+			func() error {
+				return servertest.ProcessProposal(client, [][]byte{
+					{0x01},
+				}, types.ResponseProcessProposal_ACCEPT)
+			},
 		})
 }
 
@@ -427,14 +430,18 @@ func muxOnCommands(cmd *cobra.Command, pArgs []string) error {
 		return cmdCheckTx(cmd, actualArgs)
 	case "commit":
 		return cmdCommit(cmd, actualArgs)
-	case "finalize_block":
-		return cmdFinalizeBlock(cmd, actualArgs)
+	case "deliver_tx":
+		return cmdDeliverTx(cmd, actualArgs)
 	case "echo":
 		return cmdEcho(cmd, actualArgs)
 	case "info":
 		return cmdInfo(cmd, actualArgs)
 	case "query":
 		return cmdQuery(cmd, actualArgs)
+	case "prepare_proposal":
+		return cmdPrepareProposal(cmd, actualArgs)
+	case "process_proposal":
+		return cmdProcessProposal(cmd, actualArgs)
 	default:
 		return cmdUnimplemented(cmd, pArgs)
 	}
@@ -452,9 +459,12 @@ func cmdUnimplemented(cmd *cobra.Command, args []string) error {
 	})
 
 	fmt.Println("Available commands:")
-	for _, cmd := range cmd.Commands() {
-		fmt.Printf("%s: %s\n", cmd.Use, cmd.Short)
-	}
+	fmt.Printf("%s: %s\n", echoCmd.Use, echoCmd.Short)
+	fmt.Printf("%s: %s\n", infoCmd.Use, infoCmd.Short)
+	fmt.Printf("%s: %s\n", checkTxCmd.Use, checkTxCmd.Short)
+	fmt.Printf("%s: %s\n", deliverTxCmd.Use, deliverTxCmd.Short)
+	fmt.Printf("%s: %s\n", queryCmd.Use, queryCmd.Short)
+	fmt.Printf("%s: %s\n", commitCmd.Use, commitCmd.Short)
 	fmt.Println("Use \"[command] --help\" for more information about a command.")
 
 	return nil
@@ -466,15 +476,13 @@ func cmdEcho(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		msg = args[0]
 	}
-	res, err := client.Echo(cmd.Context(), msg)
+	res, err := client.EchoSync(msg)
 	if err != nil {
 		return err
 	}
-
 	printResponse(cmd, args, response{
 		Data: []byte(res.Message),
 	})
-
 	return nil
 }
 
@@ -484,7 +492,7 @@ func cmdInfo(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		version = args[0]
 	}
-	res, err := client.Info(cmd.Context(), &types.RequestInfo{Version: version})
+	res, err := client.InfoSync(types.RequestInfo{Version: version})
 	if err != nil {
 		return err
 	}
@@ -496,40 +504,29 @@ func cmdInfo(cmd *cobra.Command, args []string) error {
 
 const codeBad uint32 = 10
 
-// Append new txs to application
-func cmdFinalizeBlock(cmd *cobra.Command, args []string) error {
+// Append a new tx to application
+func cmdDeliverTx(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		printResponse(cmd, args, response{
 			Code: codeBad,
-			Log:  "Must provide at least one transaction",
+			Log:  "want the tx",
 		})
 		return nil
 	}
-	txs := make([][]byte, len(args))
-	for i, arg := range args {
-		txBytes, err := stringOrHexToBytes(arg)
-		if err != nil {
-			return err
-		}
-		txs[i] = txBytes
-	}
-	res, err := client.FinalizeBlock(cmd.Context(), &types.RequestFinalizeBlock{Txs: txs})
+	txBytes, err := stringOrHexToBytes(args[0])
 	if err != nil {
 		return err
 	}
-	resps := make([]response, 0, len(res.TxResults)+1)
-	for _, tx := range res.TxResults {
-		resps = append(resps, response{
-			Code: tx.Code,
-			Data: tx.Data,
-			Info: tx.Info,
-			Log:  tx.Log,
-		})
+	res, err := client.DeliverTxSync(types.RequestDeliverTx{Tx: txBytes})
+	if err != nil {
+		return err
 	}
-	resps = append(resps, response{
-		Data: res.AppHash,
+	printResponse(cmd, args, response{
+		Code: res.Code,
+		Data: res.Data,
+		Info: res.Info,
+		Log:  res.Log,
 	})
-	printResponse(cmd, args, resps...)
 	return nil
 }
 
@@ -546,24 +543,28 @@ func cmdCheckTx(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	res, err := client.CheckTx(cmd.Context(), &types.RequestCheckTx{Tx: txBytes})
+	res, err := client.CheckTxSync(types.RequestCheckTx{Tx: txBytes})
 	if err != nil {
 		return err
 	}
 	printResponse(cmd, args, response{
 		Code: res.Code,
 		Data: res.Data,
+		Info: res.Info,
+		Log:  res.Log,
 	})
 	return nil
 }
 
 // Get application Merkle root hash
 func cmdCommit(cmd *cobra.Command, args []string) error {
-	_, err := client.Commit(cmd.Context())
+	res, err := client.CommitSync()
 	if err != nil {
 		return err
 	}
-	printResponse(cmd, args, response{})
+	printResponse(cmd, args, response{
+		Data: res.Data,
+	})
 	return nil
 }
 
@@ -582,7 +583,7 @@ func cmdQuery(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	resQuery, err := client.Query(cmd.Context(), &types.RequestQuery{
+	resQuery, err := client.QuerySync(types.RequestQuery{
 		Data:   queryBytes,
 		Path:   flagPath,
 		Height: int64(flagHeight),
@@ -605,34 +606,96 @@ func cmdQuery(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func makeKVStoreCmd(logger log.Logger) func(*cobra.Command, []string) error {
-	return func(cmd *cobra.Command, args []string) error {
-		// Create the application - in memory or persisted to disk
-		var app types.Application
-		if flagPersist == "" {
-			app = kvstore.NewApplication()
-		} else {
-			app = kvstore.NewPersistentKVStoreApplication(logger, flagPersist)
-		}
+func cmdPrepareProposal(cmd *cobra.Command, args []string) error {
+	txsBytesArray := make([][]byte, len(args))
 
-		// Start the listener
-		srv, err := server.NewServer(logger.With("module", "abci-server"), flagAddress, flagAbci, app)
+	for i, arg := range args {
+		txBytes, err := stringOrHexToBytes(arg)
 		if err != nil {
 			return err
 		}
-
-		ctx, cancel := signal.NotifyContext(cmd.Context(), syscall.SIGTERM)
-		defer cancel()
-
-		if err := srv.Start(ctx); err != nil {
-			return err
-		}
-
-		// Run forever.
-		<-ctx.Done()
-		return nil
+		txsBytesArray[i] = txBytes
 	}
 
+	res, err := client.PrepareProposalSync(types.RequestPrepareProposal{
+		Txs: txsBytesArray,
+		// kvstore has to have this parameter in order not to reject a tx as the default value is 0
+		MaxTxBytes: 65536,
+	})
+	if err != nil {
+		return err
+	}
+	resps := make([]response, 0, len(res.Txs))
+	for _, tx := range res.Txs {
+		resps = append(resps, response{
+			Code: code.CodeTypeOK,
+			Log:  "Succeeded. Tx: " + string(tx),
+		})
+	}
+
+	printResponse(cmd, args, resps...)
+	return nil
+}
+
+func cmdProcessProposal(cmd *cobra.Command, args []string) error {
+	txsBytesArray := make([][]byte, len(args))
+
+	for i, arg := range args {
+		txBytes, err := stringOrHexToBytes(arg)
+		if err != nil {
+			return err
+		}
+		txsBytesArray[i] = txBytes
+	}
+
+	res, err := client.ProcessProposalSync(types.RequestProcessProposal{
+		Txs: txsBytesArray,
+	})
+	if err != nil {
+		return err
+	}
+
+	printResponse(cmd, args, response{
+		Status: int32(res.Status),
+	})
+	return nil
+}
+
+func cmdKVStore(cmd *cobra.Command, args []string) error {
+	logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+
+	// Create the application - in memory or persisted to disk
+	var app types.Application
+	if flagPersist == "" {
+		var err error
+		flagPersist, err = os.MkdirTemp("", "persistent_kvstore_tmp")
+		if err != nil {
+			return err
+		}
+	}
+	app = kvstore.NewPersistentKVStoreApplication(flagPersist)
+	app.(*kvstore.PersistentKVStoreApplication).SetLogger(logger.With("module", "kvstore"))
+
+	// Start the listener
+	srv, err := server.NewServer(flagAddress, flagAbci, app)
+	if err != nil {
+		return err
+	}
+	srv.SetLogger(logger.With("module", "abci-server"))
+	if err := srv.Start(); err != nil {
+		return err
+	}
+
+	// Stop upon receiving SIGTERM or CTRL-C.
+	tmos.TrapSignal(logger, func() {
+		// Cleanup
+		if err := srv.Stop(); err != nil {
+			logger.Error("Error while stopping server", "err", err)
+		}
+	})
+
+	// Run forever.
+	select {}
 }
 
 //--------------------------------------------------------------------------------
@@ -653,15 +716,18 @@ func printResponse(cmd *cobra.Command, args []string, rsps ...response) {
 		}
 
 		if len(rsp.Data) != 0 {
-			// Do no print this line when using the finalize_block command
+			// Do no print this line when using the commit command
 			// because the string comes out as gibberish
-			if cmd.Use != "finalize_block" {
+			if cmd.Use != "commit" {
 				fmt.Printf("-> data: %s\n", rsp.Data)
 			}
 			fmt.Printf("-> data.hex: 0x%X\n", rsp.Data)
 		}
 		if rsp.Log != "" {
 			fmt.Printf("-> log: %s\n", rsp.Log)
+		}
+		if cmd.Use == "process_proposal" {
+			fmt.Printf("-> status: %s\n", types.ResponseProcessProposal_ProposalStatus_name[rsp.Status])
 		}
 
 		if rsp.Query != nil {

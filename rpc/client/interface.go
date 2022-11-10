@@ -24,29 +24,23 @@ import (
 	"context"
 
 	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/rpc/coretypes"
+	"github.com/tendermint/tendermint/libs/service"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	"github.com/tendermint/tendermint/types"
 )
 
-//go:generate ../../scripts/mockery_generate.sh Client
-
-// Client describes the interface of Tendermint RPC client implementations.
+// Client wraps most important rpc calls a client would make if you want to
+// listen for events, test if it also implements events.EventSwitch.
 type Client interface {
-	// Start the client, which will run until the context terminates.
-	// An error from Start indicates the client could not start.
-	Start(context.Context) error
-
-	// These embedded interfaces define the callable methods of the service.
-
+	service.Service
 	ABCIClient
 	EventsClient
-	EvidenceClient
 	HistoryClient
-	MempoolClient
 	NetworkClient
 	SignClient
 	StatusClient
-	SubscriptionClient
+	EvidenceClient
+	MempoolClient
 }
 
 // ABCIClient groups together the functionality that principally affects the
@@ -56,30 +50,28 @@ type Client interface {
 // is easier to mock.
 type ABCIClient interface {
 	// Reading from abci app
-	ABCIInfo(context.Context) (*coretypes.ResultABCIInfo, error)
-	ABCIQuery(ctx context.Context, path string, data bytes.HexBytes) (*coretypes.ResultABCIQuery, error)
+	ABCIInfo(context.Context) (*ctypes.ResultABCIInfo, error)
+	ABCIQuery(ctx context.Context, path string, data bytes.HexBytes) (*ctypes.ResultABCIQuery, error)
 	ABCIQueryWithOptions(ctx context.Context, path string, data bytes.HexBytes,
-		opts ABCIQueryOptions) (*coretypes.ResultABCIQuery, error)
+		opts ABCIQueryOptions) (*ctypes.ResultABCIQuery, error)
 
 	// Writing to abci app
-	BroadcastTx(context.Context, types.Tx) (*coretypes.ResultBroadcastTx, error)
-	// These methods are deprecated:
-	BroadcastTxCommit(context.Context, types.Tx) (*coretypes.ResultBroadcastTxCommit, error)
-	BroadcastTxAsync(context.Context, types.Tx) (*coretypes.ResultBroadcastTx, error)
-	BroadcastTxSync(context.Context, types.Tx) (*coretypes.ResultBroadcastTx, error)
+	BroadcastTxCommit(context.Context, types.Tx) (*ctypes.ResultBroadcastTxCommit, error)
+	BroadcastTxAsync(context.Context, types.Tx) (*ctypes.ResultBroadcastTx, error)
+	BroadcastTxSync(context.Context, types.Tx) (*ctypes.ResultBroadcastTx, error)
 }
 
 // SignClient groups together the functionality needed to get valid signatures
 // and prove anything about the chain.
 type SignClient interface {
-	Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error)
-	BlockByHash(ctx context.Context, hash bytes.HexBytes) (*coretypes.ResultBlock, error)
-	BlockResults(ctx context.Context, height *int64) (*coretypes.ResultBlockResults, error)
-	Header(ctx context.Context, height *int64) (*coretypes.ResultHeader, error)
-	HeaderByHash(ctx context.Context, hash bytes.HexBytes) (*coretypes.ResultHeader, error)
-	Commit(ctx context.Context, height *int64) (*coretypes.ResultCommit, error)
-	Validators(ctx context.Context, height *int64, page, perPage *int) (*coretypes.ResultValidators, error)
-	Tx(ctx context.Context, hash bytes.HexBytes, prove bool) (*coretypes.ResultTx, error)
+	Block(ctx context.Context, height *int64) (*ctypes.ResultBlock, error)
+	BlockByHash(ctx context.Context, hash []byte) (*ctypes.ResultBlock, error)
+	BlockResults(ctx context.Context, height *int64) (*ctypes.ResultBlockResults, error)
+	Header(ctx context.Context, height *int64) (*ctypes.ResultHeader, error)
+	HeaderByHash(ctx context.Context, hash bytes.HexBytes) (*ctypes.ResultHeader, error)
+	Commit(ctx context.Context, height *int64) (*ctypes.ResultCommit, error)
+	Validators(ctx context.Context, height *int64, page, perPage *int) (*ctypes.ResultValidators, error)
+	Tx(ctx context.Context, hash []byte, prove bool) (*ctypes.ResultTx, error)
 
 	// TxSearch defines a method to search for a paginated set of transactions by
 	// DeliverTx event search criteria.
@@ -89,90 +81,68 @@ type SignClient interface {
 		prove bool,
 		page, perPage *int,
 		orderBy string,
-	) (*coretypes.ResultTxSearch, error)
+	) (*ctypes.ResultTxSearch, error)
 
 	// BlockSearch defines a method to search for a paginated set of blocks by
-	// FinalizeBlock event search criteria.
+	// BeginBlock and EndBlock event search criteria.
 	BlockSearch(
 		ctx context.Context,
 		query string,
 		page, perPage *int,
 		orderBy string,
-	) (*coretypes.ResultBlockSearch, error)
+	) (*ctypes.ResultBlockSearch, error)
 }
 
 // HistoryClient provides access to data from genesis to now in large chunks.
 type HistoryClient interface {
-	Genesis(context.Context) (*coretypes.ResultGenesis, error)
-	GenesisChunked(context.Context, uint) (*coretypes.ResultGenesisChunk, error)
-	BlockchainInfo(ctx context.Context, minHeight, maxHeight int64) (*coretypes.ResultBlockchainInfo, error)
+	Genesis(context.Context) (*ctypes.ResultGenesis, error)
+	GenesisChunked(context.Context, uint) (*ctypes.ResultGenesisChunk, error)
+	BlockchainInfo(ctx context.Context, minHeight, maxHeight int64) (*ctypes.ResultBlockchainInfo, error)
 }
 
 // StatusClient provides access to general chain info.
 type StatusClient interface {
-	Status(context.Context) (*coretypes.ResultStatus, error)
+	Status(context.Context) (*ctypes.ResultStatus, error)
 }
 
 // NetworkClient is general info about the network state. May not be needed
 // usually.
 type NetworkClient interface {
-	NetInfo(context.Context) (*coretypes.ResultNetInfo, error)
-	DumpConsensusState(context.Context) (*coretypes.ResultDumpConsensusState, error)
-	ConsensusState(context.Context) (*coretypes.ResultConsensusState, error)
-	ConsensusParams(ctx context.Context, height *int64) (*coretypes.ResultConsensusParams, error)
-	Health(context.Context) (*coretypes.ResultHealth, error)
+	NetInfo(context.Context) (*ctypes.ResultNetInfo, error)
+	DumpConsensusState(context.Context) (*ctypes.ResultDumpConsensusState, error)
+	ConsensusState(context.Context) (*ctypes.ResultConsensusState, error)
+	ConsensusParams(ctx context.Context, height *int64) (*ctypes.ResultConsensusParams, error)
+	Health(context.Context) (*ctypes.ResultHealth, error)
 }
 
-// EventsClient exposes the methods to retrieve events from the consensus engine.
+// EventsClient is reactive, you can subscribe to any message, given the proper
+// string. see tendermint/types/events.go
 type EventsClient interface {
-	// Events fetches a batch of events from the server matching the given query
-	// and time range.
-	Events(ctx context.Context, req *coretypes.RequestEvents) (*coretypes.ResultEvents, error)
-}
-
-// TODO(creachadair): This interface should be removed once the streaming event
-// interface is removed in Tendermint v0.37.
-type SubscriptionClient interface {
-	// Subscribe issues a subscription request for the given subscriber ID and
-	// query. This method does not block: If subscription fails, it reports an
-	// error, and if subscription succeeds it returns a channel that delivers
-	// matching events until the subscription is stopped. The channel is never
-	// closed; the client is responsible for knowing when no further data will
-	// be sent.
+	// Subscribe subscribes given subscriber to query. Returns a channel with
+	// cap=1 onto which events are published. An error is returned if it fails to
+	// subscribe. outCapacity can be used optionally to set capacity for the
+	// channel. Channel is never closed to prevent accidental reads.
 	//
-	// The context only governs the initial subscription, it does not control
-	// the lifetime of the channel. To cancel a subscription call Unsubscribe or
-	// UnsubscribeAll.
-	//
-	// Deprecated: This method will be removed in Tendermint v0.37, use Events
-	// instead.
-	Subscribe(ctx context.Context, subscriber, query string, outCapacity ...int) (out <-chan coretypes.ResultEvent, err error)
-
+	// ctx cannot be used to unsubscribe. To unsubscribe, use either Unsubscribe
+	// or UnsubscribeAll.
+	Subscribe(ctx context.Context, subscriber, query string, outCapacity ...int) (out <-chan ctypes.ResultEvent, err error)
 	// Unsubscribe unsubscribes given subscriber from query.
-	//
-	// Deprecated: This method will be removed in Tendermint v0.37, use Events
-	// instead.
 	Unsubscribe(ctx context.Context, subscriber, query string) error
-
 	// UnsubscribeAll unsubscribes given subscriber from all the queries.
-	//
-	// Deprecated: This method will be removed in Tendermint v0.37, use Events
-	// instead.
 	UnsubscribeAll(ctx context.Context, subscriber string) error
 }
 
 // MempoolClient shows us data about current mempool state.
 type MempoolClient interface {
-	UnconfirmedTxs(ctx context.Context, page, perPage *int) (*coretypes.ResultUnconfirmedTxs, error)
-	NumUnconfirmedTxs(context.Context) (*coretypes.ResultUnconfirmedTxs, error)
-	CheckTx(context.Context, types.Tx) (*coretypes.ResultCheckTx, error)
-	RemoveTx(context.Context, types.TxKey) error
+	UnconfirmedTxs(ctx context.Context, limit *int) (*ctypes.ResultUnconfirmedTxs, error)
+	NumUnconfirmedTxs(context.Context) (*ctypes.ResultUnconfirmedTxs, error)
+	CheckTx(context.Context, types.Tx) (*ctypes.ResultCheckTx, error)
 }
 
 // EvidenceClient is used for submitting an evidence of the malicious
 // behavior.
 type EvidenceClient interface {
-	BroadcastEvidence(context.Context, types.Evidence) (*coretypes.ResultBroadcastEvidence, error)
+	BroadcastEvidence(context.Context, types.Evidence) (*ctypes.ResultBroadcastEvidence, error)
 }
 
 // RemoteClient is a Client, which can also return the remote network address.

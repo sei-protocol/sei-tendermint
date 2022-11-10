@@ -79,58 +79,58 @@ func TestProofOperators(t *testing.T) {
 	// Good
 	popz := ProofOperators([]ProofOperator{op1, op2, op3, op4})
 	err = popz.Verify(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 	err = popz.VerifyValue(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", bz("INPUT1"))
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 
 	// BAD INPUT
 	err = popz.Verify(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1_WRONG")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 	err = popz.VerifyValue(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", bz("INPUT1_WRONG"))
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD KEY 1
 	err = popz.Verify(bz("OUTPUT4"), "/KEY3/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD KEY 2
 	err = popz.Verify(bz("OUTPUT4"), "KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD KEY 3
 	err = popz.Verify(bz("OUTPUT4"), "/KEY4/KEY2/KEY1/", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD KEY 4
 	err = popz.Verify(bz("OUTPUT4"), "//KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD KEY 5
 	err = popz.Verify(bz("OUTPUT4"), "/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD OUTPUT 1
 	err = popz.Verify(bz("OUTPUT4_WRONG"), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD OUTPUT 2
 	err = popz.Verify(bz(""), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD POPZ 1
 	popz = []ProofOperator{op1, op2, op4}
 	err = popz.Verify(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD POPZ 2
 	popz = []ProofOperator{op4, op3, op2, op1}
 	err = popz.Verify(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 
 	// BAD POPZ 3
 	popz = []ProofOperator{}
 	err = popz.Verify(bz("OUTPUT4"), "/KEY4/KEY2/KEY1", [][]byte{bz("INPUT1")})
-	assert.Error(t, err)
+	assert.NotNil(t, err)
 }
 
 func bz(s string) []byte {
@@ -171,12 +171,12 @@ func TestProofValidateBasic(t *testing.T) {
 	}
 }
 func TestVoteProtobuf(t *testing.T) {
+
 	_, proofs := ProofsFromByteSlices([][]byte{
 		[]byte("apple"),
 		[]byte("watermelon"),
 		[]byte("kiwi"),
 	})
-
 	testCases := []struct {
 		testName string
 		v1       *Proof

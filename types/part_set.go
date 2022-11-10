@@ -2,16 +2,16 @@ package types
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/libs/bits"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	tmmath "github.com/tendermint/tendermint/libs/math"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
@@ -145,19 +145,13 @@ func PartSetHeaderFromProto(ppsh *tmproto.PartSetHeader) (*PartSetHeader, error)
 	return psh, psh.ValidateBasic()
 }
 
-// ProtoPartSetHeaderIsZero is similar to the IsZero function for
-// PartSetHeader, but for the Protobuf representation.
-func ProtoPartSetHeaderIsZero(ppsh *tmproto.PartSetHeader) bool {
-	return ppsh.Total == 0 && len(ppsh.Hash) == 0
-}
-
 //-------------------------------------
 
 type PartSet struct {
 	total uint32
 	hash  []byte
 
-	mtx           sync.Mutex
+	mtx           tmsync.Mutex
 	parts         []*Part
 	partsBitArray *bits.BitArray
 	count         uint32
@@ -371,7 +365,7 @@ func (ps *PartSet) MarshalJSON() ([]byte, error) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
-	return json.Marshal(struct {
+	return tmjson.Marshal(struct {
 		CountTotal    string         `json:"count/total"`
 		PartsBitArray *bits.BitArray `json:"parts_bit_array"`
 	}{

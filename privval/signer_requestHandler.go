@@ -1,11 +1,10 @@
 package privval
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/encoding"
+	cryptoenc "github.com/tendermint/tendermint/crypto/encoding"
 	cryptoproto "github.com/tendermint/tendermint/proto/tendermint/crypto"
 	privvalproto "github.com/tendermint/tendermint/proto/tendermint/privval"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
@@ -13,7 +12,6 @@ import (
 )
 
 func DefaultValidationRequestHandler(
-	ctx context.Context,
 	privVal types.PrivValidator,
 	req privvalproto.Message,
 	chainID string,
@@ -33,11 +31,11 @@ func DefaultValidationRequestHandler(
 		}
 
 		var pubKey crypto.PubKey
-		pubKey, err = privVal.GetPubKey(ctx)
+		pubKey, err = privVal.GetPubKey()
 		if err != nil {
 			return res, err
 		}
-		pk, err := encoding.PubKeyToProto(pubKey)
+		pk, err := cryptoenc.PubKeyToProto(pubKey)
 		if err != nil {
 			return res, err
 		}
@@ -59,7 +57,7 @@ func DefaultValidationRequestHandler(
 
 		vote := r.SignVoteRequest.Vote
 
-		err = privVal.SignVote(ctx, chainID, vote)
+		err = privVal.SignVote(chainID, vote)
 		if err != nil {
 			res = mustWrapMsg(&privvalproto.SignedVoteResponse{
 				Vote: tmproto.Vote{}, Error: &privvalproto.RemoteSignerError{Code: 0, Description: err.Error()}})
@@ -78,7 +76,7 @@ func DefaultValidationRequestHandler(
 
 		proposal := r.SignProposalRequest.Proposal
 
-		err = privVal.SignProposal(ctx, chainID, proposal)
+		err = privVal.SignProposal(chainID, proposal)
 		if err != nil {
 			res = mustWrapMsg(&privvalproto.SignedProposalResponse{
 				Proposal: tmproto.Proposal{}, Error: &privvalproto.RemoteSignerError{Code: 0, Description: err.Error()}})

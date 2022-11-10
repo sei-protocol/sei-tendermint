@@ -2,8 +2,6 @@
 
 This document explains how Tendermint Peers are identified and how they connect to one another.
 
-For details on peer discovery, see the [peer exchange (PEX) doc](https://github.com/tendermint/tendermint/blob/master/docs/tendermint-core/pex/README.md).
-
 ## Peer Identity
 
 Tendermint peers are expected to maintain long-term persistent identities in the form of a public key.

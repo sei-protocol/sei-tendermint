@@ -11,9 +11,9 @@ import (
 // BlockMeta contains meta information.
 type BlockMeta struct {
 	BlockID   BlockID `json:"block_id"`
-	BlockSize int     `json:"block_size,string"`
+	BlockSize int     `json:"block_size"`
 	Header    Header  `json:"header"`
-	NumTxs    int     `json:"num_txs,string"`
+	NumTxs    int     `json:"num_txs"`
 }
 
 // NewBlockMeta returns a new BlockMeta.

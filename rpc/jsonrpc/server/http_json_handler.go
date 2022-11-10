@@ -4,92 +4,115 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
-	"strings"
+	"reflect"
+	"sort"
 
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
-	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
+	types "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 )
 
 // HTTP + JSON handler
 
 // jsonrpc calls grab the given method's function info and runs reflect.Call
 func makeJSONRPCHandler(funcMap map[string]*RPCFunc, logger log.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, hreq *http.Request) {
-		// For POST requests, reject a non-root URL path. This should not happen
-		// in the standard configuration, since the wrapper checks the path.
-		if hreq.URL.Path != "/" {
-			writeRPCResponse(w, logger, rpctypes.RPCRequest{}.MakeErrorf(
-				rpctypes.CodeInvalidRequest, "invalid path: %q", hreq.URL.Path))
-			return
-		}
-
-		b, err := io.ReadAll(hreq.Body)
+	return func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
-			writeRPCResponse(w, logger, rpctypes.RPCRequest{}.MakeErrorf(
-				rpctypes.CodeInvalidRequest, "reading request body: %v", err))
+			res := types.RPCInvalidRequestError(nil,
+				fmt.Errorf("error reading request body: %w", err),
+			)
+			if wErr := WriteRPCResponseHTTPError(w, http.StatusBadRequest, res); wErr != nil {
+				logger.Error("failed to write response", "res", res, "err", wErr)
+			}
 			return
 		}
 
 		// if its an empty request (like from a browser), just display a list of
 		// functions
 		if len(b) == 0 {
-			writeListOfEndpoints(w, hreq, funcMap)
+			writeListOfEndpoints(w, r, funcMap)
 			return
 		}
 
-		requests, err := parseRequests(b)
-		if err != nil {
-			writeRPCResponse(w, logger, rpctypes.RPCRequest{}.MakeErrorf(
-				rpctypes.CodeParseError, "decoding request: %v", err))
-			return
+		// first try to unmarshal the incoming request as an array of RPC requests
+		var (
+			requests  []types.RPCRequest
+			responses []types.RPCResponse
+		)
+		if err := json.Unmarshal(b, &requests); err != nil {
+			// next, try to unmarshal as a single request
+			var request types.RPCRequest
+			if err := json.Unmarshal(b, &request); err != nil {
+				res := types.RPCParseError(fmt.Errorf("error unmarshaling request: %w", err))
+				if wErr := WriteRPCResponseHTTPError(w, http.StatusInternalServerError, res); wErr != nil {
+					logger.Error("failed to write response", "res", res, "err", wErr)
+				}
+				return
+			}
+			requests = []types.RPCRequest{request}
 		}
 
-		var responses []rpctypes.RPCResponse
-		for _, req := range requests {
-			// Ignore notifications, which this service does not support.
-			if req.IsNotification() {
-				logger.Debug("Ignoring notification", "req", req)
+		for _, request := range requests {
+			request := request
+
+			// A Notification is a Request object without an "id" member.
+			// The Server MUST NOT reply to a Notification, including those that are within a batch request.
+			if request.ID == nil {
+				logger.Debug(
+					"HTTPJSONRPC received a notification, skipping... (please send a non-empty ID if you want to call a method)",
+					"req", request,
+				)
 				continue
 			}
-
-			rpcFunc, ok := funcMap[req.Method]
+			if len(r.URL.Path) > 1 {
+				responses = append(
+					responses,
+					types.RPCInvalidRequestError(request.ID, fmt.Errorf("path %s is invalid", r.URL.Path)),
+				)
+				continue
+			}
+			rpcFunc, ok := funcMap[request.Method]
 			if !ok || rpcFunc.ws {
-				responses = append(responses, req.MakeErrorf(rpctypes.CodeMethodNotFound, req.Method))
+				responses = append(responses, types.RPCMethodNotFoundError(request.ID))
 				continue
 			}
+			ctx := &types.Context{JSONReq: &request, HTTPReq: r}
+			args := []reflect.Value{reflect.ValueOf(ctx)}
+			if len(request.Params) > 0 {
+				fnArgs, err := jsonParamsToArgs(rpcFunc, request.Params)
+				if err != nil {
+					responses = append(
+						responses,
+						types.RPCInvalidParamsError(request.ID, fmt.Errorf("error converting json params to arguments: %w", err)),
+					)
+					continue
+				}
+				args = append(args, fnArgs...)
+			}
 
-			req := req
-			ctx := rpctypes.WithCallInfo(hreq.Context(), &rpctypes.CallInfo{
-				RPCRequest:  &req,
-				HTTPRequest: hreq,
-			})
-			result, err := rpcFunc.Call(ctx, req.Params)
+			returns := rpcFunc.f.Call(args)
+			result, err := unreflectResult(returns)
 			if err != nil {
-				responses = append(responses, req.MakeError(err))
-			} else {
-				responses = append(responses, req.MakeResponse(result))
+				responses = append(responses, types.RPCInternalError(request.ID, err))
+				continue
+			}
+			responses = append(responses, types.NewRPCSuccessResponse(request.ID, result))
+		}
+
+		if len(responses) > 0 {
+			if wErr := WriteRPCResponseHTTP(w, responses...); wErr != nil {
+				logger.Error("failed to write responses", "res", responses, "err", wErr)
 			}
 		}
-
-		if len(responses) == 0 {
-			return
-		}
-		writeRPCResponse(w, logger, responses...)
-	}
-}
-
-func ensureBodyClose(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
-		next(w, r)
 	}
 }
 
 func handleInvalidJSONRPCPaths(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Since the pattern "/" matches all paths not matched by other registered patterns,
 		//  we check whether the path is indeed "/", otherwise return a 404 error
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -100,69 +123,120 @@ func handleInvalidJSONRPCPaths(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// parseRequests parses a JSON-RPC request or request batch from data.
-func parseRequests(data []byte) ([]rpctypes.RPCRequest, error) {
-	var reqs []rpctypes.RPCRequest
-	var err error
+func mapParamsToArgs(
+	rpcFunc *RPCFunc,
+	params map[string]json.RawMessage,
+	argsOffset int,
+) ([]reflect.Value, error) {
 
-	isArray := bytes.HasPrefix(bytes.TrimSpace(data), []byte("["))
-	if isArray {
-		err = json.Unmarshal(data, &reqs)
-	} else {
-		reqs = append(reqs, rpctypes.RPCRequest{})
-		err = json.Unmarshal(data, &reqs[0])
+	values := make([]reflect.Value, len(rpcFunc.argNames))
+	for i, argName := range rpcFunc.argNames {
+		argType := rpcFunc.args[i+argsOffset]
+
+		if p, ok := params[argName]; ok && p != nil && len(p) > 0 {
+			val := reflect.New(argType)
+			err := tmjson.Unmarshal(p, val.Interface())
+			if err != nil {
+				return nil, err
+			}
+			values[i] = val.Elem()
+		} else { // use default for that type
+			values[i] = reflect.Zero(argType)
+		}
 	}
-	if err != nil {
-		return nil, err
+
+	return values, nil
+}
+
+func arrayParamsToArgs(
+	rpcFunc *RPCFunc,
+	params []json.RawMessage,
+	argsOffset int,
+) ([]reflect.Value, error) {
+
+	if len(rpcFunc.argNames) != len(params) {
+		return nil, fmt.Errorf("expected %v parameters (%v), got %v (%v)",
+			len(rpcFunc.argNames), rpcFunc.argNames, len(params), params)
 	}
-	return reqs, nil
+
+	values := make([]reflect.Value, len(params))
+	for i, p := range params {
+		argType := rpcFunc.args[i+argsOffset]
+		val := reflect.New(argType)
+		err := tmjson.Unmarshal(p, val.Interface())
+		if err != nil {
+			return nil, err
+		}
+		values[i] = val.Elem()
+	}
+	return values, nil
+}
+
+// raw is unparsed json (from json.RawMessage) encoding either a map or an
+// array.
+//
+// Example:
+//
+//	rpcFunc.args = [rpctypes.Context string]
+//	rpcFunc.argNames = ["arg"]
+func jsonParamsToArgs(rpcFunc *RPCFunc, raw []byte) ([]reflect.Value, error) {
+	const argsOffset = 1
+
+	// TODO: Make more efficient, perhaps by checking the first character for '{' or '['?
+	// First, try to get the map.
+	var m map[string]json.RawMessage
+	err := json.Unmarshal(raw, &m)
+	if err == nil {
+		return mapParamsToArgs(rpcFunc, m, argsOffset)
+	}
+
+	// Otherwise, try an array.
+	var a []json.RawMessage
+	err = json.Unmarshal(raw, &a)
+	if err == nil {
+		return arrayParamsToArgs(rpcFunc, a, argsOffset)
+	}
+
+	// Otherwise, bad format, we cannot parse
+	return nil, fmt.Errorf("unknown type for JSON params: %v. Expected map or array", err)
 }
 
 // writes a list of available rpc endpoints as an html page
 func writeListOfEndpoints(w http.ResponseWriter, r *http.Request, funcMap map[string]*RPCFunc) {
-	hasArgs := make(map[string]string)
-	noArgs := make(map[string]string)
-	for name, rf := range funcMap {
-		base := fmt.Sprintf("//%s/%s", r.Host, name)
-		if len(rf.args) == 0 {
-			noArgs[name] = base
-			continue
+	noArgNames := []string{}
+	argNames := []string{}
+	for name, funcData := range funcMap {
+		if len(funcData.args) == 0 {
+			noArgNames = append(noArgNames, name)
+		} else {
+			argNames = append(argNames, name)
 		}
-		var query []string
-		for _, arg := range rf.args {
-			query = append(query, arg.name+"=_")
-		}
-		hasArgs[name] = base + "?" + strings.Join(query, "&")
 	}
+	sort.Strings(noArgNames)
+	sort.Strings(argNames)
+	buf := new(bytes.Buffer)
+	buf.WriteString("<html><body>")
+	buf.WriteString("<br>Available endpoints:<br>")
+
+	for _, name := range noArgNames {
+		link := fmt.Sprintf("//%s/%s", r.Host, name)
+		buf.WriteString(fmt.Sprintf("<a href=\"%s\">%s</a></br>", link, link))
+	}
+
+	buf.WriteString("<br>Endpoints that require arguments:<br>")
+	for _, name := range argNames {
+		link := fmt.Sprintf("//%s/%s?", r.Host, name)
+		funcData := funcMap[name]
+		for i, argName := range funcData.argNames {
+			link += argName + "=_"
+			if i < len(funcData.argNames)-1 {
+				link += "&"
+			}
+		}
+		buf.WriteString(fmt.Sprintf("<a href=\"%s\">%s</a></br>", link, link))
+	}
+	buf.WriteString("</body></html>")
 	w.Header().Set("Content-Type", "text/html")
-	_ = listOfEndpoints.Execute(w, map[string]map[string]string{
-		"NoArgs":  noArgs,
-		"HasArgs": hasArgs,
-	})
+	w.WriteHeader(200)
+	w.Write(buf.Bytes()) //nolint: errcheck
 }
-
-var listOfEndpoints = template.Must(template.New("list").Parse(`<html>
-<head><title>List of RPC Endpoints</title></head>
-<body>
-
-<h1>Available RPC endpoints:</h1>
-
-{{if .NoArgs}}
-<hr />
-<h2>Endpoints with no arguments:</h2>
-
-<ul>
-{{range $link := .NoArgs}}  <li><a href="{{$link}}">{{$link}}</a></li>
-{{end -}}
-</ul>{{end}}
-
-{{if .HasArgs}}
-<hr />
-<h2>Endpoints that require arguments:</h2>
-
-<ul>
-{{range $link := .HasArgs}}  <li><a href="{{$link}}">{{$link}}</a></li>
-{{end -}}
-</ul>{{end}}
-
-</body></html>`))

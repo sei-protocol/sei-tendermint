@@ -3,8 +3,8 @@ package types
 import (
 	"time"
 
-	tmtime "github.com/tendermint/tendermint/libs/time"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
+	tmtime "github.com/tendermint/tendermint/types/time"
 )
 
 // Canonical* wraps the structs in types for amino encoding them for use in SignBytes / the Signable interface.
@@ -21,7 +21,7 @@ func CanonicalizeBlockID(bid tmproto.BlockID) *tmproto.CanonicalBlockID {
 		panic(err)
 	}
 	var cbid *tmproto.CanonicalBlockID
-	if rbid == nil || rbid.IsNil() {
+	if rbid == nil || rbid.IsZero() {
 		cbid = nil
 	} else {
 		cbid = &tmproto.CanonicalBlockID{
@@ -52,8 +52,7 @@ func CanonicalizeProposal(chainID string, proposal *tmproto.Proposal) tmproto.Ca
 }
 
 // CanonicalizeVote transforms the given Vote to a CanonicalVote, which does
-// not contain ValidatorIndex and ValidatorAddress fields, or any fields
-// relating to vote extensions.
+// not contain ValidatorIndex and ValidatorAddress fields.
 func CanonicalizeVote(chainID string, vote *tmproto.Vote) tmproto.CanonicalVote {
 	return tmproto.CanonicalVote{
 		Type:      vote.Type,
@@ -62,18 +61,6 @@ func CanonicalizeVote(chainID string, vote *tmproto.Vote) tmproto.CanonicalVote 
 		BlockID:   CanonicalizeBlockID(vote.BlockID),
 		Timestamp: vote.Timestamp,
 		ChainID:   chainID,
-	}
-}
-
-// CanonicalizeVoteExtension extracts the vote extension from the given vote
-// and constructs a CanonicalizeVoteExtension struct, whose representation in
-// bytes is what is signed in order to produce the vote extension's signature.
-func CanonicalizeVoteExtension(chainID string, vote *tmproto.Vote) tmproto.CanonicalVoteExtension {
-	return tmproto.CanonicalVoteExtension{
-		Extension: vote.Extension,
-		Height:    vote.Height,
-		Round:     int64(vote.Round),
-		ChainId:   chainID,
 	}
 }
 

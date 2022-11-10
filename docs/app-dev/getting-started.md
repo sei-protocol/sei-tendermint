@@ -63,13 +63,13 @@ Tendermint binary installed. If not, follow the steps from
 before, use:
 
 ```sh
-tendermint init validator
-tendermint start
+tendermint init
+tendermint node
 ```
 
 If you have used Tendermint, you may want to reset the data for a new
-blockchain by running `tendermint unsafe-reset-all`. Then you can run
-`tendermint start` to start Tendermint, and connect to the app. For more
+blockchain by running `tendermint unsafe_reset_all`. Then you can run
+`tendermint node` to start Tendermint, and connect to the app. For more
 details, see [the guide on using Tendermint](../tendermint-core/using-tendermint.md).
 
 You should see Tendermint making blocks! We can get the status of our
@@ -96,21 +96,25 @@ like:
 
 ```json
 {
-  "check_tx": { ... },
-  "deliver_tx": {
-    "tags": [
-      {
-        "key": "YXBwLmNyZWF0b3I=",
-        "value": "amFl"
-      },
-      {
-        "key": "YXBwLmtleQ==",
-        "value": "YWJjZA=="
-      }
-    ]
-  },
-  "hash": "9DF66553F98DE3C26E3C3317A3E4CED54F714E39",
-  "height": 14
+  "jsonrpc": "2.0",
+  "id": "",
+  "result": {
+    "check_tx": {},
+    "deliver_tx": {
+      "tags": [
+        {
+          "key": "YXBwLmNyZWF0b3I=",
+          "value": "amFl"
+        },
+        {
+          "key": "YXBwLmtleQ==",
+          "value": "YWJjZA=="
+        }
+      ]
+    },
+    "hash": "9DF66553F98DE3C26E3C3317A3E4CED54F714E39",
+    "height": 14
+  }
 }
 ```
 
@@ -125,11 +129,15 @@ The result should look like:
 
 ```json
 {
-  "response": {
-    "log": "exists",
-    "index": "-1",
-    "key": "YWJjZA==",
-    "value": "YWJjZA=="
+  "jsonrpc": "2.0",
+  "id": "",
+  "result": {
+    "response": {
+      "log": "exists",
+      "index": "-1",
+      "key": "YWJjZA==",
+      "value": "YWJjZA=="
+    }
   }
 }
 ```
@@ -182,8 +190,8 @@ node example/counter.js
 In another window, reset and start `tendermint`:
 
 ```sh
-tendermint reset unsafe-all
-tendermint start
+tendermint unsafe_reset_all
+tendermint node
 ```
 
 Once again, you should see blocks streaming by - but now, our

@@ -48,7 +48,7 @@ func TestBasicPartSet(t *testing.T) {
 	// adding existing part
 	added, err = partSet2.AddPart(partSet2.GetPart(0))
 	assert.False(t, added)
-	assert.NoError(t, err)
+	assert.Nil(t, err)
 
 	assert.Equal(t, partSet.Hash(), partSet2.Hash())
 	assert.EqualValues(t, nParts, partSet2.Total())

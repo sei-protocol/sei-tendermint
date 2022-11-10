@@ -1,4 +1,5 @@
 ---
+
 - name: Create service group
   group: "name={{service}}"
 

@@ -1,9 +1,7 @@
-//nolint: gosec
 package app
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,8 +11,10 @@ import (
 	"sync"
 )
 
-const stateFileName = "app_state.json"
-const prevStateFileName = "prev_app_state.json"
+const (
+	stateFileName     = "app_state.json"
+	prevStateFileName = "prev_app_state.json"
+)
 
 // State is the application state.
 type State struct {
@@ -39,7 +39,7 @@ func NewState(dir string, persistInterval uint64) (*State, error) {
 		previousFile:    filepath.Join(dir, prevStateFileName),
 		persistInterval: persistInterval,
 	}
-	state.Hash = hashItems(state.Values, state.Height)
+	state.Hash = hashItems(state.Values)
 	err := state.load()
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -82,7 +82,7 @@ func (s *State) save() error {
 	// We write the state to a separate file and move it to the destination, to
 	// make it atomic.
 	newFile := fmt.Sprintf("%v.new", s.currentFile)
-	err = os.WriteFile(newFile, bz, 0644)
+	err = os.WriteFile(newFile, bz, 0o644) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("failed to write state to %q: %w", s.currentFile, err)
 	}
@@ -115,7 +115,7 @@ func (s *State) Import(height uint64, jsonBytes []byte) error {
 	}
 	s.Height = height
 	s.Values = values
-	s.Hash = hashItems(values, height)
+	s.Hash = hashItems(values)
 	return s.save()
 }
 
@@ -137,10 +137,11 @@ func (s *State) Set(key, value string) {
 	}
 }
 
-// Finalize is called after applying a block, updating the height and returning the new app_hash
-func (s *State) Finalize() []byte {
+// Commit commits the current state.
+func (s *State) Commit() (uint64, []byte, error) {
 	s.Lock()
 	defer s.Unlock()
+	s.Hash = hashItems(s.Values)
 	switch {
 	case s.Height > 0:
 		s.Height++
@@ -149,21 +150,13 @@ func (s *State) Finalize() []byte {
 	default:
 		s.Height = 1
 	}
-	s.Hash = hashItems(s.Values, s.Height)
-	return s.Hash
-}
-
-// Commit commits the current state.
-func (s *State) Commit() (uint64, error) {
-	s.Lock()
-	defer s.Unlock()
 	if s.persistInterval > 0 && s.Height%s.persistInterval == 0 {
 		err := s.save()
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
 	}
-	return s.Height, nil
+	return s.Height, s.Hash, nil
 }
 
 func (s *State) Rollback() error {
@@ -179,7 +172,7 @@ func (s *State) Rollback() error {
 }
 
 // hashItems hashes a set of key/value items.
-func hashItems(items map[string]string, height uint64) []byte {
+func hashItems(items map[string]string) []byte {
 	keys := make([]string, 0, len(items))
 	for key := range items {
 		keys = append(keys, key)
@@ -187,9 +180,6 @@ func hashItems(items map[string]string, height uint64) []byte {
 	sort.Strings(keys)
 
 	hasher := sha256.New()
-	var b [8]byte
-	binary.BigEndian.PutUint64(b[:], height)
-	_, _ = hasher.Write(b[:])
 	for _, key := range keys {
 		_, _ = hasher.Write([]byte(key))
 		_, _ = hasher.Write([]byte{0})

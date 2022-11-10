@@ -4,27 +4,25 @@ package tendermint.blocksync;
 option go_package = "github.com/tendermint/tendermint/proto/tendermint/blocksync";
 
 import "tendermint/types/block.proto";
-import "tendermint/types/types.proto";
 
 // BlockRequest requests a block for a specific height
 message BlockRequest {
   int64 height = 1;
 }
 
-// NoBlockResponse informs the node that the peer does not have block at the
-// requested height
+// NoBlockResponse informs the node that the peer does not have block at the requested height
 message NoBlockResponse {
   int64 height = 1;
 }
 
 // BlockResponse returns block to the requested
 message BlockResponse {
-  tendermint.types.Block          block      = 1;
-  tendermint.types.ExtendedCommit ext_commit = 2;
+  tendermint.types.Block block = 1;
 }
 
 // StatusRequest requests the status of a peer.
-message StatusRequest {}
+message StatusRequest {
+}
 
 // StatusResponse is a peer response to inform their status.
 message StatusResponse {
