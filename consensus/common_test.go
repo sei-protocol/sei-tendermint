@@ -195,7 +195,7 @@ func (vss ValidatorStubsByPower) Swap(i, j int) {
 // Functions for transitioning the consensus state
 
 func startTestRound(cs *State, height int64, round int32) {
-	cs.enterNewRound(height, round)
+	cs.enterNewRound(height, round, "")
 	cs.startRoutines(0)
 }
 

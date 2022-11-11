@@ -164,7 +164,7 @@ func TestStateEnterProposeYesPrivValidator(t *testing.T) {
 	timeoutCh := subscribe(cs.eventBus, types.EventQueryTimeoutPropose)
 	proposalCh := subscribe(cs.eventBus, types.EventQueryCompleteProposal)
 
-	cs.enterNewRound(height, round)
+	cs.enterNewRound(height, round, "")
 	cs.startRoutines(3)
 
 	ensureNewProposal(proposalCh, height, round)
@@ -368,7 +368,7 @@ func TestStateFullRoundNil(t *testing.T) {
 
 	voteCh := subscribeUnBuffered(cs.eventBus, types.EventQueryVote)
 
-	cs.enterPrevote(height, round)
+	cs.enterPrevote(height, round, "")
 	cs.startRoutines(4)
 
 	ensurePrevote(voteCh, height, round)   // prevote
@@ -438,7 +438,7 @@ func TestStateLockNoPOL(t *testing.T) {
 	*/
 
 	// start round and wait for prevote
-	cs1.enterNewRound(height, round)
+	cs1.enterNewRound(height, round, "")
 	cs1.startRoutines(0)
 
 	ensureNewRound(newRoundCh, height, round)
