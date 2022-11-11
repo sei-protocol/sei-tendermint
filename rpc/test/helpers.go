@@ -10,6 +10,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	cfg "github.com/tendermint/tendermint/config"
 	tmnet "github.com/tendermint/tendermint/libs/net"
@@ -171,7 +172,9 @@ func NewTendermint(app abci.Application, opts *Options) *nm.Node {
 		nm.DefaultGenesisDocProviderFunc(config),
 		nm.DefaultDBProvider,
 		nm.DefaultMetricsProvider(config.Instrumentation),
-		logger)
+		logger,
+		[]trace.TracerProviderOption{},
+	)
 	if err != nil {
 		panic(err)
 	}

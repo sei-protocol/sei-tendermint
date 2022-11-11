@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -101,7 +102,15 @@ func TestByzantinePrevoteEquivocation(t *testing.T) {
 
 		// Make State
 		blockExec := sm.NewBlockExecutor(stateStore, log.TestingLogger(), proxyAppConnCon, mempool, evpool)
-		cs := NewState(thisConfig.Consensus, state, blockExec, blockStore, mempool, evpool)
+		cs := NewState(
+			thisConfig.Consensus,
+			state,
+			blockExec,
+			blockStore,
+			mempool,
+			evpool,
+			[]trace.TracerProviderOption{},
+		)
 		cs.SetLogger(cs.Logger)
 		// set private validator
 		pv := privVals[i]

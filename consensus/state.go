@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +12,9 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/trace"
+	otrace "go.opentelemetry.io/otel/trace"
 
 	cfg "github.com/tendermint/tendermint/config"
 	cstypes "github.com/tendermint/tendermint/consensus/types"
@@ -140,6 +144,12 @@ type State struct {
 
 	// for reporting metrics
 	metrics *Metrics
+
+	tracer                otrace.Tracer
+	tracerProviderOptions []trace.TracerProviderOption
+	heightSpan            otrace.Span
+	heightBeingTraced     int64
+	tracingCtx            context.Context
 }
 
 // StateOption sets an optional parameter on the State.
@@ -153,6 +163,7 @@ func NewState(
 	blockStore sm.BlockStore,
 	txNotifier txNotifier,
 	evpool evidencePool,
+	traceProviderOps []trace.TracerProviderOption,
 	options ...StateOption,
 ) *State {
 	cs := &State{
@@ -190,6 +201,10 @@ func NewState(
 	for _, option := range options {
 		option(cs)
 	}
+
+	tp := trace.NewTracerProvider(traceProviderOps...)
+	cs.tracer = tp.Tracer("tm-consensus-state")
+	cs.tracerProviderOptions = traceProviderOps
 
 	return cs
 }
@@ -349,7 +364,7 @@ func (cs *State) OnStart() error {
 				return err
 			}
 
-			cs.logger.Info("backed up WAL file", "src", cs.config.WalFile(), "dst", corruptedFile)
+			cs.Logger.Info("backed up WAL file", "src", cs.config.WalFile(), "dst", corruptedFile)
 
 			// 3) try to repair (WAL file will be overwritten!)
 			if err := repairWalFile(corruptedFile, cs.config.WalFile()); err != nil {
@@ -553,7 +568,7 @@ func (cs *State) sendInternalMessage(mi msgInfo) {
 		// be processed out of order.
 		// TODO: use CList here for strict determinism and
 		// attempt push to internalMsgQueue in receiveRoutine
-		cs.logger.Info("internal msg queue is full; using a go-routine")
+		cs.Logger.Info("internal msg queue is full; using a go-routine")
 		go func() { cs.internalMsgQueue <- mi }()
 	}
 }
@@ -609,7 +624,7 @@ func (cs *State) updateToState(state sm.State) {
 		// signal the new round step, because other services (eg. txNotifier)
 		// depend on having an up-to-date peer state!
 		if state.LastBlockHeight <= cs.state.LastBlockHeight {
-			cs.logger.Info(
+			cs.Logger.Info(
 				"ignoring updateToState()",
 				"new_height", state.LastBlockHeight+1,
 				"old_height", cs.state.LastBlockHeight+1,
@@ -745,7 +760,7 @@ func (cs *State) receiveRoutine(maxSteps int) {
 	for {
 		if maxSteps > 0 {
 			if cs.nSteps >= maxSteps {
-				cs.logger.Info("reached max steps; exiting receive routine")
+				cs.Logger.Info("reached max steps; exiting receive routine")
 				cs.nSteps = 0
 				return
 			}
@@ -816,11 +831,19 @@ func (cs *State) handleMsg(mi msgInfo, fsyncUponCompletion bool) {
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
+		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleProposalMsg")
+		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
+		defer span.End()
+
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal)
 
 	case *BlockPartMessage:
+		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleBlockPartMsg")
+		span.SetAttributes(attribute.Int("round", int(msg.Round)))
+		defer span.End()
+
 		// if the proposal is complete, we'll enterPrevote or tryFinalizeCommit
 		added, err = cs.addProposalBlockPart(msg, peerID)
 
@@ -851,7 +874,7 @@ func (cs *State) handleMsg(mi msgInfo, fsyncUponCompletion bool) {
 		}
 
 		if err != nil && msg.Round != cs.Round {
-			cs.logger.Info(
+			cs.Logger.Info(
 				"received block part from wrong round",
 				"height", cs.Height,
 				"cs_round", cs.Round,
@@ -861,6 +884,10 @@ func (cs *State) handleMsg(mi msgInfo, fsyncUponCompletion bool) {
 		}
 
 	case *VoteMessage:
+		_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.handleVoteMsg")
+		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
+		defer span.End()
+
 		// attempt to add the vote and dupeout the validator if its a duplicate signature
 		// if the vote gives us a 2/3-any or 2/3-one, we transition
 		added, err = cs.tryAddVote(msg.Vote, peerID)
@@ -898,14 +925,15 @@ func (cs *State) handleMsg(mi msgInfo, fsyncUponCompletion bool) {
 			"err", err,
 		)
 	}
+	return
 }
 
 func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
-	cs.logger.Info("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	cs.Logger.Info("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
 	// timeouts must be for current height, round, step
 	if ti.Height != rs.Height || ti.Round < rs.Round || (ti.Round == rs.Round && ti.Step < rs.Step) {
-		cs.logger.Info("ignoring tock because we are ahead", "height", rs.Height, "round", rs.Round, "step", rs.Step)
+		cs.Logger.Info("ignoring tock because we are ahead", "height", rs.Height, "round", rs.Round, "step", rs.Step)
 		return
 	}
 
@@ -947,6 +975,16 @@ func (cs *State) handleTimeout(ti timeoutInfo, rs cstypes.RoundState) {
 	default:
 		panic(fmt.Sprintf("invalid timeout step: %v", ti.Step))
 	}
+	return
+}
+
+func (cs *State) getTracingCtx() context.Context {
+	if cs.tracingCtx == nil {
+		cs.tracingCtx = context.Background()
+		return cs.tracingCtx
+	}
+
+	return cs.tracingCtx
 }
 
 func (cs *State) handleTxsAvailable() {
@@ -987,6 +1025,18 @@ func (cs *State) handleTxsAvailable() {
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(height int64, round int32) {
+	if height > cs.heightBeingTraced {
+		if cs.heightSpan != nil {
+			cs.heightSpan.End()
+		}
+		cs.heightBeingTraced = height
+		cs.tracingCtx, cs.heightSpan = cs.tracer.Start(cs.tracingCtx, "cs.state.Height")
+		cs.heightSpan.SetAttributes(attribute.Int64("height", height))
+	}
+	_, span := cs.tracer.Start(cs.getTracingCtx(), "cs.state.enterNewRound")
+	span.SetAttributes(attribute.Int("round", int(round)))
+	defer span.End()
+
 	logger := cs.Logger.With("height", height, "round", round)
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.Step != cstypes.RoundStepNewHeight) {
@@ -1178,7 +1228,7 @@ func (cs *State) defaultDecideProposal(height int64, round int32) {
 			cs.sendInternalMessage(msgInfo{&BlockPartMessage{cs.Height, cs.Round, part}, ""})
 		}
 
-		cs.logger.Info("signed proposal", "height", height, "round", round, "proposal", proposal)
+		cs.Logger.Info("signed proposal", "height", height, "round", round, "proposal", proposal)
 	} else if !cs.replayMode {
 		cs.Logger.Error("propose step; failed signing proposal", "height", height, "round", round, "err", err)
 	}
@@ -1900,7 +1950,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
-		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
+		cs.Logger.Info("received block part from wrong height", "height", height, "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false, nil
 	}
@@ -1910,7 +1960,7 @@ func (cs *State) addProposalBlockPart(msg *BlockPartMessage, peerID p2p.ID) (add
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		// NOTE: this can happen when we've gone to a higher round and
 		// then receive parts from the previous round - not necessarily a bad peer.
-		cs.logger.Info(
+		cs.Logger.Info(
 			"received a block part when we are not expecting any",
 			"height", height,
 			"round", round,
@@ -1970,7 +2020,7 @@ func (cs *State) handleCompleteProposal(blockHeight int64) {
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
 	if hasTwoThirds && !blockID.IsZero() && (cs.ValidRound < cs.Round) {
 		if cs.ProposalBlock.HashesTo(blockID.Hash) {
-			cs.logger.Info(
+			cs.Logger.Info(
 				"updating valid block to new proposal block",
 				"valid_round", cs.Round,
 				"valid_block_hash", log.NewLazyBlockHash(cs.ProposalBlock),
@@ -2025,7 +2075,7 @@ func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
 
 			// report conflicting votes to the evidence pool
 			cs.evpool.ReportConflictingVotes(voteErr.VoteA, voteErr.VoteB)
-			cs.logger.Info(
+			cs.Logger.Info(
 				"found and sent conflicting votes to the evidence pool",
 				"vote_a", voteErr.VoteA,
 				"vote_b", voteErr.VoteB,
@@ -2033,7 +2083,7 @@ func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
 
 			return added, err
 		} else if errors.Is(err, types.ErrVoteNonDeterministicSignature) {
-			cs.logger.Info("vote has non-deterministic signature", "err", err)
+			cs.Logger.Info("vote has non-deterministic signature", "err", err)
 		} else {
 			// Either
 			// 1) bad peer OR
@@ -2049,7 +2099,7 @@ func (cs *State) tryAddVote(vote *types.Vote, peerID p2p.ID) (bool, error) {
 }
 
 func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error) {
-	cs.logger.Info(
+	cs.Logger.Info(
 		"adding vote",
 		"vote_height", vote.Height,
 		"vote_type", vote.Type,
@@ -2066,7 +2116,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 	if vote.Height+1 == cs.Height && vote.Type == tmproto.PrecommitType {
 		if cs.Step != cstypes.RoundStepNewHeight {
 			// Late precommit at prior height is ignored
-			cs.logger.Info("precommit vote came in after commit timeout and has been ignored", "vote", vote)
+			cs.Logger.Info("precommit vote came in after commit timeout and has been ignored", "vote", vote)
 			return
 		}
 
@@ -2075,7 +2125,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 			return
 		}
 
-		cs.logger.Info("added vote to last precommits", "last_commit", cs.LastCommit.StringShort())
+		cs.Logger.Info("added vote to last precommits", "last_commit", cs.LastCommit.StringShort())
 		if err := cs.eventBus.PublishEventVote(types.EventDataVote{Vote: vote}); err != nil {
 			return added, err
 		}
@@ -2095,7 +2145,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 	// Height mismatch is ignored.
 	// Not necessarily a bad peer, but not favorable behavior.
 	if vote.Height != cs.Height {
-		cs.logger.Info("vote ignored and not added", "vote_height", vote.Height, "cs_height", cs.Height, "peer", peerID)
+		cs.Logger.Info("vote ignored and not added", "vote_height", vote.Height, "cs_height", cs.Height, "peer", peerID)
 		return
 	}
 
@@ -2119,7 +2169,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 	switch vote.Type {
 	case tmproto.PrevoteType:
 		prevotes := cs.Votes.Prevotes(vote.Round)
-		cs.logger.Info("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
+		cs.Logger.Info("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
 
 		// If +2/3 prevotes for a block or nil for *any* round:
 		if blockID, ok := prevotes.TwoThirdsMajority(); ok {
@@ -2134,7 +2184,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 				(vote.Round <= cs.Round) &&
 				!cs.LockedBlock.HashesTo(blockID.Hash) {
 
-				cs.logger.Info("unlocking because of POL", "locked_round", cs.LockedRound, "pol_round", vote.Round)
+				cs.Logger.Info("unlocking because of POL", "locked_round", cs.LockedRound, "pol_round", vote.Round)
 
 				cs.LockedRound = -1
 				cs.LockedBlock = nil
@@ -2149,12 +2199,12 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 			// NOTE: our proposal block may be nil or not what received a polka..
 			if len(blockID.Hash) != 0 && (cs.ValidRound < vote.Round) && (vote.Round == cs.Round) {
 				if cs.ProposalBlock.HashesTo(blockID.Hash) {
-					cs.logger.Info("updating valid block because of POL", "valid_round", cs.ValidRound, "pol_round", vote.Round)
+					cs.Logger.Info("updating valid block because of POL", "valid_round", cs.ValidRound, "pol_round", vote.Round)
 					cs.ValidRound = vote.Round
 					cs.ValidBlock = cs.ProposalBlock
 					cs.ValidBlockParts = cs.ProposalBlockParts
 				} else {
-					cs.logger.Info(
+					cs.Logger.Info(
 						"valid block we do not know about; set ProposalBlock=nil",
 						"proposal", log.NewLazyBlockHash(cs.ProposalBlock),
 						"block_id", blockID.Hash,
@@ -2198,7 +2248,7 @@ func (cs *State) addVote(vote *types.Vote, peerID p2p.ID) (added bool, err error
 
 	case tmproto.PrecommitType:
 		precommits := cs.Votes.Precommits(vote.Round)
-		cs.logger.Info("added vote to precommit",
+		cs.Logger.Info("added vote to precommit",
 			"height", vote.Height,
 			"round", vote.Round,
 			"validator", vote.ValidatorAddress.String(),
@@ -2310,7 +2360,7 @@ func (cs *State) signAddVote(msgType tmproto.SignedMsgType, hash []byte, header 
 	vote, err := cs.signVote(msgType, hash, header)
 	if err == nil {
 		cs.sendInternalMessage(msgInfo{&VoteMessage{vote}, ""})
-		cs.logger.Info("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
+		cs.Logger.Info("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
 		return vote
 	}
 

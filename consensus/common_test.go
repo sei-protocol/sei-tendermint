@@ -14,6 +14,7 @@ import (
 	"github.com/go-kit/log/term"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	"path"
 
@@ -439,7 +440,15 @@ func newStateWithConfigAndBlockStore(
 	}
 
 	blockExec := sm.NewBlockExecutor(stateStore, log.TestingLogger(), proxyAppConnCon, mempool, evpool)
-	cs := NewState(thisConfig.Consensus, state, blockExec, blockStore, mempool, evpool)
+	cs := NewState(
+		thisConfig.Consensus,
+		state,
+		blockExec,
+		blockStore,
+		mempool,
+		evpool,
+		[]trace.TracerProviderOption{},
+	)
 	cs.SetLogger(log.TestingLogger().With("module", "consensus"))
 	cs.SetPrivValidator(pv)
 

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -202,7 +203,15 @@ func TestReactorWithEvidence(t *testing.T) {
 
 		// Make State
 		blockExec := sm.NewBlockExecutor(stateStore, log.TestingLogger(), proxyAppConnCon, mempool, evpool)
-		cs := NewState(thisConfig.Consensus, state, blockExec, blockStore, mempool, evpool2)
+		cs := NewState(
+			thisConfig.Consensus,
+			state,
+			blockExec,
+			blockStore,
+			mempool,
+			evpool2,
+			[]trace.TracerProviderOption{},
+		)
 		cs.SetLogger(log.TestingLogger().With("module", "consensus"))
 		cs.SetPrivValidator(pv)
 

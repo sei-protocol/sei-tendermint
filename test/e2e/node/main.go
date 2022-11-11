@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/tendermint/tendermint/abci/server"
 	"github.com/tendermint/tendermint/config"
@@ -131,6 +132,7 @@ func startNode(cfg *Config) error {
 		node.DefaultDBProvider,
 		node.DefaultMetricsProvider(tmcfg.Instrumentation),
 		nodeLogger,
+		[]trace.TracerProviderOption{},
 	)
 	if err != nil {
 		return err

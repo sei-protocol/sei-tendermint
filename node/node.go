@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 	dbm "github.com/tendermint/tm-db"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	bc "github.com/tendermint/tendermint/blocksync"
@@ -109,6 +110,7 @@ func DefaultNewNode(config *cfg.Config, logger log.Logger) (*Node, error) {
 		DefaultDBProvider,
 		DefaultMetricsProvider(config.Instrumentation),
 		logger,
+		[]trace.TracerProviderOption{},
 	)
 }
 
@@ -459,7 +461,8 @@ func createBlockchainReactor(config *cfg.Config,
 	return bcReactor, nil
 }
 
-func createConsensusReactor(config *cfg.Config,
+func createConsensusReactor(
+	config *cfg.Config,
 	state sm.State,
 	blockExec *sm.BlockExecutor,
 	blockStore sm.BlockStore,
@@ -470,6 +473,7 @@ func createConsensusReactor(config *cfg.Config,
 	waitSync bool,
 	eventBus *types.EventBus,
 	consensusLogger log.Logger,
+	tracerProviderOptions []trace.TracerProviderOption,
 ) (*cs.Reactor, *cs.State) {
 	consensusState := cs.NewState(
 		config.Consensus,
@@ -478,6 +482,7 @@ func createConsensusReactor(config *cfg.Config,
 		blockStore,
 		mempool,
 		evidencePool,
+		tracerProviderOptions,
 		cs.StateMetrics(csMetrics),
 	)
 	consensusState.SetLogger(consensusLogger)
@@ -708,6 +713,7 @@ func NewNode(config *cfg.Config,
 	dbProvider DBProvider,
 	metricsProvider MetricsProvider,
 	logger log.Logger,
+	tracerProviderOptions []trace.TracerProviderOption,
 	options ...Option,
 ) (*Node, error) {
 	blockStore, stateDB, err := initDBs(config, dbProvider)
@@ -826,7 +832,8 @@ func NewNode(config *cfg.Config,
 	}
 	consensusReactor, consensusState := createConsensusReactor(
 		config, state, blockExec, blockStore, mempool, evidencePool,
-		privValidator, csMetrics, stateSync || blockSync, eventBus, consensusLogger,
+		privValidator, csMetrics, stateSync || blockSync, eventBus,
+		consensusLogger, tracerProviderOptions,
 	)
 
 	// Set up state sync reactor, and schedule a sync if requested.

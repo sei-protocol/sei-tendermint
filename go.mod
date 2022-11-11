@@ -42,6 +42,8 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20200815110645-5c35d600f0ca
 	github.com/tendermint/tm-db v0.6.6
 	github.com/vektra/mockery/v2 v2.14.0
+	go.opentelemetry.io/otel/sdk v1.4.1
+	go.opentelemetry.io/otel/trace v1.8.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 	golang.org/x/net v0.0.0-20220726230323-06994584191e
 	gonum.org/v1/gonum v0.12.0
@@ -243,7 +245,6 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.33.0 // indirect
 	go.opentelemetry.io/otel v1.8.0 // indirect
-	go.opentelemetry.io/otel/trace v1.8.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
