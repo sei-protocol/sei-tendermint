@@ -1,6 +1,7 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -13,6 +14,7 @@ import (
 	tmstate "github.com/tendermint/tendermint/proto/tendermint/state"
 	"github.com/tendermint/tendermint/proxy"
 	"github.com/tendermint/tendermint/types"
+	otrace "go.opentelemetry.io/otel/trace"
 )
 
 //-----------------------------------------------------------------------------
@@ -186,11 +188,22 @@ func (blockExec *BlockExecutor) ValidateBlock(state State, block *types.Block) e
 // from outside this package to process and commit an entire block.
 // It takes a blockID to avoid recomputing the parts hash.
 func (blockExec *BlockExecutor) ApplyBlock(
-	state State, blockID types.BlockID, block *types.Block,
+	state State, blockID types.BlockID, block *types.Block, tracer otrace.Tracer,
 ) (State, int64, error) {
+	ctx := context.Background()
+	if tracer != nil {
+		spanCtx, span := tracer.Start(ctx, "cs.state.ApplyBlock")
+		ctx = spanCtx
+		defer span.End()
+	}
 
 	if err := validateBlock(state, block); err != nil {
 		return state, 0, ErrInvalidBlock(err)
+	}
+	var finalizeBlockSpan otrace.Span = nil
+	if tracer != nil {
+		_, finalizeBlockSpan = tracer.Start(ctx, "cs.state.ApplyBlock.FinalizeBlock")
+		defer finalizeBlockSpan.End()
 	}
 
 	startTime := time.Now().UnixNano()
@@ -198,6 +211,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		blockExec.logger, blockExec.proxyApp, block, blockExec.store, state.InitialHeight,
 	)
 	endTime := time.Now().UnixNano()
+	if finalizeBlockSpan != nil {
+		finalizeBlockSpan.End()
+	}
 	blockExec.metrics.BlockProcessingTime.Observe(float64(endTime-startTime) / 1000000)
 	if err != nil {
 		return state, 0, ErrProxyAppConn(err)
@@ -237,12 +253,20 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
 
+	var commitSpan otrace.Span = nil
+	if tracer != nil {
+		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
+		defer commitSpan.End()
+	}
 	// Lock mempool, commit app state, update mempoool.
 	appHash, retainHeight, err := blockExec.Commit(state, block, abciResponses.DeliverTxs)
 	if err != nil {
 		return state, 0, fmt.Errorf("commit failed for application: %v", err)
 	}
 
+	if commitSpan != nil {
+		commitSpan.End()
+	}
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(state, block.Evidence.Evidence)
 

@@ -1096,7 +1096,7 @@ func (cs *State) enterNewRound(height int64, round int32, entryLabel string) {
 				cstypes.RoundStepNewRound)
 		}
 	} else {
-		cs.enterPropose(ctx, height, round, "enterPropose")
+		cs.enterPropose(ctx, height, round, "enterNewRound")
 	}
 }
 
@@ -1684,6 +1684,8 @@ func (cs *State) tryFinalizeCommit(height int64) {
 // Increment height and goto cstypes.RoundStepNewHeight
 func (cs *State) finalizeCommit(height int64) {
 	logger := cs.Logger.With("height", height)
+	spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
+	defer span.End()
 
 	if cs.Height != height || cs.Step != cstypes.RoundStepCommit {
 		logger.Info(
@@ -1726,6 +1728,8 @@ func (cs *State) finalizeCommit(height int64) {
 	if cs.blockStore.Height() < block.Height {
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
+		_, storeBlockSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.saveblockstore")
+		defer storeBlockSpan.End()
 		precommits := cs.Votes.Precommits(cs.CommitRound)
 		seenCommit := precommits.MakeCommit()
 		cs.blockStore.SaveBlock(block, blockParts, seenCommit)
@@ -1750,12 +1754,15 @@ func (cs *State) finalizeCommit(height int64) {
 	// successfully call ApplyBlock (ie. later here, or in Handshake after
 	// restart).
 	endMsg := EndHeightMessage{height}
+	_, fsyncSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.fsync")
+	defer fsyncSpan.End()
 	if err := cs.wal.WriteSync(endMsg); err != nil { // NOTE: fsync
 		panic(fmt.Sprintf(
 			"failed to write %v msg to consensus WAL due to %v; check your file system and restart the node",
 			endMsg, err,
 		))
 	}
+	fsyncSpan.End()
 
 	fail.Fail() // XXX
 
@@ -1776,6 +1783,7 @@ func (cs *State) finalizeCommit(height int64) {
 			PartSetHeader: blockParts.Header(),
 		},
 		block,
+		cs.tracer,
 	)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
