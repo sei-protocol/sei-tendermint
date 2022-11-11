@@ -765,10 +765,10 @@ func (cs *State) receiveRoutine(maxSteps int) {
 
 			// handles proposals, block parts, votes
 			// may generate internal events (votes, complete proposals, 2/3 majorities)
-			cs.handleMsg(mi)
+			cs.handleMsg(mi, false)
 
 		case mi = <-cs.internalMsgQueue:
-			err := cs.wal.WriteSync(mi) // NOTE: fsync
+			err := cs.wal.Write(mi)
 			if err != nil {
 				panic(fmt.Sprintf(
 					"failed to write %v msg to consensus WAL due to %v; check your file system and restart the node",
@@ -785,7 +785,7 @@ func (cs *State) receiveRoutine(maxSteps int) {
 			}
 
 			// handles proposals, block parts, votes
-			cs.handleMsg(mi)
+			cs.handleMsg(mi, true)
 
 		case ti := <-cs.timeoutTicker.Chan(): // tockChan:
 			if err := cs.wal.Write(ti); err != nil {
@@ -804,7 +804,7 @@ func (cs *State) receiveRoutine(maxSteps int) {
 }
 
 // state transitions on complete-proposal, 2/3-any, 2/3-one
-func (cs *State) handleMsg(mi msgInfo) {
+func (cs *State) handleMsg(mi msgInfo, fsyncUponCompletion bool) {
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
 	var (
@@ -839,6 +839,11 @@ func (cs *State) handleMsg(mi msgInfo) {
 
 		cs.mtx.Lock()
 		if added && cs.ProposalBlockParts.IsComplete() {
+			if fsyncUponCompletion {
+				if err := cs.wal.FlushAndSync(); err != nil { // fsync
+					panic("error flushing wal after receiving all block parts")
+				}
+			}
 			cs.handleCompleteProposal(msg.Height)
 		}
 		if added {
