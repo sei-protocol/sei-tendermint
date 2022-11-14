@@ -55,6 +55,7 @@ type TxMempool struct {
 	txs        *clist.CList // valid transactions (passed CheckTx)
 	txByKey    map[types.TxKey]*clist.CElement
 	txBySender map[string]*clist.CElement // for sender != ""
+	txInfo 	   *mempool.TxInfo
 }
 
 // NewTxMempool constructs a new, empty priority mempool at the specified
@@ -766,4 +767,8 @@ func (txmp *TxMempool) notifyTxsAvailable() {
 		default:
 		}
 	}
+}
+
+func (txmp *TxMempool) TxInfo() *mempool.TxInfo {
+	return txmp.txInfo
 }

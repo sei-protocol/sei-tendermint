@@ -149,15 +149,17 @@ func (blockExec *BlockExecutor) ProcessProposal(
 	block *types.Block,
 	state State,
 ) (bool, error) {
+	txs := block.Data.Txs.ToSliceOfBytes()
 	resp, err := blockExec.proxyApp.ProcessProposalSync(abci.RequestProcessProposal{
 		Hash:               block.Header.Hash(),
 		Height:             block.Header.Height,
 		Time:               block.Header.Time,
-		Txs:                block.Data.Txs.ToSliceOfBytes(),
+		Txs:                 txs,
 		ProposedLastCommit: buildLastCommitInfo(block, blockExec.store, state.InitialHeight),
 		Misbehavior:        block.Evidence.Evidence.ToABCI(),
 		ProposerAddress:    block.ProposerAddress,
 		NextValidatorsHash: block.NextValidatorsHash,
+		SigsVerified:        blockExec.getSigsVerified(txs),
 	})
 	if err != nil {
 		return false, ErrInvalidBlock(err)
@@ -207,8 +209,13 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	startTime := time.Now().UnixNano()
+	txs := block.Data.Txs.ToSliceOfBytes()
 	abciResponses, err := execBlockOnProxyApp(
-		blockExec.logger, blockExec.proxyApp, block, blockExec.store, state.InitialHeight,
+		blockExec.logger,
+		blockExec.proxyApp,
+		block,
+		blockExec.store,
+		state.InitialHeight,
 	)
 	endTime := time.Now().UnixNano()
 	if finalizeBlockSpan != nil {

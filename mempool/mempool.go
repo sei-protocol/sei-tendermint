@@ -98,6 +98,8 @@ type Mempool interface {
 
 	// SizeBytes returns the total size of all txs in the mempool.
 	SizeBytes() int64
+
+	TxInfo() *TxInfo
 }
 
 // PreCheckFunc is an optional filter executed before CheckTx and rejects

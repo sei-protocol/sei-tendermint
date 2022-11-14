@@ -40,6 +40,10 @@ func (_m *Mempool) Flush() {
 	_m.Called()
 }
 
+func (_m *Mempool) TxInfo() *mempool.TxInfo {
+	return nil
+}
+
 // FlushAppConn provides a mock function with given fields:
 func (_m *Mempool) FlushAppConn() error {
 	ret := _m.Called()

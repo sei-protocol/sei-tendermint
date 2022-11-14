@@ -90,6 +90,7 @@ message RequestCheckTx {
 
 message RequestDeliverTx {
   bytes tx = 1;
+  bool sig_verified = 2;
 }
 
 message RequestEndBlock {
@@ -133,7 +134,7 @@ message RequestPrepareProposal {
   google.protobuf.Timestamp time                 = 6 [(gogoproto.nullable) = false, (gogoproto.stdtime) = true];
   bytes                     next_validators_hash = 7;
   // address of the public key of the validator proposing the block.
-  bytes proposer_address = 8;
+  repeated bool sigs_verified = 9;
 }
 
 message RequestProcessProposal {
@@ -147,6 +148,7 @@ message RequestProcessProposal {
   bytes                     next_validators_hash = 7;
   // address of the public key of the original proposer of the block.
   bytes proposer_address = 8;
+  repeated bool sigs_verified = 9;
 }
 
 //----------------------------------------
