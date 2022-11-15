@@ -8,11 +8,15 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
+	tmsync "github.com/tendermint/tendermint/libs/sync"
+	tmstore "github.com/tendermint/tendermint/proto/tendermint/store"
 	dbm "github.com/tendermint/tm-db"
 
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
 )
+
+var blockStoreKey = []byte("blockStore")
 
 /*
 BlockStore is a simple low level store for blocks.
@@ -33,12 +37,53 @@ The store can be assumed to contain all contiguous blocks between base and heigh
 */
 type BlockStore struct {
 	db dbm.DB
+
+	// mtx guards access to the struct fields listed below it. We rely on the database to enforce
+	// fine-grained concurrency control for its data, and thus this mutex does not apply to
+	// database contents. The only reason for keeping these fields in the struct is that the data
+	// can't efficiently be queried from the database since the key encoding we use is not
+	// lexicographically ordered (see https://github.com/tendermint/tendermint/issues/4567).
+	mtx    tmsync.RWMutex
+	base   int64
+	height int64
 }
 
 // NewBlockStore returns a new BlockStore with the given DB,
 // initialized to the last height that was committed to the DB.
 func NewBlockStore(db dbm.DB) *BlockStore {
-	return &BlockStore{db}
+	bs := LoadBlockStoreState(db)
+	return &BlockStore{
+		db: db,
+		base:   bs.Base,
+		height: bs.Height,
+	}
+}
+
+// LoadBlockStoreState returns the BlockStoreState as loaded from disk.
+// If no BlockStoreState was previously persisted, it returns the zero value.
+func LoadBlockStoreState(db dbm.DB) tmstore.BlockStoreState {
+	bytes, err := db.Get(blockStoreKey)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(bytes) == 0 {
+		return tmstore.BlockStoreState{
+			Base:   0,
+			Height: 0,
+		}
+	}
+
+	var bsj tmstore.BlockStoreState
+	if err := proto.Unmarshal(bytes, &bsj); err != nil {
+		panic(fmt.Sprintf("Could not unmarshal bytes: %X", bytes))
+	}
+
+	// Backwards compatibility with persisted data from before Base existed.
+	if bsj.Height > 0 && bsj.Base == 0 {
+		bsj.Base = 1
+	}
+	return bsj
 }
 
 // Base returns the first known contiguous block height, or 0 for empty block stores.
@@ -740,4 +785,89 @@ func mustEncode(pb proto.Message) []byte {
 		panic(fmt.Errorf("unable to marshal: %w", err))
 	}
 	return bz
+}
+
+// SaveBlockStoreState persists the blockStore state to the database.
+func SaveBlockStoreState(bsj *tmstore.BlockStoreState, db dbm.DB) {
+	bytes, err := proto.Marshal(bsj)
+	if err != nil {
+		panic(fmt.Sprintf("Could not marshal state bytes: %v", err))
+	}
+	if err := db.SetSync(blockStoreKey, bytes); err != nil {
+		panic(err)
+	}
+}
+
+func (bs *BlockStore) saveState() {
+	bs.mtx.RLock()
+	bss := tmstore.BlockStoreState{
+		Base:   bs.base,
+		Height: bs.height,
+	}
+	bs.mtx.RUnlock()
+	SaveBlockStoreState(&bss, bs.db)
+}
+
+//-----------------------------------------------------------------------------
+func calcBlockMetaKey(height int64) []byte {
+	return []byte(fmt.Sprintf("H:%v", height))
+}
+func calcBlockPartKey(height int64, partIndex int) []byte {
+	return []byte(fmt.Sprintf("P:%v:%v", height, partIndex))
+}
+func calcBlockCommitKey(height int64) []byte {
+	return []byte(fmt.Sprintf("C:%v", height))
+}
+func calcSeenCommitKey(height int64) []byte {
+	return []byte(fmt.Sprintf("SC:%v", height))
+}
+func calcBlockHashKey(hash []byte) []byte {
+	return []byte(fmt.Sprintf("BH:%x", hash))
+}
+
+//-----------------------------------------------------------------------------
+
+// DeleteLatestBlock removes the block pointed to by height,
+// lowering height by one.
+func (bs *BlockStore) DeleteLatestBlock() error {
+	bs.mtx.RLock()
+	targetHeight := bs.height
+	bs.mtx.RUnlock()
+
+	batch := bs.db.NewBatch()
+	defer batch.Close()
+
+	// delete what we can, skipping what's already missing, to ensure partial
+	// blocks get deleted fully.
+	if meta := bs.LoadBlockMeta(targetHeight); meta != nil {
+		if err := batch.Delete(calcBlockHashKey(meta.BlockID.Hash)); err != nil {
+			return err
+		}
+		for p := 0; p < int(meta.BlockID.PartSetHeader.Total); p++ {
+			if err := batch.Delete(calcBlockPartKey(targetHeight, p)); err != nil {
+				return err
+			}
+		}
+	}
+	if err := batch.Delete(calcBlockCommitKey(targetHeight)); err != nil {
+		return err
+	}
+	if err := batch.Delete(calcSeenCommitKey(targetHeight)); err != nil {
+		return err
+	}
+	// delete last, so as to not leave keys built on meta.BlockID dangling
+	if err := batch.Delete(calcBlockMetaKey(targetHeight)); err != nil {
+		return err
+	}
+
+	bs.mtx.Lock()
+	bs.height = targetHeight - 1
+	bs.mtx.Unlock()
+	bs.saveState()
+
+	err := batch.WriteSync()
+	if err != nil {
+		return fmt.Errorf("failed to delete height %v: %w", targetHeight, err)
+	}
+	return nil
 }
