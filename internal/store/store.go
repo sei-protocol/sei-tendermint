@@ -8,7 +8,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
-	db "github.com/tendermint/tm-db"
 	dbm "github.com/tendermint/tm-db"
 
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
@@ -64,22 +63,6 @@ func (bs *BlockStore) Base() int64 {
 	}
 
 	return 0
-}
-
-func (bs *BlockStore) getHeightIter() db.Iterator {
-	iter, err := bs.db.ReverseIterator(
-		blockMetaKey(1),
-		blockMetaKey(1<<63-1),
-	)
-	if err != nil {
-		panic(err)
-	}
-	defer iter.Close()
-
-	if iter.Valid() {
-		return iter
-	}
-	return nil
 }
 
 // Height returns the last known contiguous block height, or 0 for empty block stores.
