@@ -34,15 +34,12 @@ The store can be assumed to contain all contiguous blocks between base and heigh
 */
 type BlockStore struct {
 	db dbm.DB
-
-	base   int64
-	height int64
 }
 
 // NewBlockStore returns a new BlockStore with the given DB,
 // initialized to the last height that was committed to the DB.
 func NewBlockStore(db dbm.DB) *BlockStore {
-	return &BlockStore{db: db}
+	return &BlockStore{db}
 }
 
 // Base returns the first known contiguous block height, or 0 for empty block stores.
@@ -87,10 +84,15 @@ func (bs *BlockStore) getHeightIter() db.Iterator {
 
 // Height returns the last known contiguous block height, or 0 for empty block stores.
 func (bs *BlockStore) Height() int64 {
-	iter := bs.getHeightIter()
-	if iter == nil {
-		return 0
+	iter, err := bs.db.ReverseIterator(
+		blockMetaKey(1),
+		blockMetaKey(1<<63-1),
+	)
+
+	if err != nil {
+		panic(err)
 	}
+	defer iter.Close()
 
 	if iter.Valid() {
 		height, err := decodeBlockMetaKey(iter.Key())
@@ -780,7 +782,6 @@ func calcBlockHashKey(hash []byte) []byte {
 // lowering height by one.
 func (bs *BlockStore) DeleteLatestBlock() error {
 	targetHeight := bs.Height()
-
 	batch := bs.db.NewBatch()
 	defer batch.Close()
 
@@ -810,8 +811,6 @@ func (bs *BlockStore) DeleteLatestBlock() error {
 	if err := batch.Delete(calcBlockMetaKey(targetHeight)); err != nil {
 		return err
 	}
-
-	bs.height = targetHeight - 1
 
 	err := batch.WriteSync()
 	if err != nil {
