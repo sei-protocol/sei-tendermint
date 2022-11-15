@@ -391,8 +391,8 @@ func TestLoadBaseMeta(t *testing.T) {
 	assert.EqualValues(t, 4, baseBlock.Header.Height)
 	assert.EqualValues(t, 4, bs.Base())
 
-	// require.NoError(t, bs.DeleteLatestBlock())
-	// require.EqualValues(t, 9, bs.Height())
+	require.NoError(t, bs.DeleteLatestBlock())
+	require.EqualValues(t, 9, bs.Height())
 }
 
 func TestLoadBlockPart(t *testing.T) {

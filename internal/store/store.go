@@ -760,23 +760,6 @@ func mustEncode(pb proto.Message) []byte {
 }
 
 //-----------------------------------------------------------------------------
-func calcBlockMetaKey(height int64) []byte {
-	return []byte(fmt.Sprintf("H:%v", height))
-}
-func calcBlockPartKey(height int64, partIndex int) []byte {
-	return []byte(fmt.Sprintf("P:%v:%v", height, partIndex))
-}
-func calcBlockCommitKey(height int64) []byte {
-	return []byte(fmt.Sprintf("C:%v", height))
-}
-func calcSeenCommitKey(height int64) []byte {
-	return []byte(fmt.Sprintf("SC:%v", height))
-}
-func calcBlockHashKey(hash []byte) []byte {
-	return []byte(fmt.Sprintf("BH:%x", hash))
-}
-
-//-----------------------------------------------------------------------------
 
 // DeleteLatestBlock removes the block pointed to by height,
 // lowering height by one.
@@ -788,27 +771,24 @@ func (bs *BlockStore) DeleteLatestBlock() error {
 	// delete what we can, skipping what's already missing, to ensure partial
 	// blocks get deleted fully.
 	if meta := bs.LoadBlockMeta(targetHeight); meta != nil {
-		if err := batch.Delete(calcBlockHashKey(meta.BlockID.Hash)); err != nil {
+		if err := batch.Delete(blockHashKey(meta.BlockID.Hash)); err != nil {
 			return err
 		}
 		for p := 0; p < int(meta.BlockID.PartSetHeader.Total); p++ {
-			if err := batch.Delete(calcBlockPartKey(targetHeight, p)); err != nil {
+			if err := batch.Delete(blockPartKey(targetHeight, p)); err != nil {
 				return err
 			}
 		}
 	}
-	if err := batch.Delete(calcBlockCommitKey(targetHeight)); err != nil {
+	if err := batch.Delete(blockCommitKey(targetHeight)); err != nil {
 		return err
 	}
-	if err := batch.Delete(calcSeenCommitKey(targetHeight)); err != nil {
+	if err := batch.Delete(seenCommitKey()); err != nil {
 		return err
 	}
 
-	if err := batch.Delete(bs.getHeightIter().Key()); err != nil {
-		return err
-	}
 	// delete last, so as to not leave keys built on meta.BlockID dangling
-	if err := batch.Delete(calcBlockMetaKey(targetHeight)); err != nil {
+	if err := batch.Delete(blockMetaKey(targetHeight)); err != nil {
 		return err
 	}
 
