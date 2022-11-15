@@ -4,13 +4,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tendermint/tendermint/config"
+	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/version"
 )
 
 // Rollback overwrites the current Tendermint state (height n) with the most
 // recent previous state (height n - 1).
 // Note that this function does not affect application state.
-func Rollback(bs BlockStore, ss Store, removeBlock bool) (int64, []byte, error) {
+func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *config.PrivValidatorConfig) (int64, []byte, error) {
 	invalidState, err := ss.Load()
 	if err != nil {
 		return -1, nil, err
@@ -115,6 +117,17 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool) (int64, []byte, error) 
 	if removeBlock {
 		if err := bs.DeleteLatestBlock(); err != nil {
 			return -1, nil, fmt.Errorf("failed to remove final block from blockstore: %w", err)
+		}
+
+		// Priv Val LastState needs to be rolled back if this is the case
+		filePv, loadErr := privval.LoadFilePV(privValidatorConfig.KeyFile(), privValidatorConfig.StateFile())
+		if loadErr != nil {
+			return -1, nil, fmt.Errorf("failed to load private validator file: %w", loadErr)
+		}
+
+		resetErr := filePv.Reset()
+		if resetErr != nil {
+			return -1, nil, fmt.Errorf("failed to reset private validator file: %w", resetErr)
 		}
 	}
 

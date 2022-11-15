@@ -57,5 +57,5 @@ func RollbackState(config *config.Config, removeBlock bool) (int64, []byte, erro
 	}()
 
 	// rollback the last state
-	return state.Rollback(blockStore, stateStore, removeBlock)
+	return state.Rollback(blockStore, stateStore, removeBlock, config.PrivValidator)
 }
