@@ -8,15 +8,12 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
-	tmsync "github.com/tendermint/tendermint/libs/sync"
-	tmstore "github.com/tendermint/tendermint/proto/tendermint/store"
+	db "github.com/tendermint/tm-db"
 	dbm "github.com/tendermint/tm-db"
 
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
 )
-
-var blockStoreKey = []byte("blockStore")
 
 /*
 BlockStore is a simple low level store for blocks.
@@ -38,12 +35,6 @@ The store can be assumed to contain all contiguous blocks between base and heigh
 type BlockStore struct {
 	db dbm.DB
 
-	// mtx guards access to the struct fields listed below it. We rely on the database to enforce
-	// fine-grained concurrency control for its data, and thus this mutex does not apply to
-	// database contents. The only reason for keeping these fields in the struct is that the data
-	// can't efficiently be queried from the database since the key encoding we use is not
-	// lexicographically ordered (see https://github.com/tendermint/tendermint/issues/4567).
-	mtx    tmsync.RWMutex
 	base   int64
 	height int64
 }
@@ -51,39 +42,7 @@ type BlockStore struct {
 // NewBlockStore returns a new BlockStore with the given DB,
 // initialized to the last height that was committed to the DB.
 func NewBlockStore(db dbm.DB) *BlockStore {
-	bs := LoadBlockStoreState(db)
-	return &BlockStore{
-		db: db,
-		base:   bs.Base,
-		height: bs.Height,
-	}
-}
-
-// LoadBlockStoreState returns the BlockStoreState as loaded from disk.
-// If no BlockStoreState was previously persisted, it returns the zero value.
-func LoadBlockStoreState(db dbm.DB) tmstore.BlockStoreState {
-	bytes, err := db.Get(blockStoreKey)
-	if err != nil {
-		panic(err)
-	}
-
-	if len(bytes) == 0 {
-		return tmstore.BlockStoreState{
-			Base:   0,
-			Height: 0,
-		}
-	}
-
-	var bsj tmstore.BlockStoreState
-	if err := proto.Unmarshal(bytes, &bsj); err != nil {
-		panic(fmt.Sprintf("Could not unmarshal bytes: %X", bytes))
-	}
-
-	// Backwards compatibility with persisted data from before Base existed.
-	if bsj.Height > 0 && bsj.Base == 0 {
-		bsj.Base = 1
-	}
-	return bsj
+	return &BlockStore{db: db}
 }
 
 // Base returns the first known contiguous block height, or 0 for empty block stores.
@@ -110,8 +69,7 @@ func (bs *BlockStore) Base() int64 {
 	return 0
 }
 
-// Height returns the last known contiguous block height, or 0 for empty block stores.
-func (bs *BlockStore) Height() int64 {
+func (bs *BlockStore) getHeightIter() db.Iterator {
 	iter, err := bs.db.ReverseIterator(
 		blockMetaKey(1),
 		blockMetaKey(1<<63-1),
@@ -122,6 +80,19 @@ func (bs *BlockStore) Height() int64 {
 	defer iter.Close()
 
 	if iter.Valid() {
+		return iter
+	}
+	return nil
+}
+
+// Height returns the last known contiguous block height, or 0 for empty block stores.
+func (bs *BlockStore) Height() int64 {
+	iter := bs.getHeightIter()
+	if iter == nil {
+		return 0
+	}
+
+	if iter.Valid() {
 		height, err := decodeBlockMetaKey(iter.Key())
 		if err == nil {
 			return height
@@ -130,7 +101,6 @@ func (bs *BlockStore) Height() int64 {
 	if err := iter.Error(); err != nil {
 		panic(err)
 	}
-
 	return 0
 }
 
@@ -787,27 +757,6 @@ func mustEncode(pb proto.Message) []byte {
 	return bz
 }
 
-// SaveBlockStoreState persists the blockStore state to the database.
-func SaveBlockStoreState(bsj *tmstore.BlockStoreState, db dbm.DB) {
-	bytes, err := proto.Marshal(bsj)
-	if err != nil {
-		panic(fmt.Sprintf("Could not marshal state bytes: %v", err))
-	}
-	if err := db.SetSync(blockStoreKey, bytes); err != nil {
-		panic(err)
-	}
-}
-
-func (bs *BlockStore) saveState() {
-	bs.mtx.RLock()
-	bss := tmstore.BlockStoreState{
-		Base:   bs.base,
-		Height: bs.height,
-	}
-	bs.mtx.RUnlock()
-	SaveBlockStoreState(&bss, bs.db)
-}
-
 //-----------------------------------------------------------------------------
 func calcBlockMetaKey(height int64) []byte {
 	return []byte(fmt.Sprintf("H:%v", height))
@@ -830,9 +779,7 @@ func calcBlockHashKey(hash []byte) []byte {
 // DeleteLatestBlock removes the block pointed to by height,
 // lowering height by one.
 func (bs *BlockStore) DeleteLatestBlock() error {
-	bs.mtx.RLock()
-	targetHeight := bs.height
-	bs.mtx.RUnlock()
+	targetHeight := bs.Height()
 
 	batch := bs.db.NewBatch()
 	defer batch.Close()
@@ -855,15 +802,16 @@ func (bs *BlockStore) DeleteLatestBlock() error {
 	if err := batch.Delete(calcSeenCommitKey(targetHeight)); err != nil {
 		return err
 	}
+
+	if err := batch.Delete(bs.getHeightIter().Key()); err != nil {
+		return err
+	}
 	// delete last, so as to not leave keys built on meta.BlockID dangling
 	if err := batch.Delete(calcBlockMetaKey(targetHeight)); err != nil {
 		return err
 	}
 
-	bs.mtx.Lock()
 	bs.height = targetHeight - 1
-	bs.mtx.Unlock()
-	bs.saveState()
 
 	err := batch.WriteSync()
 	if err != nil {
