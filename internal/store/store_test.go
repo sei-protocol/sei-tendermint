@@ -231,7 +231,7 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 				err := db.Set(seenCommitKey(), []byte("bogus-seen-commit"))
 				require.NoError(t, err)
 			}
-			bSeenCommit := bs.LoadSeenCommit()
+			bSeenCommit := bs.LoadSeenCommit(tuple.block.Height)
 
 			commitHeight := tuple.block.Height - 1
 			if tuple.eraseCommitInDB {
@@ -389,6 +389,9 @@ func TestLoadBaseMeta(t *testing.T) {
 	baseBlock := bs.LoadBaseMeta()
 	assert.EqualValues(t, 4, baseBlock.Header.Height)
 	assert.EqualValues(t, 4, bs.Base())
+
+	require.NoError(t, bs.DeleteLatestBlock())
+	require.EqualValues(t, 9, bs.Height())
 }
 
 func TestLoadBlockPart(t *testing.T) {
@@ -591,7 +594,7 @@ func TestSeenAndCanonicalCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	loadCommit := func() (interface{}, error) {
-		meta := store.LoadSeenCommit()
+		meta := store.LoadSeenCommit(state.LastBlockHeight)
 		return meta, nil
 	}
 
@@ -610,7 +613,7 @@ func TestSeenAndCanonicalCommit(t *testing.T) {
 		require.NoError(t, err)
 		seenCommit := makeTestExtCommit(h, tmtime.Now())
 		store.SaveBlockWithExtendedCommit(block, partSet, seenCommit)
-		c3 := store.LoadSeenCommit()
+		c3 := store.LoadSeenCommit(h)
 		require.NotNil(t, c3)
 		require.Equal(t, h, c3.Height)
 		require.Equal(t, seenCommit.ToCommit().Hash(), c3.Hash())

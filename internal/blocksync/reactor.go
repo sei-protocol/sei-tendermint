@@ -671,12 +671,20 @@ func (r *Reactor) GetRemainingSyncTime() time.Duration {
 	targetSyncs := r.pool.targetSyncBlocks()
 	currentSyncs := r.store.Height() - r.pool.startHeight + 1
 	lastSyncRate := r.pool.getLastSyncRate()
+
+	fmt.Printf("targetSyncs: %d\n", targetSyncs)
+	fmt.Printf("currentSyncs: %d\n", currentSyncs)
+	fmt.Printf("r.store.Height(): %d\n", r.store.Height())
+	fmt.Printf("r.pool.startHeight + 1: %d\n", r.pool.startHeight + 1)
+	fmt.Printf("lastSyncRate: %f\n", lastSyncRate)
+
 	if currentSyncs < 0 || lastSyncRate < 0.001 {
 		return time.Duration(0)
 	}
 
 	remain := float64(targetSyncs-currentSyncs) / lastSyncRate
 
+	fmt.Printf("remain: %f\n", remain)
 	return time.Duration(int64(remain * float64(time.Second)))
 }
 

@@ -488,7 +488,6 @@ func (pool *BlockPool) targetSyncBlocks() int64 {
 func (pool *BlockPool) getLastSyncRate() float64 {
 	pool.mtx.RLock()
 	defer pool.mtx.RUnlock()
-
 	return pool.lastSyncRate
 }
 

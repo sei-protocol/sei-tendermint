@@ -160,7 +160,7 @@ func (env *Environment) Commit(ctx context.Context, req *coretypes.RequestBlockI
 	// If the next block has not been committed yet,
 	// use a non-canonical commit
 	if height == env.BlockStore.Height() {
-		commit := env.BlockStore.LoadSeenCommit()
+		commit := env.BlockStore.LoadSeenCommit(height)
 		// NOTE: we can't yet ensure atomicity of operations in asserting
 		// whether this is the latest height and retrieving the seen commit
 		if commit != nil && commit.Height == height {

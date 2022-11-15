@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,6 +25,13 @@ var defaultOptions = Options{
 	NoResponseThreshold: 5,
 }
 
+var (
+	// This is very brittle, see: https://github.com/tendermint/tendermint/issues/4740
+	regexpMissingHeight = regexp.MustCompile(`height \d+ is not available`)
+	regexpTooHigh       = regexp.MustCompile(`height \d+ must be less than or equal to`)
+	regexpTimedOut      = regexp.MustCompile(`Timeout exceeded`)
+)
+
 // http provider uses an RPC client to obtain the necessary information.
 type http struct {
 	chainID string
@@ -34,32 +42,32 @@ type http struct {
 	// The provider tracks the amount of times that the
 	// client doesn't respond. If this exceeds the threshold
 	// then the provider will return an unreliable provider error
-	noResponseThreshold uint16
-	noResponseCount     uint16
+	noResponseThreshold int
+	noResponseCount     int
 
 	// The provider tracks the amount of time the client
 	// doesn't have a block. If this exceeds the threshold
 	// then the provider will return an unreliable provider error
-	noBlockThreshold uint16
-	noBlockCount     uint16
+	noBlockThreshold int
+	noBlockCount     int
 
 	// In a single request, the provider attempts multiple times
 	// with exponential backoff to reach the client. If this
 	// exceeds the maxRetry attempts, this result in a ErrNoResponse
-	maxRetryAttempts uint16
+	maxRetryAttempts int
 }
 
 type Options struct {
 	// 0 means no retries
-	MaxRetryAttempts uint16
+	MaxRetryAttempts int
 	// 0 means no timeout.
 	Timeout time.Duration
 	// The amount of requests that a client doesn't have the block
 	// for before the provider deems the client unreliable
-	NoBlockThreshold uint16
+	NoBlockThreshold int
 	// The amount of requests that a client doesn't respond to
 	// before the provider deems the client unreliable
-	NoResponseThreshold uint16
+	NoResponseThreshold int
 }
 
 // New creates a HTTP provider, which is using the rpchttp.HTTP client under
@@ -167,13 +175,13 @@ func (p *http) validatorSet(ctx context.Context, height *int64) (*types.Validato
 		total   = -1
 	)
 
+OUTER_LOOP:
 	for len(vals) != total && page <= maxPages {
-		// create another for loop to control retries. If p.maxRetryAttempts
-		// is negative we will keep repeating.
-		attempt := uint16(0)
-		for {
+		for attempt := 1; attempt <= p.maxRetryAttempts; attempt++ {
 			res, err := p.client.Validators(ctx, height, &page, &perPage)
-			if err == nil {
+			switch {
+			case err == nil:
+				// Validate response.
 				if len(res.Validators) == 0 {
 					return nil, provider.ErrBadLightBlock{
 						Reason: fmt.Errorf("validator set is empty (height: %d, page: %d, per_page: %d)",
@@ -186,45 +194,33 @@ func (p *http) validatorSet(ctx context.Context, height *int64) (*types.Validato
 							res.Total, height, page, perPage),
 					}
 				}
-			} else {
-				switch e := err.(type) {
 
-				case *url.Error:
-					if e.Timeout() {
-						// if we have exceeded retry attempts then return a no response error
-						if attempt == p.maxRetryAttempts {
-							return nil, p.noResponse()
-						}
-						attempt++
-						// request timed out: we wait and try again with exponential backoff
-						time.Sleep(backoffTimeout(attempt))
-						continue
-					}
-					return nil, provider.ErrBadLightBlock{Reason: e}
+				total = res.Total
+				vals = append(vals, res.Validators...)
+				page++
+				continue OUTER_LOOP
 
-				case *rpctypes.RPCError:
-					// process the rpc error and return the corresponding error to the light client
-					return nil, p.parseRPCError(e)
+			case regexpTooHigh.MatchString(err.Error()):
+				return nil, provider.ErrHeightTooHigh
 
-				default:
-					// check if the error stems from the context
-					if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-						return nil, err
-					}
+			case regexpMissingHeight.MatchString(err.Error()):
+				return nil, provider.ErrLightBlockNotFound
 
-					// If we don't know the error then by default we return an unreliable provider error and
-					// terminate the connection with the peer.
-					return nil, provider.ErrUnreliableProvider{Reason: e}
-				}
+			// if we have exceeded retry attempts then return no response error
+			case attempt == p.maxRetryAttempts:
+				return nil, provider.ErrNoResponse
+
+			case regexpTimedOut.MatchString(err.Error()):
+				// we wait and try again with exponential backoff
+				time.Sleep(backoffTimeout(attempt))
+				continue
+
+			// context canceled or connection refused we return the error
+			default:
+				return nil, err
 			}
-			// update the total and increment the page index so we can fetch the
-			// next page of validators if need be
-			total = res.Total
-			vals = append(vals, res.Validators...)
-			page++
-			break
-		}
 
+		}
 	}
 
 	valSet, err := types.ValidatorSetFromExistingValidators(vals)
@@ -237,7 +233,7 @@ func (p *http) validatorSet(ctx context.Context, height *int64) (*types.Validato
 func (p *http) signedHeader(ctx context.Context, height *int64) (*types.SignedHeader, error) {
 	// create a for loop to control retries. If p.maxRetryAttempts
 	// is negative we will keep repeating.
-	for attempt := uint16(0); attempt != p.maxRetryAttempts+1; attempt++ {
+	for attempt := int(0); attempt != p.maxRetryAttempts+1; attempt++ {
 		commit, err := p.client.Commit(ctx, height)
 		switch e := err.(type) {
 		case nil: // success!!
@@ -253,17 +249,21 @@ func (p *http) signedHeader(ctx context.Context, height *int64) (*types.SignedHe
 
 			// check if the connection was refused or dropped
 			if strings.Contains(e.Error(), "connection refused") {
+				println("CONNECTION REFUSED")
 				return nil, provider.ErrConnectionClosed
 			}
 
 			// else, as a catch all, we return the error as a bad light block response
+			println("ERR")
 			return nil, provider.ErrBadLightBlock{Reason: e}
 
 		case *rpctypes.RPCError:
+			println("RPC ERR")
 			// process the rpc error and return the corresponding error to the light client
 			return nil, p.parseRPCError(e)
 
 		default:
+			println("DEFAULT CTX CANCELLELDD")
 			// check if the error stems from the context
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil, err
@@ -276,8 +276,8 @@ func (p *http) signedHeader(ctx context.Context, height *int64) (*types.SignedHe
 	}
 	return nil, p.noResponse()
 }
-
 func (p *http) noResponse() error {
+	println("DEFAULT CTX CANCELLELDD")
 	p.noResponseCount++
 	if p.noResponseCount > p.noResponseThreshold {
 		return provider.ErrUnreliableProvider{
@@ -334,7 +334,7 @@ func validateHeight(height int64) (*int64, error) {
 
 // exponential backoff (with jitter)
 // 0.5s -> 2s -> 4.5s -> 8s -> 12.5 with 1s variation
-func backoffTimeout(attempt uint16) time.Duration {
+func backoffTimeout(attempt int) time.Duration {
 	// nolint:gosec // G404: Use of weak random number generator
 	return time.Duration(500*attempt*attempt)*time.Millisecond + time.Duration(rand.Intn(1000))*time.Millisecond
 }

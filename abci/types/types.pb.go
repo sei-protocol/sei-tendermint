@@ -1766,7 +1766,6 @@ func (m *RequestEndBlock) GetHeight() int64 {
 
 type Response struct {
 	// Types that are valid to be assigned to Value:
-	//
 	//	*Response_Exception
 	//	*Response_Echo
 	//	*Response_Flush

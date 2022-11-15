@@ -169,13 +169,13 @@ func (_m *BlockStore) LoadBlockPart(height int64, index int) *types.Part {
 	return r0
 }
 
-// LoadSeenCommit provides a mock function with given fields:
-func (_m *BlockStore) LoadSeenCommit() *types.Commit {
-	ret := _m.Called()
+// LoadSeenCommit provides a mock function with given fields: height
+func (_m *BlockStore) LoadSeenCommit(height int64) *types.Commit {
+	ret := _m.Called(height)
 
 	var r0 *types.Commit
-	if rf, ok := ret.Get(0).(func() *types.Commit); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(int64) *types.Commit); ok {
+		r0 = rf(height)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Commit)
@@ -184,6 +184,7 @@ func (_m *BlockStore) LoadSeenCommit() *types.Commit {
 
 	return r0
 }
+
 
 // PruneBlocks provides a mock function with given fields: height
 func (_m *BlockStore) PruneBlocks(height int64) (uint64, error) {
@@ -243,4 +244,18 @@ func NewBlockStore(t mockConstructorTestingTNewBlockStore) *BlockStore {
 	t.Cleanup(func() { mock.AssertExpectations(t) })
 
 	return mock
+}
+
+// DeleteLatestBlock provides a mock function with given fields:
+func (_m *BlockStore) DeleteLatestBlock() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }

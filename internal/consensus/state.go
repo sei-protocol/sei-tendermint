@@ -396,7 +396,7 @@ func (cs *State) LoadCommit(height int64) *types.Commit {
 	defer cs.mtx.RUnlock()
 
 	if height == cs.blockStore.Height() {
-		commit := cs.blockStore.LoadSeenCommit()
+		commit := cs.blockStore.LoadSeenCommit(height)
 		// NOTE: Retrieving the height of the most recent block and retrieving
 		// the most recent commit does not currently occur as an atomic
 		// operation. We check the height and commit here in case a more recent
@@ -747,7 +747,7 @@ func (cs *State) votesFromExtendedCommit(state sm.State) (*types.VoteSet, error)
 }
 
 func (cs *State) votesFromSeenCommit(state sm.State) (*types.VoteSet, error) {
-	commit := cs.blockStore.LoadSeenCommit()
+	commit := cs.blockStore.LoadSeenCommit(state.LastBlockHeight)
 	if commit == nil || commit.Height != state.LastBlockHeight {
 		commit = cs.blockStore.LoadBlockCommit(state.LastBlockHeight)
 	}

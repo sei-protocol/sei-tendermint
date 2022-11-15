@@ -2,10 +2,11 @@ package blocksync
 
 import (
 	"context"
-	"github.com/tendermint/tendermint/internal/mempool"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/internal/mempool"
 
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/mock"

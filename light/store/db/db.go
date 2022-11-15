@@ -3,6 +3,8 @@ package db
 import (
 	"encoding/binary"
 	"fmt"
+	"regexp"
+	"strconv"
 	"sync"
 
 	"github.com/google/orderedcode"
@@ -160,12 +162,18 @@ func (s *dbs) LastLightBlockHeight() (int64, error) {
 	}
 	defer itr.Close()
 
-	if itr.Valid() {
-		return s.decodeLbKey(itr.Key())
+	for itr.Valid() {
+		key := itr.Key()
+		_, height, ok := parseLbKey(key)
+		if ok {
+			return height, nil
+		}
+		itr.Next()
 	}
 
 	return -1, itr.Error()
 }
+
 
 // FirstLightBlockHeight returns the first LightBlock height stored.
 //
@@ -327,4 +335,31 @@ func marshalSize(size uint16) []byte {
 
 func unmarshalSize(bz []byte) uint16 {
 	return binary.LittleEndian.Uint16(bz)
+}
+
+var keyPattern = regexp.MustCompile(`^(lb)/([^/]*)/([0-9]+)$`)
+
+
+func parseKey(key []byte) (part string, prefix string, height int64, ok bool) {
+	submatch := keyPattern.FindSubmatch(key)
+	if submatch == nil {
+		return "", "", 0, false
+	}
+	part = string(submatch[1])
+	prefix = string(submatch[2])
+	height, err := strconv.ParseInt(string(submatch[3]), 10, 64)
+	if err != nil {
+		return "", "", 0, false
+	}
+	ok = true // good!
+	return
+}
+
+func parseLbKey(key []byte) (prefix string, height int64, ok bool) {
+	var part string
+	part, prefix, height, ok = parseKey(key)
+	if part != "lb" {
+		return "", 0, false
+	}
+	return
 }
