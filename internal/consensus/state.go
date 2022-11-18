@@ -1624,7 +1624,6 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
 		txKeys := cs.Proposal.TxKeys
 		if cs.ProposalBlockParts.IsComplete() {
-			logger.Info("gossip done")
 			block, err := cs.getBlockFromBlockParts()
 			if err != nil {
 				cs.logger.Error("Encountered error building block from parts", "block parts", cs.ProposalBlockParts)
@@ -1637,14 +1636,14 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 			}
 			cs.ProposalBlock = proposalBlock
 		}
-		logger.Info("gossipsss")
 	}
 
-	logger.Info(fmt.Sprintf("cs.Proposal: %s", cs.Proposal))
-	logger.Info(fmt.Sprintf("cs.Proposal.Timestamp: %s", cs.Proposal.Timestamp))
-	logger.Info(fmt.Sprintf("cs.ProposalBlock: %s", cs.ProposalBlock))
-	logger.Info(fmt.Sprintf("cs.ProposalBlock.Header.ChainID: %s", cs.ProposalBlock.Header.ChainID))
-	logger.Info(fmt.Sprintf("cs.ProposalBlock.Header.Time: %s", cs.ProposalBlock.Header.Time))
+	// If ProposalBlock is still nil, prevote nil.
+	if cs.ProposalBlock == nil {
+		logger.Debug("prevote step: ProposalBlock is nil")
+		cs.signAddVote(ctx,tmproto.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
 
 	if !cs.Proposal.Timestamp.Equal(cs.ProposalBlock.Header.Time) {
 		logger.Info("prevote step: proposal timestamp not equal; prevoting nil")
