@@ -1614,11 +1614,19 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		return
 	}
 
+	// If ProposalBlock is nil, prevote nil.
+	if cs.ProposalBlock == nil {
+		logger.Debug("prevote step: ProposalBlock is nil")
+		cs.signAddVote(tmproto.PrevoteType, nil, types.PartSetHeader{})
+		return
+	}
+
 	if cs.Proposal == nil {
 		logger.Info("prevote step: did not receive proposal; prevoting nil")
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
+
 
 	// If we're not the proposer, we need to build the block
 	if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlock == nil {
