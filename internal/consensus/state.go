@@ -1642,8 +1642,8 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 	// If ProposalBlock is still nil, prevote nil.
 	if cs.ProposalBlock == nil {
-		logger.Debug("prevote step: ProposalBlock is nil")
-		cs.signAddVote(ctx,tmproto.PrevoteType, nil, types.PartSetHeader{})
+		logger.Info("prevote step: ProposalBlock is nil")
+		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
 
