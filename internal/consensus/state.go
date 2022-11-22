@@ -1648,7 +1648,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 				return
 			}
 			if block == nil {
-				logger.Debug("prevote step: ProposalBlock is nil")
+				logger.Error("prevote step: ProposalBlock is nil")
 				cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 				return
 			}
@@ -1673,17 +1673,10 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		// if there is still any missing tx, it means CheckTx failed on application level for some txs, and
 		// we should not vote for this block
 		if len(missingTxKeys) > 0 {
-			logger.Debug("prevote step: CheckTx failed for some txs")
+			logger.Error("prevote step: CheckTx failed for some txs")
 			cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 			return
 		}
-	}
-
-	// If ProposalBlock is still nil, prevote nil.
-	if cs.ProposalBlock == nil {
-		logger.Debug("prevote step: ProposalBlock is nil")
-		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
-		return
 	}
 
 	if !cs.Proposal.Timestamp.Equal(cs.ProposalBlock.Header.Time) {
