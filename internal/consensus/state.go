@@ -1032,6 +1032,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
 
+		cs.logger.Info("PSULOG - received proposal", "proposalMsg", msg.Proposal)
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
@@ -1039,7 +1040,10 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		if cs.config.GossipTransactionKeyOnly && !cs.isProposer(cs.privValidatorPubKey.Address()) && cs.ProposalBlock == nil {
 			created := cs.tryCreateProposalBlock(spanCtx, msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
 			if created {
+				cs.logger.Info("PSULOG - created proposal successful. fsyncing...", "proposalMsg", msg.Proposal)
 				cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
+			} else {
+				cs.logger.Info("PSULOG - created proposal unsuccessful...", "proposalMsg", msg.Proposal)
 			}
 		}
 
@@ -1576,6 +1580,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 
 	logger := cs.logger.With("height", height, "round", round)
 
+	logger.Info("PSULOG - enter prevote with label", "entryLabel", entryLabel)
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevote <= cs.Step) {
 		logger.Info(
 			"entering prevote step with invalid args",
@@ -1643,7 +1648,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	// If ProposalBlock is still nil, prevote nil.
 	if cs.ProposalBlock == nil {
 		logger.Debug("prevote step: ProposalBlock is nil")
-		cs.signAddVote(ctx,tmproto.PrevoteType, nil, types.PartSetHeader{})
+		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
 
@@ -2276,20 +2281,24 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 //-----------------------------------------------------------------------------
 
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
+	cs.logger.Info("PSULOG - default set proposal start", "proposal", proposal)
 	// Already have one
 	// TODO: possibly catch double proposals
 	if cs.Proposal != nil || proposal == nil {
+		cs.logger.Info("PSULOG - default set proposal early return", "cs.Proposal", cs.Proposal, "proposal", proposal)
 		return nil
 	}
 
 	// Does not apply
 	if proposal.Height != cs.Height || proposal.Round != cs.Round {
+		cs.logger.Info("PSULOG - default set proposal does not apply", "proposal", proposal, "height", cs.Height, "round", cs.Round)
 		return nil
 	}
 
 	// Verify POLRound, which must be -1 or in range [0, proposal.Round).
 	if proposal.POLRound < -1 ||
 		(proposal.POLRound >= 0 && proposal.POLRound >= proposal.Round) {
+		cs.logger.Info("PSULOG - default set proposal POLRound does not match")
 		return ErrInvalidProposalPOLRound
 	}
 
@@ -2298,9 +2307,11 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	if !cs.Validators.GetProposer().PubKey.VerifySignature(
 		types.ProposalSignBytes(cs.state.ChainID, p), proposal.Signature,
 	) {
+		cs.logger.Info("PSULOG - default set proposal failed to verify sig")
 		return ErrInvalidProposalSignature
 	}
 
+	cs.logger.Info("PSULOG - default set proposal finishing", "proposal", proposal)
 	proposal.Signature = p.Signature
 	cs.Proposal = proposal
 	cs.ProposalReceiveTime = recvTime
@@ -2309,6 +2320,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	// This happens if we're already in cstypes.RoundStepCommit or if there is a valid block in the current round.
 	// TODO: We can check if Proposal is for a different block as this is a sign of misbehavior!
 	if cs.ProposalBlockParts == nil {
+		cs.logger.Info("PSULOG - deault set proposal block parts is nil, setting new part set from header")
 		cs.metrics.MarkBlockGossipStarted()
 		cs.ProposalBlockParts = types.NewPartSetFromHeader(proposal.BlockID.PartSetHeader)
 	}
@@ -2406,6 +2418,7 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 	_, span := cs.tracer.Start(ctx, "cs.state.tryCreateProposalBlock")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	defer span.End()
+	cs.logger.Info("PSULOG - trying to create proposal", "height", height, "round", round)
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
@@ -2415,6 +2428,7 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 	}
 	// We may not have a valid proposal yet (e.g. only received proposal for a wrong height)
 	if cs.Proposal == nil {
+		cs.logger.Info("PSULOG - trying to create proposal no valid proposal (wrong height?)", "height", height, "round", round)
 		return false
 	}
 	block := cs.buildProposalBlock(height, header, lastCommit, evidence, proposerAddress, cs.Proposal.TxKeys)
