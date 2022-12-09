@@ -28,11 +28,41 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 
 			Buckets: stdprometheus.ExponentialBuckets(1, 3, 7),
 		}, labels).With(labelsAndValues...),
+		InsertTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "insert_txs",
+			Help:      "Number of transactions inserted into the mempool.",
+		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "failed_txs",
 			Help:      "Number of failed transactions.",
+		}, labels).With(labelsAndValues...),
+		ExpiredTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "expired_txs",
+			Help:      "Number of expired transactions purged from mempool",
+		}, labels).With(labelsAndValues...),
+		RemovedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "removed_txs",
+			Help:      "Number of total transactions purged from mempool",
+		}, labels).With(labelsAndValues...),
+		CheckTxFailed: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "check_tx_failed",
+			Help:      "Number of transactions that were rejected for being too large",
+		}, labels).With(labelsAndValues...),
+		CacheRemovedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "cache_removed_txs",
+			Help:      "Number of total transactions purged from cache",
 		}, labels).With(labelsAndValues...),
 		RejectedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
@@ -57,11 +87,16 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 
 func NopMetrics() *Metrics {
 	return &Metrics{
-		Size:         discard.NewGauge(),
-		TxSizeBytes:  discard.NewHistogram(),
-		FailedTxs:    discard.NewCounter(),
-		RejectedTxs:  discard.NewCounter(),
-		EvictedTxs:   discard.NewCounter(),
-		RecheckTimes: discard.NewCounter(),
+		Size:            discard.NewGauge(),
+		TxSizeBytes:     discard.NewHistogram(),
+		InsertTxs:       discard.NewCounter(),
+		FailedTxs:       discard.NewCounter(),
+		ExpiredTxs:      discard.NewCounter(),
+		RemovedTxs:      discard.NewCounter(),
+		CheckTxFailed:   discard.NewCounter(),
+		CacheRemovedTxs: discard.NewCounter(),
+		RejectedTxs:     discard.NewCounter(),
+		EvictedTxs:      discard.NewCounter(),
+		RecheckTimes:    discard.NewCounter(),
 	}
 }
