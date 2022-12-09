@@ -21,8 +21,23 @@ type Metrics struct {
 	// Histogram of transaction sizes in bytes.
 	TxSizeBytes metrics.Histogram `metrics_buckettype:"exp" metrics_bucketsizes:"1,3,7"`
 
+	// Number of transactions inserted into the mempool.
+	InsertTxs metrics.Counter
+
 	// Number of failed transactions.
 	FailedTxs metrics.Counter
+
+	// Number of expired transactions purged from mempool
+	ExpiredTxs metrics.Counter
+
+	// Number of total transactions purged from mempool
+	RemovedTxs metrics.Counter
+
+	// Number of transactions that were rejected for being too large
+	CheckTxFailed metrics.Counter
+
+	// Number of total transactions purged from cache
+	CacheRemovedTxs metrics.Counter
 
 	// RejectedTxs defines the number of rejected transactions. These are
 	// transactions that passed CheckTx but failed to make it into the mempool

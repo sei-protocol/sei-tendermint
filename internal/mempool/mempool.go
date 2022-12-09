@@ -238,6 +238,7 @@ func (txmp *TxMempool) CheckTx(
 	defer txmp.mtx.RUnlock()
 
 	if txSize := len(tx); txSize > txmp.config.MaxTxBytes {
+		txmp.metrics.CheckTxFailed.With("reason", "tx_too_large").Add(1)
 		return types.ErrTxTooLarge{
 			Max:    txmp.config.MaxTxBytes,
 			Actual: txSize,
@@ -246,11 +247,13 @@ func (txmp *TxMempool) CheckTx(
 
 	if txmp.preCheck != nil {
 		if err := txmp.preCheck(tx); err != nil {
+			txmp.metrics.CheckTxFailed.With("reason", "precheck_failed").Add(1)
 			return types.ErrPreCheck{Reason: err}
 		}
 	}
 
 	if err := txmp.proxyAppConn.Error(); err != nil {
+		txmp.metrics.CheckTxFailed.With("reason", "proxy_app_conn_error").Add(1)
 		return err
 	}
 
@@ -261,16 +264,19 @@ func (txmp *TxMempool) CheckTx(
 	// check if we've seen this transaction and error if we have.
 	if !txmp.cache.Push(tx) {
 		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
+		txmp.metrics.CheckTxFailed.With("reason", "tx_in_cache").Add(1)
 		return types.ErrTxInCache
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 	if err != nil {
 		txmp.cache.Remove(tx)
+		txmp.metrics.CheckTxFailed.With("reason", "failed_check").Add(1)
 		return err
 	}
 
 	if txmp.recheckCursor != nil {
+		txmp.metrics.CheckTxFailed.With("reason", "recheck_cursor_non_nil").Add(1)
 		return errors.New("recheck cursor is non-nil")
 	}
 
@@ -468,6 +474,7 @@ func (txmp *TxMempool) Update(
 		} else if !txmp.config.KeepInvalidTxsInCache {
 			// allow invalid transactions to be re-submitted
 			txmp.cache.Remove(tx)
+			txmp.metrics.CacheRemovedTxs.Add(1)
 		}
 
 		// remove the committed transaction from the transaction store and indexes
@@ -538,6 +545,7 @@ func (txmp *TxMempool) initTxCallback(wtx *WrappedTx, res *abci.ResponseCheckTx,
 
 		if !txmp.config.KeepInvalidTxsInCache {
 			txmp.cache.Remove(wtx.tx)
+			txmp.metrics.CacheRemovedTxs.Add(1)
 		}
 		return err
 	}
@@ -574,6 +582,7 @@ func (txmp *TxMempool) initTxCallback(wtx *WrappedTx, res *abci.ResponseCheckTx,
 				"err", err.Error(),
 			)
 			txmp.metrics.RejectedTxs.Add(1)
+			txmp.metrics.CacheRemovedTxs.Add(1)
 			return nil
 		}
 
@@ -780,6 +789,7 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
 	wtx.gossipEl = gossipEl
 
 	atomic.AddInt64(&txmp.sizeBytes, int64(wtx.Size()))
+	txmp.metrics.InsertTxs.Add(1)
 }
 
 func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
@@ -801,7 +811,10 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 
 	if removeFromCache {
 		txmp.cache.Remove(wtx.tx)
+		txmp.metrics.CacheRemovedTxs.Add(1)
 	}
+
+	txmp.metrics.RemovedTxs.Add(1)
 }
 
 // purgeExpiredTxs removes all transactions that have exceeded their respective
@@ -851,6 +864,7 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 
 	for _, wtx := range expiredTxs {
 		txmp.removeTx(wtx, false)
+		txmp.metrics.ExpiredTxs.Add(1)
 	}
 }
 
