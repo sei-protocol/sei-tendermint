@@ -958,6 +958,16 @@ func (m *PeerManager) Peers() []types.NodeID {
 	return peers
 }
 
+// Disconnects all peers and allows it to reconnect again
+func (m *PeerManager) DisconnectAllPeers(ctx context.Context) {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	for _, peer := range m.store.Ranked() {
+		fmt.Printf("Disconnecting peer=%s", peer.ID)
+		m.Disconnected(ctx, peer.ID)
+	}
+}
+
 // Scores returns the peer scores for all known peers, primarily for testing.
 func (m *PeerManager) Scores() map[types.NodeID]PeerScore {
 	m.mtx.Lock()
