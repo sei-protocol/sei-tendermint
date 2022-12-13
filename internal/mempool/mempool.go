@@ -238,7 +238,6 @@ func (txmp *TxMempool) CheckTx(
 	defer txmp.mtx.RUnlock()
 
 	if txSize := len(tx); txSize > txmp.config.MaxTxBytes {
-		txmp.metrics.CheckTxFailed.With("reason", "tx_too_large").Add(1)
 		return types.ErrTxTooLarge{
 			Max:    txmp.config.MaxTxBytes,
 			Actual: txSize,
@@ -247,13 +246,11 @@ func (txmp *TxMempool) CheckTx(
 
 	if txmp.preCheck != nil {
 		if err := txmp.preCheck(tx); err != nil {
-			txmp.metrics.CheckTxFailed.With("reason", "precheck_failed").Add(1)
 			return types.ErrPreCheck{Reason: err}
 		}
 	}
 
 	if err := txmp.proxyAppConn.Error(); err != nil {
-		txmp.metrics.CheckTxFailed.With("reason", "proxy_app_conn_error").Add(1)
 		return err
 	}
 
@@ -264,19 +261,16 @@ func (txmp *TxMempool) CheckTx(
 	// check if we've seen this transaction and error if we have.
 	if !txmp.cache.Push(tx) {
 		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
-		txmp.metrics.CheckTxFailed.With("reason", "tx_in_cache").Add(1)
 		return types.ErrTxInCache
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 	if err != nil {
 		txmp.cache.Remove(tx)
-		txmp.metrics.CheckTxFailed.With("reason", "failed_check").Add(1)
 		return err
 	}
 
 	if txmp.recheckCursor != nil {
-		txmp.metrics.CheckTxFailed.With("reason", "recheck_cursor_non_nil").Add(1)
 		return errors.New("recheck cursor is non-nil")
 	}
 
