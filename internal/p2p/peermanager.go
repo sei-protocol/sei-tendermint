@@ -576,7 +576,6 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 	}
 	if m.connected[address.NodeID] {
 		dupeConnectionErr := fmt.Errorf("cant dial, peer=%q is already connected", address.NodeID)
-		m.evictPeer(address.NodeID, dupeConnectionErr)
 		return dupeConnectionErr
 	}
 	if m.options.MaxConnected > 0 && len(m.connected) >= int(m.options.MaxConnected) {
@@ -645,7 +644,6 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 	}
 	if m.connected[peerID] {
 		dupeConnectionErr := fmt.Errorf("can't accept, peer=%q is already connected", peerID)
-		m.evictPeer(peerID, dupeConnectionErr)
 		return dupeConnectionErr
 	}
 	if m.options.MaxConnected > 0 &&
@@ -796,10 +794,6 @@ func (m *PeerManager) Errored(peerID types.NodeID, err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	m.evictPeer(peerID, err)
-}
-
-func (m *PeerManager) evictPeer(peerID types.NodeID, err error) {
 	if m.connected[peerID] {
 		m.evict[peerID] = true
 	}

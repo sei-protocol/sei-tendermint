@@ -311,7 +311,7 @@ func (r *Reactor) sendRequestForPeers(ctx context.Context, pexCh *p2p.Channel) e
 	defer r.mtx.Unlock()
 	if len(r.availablePeers) == 0 {
 		// no peers are available
-		r.logger.Debug("no available peers to send a PEX request to (retrying)")
+		r.logger.Error("no available peers to send a PEX request to (retrying)")
 		return nil
 	}
 
