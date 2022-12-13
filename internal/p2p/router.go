@@ -547,7 +547,7 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 	}
 
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
-		// If peer is trying to reconnect, fail it and let it reconnect
+		// If peer is trying to reconnect, error and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
 			r.peerManager.Errored(peerInfo.NodeID, err)
 		}
