@@ -575,6 +575,8 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 		return fmt.Errorf("rejecting connection to self (%v)", address.NodeID)
 	}
 	if m.connected[address.NodeID] {
+		dupeConnectionErr := fmt.Errorf("peer %q is already connected", address.NodeID)
+		m.Errored(address.NodeID, dupeConnectionErr)
 		return fmt.Errorf("peer %v is already connected", address.NodeID)
 	}
 	if m.options.MaxConnected > 0 && len(m.connected) >= int(m.options.MaxConnected) {
@@ -642,7 +644,9 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 		return fmt.Errorf("rejecting connection from self (%v)", peerID)
 	}
 	if m.connected[peerID] {
-		return fmt.Errorf("peer %q is already connected", peerID)
+		dupeConnectionErr := fmt.Errorf("peer %q is already connected", peerID)
+		m.Errored(peerID, dupeConnectionErr)
+		return dupeConnectionErr
 	}
 	if m.options.MaxConnected > 0 &&
 		len(m.connected) >= int(m.options.MaxConnected)+int(m.options.MaxConnectedUpgrade) {
