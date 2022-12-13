@@ -576,8 +576,8 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 	}
 	if m.connected[address.NodeID] {
 		dupeConnectionErr := fmt.Errorf("peer %q is already connected", address.NodeID)
-		m.Errored(address.NodeID, dupeConnectionErr)
-		return fmt.Errorf("peer %v is already connected", address.NodeID)
+		go m.Errored(address.NodeID, dupeConnectionErr)
+		return dupeConnectionErr
 	}
 	if m.options.MaxConnected > 0 && len(m.connected) >= int(m.options.MaxConnected) {
 		if upgradeFromPeer == "" || len(m.connected) >=
@@ -645,7 +645,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 	}
 	if m.connected[peerID] {
 		dupeConnectionErr := fmt.Errorf("peer %q is already connected", peerID)
-		m.Errored(peerID, dupeConnectionErr)
+		go m.Errored(peerID, dupeConnectionErr)
 		return dupeConnectionErr
 	}
 	if m.options.MaxConnected > 0 &&
