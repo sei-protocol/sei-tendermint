@@ -115,6 +115,7 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	// If removeBlock is true then also remove the block associated with the previous state.
 	// This will mean both the last state and last block height is equal to n - 1
 	if removeBlock {
+		fmt.Println("Removing block", height)
 		if err := bs.DeleteLatestBlock(); err != nil {
 			return -1, nil, fmt.Errorf("failed to remove final block from blockstore: %w", err)
 		}
