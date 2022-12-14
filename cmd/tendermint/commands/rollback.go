@@ -57,5 +57,7 @@ func RollbackState(config *config.Config, removeBlock bool) (int64, []byte, erro
 	}()
 
 	// rollback the last state
-	return state.Rollback(blockStore, stateStore, removeBlock, config.PrivValidator)
+	height, hash, err := state.Rollback(blockStore, stateStore, removeBlock, config.PrivValidator)
+	fmt.Printf("Rolled back state to height %d, blockStoreHeight=%d\n", height, blockStore.Height())
+	return height, hash, err
 }
