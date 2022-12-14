@@ -48,6 +48,7 @@ application.
 func RollbackState(config *config.Config, removeBlock bool) (int64, []byte, error) {
 	// use the parsed config to load the block and state store
 	blockStore, stateStore, err := loadStateAndBlockStore(config)
+	fmt.Printf("Current blockStore base=%d height=%d hash=%X\n", blockStore.Base(), blockStore.Height(), blockStore.LoadSeenCommit().Hash())
 	if err != nil {
 		return -1, nil, err
 	}
@@ -57,5 +58,6 @@ func RollbackState(config *config.Config, removeBlock bool) (int64, []byte, erro
 	}()
 
 	// rollback the last state
-	return state.Rollback(blockStore, stateStore, removeBlock, config.PrivValidator)
+	height, hash, err := state.Rollback(blockStore, stateStore, removeBlock, config.PrivValidator)
+	return height, hash, err
 }

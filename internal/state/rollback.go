@@ -9,6 +9,21 @@ import (
 	"github.com/tendermint/tendermint/version"
 )
 
+func resetPrivValidatorConfig(privValidatorConfig config.PrivValidatorConfig) error {
+	// Priv Val LastState needs to be rolled back if this is the case
+	filePv, loadErr := privval.LoadFilePV(privValidatorConfig.KeyFile(), privValidatorConfig.StateFile())
+	if loadErr != nil {
+		return fmt.Errorf("failed to load private validator file: %w", loadErr)
+	}
+
+	resetErr := filePv.Reset()
+	if resetErr != nil {
+		return fmt.Errorf("failed to reset private validator file: %w", resetErr)
+	}
+
+	return nil
+}
+
 // Rollback overwrites the current Tendermint state (height n) with the most
 // recent previous state (height n - 1).
 // Note that this function does not affect application state.
@@ -27,6 +42,7 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	// when the user stopped the node the state wasn't updated but the blockstore was. Discard the
 	// pending block before continuing.
 	if height == invalidState.LastBlockHeight+1 {
+		fmt.Printf("Invalid state in the latest block height=%d, removing it first \n", height)
 		if removeBlock {
 			if err := bs.DeleteLatestBlock(); err != nil {
 				return -1, nil, fmt.Errorf("failed to remove final block from blockstore: %w", err)
@@ -47,11 +63,6 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	rollbackBlock := bs.LoadBlockMeta(rollbackHeight)
 	if rollbackBlock == nil {
 		return -1, nil, fmt.Errorf("block at height %d not found", rollbackHeight)
-	}
-	// we also need to retrieve the latest block because the app hash and last results hash is only agreed upon in the following block
-	latestBlock := bs.LoadBlockMeta(invalidState.LastBlockHeight)
-	if latestBlock == nil {
-		return -1, nil, fmt.Errorf("block at height %d not found", invalidState.LastBlockHeight)
 	}
 
 	previousLastValidatorSet, err := ss.LoadValidators(rollbackHeight)
@@ -92,6 +103,8 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		LastBlockHeight: rollbackBlock.Header.Height,
 		LastBlockID:     rollbackBlock.BlockID,
 		LastBlockTime:   rollbackBlock.Header.Time,
+		LastResultsHash: rollbackBlock.Header.LastResultsHash,
+		AppHash:         rollbackBlock.Header.AppHash,
 
 		NextValidators:              invalidState.Validators,
 		Validators:                  invalidState.LastValidators,
@@ -100,9 +113,6 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 
 		ConsensusParams:                  previousParams,
 		LastHeightConsensusParamsChanged: paramsChangeHeight,
-
-		LastResultsHash: latestBlock.Header.LastResultsHash,
-		AppHash:         latestBlock.Header.AppHash,
 	}
 
 	// persist the new state. This overrides the invalid one. NOTE: this will also
@@ -115,19 +125,14 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	// If removeBlock is true then also remove the block associated with the previous state.
 	// This will mean both the last state and last block height is equal to n - 1
 	if removeBlock {
+		fmt.Println("Removing block", height)
 		if err := bs.DeleteLatestBlock(); err != nil {
 			return -1, nil, fmt.Errorf("failed to remove final block from blockstore: %w", err)
 		}
 
-		// Priv Val LastState needs to be rolled back if this is the case
-		filePv, loadErr := privval.LoadFilePV(privValidatorConfig.KeyFile(), privValidatorConfig.StateFile())
-		if loadErr != nil {
-			return -1, nil, fmt.Errorf("failed to load private validator file: %w", loadErr)
-		}
-
-		resetErr := filePv.Reset()
-		if resetErr != nil {
-			return -1, nil, fmt.Errorf("failed to reset private validator file: %w", resetErr)
+		err = resetPrivValidatorConfig(*privValidatorConfig)
+		if err != nil {
+			return -1, nil, err
 		}
 	}
 
