@@ -250,9 +250,10 @@ func (h *Handshaker) Handshake(ctx context.Context, appClient abciclient.Client)
 	}
 	appHash := res.LastBlockAppHash
 
+	appHashString := fmt.Sprintf("%X", appHash)
 	h.logger.Info("ABCI Handshake App Info",
 		"height", blockHeight,
-		fmt.Sprintf("hash=%X", appHash),
+		"hash", appHashString,
 		"software-version", res.Version,
 		"protocol-version", res.AppVersion,
 	)
@@ -269,7 +270,7 @@ func (h *Handshaker) Handshake(ctx context.Context, appClient abciclient.Client)
 	}
 
 	h.logger.Info("Completed ABCI Handshake - Tendermint and App are synced",
-		"appHeight", blockHeight, fmt.Sprintf("hash=%X", appHash))
+		"appHeight", blockHeight, "hash", appHashString)
 
 	// TODO: (on restart) replay mempool
 
