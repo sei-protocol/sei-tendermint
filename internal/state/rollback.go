@@ -27,7 +27,7 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	// when the user stopped the node the state wasn't updated but the blockstore was. Discard the
 	// pending block before continuing.
 	if height == invalidState.LastBlockHeight+1 {
-		fmt.Printf("Invalid state in the latest stock block height=%d, removing it first \n", height)
+		fmt.Printf("Invalid state in the latest block height=%d, removing it first \n", height)
 		if removeBlock {
 			fmt.Println("Deleting latest block", height)
 			if err := bs.DeleteLatestBlock(); err != nil {
