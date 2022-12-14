@@ -749,8 +749,7 @@ func mustEncode(pb proto.Message) []byte {
 func (bs *BlockStore) DeleteLatestBlock() error {
 	targetHeight := bs.Height()
 	batch := bs.db.NewBatch()
-	defer batch.Close()
-
+	fmt.Printf("Deleting target height=%d from block store\n", targetHeight)
 	// delete what we can, skipping what's already missing, to ensure partial
 	// blocks get deleted fully.
 	if meta := bs.LoadBlockMeta(targetHeight); meta != nil {
@@ -777,6 +776,10 @@ func (bs *BlockStore) DeleteLatestBlock() error {
 	err := batch.WriteSync()
 	if err != nil {
 		return fmt.Errorf("failed to delete height %v: %w", targetHeight, err)
+	}
+
+	if err := batch.Close(); err != nil {
+		panic(err)
 	}
 	return nil
 }
