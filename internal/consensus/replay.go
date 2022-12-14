@@ -252,7 +252,7 @@ func (h *Handshaker) Handshake(ctx context.Context, appClient abciclient.Client)
 
 	h.logger.Info("ABCI Handshake App Info",
 		"height", blockHeight,
-		"hash", appHash,
+		fmt.Sprintf("hash=%X", appHash),
 		"software-version", res.Version,
 		"protocol-version", res.AppVersion,
 	)
@@ -269,7 +269,7 @@ func (h *Handshaker) Handshake(ctx context.Context, appClient abciclient.Client)
 	}
 
 	h.logger.Info("Completed ABCI Handshake - Tendermint and App are synced",
-		"appHeight", blockHeight, "appHash", appHash)
+		"appHeight", blockHeight, fmt.Sprintf("hash=%X", appHash))
 
 	// TODO: (on restart) replay mempool
 
@@ -389,10 +389,12 @@ func (h *Handshaker) ReplayBlocks(
 		// Tendermint ran Commit and saved the state.
 		// Either the app is asking for replay, or we're all synced up.
 		if appBlockHeight < storeBlockHeight {
+			fmt.Printf("appBlockHeight=%d < storeBlockHeight=%d", appBlockHeight, storeBlockBase)
 			// the app is behind, so replay blocks, but no need to go through WAL (state is already synced to store)
 			return h.replayBlocks(ctx, state, appClient, appBlockHeight, storeBlockHeight, false)
 
 		} else if appBlockHeight == storeBlockHeight {
+			fmt.Printf("Store and App height are equal appBlockHeight=%d, storeBlockHeight=%d", appBlockHeight, storeBlockBase)
 			// We're good!
 			if err := checkAppHashEqualsOneFromState(appHash, state); err != nil {
 				return nil, err
@@ -518,6 +520,7 @@ func (h *Handshaker) replayBlocks(
 		appHash = state.AppHash
 	}
 
+	fmt.Printf("Replayed appBlockHeight=%d", appBlockHeight)
 	if err := checkAppHashEqualsOneFromState(appHash, state); err != nil {
 		return nil, err
 	}
