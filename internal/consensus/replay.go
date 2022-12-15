@@ -395,7 +395,7 @@ func (h *Handshaker) ReplayBlocks(
 			return h.replayBlocks(ctx, state, appClient, appBlockHeight, storeBlockHeight, false)
 
 		} else if appBlockHeight == storeBlockHeight {
-			fmt.Printf("Store and App height are equal appBlockHeight=%d, storeBlockHeight=%d", appBlockHeight, storeBlockBase)
+			fmt.Printf("Store and App height are equal appBlockHeight=%d, storeBlockHeight=%d\n", appBlockHeight, storeBlockBase)
 			// We're good!
 			if err := checkAppHashEqualsOneFromState(appHash, state); err != nil {
 				return nil, err
