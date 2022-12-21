@@ -50,33 +50,23 @@ func TestRollback(t *testing.T) {
 	// update the state
 	require.NoError(t, stateStore.Save(nextState))
 
-	block := &types.BlockMeta{
+	rollbackBlock := &types.BlockMeta{
 		BlockID: initialState.LastBlockID,
 		Header: types.Header{
 			Height:          initialState.LastBlockHeight,
-			AppHash:         factory.RandomHash(),
+			AppHash:         initialState.AppHash,
 			LastBlockID:     factory.MakeBlockID(),
 			LastResultsHash: initialState.LastResultsHash,
 		},
 	}
-	nextBlock := &types.BlockMeta{
-		BlockID: initialState.LastBlockID,
-		Header: types.Header{
-			Height:          nextState.LastBlockHeight,
-			AppHash:         initialState.AppHash,
-			LastBlockID:     block.BlockID,
-			LastResultsHash: nextState.LastResultsHash,
-		},
-	}
-	blockStore.On("LoadBlockMeta", height).Return(block)
-	blockStore.On("LoadBlockMeta", nextHeight).Return(nextBlock)
+	blockStore.On("LoadBlockMeta", height).Return(rollbackBlock)
 	blockStore.On("Height").Return(nextHeight)
 
 	// rollback the state
 	rollbackHeight, rollbackHash, err := state.Rollback(blockStore, stateStore, false, cfg.PrivValidator)
 	require.NoError(t, err)
 	require.EqualValues(t, height, rollbackHeight)
-	require.EqualValues(t, initialState.AppHash, rollbackHash)
+	require.EqualValues(t, rollbackBlock.Header.AppHash, rollbackHash)
 	blockStore.AssertExpectations(t)
 
 	// assert that we've recovered the prior state
