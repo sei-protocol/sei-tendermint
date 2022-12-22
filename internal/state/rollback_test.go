@@ -54,11 +54,22 @@ func TestRollback(t *testing.T) {
 		BlockID: initialState.LastBlockID,
 		Header: types.Header{
 			Height:          initialState.LastBlockHeight,
-			AppHash:         initialState.AppHash,
+			AppHash:         factory.RandomHash(),
 			LastBlockID:     factory.MakeBlockID(),
 			LastResultsHash: initialState.LastResultsHash,
 		},
 	}
+	nextBlock := &types.BlockMeta{
+		BlockID: initialState.LastBlockID,
+		Header: types.Header{
+			Height:          nextState.LastBlockHeight,
+			AppHash:         initialState.AppHash,
+			LastBlockID:     rollbackBlock.BlockID,
+			LastResultsHash: nextState.LastResultsHash,
+		},
+	}
+	blockStore.On("LoadBlockMeta", height).Return(rollbackBlock)
+	blockStore.On("LoadBlockMeta", nextHeight).Return(nextBlock)
 	blockStore.On("LoadBlockMeta", height).Return(rollbackBlock)
 	blockStore.On("Height").Return(nextHeight)
 
@@ -66,7 +77,7 @@ func TestRollback(t *testing.T) {
 	rollbackHeight, rollbackHash, err := state.Rollback(blockStore, stateStore, false, cfg.PrivValidator)
 	require.NoError(t, err)
 	require.EqualValues(t, height, rollbackHeight)
-	require.EqualValues(t, rollbackBlock.Header.AppHash, rollbackHash)
+	require.EqualValues(t, initialState.AppHash, rollbackHash)
 	blockStore.AssertExpectations(t)
 
 	// assert that we've recovered the prior state
@@ -151,7 +162,6 @@ func TestRollbackHard(t *testing.T) {
 	cfg, _ := rpctest.CreateConfig(t, t.Name())
 	blockStore := store.NewBlockStore(dbm.NewMemDB())
 	stateStore := state.NewStore(dbm.NewMemDB())
-
 	valSet, _ := types.RandValidatorSet(5, 10)
 
 	params := types.DefaultConsensusParams()
@@ -224,7 +234,12 @@ func TestRollbackHard(t *testing.T) {
 	require.NoError(t, err)
 	blockStore.SaveBlock(nextBlock, nextPartSet, &types.Commit{Height: nextBlock.Height})
 
-	rollbackHeight, rollbackHash, err := state.Rollback(blockStore, stateStore, true, cfg.PrivValidator)
+	rollbackHeight, rollbackHash, err := state.Rollback(
+		blockStore,
+		stateStore,
+		true,
+		cfg.PrivValidator,
+	)
 	require.NoError(t, err)
 	require.Equal(t, rollbackHeight, rollbackState.LastBlockHeight)
 	require.Equal(t, rollbackHash, rollbackState.AppHash)
@@ -260,7 +275,7 @@ func TestRollbackHard(t *testing.T) {
 	rollbackHeight, rollbackHash, err = state.Rollback(blockStore, stateStore, true, cfg.PrivValidator)
 	require.NoError(t, err)
 	require.Equal(t, rollbackHeight, rollbackState.LastBlockHeight)
-	require.Equal(t, rollbackHash, rollbackState.AppHash)
+	require.Equal(t, rollbackHash, rollbackState.LastResultsHash)
 }
 
 func makeBlockIDRandom() types.BlockID {

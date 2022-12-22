@@ -65,6 +65,12 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		return -1, nil, fmt.Errorf("block at height %d not found", rollbackHeight)
 	}
 
+	// we also need to retrieve the latest block because the app hash and last results hash is only agreed upon in the following block
+	latestBlock := bs.LoadBlockMeta(invalidState.LastBlockHeight)
+	if latestBlock == nil {
+		return -1, nil, fmt.Errorf("block at height %d not found", invalidState.LastBlockHeight)
+	}
+
 	previousLastValidatorSet, err := ss.LoadValidators(rollbackHeight)
 	if err != nil {
 		return -1, nil, err
@@ -87,6 +93,16 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		paramsChangeHeight = rollbackHeight + 1
 	}
 
+	rolledBackAppHash := latestBlock.Header.LastResultsHash
+	rolledBackLastResultHash := latestBlock.Header.AppHash
+
+	// If we're removing the block then the hash and last result hash needs to be the same
+	// as the rollback block
+	if removeBlock {
+		rolledBackAppHash = rollbackBlock.Header.AppHash
+		rolledBackLastResultHash = rollbackBlock.Header.LastResultsHash
+	}
+
 	// build the new state from the old state and the prior block
 	rolledBackState := State{
 		Version: Version{
@@ -103,8 +119,9 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		LastBlockHeight: rollbackBlock.Header.Height,
 		LastBlockID:     rollbackBlock.BlockID,
 		LastBlockTime:   rollbackBlock.Header.Time,
-		LastResultsHash: rollbackBlock.Header.LastResultsHash,
-		AppHash:         rollbackBlock.Header.AppHash,
+
+		LastResultsHash: rolledBackAppHash,
+		AppHash:         rolledBackLastResultHash,
 
 		NextValidators:              invalidState.Validators,
 		Validators:                  invalidState.LastValidators,
