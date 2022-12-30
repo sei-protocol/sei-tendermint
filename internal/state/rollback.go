@@ -99,14 +99,18 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	rolledBackAppHash := latestBlock.Header.AppHash
 	rolledBackLastResultHash := latestBlock.Header.LastResultsHash
 
+	if removeBlock {
+		rolledBackAppHash = rollbackBlock.Header.AppHash
+		rolledBackLastResultHash = rollbackBlock.Header.LastResultsHash
+	}
+
 	// Only the latest state is stored
 	fmt.Printf("Latest state Height=%d, appHash=%X\n", latestState.LastBlockHeight, latestState.AppHash)
 
 	fmt.Printf("Rollback block Height=%d, appHash=%X\n", rollbackBlock.Header.Height, rollbackBlock.Header.AppHash)
-	fmt.Printf("Rollback block Height=%d, lastCommitHash=%X\n", rollbackBlock.Header.Height, rollbackBlock.Header.LastCommitHash)
+	fmt.Printf("Rollback block Height=%d, LastResultsHash=%X\n", rollbackBlock.Header.Height, rollbackBlock.Header.LastResultsHash)
 	fmt.Printf("Latest block Height=%d, appHash=%X\n", latestBlock.Header.Height, latestBlock.Header.AppHash)
-	fmt.Printf("latest block Height=%d, lastCommitHash=%X\n", latestBlock.Header.Height, latestBlock.Header.LastCommitHash)
-
+	fmt.Printf("latest block Height=%d, LastResultsHash=%X\n", latestBlock.Header.Height, latestBlock.Header.LastResultsHash)
 
 	// build the new state from the old state and the prior block
 	rolledBackState := State{
