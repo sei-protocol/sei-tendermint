@@ -185,7 +185,7 @@ func (s SynchronyParams) SynchronyParamsOrDefaults() SynchronyParams {
 
 func DefaultTimeoutParams() TimeoutParams {
 	return TimeoutParams{
-		Propose:             3 * time.Second,
+		Propose:             1 * time.Second,
 		ProposeDelta:        500 * time.Millisecond,
 		Vote:                50 * time.Millisecond,
 		VoteDelta:           500 * time.Millisecond,
