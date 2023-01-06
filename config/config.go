@@ -1020,6 +1020,8 @@ type ConsensusConfig struct {
 	DeprecatedSkipTimeoutCommit     *interface{} `mapstructure:"skip-timeout-commit"`
 }
 
+var UnsafeBypassCommitTimeoutOverride = true
+
 // DefaultConsensusConfig returns a default configuration for the consensus service
 func DefaultConsensusConfig() *ConsensusConfig {
 	return &ConsensusConfig{
@@ -1029,7 +1031,13 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		DoubleSignCheckHeight:       int64(0),
-		GossipTransactionKeyOnly:    false,
+		GossipTransactionKeyOnly: 	 true,
+		UnsafeProposeTimeoutOverride: 1 * time.Second,
+		UnsafeProposeTimeoutDeltaOverride: 500 * time.Millisecond,
+		UnsafeVoteTimeoutOverride: 50 * time.Millisecond,
+		UnsafeVoteTimeoutDeltaOverride: 500 * time.Millisecond,
+		UnsafeCommitTimeoutOverride: 50 * time.Millisecond,
+		UnsafeBypassCommitTimeoutOverride: &UnsafeBypassCommitTimeoutOverride,
 	}
 }
 
