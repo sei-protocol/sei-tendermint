@@ -1031,6 +1031,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		DoubleSignCheckHeight:       int64(0),
+		// Sei Configurations
 		GossipTransactionKeyOnly: 	 true,
 		UnsafeProposeTimeoutOverride: 1 * time.Second,
 		UnsafeProposeTimeoutDeltaOverride: 500 * time.Millisecond,
@@ -1047,6 +1048,8 @@ func TestConsensusConfig() *ConsensusConfig {
 	cfg.PeerGossipSleepDuration = 5 * time.Millisecond
 	cfg.PeerQueryMaj23SleepDuration = 250 * time.Millisecond
 	cfg.DoubleSignCheckHeight = int64(0)
+
+	cfg.GossipTransactionKeyOnly = false
 	return cfg
 }
 
