@@ -656,6 +656,7 @@ func TestTxMempool_FailedCheckTxCount(t *testing.T) {
 	callback := func(res *abci.ResponseCheckTx) {
 		require.Equal(t, nil, txmp.postCheck(tx, res))
 	}
+	require.Equal(t, uint64(0), txmp.GetPeerFailedCheckTxCount("sender"))
 	// bad tx
 	require.NoError(t, txmp.CheckTx(ctx, tx, callback, TxInfo{SenderID: 0, SenderNodeID: "sender"}))
 	require.Equal(t, uint64(1), txmp.GetPeerFailedCheckTxCount("sender"))
