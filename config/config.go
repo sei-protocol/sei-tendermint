@@ -1033,10 +1033,6 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		DoubleSignCheckHeight:       int64(0),
 		// Sei Configurations
 		GossipTransactionKeyOnly: 	 true,
-		UnsafeProposeTimeoutDeltaOverride: 500 * time.Millisecond,
-		UnsafeVoteTimeoutOverride: 50 * time.Millisecond,
-		UnsafeVoteTimeoutDeltaOverride: 500 * time.Millisecond,
-		UnsafeCommitTimeoutOverride: 50 * time.Millisecond,
 		UnsafeBypassCommitTimeoutOverride: &UnsafeBypassCommitTimeoutOverride,
 	}
 }
