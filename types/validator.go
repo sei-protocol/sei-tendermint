@@ -196,7 +196,7 @@ func (v *Validator) ToProto() (*tmproto.Validator, error) {
 // It returns an error if the public key is invalid.
 func ValidatorFromProto(vp *tmproto.Validator) (*Validator, error) {
 	if vp == nil {
-		return nil, errors.New("nil validator")
+		return nil, fmt.Errorf("nil validator address=%s pubKey=%s", vp.GetAddress(), vp.GetPubKey())
 	}
 
 	pk, err := encoding.PubKeyFromProto(vp.PubKey)
