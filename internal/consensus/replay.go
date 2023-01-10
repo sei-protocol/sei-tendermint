@@ -304,7 +304,9 @@ func (h *Handshaker) ReplayBlocks(
 		validators := make([]*types.Validator, len(h.genDoc.Validators))
 		for i, val := range h.genDoc.Validators {
 			validators[i] = types.NewValidator(val.PubKey, val.Power)
+			h.logger.Info("Initializing Chain with validator", "publicKey", val.PubKey, "power", val.Power)
 		}
+		h.logger.Info("Initializing Chain with", "num validators=", len(validators))
 		validatorSet := types.NewValidatorSet(validators)
 		nextVals := types.TM2PB.ValidatorUpdates(validatorSet)
 		pbParams := h.genDoc.ConsensusParams.ToProto()
