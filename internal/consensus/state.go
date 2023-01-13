@@ -1036,11 +1036,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
 
-		// See if it's possible to be nil
-		if cs.privValidatorPubKey == nil {
-			cs.logger.Info("cs.privValidatorPubKey is nil")
-		}
-
 		// See if we can try creating the proposal block if keys exist
 		if cs.config.GossipTransactionKeyOnly && cs.privValidatorPubKey != nil {
 			isProposer := cs.isProposer(cs.privValidatorPubKey.Address())
