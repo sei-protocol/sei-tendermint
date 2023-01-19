@@ -44,6 +44,8 @@ var (
 	defaultConfigFileName  = "config.toml"
 	defaultGenesisJSONName = "genesis.json"
 
+	// Default to Validator mode users must change config.toml to
+	// full or seed if they are bringing up other types of nodes
 	defaultMode             = ModeValidator
 	defaultPrivValKeyName   = "priv_validator_key.json"
 	defaultPrivValStateName = "priv_validator_state.json"
