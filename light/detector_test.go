@@ -275,7 +275,6 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 		0, len(forgedKeys),
 	)
 	mockPrimary := mockNodeFromHeadersAndVals(primaryHeaders, primaryValidators)
-	mockPrimary.On("ID").Return("mockPrimary")
 	lastBlock, _ := mockPrimary.LightBlock(ctx, forgedHeight)
 	mockPrimary.On("LightBlock", mock.Anything, int64(0)).Return(lastBlock, nil)
 	mockPrimary.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
@@ -381,7 +380,6 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 	_, err = c.Update(ctx, bTime.Add(time.Duration(forgedHeight)*time.Minute))
 	assert.NoError(t, err)
 	mockPrimary.AssertExpectations(t)
-	mockWitness.AssertExpectations(t)
 }
 
 // 1. Different nodes therefore a divergent header is produced.

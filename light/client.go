@@ -175,6 +175,11 @@ func NewClient(
 		)
 	}
 
+	// Validate the number of witnesses.
+	if len(witnesses) < 1 {
+		return nil, ErrNoWitnesses
+	}
+
 	// Validate trust options
 	if err := trustOptions.ValidateBasic(); err != nil {
 		return nil, fmt.Errorf("invalid TrustOptions: %w", err)
@@ -1073,7 +1078,7 @@ func (c *Client) compareFirstHeaderWithWitnesses(ctx context.Context, h *types.S
 	defer c.providerMutex.Unlock()
 
 	if len(c.witnesses) < 1 {
-		return nil
+		return ErrNoWitnesses
 	}
 
 	errc := make(chan error, len(c.witnesses))
