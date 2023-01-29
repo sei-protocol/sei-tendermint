@@ -31,8 +31,6 @@ func NewTxPriorityQueue() *TxPriorityQueue {
 // priority and that their total sum in size allows room for the incoming
 // transaction according to the mempool's configured limits.
 func (pq *TxPriorityQueue) GetEvictableTxs(priority, txSize, totalSize, cap int64) []*WrappedTx {
-	pq.mtx.RLock()
-	defer pq.mtx.RUnlock()
 
 	txs := make([]*WrappedTx, len(pq.txs))
 	copy(txs, pq.txs)

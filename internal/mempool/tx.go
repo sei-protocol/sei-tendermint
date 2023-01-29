@@ -72,9 +72,9 @@ func (wtx *WrappedTx) Size() int {
 // TxStore implements a thread-safe mapping of valid transaction(s).
 //
 // NOTE:
-// - Concurrent read-only access to a *WrappedTx object is OK. However, mutative
-//   access is not allowed. Regardless, it is not expected for the mempool to
-//   need mutative access.
+//   - Concurrent read-only access to a *WrappedTx object is OK. However, mutative
+//     access is not allowed. Regardless, it is not expected for the mempool to
+//     need mutative access.
 type TxStore struct {
 	mtx       sync.RWMutex
 	hashTxs   map[types.TxKey]*WrappedTx // primary index
@@ -114,9 +114,6 @@ func (txs *TxStore) GetAllTxs() []*WrappedTx {
 // GetTxBySender returns a *WrappedTx by the transaction's sender property
 // defined by the ABCI application.
 func (txs *TxStore) GetTxBySender(sender string) *WrappedTx {
-	txs.mtx.RLock()
-	defer txs.mtx.RUnlock()
-
 	return txs.senderTxs[sender]
 }
 
@@ -191,9 +188,6 @@ func (txs *TxStore) TxHasPeer(hash types.TxKey, peerID uint16) bool {
 // and false otherwise. If the transaction does not exist by hash, we return
 // (nil, false).
 func (txs *TxStore) GetOrSetPeerByTxHash(hash types.TxKey, peerID uint16) (*WrappedTx, bool) {
-	txs.mtx.Lock()
-	defer txs.mtx.Unlock()
-
 	wtx := txs.hashTxs[hash]
 	if wtx == nil {
 		return nil, false
