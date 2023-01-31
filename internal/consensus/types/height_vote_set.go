@@ -43,7 +43,7 @@ type HeightVoteSet struct {
 	valSet            *types.ValidatorSet
 	extensionsEnabled bool
 
-	mtx               sync.Mutex
+	mtx               *sync.Mutex
 	round             int32                    // max tracked round
 	roundVoteSets     map[int32]RoundVoteSet   // keys: [0...round]
 	peerCatchupRounds map[types.NodeID][]int32 // keys: peer.ID; values: at most 2 rounds
@@ -53,6 +53,7 @@ func NewHeightVoteSet(chainID string, height int64, valSet *types.ValidatorSet) 
 	hvs := &HeightVoteSet{
 		chainID:           chainID,
 		extensionsEnabled: false,
+		mtx: 			  &sync.Mutex{},
 	}
 	hvs.Reset(height, valSet)
 	return hvs
@@ -62,6 +63,7 @@ func NewExtendedHeightVoteSet(chainID string, height int64, valSet *types.Valida
 	hvs := &HeightVoteSet{
 		chainID:           chainID,
 		extensionsEnabled: true,
+		mtx: 			  &sync.Mutex{},
 	}
 	hvs.Reset(height, valSet)
 	return hvs
