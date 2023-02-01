@@ -567,10 +567,12 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
 		// If peer is trying to reconnect, error and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
-			r.peerManager.Errored(peerInfo.NodeID, err)
+			// Warn about duplicate connection, but no need to error out
+			r.logger.Info("Duplicate peer detected, not erroring out and continuing", "peer", peerInfo.NodeID)
+		} else {
+			r.logger.Error("failed to accept connection",
+				"op", "incoming/accepted", "peer", peerInfo.NodeID, "err", err)
 		}
-		r.logger.Error("failed to accept connection",
-			"op", "incoming/accepted", "peer", peerInfo.NodeID, "err", err)
 		return
 	}
 
