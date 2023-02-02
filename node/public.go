@@ -71,7 +71,7 @@ func New(
 			logger,
 			tracerProviderOptions)
 	case config.ModeSeed:
-		return makeSeedNode(logger, conf, config.DefaultDBProvider, nodeKey, genProvider)
+		return makeSeedNode(ctx, logger, conf, config.DefaultDBProvider, nodeKey, genProvider)
 	default:
 		return nil, fmt.Errorf("%q is not a valid mode", conf.Mode)
 	}

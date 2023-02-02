@@ -57,10 +57,11 @@ type nodeImpl struct {
 	shouldStateSync bool                // set during makeNode
 
 	// network
-	peerManager *p2p.PeerManager
-	router      *p2p.Router
-	nodeInfo    types.NodeInfo
-	nodeKey     types.NodeKey // our node privkey
+	peerManager     *p2p.PeerManager
+	router          *p2p.Router
+	routerRestartCh chan struct{} // due to p2p flakiness, have a way to signal when to restart router
+	nodeInfo        types.NodeInfo
+	nodeKey         types.NodeKey // our node privkey
 
 	// services
 	eventSinks     []indexer.EventSink
@@ -90,6 +91,7 @@ func newDefaultNode(
 	}
 	if cfg.Mode == config.ModeSeed {
 		return makeSeedNode(
+			ctx,
 			logger,
 			cfg,
 			config.DefaultDBProvider,
@@ -252,6 +254,7 @@ func makeNode(
 		},
 	}
 
+	node.routerRestartCh = make(chan struct{})
 	node.router, err = createRouter(logger, nodeMetrics.p2p, node.NodeInfo, nodeKey, peerManager, cfg, proxyApp)
 	if err != nil {
 		return nil, combineCloseError(
@@ -358,7 +361,7 @@ func makeNode(
 	}
 
 	if cfg.P2P.PexReactor {
-		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe)
+		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, node.routerRestartCh)
 		node.services = append(node.services, pxReactor)
 		node.router.AddChDescToBeAdded(pex.ChannelDescriptor(), pxReactor.SetChannel)
 	}
@@ -537,6 +540,24 @@ func (n *nodeImpl) OnStart(ctx context.Context) error {
 		}
 	}
 
+	// Register a listener to restart router if signalled to do so
+	go func() {
+		for {
+			select {
+			case <-n.routerRestartCh:
+				n.logger.Info("Received signal to restart router, restarting...")
+				n.router.OnStop()
+				//n.router.Wait()
+				n.logger.Info("Router successfully stopped. Restarting...")
+				// Start the transport.
+				if err := n.router.Start(ctx); err != nil {
+					n.logger.Error("Unable to start router, retrying...", err)
+				} else {
+					n.logger.Info("Router successfully restarted.")
+				}
+			}
+		}
+	}()
 	return nil
 }
 
