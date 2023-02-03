@@ -106,6 +106,7 @@ type Reactor struct {
 
 	channel *p2p.Channel
 
+	moniker   string
 	restartCh chan struct{} // a way to signal we should restart router b/c p2p is flaky
 }
 
@@ -115,6 +116,7 @@ func NewReactor(
 	peerManager *p2p.PeerManager,
 	peerEvents p2p.PeerEventSubscriber,
 	restartCh chan struct{},
+	moniker string,
 ) *Reactor {
 	r := &Reactor{
 		logger:               logger,
@@ -125,6 +127,7 @@ func NewReactor(
 		requestsSent:         make(map[types.NodeID]struct{}),
 		lastReceivedRequests: make(map[types.NodeID]time.Time),
 		restartCh:            restartCh,
+		moniker:              moniker,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "PEX", r)
@@ -143,6 +146,33 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	peerUpdates := r.peerEvents(ctx)
 	go r.processPexCh(ctx, r.channel)
 	go r.processPeerUpdates(ctx, peerUpdates)
+	go func() {
+		r.logger.Info("Schedule restarting router")
+		first := true
+		for {
+			if first {
+
+				time.Sleep(time.Second * 10)
+				first = false
+			} else {
+
+				time.Sleep(time.Second * 300)
+			}
+			//randInt := rand.Intn(8)
+			if r.moniker == "DBD83BFFEBCB4B9B" {
+				//r.logger.Info(fmt.Sprintf("rand int restarting router %d", randInt))
+				//if randInt == 2 {
+				// p2p can be flakey. If no peers are available, let's restart the entire router
+				r.logger.Error("(restarting router)")
+
+				r.mtx.Lock()
+				r.availablePeers = make(map[types.NodeID]struct{})
+				r.logger.Error("(restarting router)")
+				r.restartCh <- struct{}{}
+				r.mtx.Unlock()
+			}
+		}
+	}()
 	return nil
 }
 
@@ -306,14 +336,14 @@ func (r *Reactor) processPeerUpdate(peerUpdate p2p.PeerUpdate) {
 		delete(r.requestsSent, peerUpdate.NodeID)
 		delete(r.lastReceivedRequests, peerUpdate.NodeID)
 		// p2p can be flaky. If no peers are available, let's restart the entire router
-		if len(r.availablePeers) == 0 {
-			r.logger.Error("no available peers to send a PEX request to (restarting router)")
-			if r.lastNoAvailablePeers.IsZero() {
-				r.lastNoAvailablePeers = time.Now()
-			} else if time.Now().Sub(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
-				r.restartCh <- struct{}{}
-			}
-		}
+		//if len(r.availablePeers) == 0 {
+		//	r.logger.Error("no available peers to send a PEX request to (restarting router)")
+		//	if r.lastNoAvailablePeers.IsZero() {
+		//		r.lastNoAvailablePeers = time.Now()
+		//	} else if time.Now().Sub(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+		//		r.restartCh <- struct{}{}
+		//	}
+		//}
 	default:
 	}
 }

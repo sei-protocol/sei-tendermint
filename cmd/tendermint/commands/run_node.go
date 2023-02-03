@@ -130,12 +130,7 @@ func NewRunNodeCmd(nodeProvider cfg.ServiceProvider, conf *cfg.Config, logger lo
 				case <-restartCh:
 					logger.Info("Received signal to restart node.")
 					n.Stop()
-					logger.Info("Waiting for resources to be cleaned up...")
-					n.Wait()
-					logger.Info("Resources cleaned up. Restarting node...")
-					if err := n.Start(ctx); err != nil {
-						return fmt.Errorf("failed to restart node: %w", err)
-					}
+					os.Exit(1)
 				}
 			}
 		},

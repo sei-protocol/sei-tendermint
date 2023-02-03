@@ -365,7 +365,7 @@ func makeNode(
 	}
 
 	if cfg.P2P.PexReactor {
-		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh)
+		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh, cfg.Moniker)
 		node.services = append(node.services, pxReactor)
 		node.router.AddChDescToBeAdded(pex.ChannelDescriptor(), pxReactor.SetChannel)
 	}
@@ -595,13 +595,15 @@ func (n *nodeImpl) OnStop() {
 	}
 
 	for _, reactor := range n.services {
-		reactor.Wait()
+		reactor.Stop()
 	}
 
+	n.router.Stop()
 	n.router.Wait()
 	n.rpcEnv.IsListening = false
 
 	if pvsc, ok := n.privValidator.(service.Service); ok {
+		pvsc.Stop()
 		pvsc.Wait()
 	}
 
