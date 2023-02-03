@@ -85,6 +85,7 @@ func newDefaultNode(
 	ctx context.Context,
 	cfg *config.Config,
 	logger log.Logger,
+	restartCh chan struct{},
 ) (service.Service, error) {
 	nodeKey, err := types.LoadOrGenNodeKey(cfg.NodeKeyFile())
 	if err != nil {
@@ -95,6 +96,7 @@ func newDefaultNode(
 			ctx,
 			logger,
 			cfg,
+			restartCh,
 			config.DefaultDBProvider,
 			nodeKey,
 			defaultGenesisDocProviderFunc(cfg),
@@ -113,6 +115,7 @@ func newDefaultNode(
 	return makeNode(
 		ctx,
 		cfg,
+		restartCh,
 		pval,
 		nodeKey,
 		appClient,
@@ -127,6 +130,7 @@ func newDefaultNode(
 func makeNode(
 	ctx context.Context,
 	cfg *config.Config,
+	restartCh chan struct{},
 	filePrivval *privval.FilePV,
 	nodeKey types.NodeKey,
 	client abciclient.Client,
@@ -255,7 +259,6 @@ func makeNode(
 		},
 	}
 
-	node.routerRestartCh = make(chan struct{})
 	node.router, err = createRouter(logger, nodeMetrics.p2p, node.NodeInfo, nodeKey, peerManager, cfg, proxyApp)
 	if err != nil {
 		return nil, combineCloseError(
@@ -362,7 +365,7 @@ func makeNode(
 	}
 
 	if cfg.P2P.PexReactor {
-		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, node.routerRestartCh)
+		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh)
 		node.services = append(node.services, pxReactor)
 		node.router.AddChDescToBeAdded(pex.ChannelDescriptor(), pxReactor.SetChannel)
 	}
@@ -547,7 +550,6 @@ func (n *nodeImpl) OnStart(ctx context.Context) error {
 		defer timer.Stop()
 		count := 0
 		for {
-
 			select {
 			case <-n.routerRestartCh:
 				n.logger.Info("Received signal to restart router, restarting...")
