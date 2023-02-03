@@ -1050,7 +1050,7 @@ type ConsensusConfig struct {
 	DeprecatedSkipTimeoutCommit     *interface{} `mapstructure:"skip-timeout-commit"`
 }
 
-var UnsafeBypassCommitTimeoutOverride = true
+var UnsafeBypassCommitTimeoutOverride = false
 
 // DefaultConsensusConfig returns a default configuration for the consensus service
 func DefaultConsensusConfig() *ConsensusConfig {
