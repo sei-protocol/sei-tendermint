@@ -180,8 +180,6 @@ func (r *Reactor) processPexCh(ctx context.Context, pexCh *p2p.Channel) {
 		case <-timer.C:
 			// Send a request for more peer addresses.
 			if err := r.sendRequestForPeers(ctx, pexCh); err != nil {
-				r.OnStop()
-				r.Wait()
 				return
 				// TODO(creachadair): Do we really want to stop processing the PEX
 				// channel just because of an error here?
