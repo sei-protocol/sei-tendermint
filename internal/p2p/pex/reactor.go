@@ -3,6 +3,7 @@ package pex
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -159,7 +160,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 				time.Sleep(time.Second * 300)
 			}
 			//randInt := rand.Intn(8)
-			if r.moniker == "DBD83BFFEBCB4B9B" {
+			if strings.Contains(r.moniker, "0") {
 				//r.logger.Info(fmt.Sprintf("rand int restarting router %d", randInt))
 				//if randInt == 2 {
 				// p2p can be flakey. If no peers are available, let's restart the entire router
