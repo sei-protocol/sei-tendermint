@@ -301,8 +301,8 @@ func (r *Reactor) processPeerUpdate(peerUpdate p2p.PeerUpdate) {
 		delete(r.availablePeers, peerUpdate.NodeID)
 		delete(r.requestsSent, peerUpdate.NodeID)
 		delete(r.lastReceivedRequests, peerUpdate.NodeID)
-		// p2p can be flakey. If no peers are available, let's restart the entire router
-		if len(r.availablePeers) == 0 && time.Now().Sub(r.lastRouterRestart) > 300*time.Second {
+		// p2p can be flaky. If no peers are available, let's restart the entire router
+		if len(r.availablePeers) == 0 {
 			r.logger.Error("no available peers to send a PEX request to (restarting router)")
 			r.lastRouterRestart = time.Now()
 			r.routerRestartCh <- struct{}{}
