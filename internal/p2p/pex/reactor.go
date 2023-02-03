@@ -3,7 +3,6 @@ package pex
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -147,33 +146,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	peerUpdates := r.peerEvents(ctx)
 	go r.processPexCh(ctx, r.channel)
 	go r.processPeerUpdates(ctx, peerUpdates)
-	go func() {
-		r.logger.Info("Schedule restarting router")
-		first := true
-		for {
-			if first {
-
-				time.Sleep(time.Second * 10)
-				first = false
-			} else {
-
-				time.Sleep(time.Second * 300)
-			}
-			//randInt := rand.Intn(8)
-			if strings.Contains(r.moniker, "0") {
-				//r.logger.Info(fmt.Sprintf("rand int restarting router %d", randInt))
-				//if randInt == 2 {
-				// p2p can be flakey. If no peers are available, let's restart the entire router
-				r.logger.Error("(restarting router)")
-
-				r.mtx.Lock()
-				r.availablePeers = make(map[types.NodeID]struct{})
-				r.logger.Error("(restarting router)")
-				r.restartCh <- struct{}{}
-				r.mtx.Unlock()
-			}
-		}
-	}()
 	return nil
 }
 
@@ -337,14 +309,14 @@ func (r *Reactor) processPeerUpdate(peerUpdate p2p.PeerUpdate) {
 		delete(r.requestsSent, peerUpdate.NodeID)
 		delete(r.lastReceivedRequests, peerUpdate.NodeID)
 		// p2p can be flaky. If no peers are available, let's restart the entire router
-		//if len(r.availablePeers) == 0 {
-		//	r.logger.Error("no available peers to send a PEX request to (restarting router)")
-		//	if r.lastNoAvailablePeers.IsZero() {
-		//		r.lastNoAvailablePeers = time.Now()
-		//	} else if time.Now().Sub(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
-		//		r.restartCh <- struct{}{}
-		//	}
-		//}
+		if len(r.availablePeers) == 0 {
+			r.logger.Error("no available peers to send a PEX request to (restarting router)")
+			if r.lastNoAvailablePeers.IsZero() {
+				r.lastNoAvailablePeers = time.Now()
+			} else if time.Now().Sub(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+				r.restartCh <- struct{}{}
+			}
+		}
 	default:
 	}
 }
@@ -357,6 +329,8 @@ func (r *Reactor) sendRequestForPeers(ctx context.Context, pexCh *p2p.Channel) e
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 	if len(r.availablePeers) == 0 {
+		// no peers are available
+		r.logger.Error("no available peers to send a PEX request to (retrying)")
 		return nil
 	}
 

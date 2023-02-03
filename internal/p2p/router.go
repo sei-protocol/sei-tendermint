@@ -1017,20 +1017,6 @@ func (r *Router) OnStart(ctx context.Context) error {
 	return nil
 }
 
-func (r *Router) Restart(ctx context.Context) error {
-	// We don't stop the entire router (OnStop) because that ends up deleting all the outgoing queues
-	// TODO (psu): investigate why this is
-	// Close transport listeners (unblocks Accept calls).
-	if err := r.transport.Close(); err != nil {
-		r.logger.Error("failed to close transport", "err", err)
-	}
-	// Start the transport.
-	if err := r.Start(ctx); err != nil {
-		return err
-	}
-	return nil
-}
-
 // OnStop implements service.Service.
 //
 // All channels must be closed by OpenChannel() callers before stopping the
