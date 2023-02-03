@@ -99,7 +99,7 @@ func makeSeedNode(
 		}
 	}()
 
-	pexReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh, "")
+	pexReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh)
 	node := &seedNodeImpl{
 		config:     cfg,
 		logger:     logger,

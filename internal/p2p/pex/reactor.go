@@ -106,7 +106,6 @@ type Reactor struct {
 
 	channel *p2p.Channel
 
-	moniker   string
 	restartCh chan struct{} // a way to signal we should restart router b/c p2p is flaky
 }
 
@@ -116,7 +115,6 @@ func NewReactor(
 	peerManager *p2p.PeerManager,
 	peerEvents p2p.PeerEventSubscriber,
 	restartCh chan struct{},
-	moniker string,
 ) *Reactor {
 	r := &Reactor{
 		logger:               logger,
@@ -127,7 +125,6 @@ func NewReactor(
 		requestsSent:         make(map[types.NodeID]struct{}),
 		lastReceivedRequests: make(map[types.NodeID]time.Time),
 		restartCh:            restartCh,
-		moniker:              moniker,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "PEX", r)

@@ -364,7 +364,7 @@ func makeNode(
 	}
 
 	if cfg.P2P.PexReactor {
-		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh, cfg.Moniker)
+		pxReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh)
 		node.services = append(node.services, pxReactor)
 		node.router.AddChDescToBeAdded(pex.ChannelDescriptor(), pxReactor.SetChannel)
 	}
