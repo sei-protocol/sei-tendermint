@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -544,36 +543,6 @@ func (n *nodeImpl) OnStart(ctx context.Context) error {
 		}
 	}
 
-	// Register a listener to restart router if signalled to do so
-	go func() {
-		timer := time.NewTimer(0)
-		defer timer.Stop()
-		count := 0
-		for {
-			select {
-			case <-n.routerRestartCh:
-				n.logger.Info("Received signal to restart router, restarting...")
-				if err := n.router.Restart(ctx); err != nil {
-					n.routerRestartCh <- struct{}{}
-				} else {
-					n.logger.Info("Router successfully stopped. Restarting...")
-
-				}
-				// Exponential backoff logic
-				select {
-				case <-timer.C:
-					count++
-					// Cap exponential backoff
-					if count >= 10 {
-						count = 0
-					}
-					jitter := 100*time.Millisecond + time.Duration(rand.Int63n(int64(time.Second))) // nolint: gosec
-					backoff := 100 * time.Duration(count) * time.Millisecond
-					timer.Reset(jitter + backoff)
-				}
-			}
-		}
-	}()
 	return nil
 }
 
