@@ -3,7 +3,6 @@ package pex
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -141,16 +140,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	peerUpdates := r.peerEvents(ctx)
 	go r.processPexCh(ctx, r.channel)
 	go r.processPeerUpdates(ctx, peerUpdates)
-	go func() {
-		for {
-			time.Sleep(time.Second * 10)
-			if rand.Intn(8) == 2 {
-				// p2p can be flakey. If no peers are available, let's restart the entire router
-				r.logger.Error("no available peers to send a PEX request to (restarting router)")
-				r.routerRestartCh <- struct{}{}
-			}
-		}
-	}()
 	return nil
 }
 
