@@ -812,7 +812,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 		r.metrics.Peers.Add(-1)
 	}()
 
-	r.logger.Info("peer connected", "peer", peerID, "endpoint", conn)
+	r.logger.Info("peer connected", "peer", peerID, "endpoint", conn, "connected peers", r.peerManager.connected)
 
 	errCh := make(chan error, 2)
 
@@ -1014,6 +1014,20 @@ func (r *Router) OnStart(ctx context.Context) error {
 	go r.evictPeers(ctx)
 	go r.acceptPeers(ctx, r.transport)
 
+	return nil
+}
+
+func (r *Router) Restart(ctx context.Context) error {
+	// We don't stop the entire router (OnStop) because that ends up deleting all the outgoing queues
+	// TODO (psu): investigate why this is
+	// Close transport listeners (unblocks Accept calls).
+	if err := r.transport.Close(); err != nil {
+		r.logger.Error("failed to close transport", "err", err)
+	}
+	// Start the transport.
+	if err := r.Start(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
