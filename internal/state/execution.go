@@ -435,7 +435,7 @@ func (blockExec *BlockExecutor) CheckTxFromPeerProposal(ctx context.Context, tx 
 	if err := blockExec.mempool.CheckTx(ctx, tx, func(rct *abci.ResponseCheckTx) {}, mempool.TxInfo{
 		SenderID: math.MaxUint16,
 	}); err != nil {
-		blockExec.logger.Info(fmt.Sprintf("CheckTx for proposal tx from peer raised error %s. This could be ignored if the error is because the tx is added to the mempool while this check was happening", err))
+		blockExec.logger.Info(fmt.Sprintf("[Tendermint-Debug] CheckTx for proposal tx from peer raised error %s. This could be ignored if the error is because the tx is added to the mempool while this check was happening", err))
 	}
 }
 

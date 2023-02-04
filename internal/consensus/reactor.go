@@ -534,7 +534,7 @@ OUTER_LOOP:
 					return
 				}
 
-				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
+				logger.Info("[Tendermint-Debug] sending block part to peer", "height", prs.Height, "round", prs.Round)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.BlockPart{
@@ -595,7 +595,7 @@ OUTER_LOOP:
 			{
 				propProto := rs.Proposal.ToProto()
 
-				logger.Debug("sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
+				logger.Info("[Tendermint-Debug] sending proposal to peer", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.Proposal{
@@ -618,7 +618,7 @@ OUTER_LOOP:
 				pPol := rs.Votes.Prevotes(rs.Proposal.POLRound).BitArray()
 				pPolProto := pPol.ToProto()
 
-				logger.Debug("sending POL", "height", prs.Height, "round", prs.Round)
+				logger.Info("[Tendermint-Debug] sending POL", "height", prs.Height, "round", prs.Round)
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.ProposalPOL{
@@ -1129,6 +1129,7 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+
 		case r.state.peerMsgQueue <- msgInfo{pMsg, envelope.From, tmtime.Now()}:
 		}
 	case *tmcons.ProposalPOL:

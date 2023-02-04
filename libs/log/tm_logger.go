@@ -55,7 +55,8 @@ func (l *tmLogger) Info(msg string, keyvals ...interface{}) {
 
 	if err := kitlog.With(lWithLevel, msgKey, msg).Log(keyvals...); err != nil {
 		errLogger := kitlevel.Error(l.srcLogger)
-		kitlog.With(errLogger, msgKey, msg).Log("err", err) //nolint:errcheck // no need to check error again
+		kitlog.With(errLogger, msgKey, msg).Log("err", err)
+		//nolint:errcheck // no need to check error again
 	}
 }
 

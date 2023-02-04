@@ -154,7 +154,7 @@ type State struct {
 	internalMsgQueue chan msgInfo
 	timeoutTicker    TimeoutTicker
 
-	// information about about added votes and block parts are written on this channel
+	// information about added votes and block parts are written on this channel
 	// so statistics can be computed by reactor
 	statsMsgQueue chan msgInfo
 
@@ -234,6 +234,7 @@ func NewState(
 		metrics:          NopMetrics(),
 		onStopCh:         make(chan *cstypes.RoundState),
 	}
+	cs.logger = cs.logger.With(logger, "ts", time.RFC3339)
 
 	// set function defaults (may be overwritten before calling Start)
 	cs.decideProposal = cs.defaultDecideProposal
@@ -574,6 +575,7 @@ func (cs *State) OpenWAL(ctx context.Context, walFile string) (WAL, error) {
 
 // AddVote inputs a vote.
 func (cs *State) AddVote(ctx context.Context, vote *types.Vote, peerID types.NodeID) error {
+	fmt.Printf("[Tendermint-Debug] AddVote being called\n")
 	if peerID == "" {
 		select {
 		case <-ctx.Done():
@@ -595,7 +597,6 @@ func (cs *State) AddVote(ctx context.Context, vote *types.Vote, peerID types.Nod
 
 // SetProposal inputs a proposal.
 func (cs *State) SetProposal(ctx context.Context, proposal *types.Proposal, peerID types.NodeID) error {
-
 	if peerID == "" {
 		select {
 		case <-ctx.Done():
@@ -644,7 +645,6 @@ func (cs *State) SetProposalAndBlock(
 	parts *types.PartSet,
 	peerID types.NodeID,
 ) error {
-
 	if err := cs.SetProposal(ctx, proposal, peerID); err != nil {
 		return err
 	}
@@ -1028,6 +1028,11 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 
 	switch msg := msg.(type) {
 	case *ProposalMessage:
+		if fsyncUponCompletion {
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Received proposal message from local for height %d, hash %s", msg.Proposal.Height, msg.Proposal.Hash()))
+		} else {
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Received proposal message from peer %s for height %d, hash %s\n", mi.PeerID, msg.Proposal.Height, msg.Proposal.Hash()))
+		}
 		spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleProposalMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
@@ -1039,19 +1044,28 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// See if we can try creating the proposal block if keys exist
 		if cs.config.GossipTransactionKeyOnly && cs.privValidatorPubKey != nil {
 			isProposer := cs.isProposer(cs.privValidatorPubKey.Address())
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Gossip check at height %d, isProposer %t, proposalBlock is %v", msg.Proposal.Height, isProposer, cs.ProposalBlock))
 			if !isProposer && cs.ProposalBlock == nil {
+
 				created := cs.tryCreateProposalBlock(spanCtx, msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
 				if created {
+					cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Gossip succesfully created the proposal blocks for height %d, proposal %s", msg.Proposal.Height, msg.Proposal.Hash()))
 					cs.fsyncAndCompleteProposal(ctx, fsyncUponCompletion, msg.Proposal.Height, span)
 				}
 			}
 		}
 
 	case *BlockPartMessage:
+		if fsyncUponCompletion {
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Received block part message from local for height %d, round %d, part %d", msg.Height, msg.Round, msg.Part.Index))
+		} else {
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Received block part message from peer %s for height %d, round %d, part %d ", mi.PeerID, msg.Height, msg.Round, msg.Part.Index))
+		}
 		// If we have already created block parts, we can exit early if block part matches
 		if cs.config.GossipTransactionKeyOnly && cs.Proposal != nil && cs.ProposalBlockParts != nil {
 			// Check hash proof matches. If so, we can return
 			if msg.Part.Proof.Verify(cs.ProposalBlockParts.Hash(), msg.Part.Bytes) != nil {
+				cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Gossip has already build the proposal blocks for height %d, blocks count %d", cs.Proposal.Height, cs.ProposalBlockParts.Count()))
 				return
 			}
 		}
@@ -1099,6 +1113,11 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		}
 
 	case *VoteMessage:
+		if fsyncUponCompletion {
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Received vote message from local for height %d", cs.Height))
+		} else {
+			cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Received vote message from peer %s for height %d", mi.PeerID, cs.Height))
+		}
 		_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.handleVoteMsg")
 		span.SetAttributes(attribute.Int("round", int(msg.Vote.Round)))
 		defer span.End()
@@ -1150,7 +1169,7 @@ func (cs *State) handleTimeout(
 	ti timeoutInfo,
 	rs cstypes.RoundState,
 ) {
-	cs.logger.Debug("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+	cs.logger.Info("received tock", "timeout", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
 
 	// timeouts must be for current height, round, step
 	if ti.Height != rs.Height || ti.Round < rs.Round || (ti.Round == rs.Round && ti.Step < rs.Step) {
@@ -1381,7 +1400,7 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 		}
 	}
 
-	logger.Debug("entering propose step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step))
+	logger.Info("[Tendermint-Debug] entering propose step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step))
 
 	defer func() {
 		// Done enterPropose:
@@ -1425,15 +1444,15 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	}
 
 	if cs.isProposer(addr) {
-		logger.Debug(
-			"propose step; our turn to propose",
+		logger.Info(
+			"[Tendermint-Debug] propose step; our turn to propose",
 			"proposer", addr,
 		)
 
 		cs.decideProposal(spanCtx, height, round)
 	} else {
-		logger.Debug(
-			"propose step; not our turn to propose",
+		logger.Info(
+			"[Tendermint-Debug] propose step; not our turn to propose",
 			"proposer", cs.Validators.GetProposer().Address,
 		)
 	}
@@ -1491,6 +1510,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 		proposal.Signature = p.Signature
 
 		// send proposal and block parts on internal msg queue
+		cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Sending internal messages for defaultDecideProposal at height %d", block.Height))
 		cs.sendInternalMessage(ctx, msgInfo{&ProposalMessage{proposal}, "", tmtime.Now()})
 
 		for i := 0; i < int(blockParts.Total()); i++ {
@@ -1582,7 +1602,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevote <= cs.Step) {
 		logger.Info(
-			"entering prevote step with invalid args",
+			"[Tendermint-Debug] entering prevote step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 		)
@@ -1595,7 +1615,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		cs.newStep()
 	}()
 
-	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("[Tendermint-Debug] entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -1627,6 +1647,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	if cs.config.GossipTransactionKeyOnly {
 		if cs.ProposalBlock == nil {
 			// If we're not the proposer, we need to build the block
+			logger.Info(fmt.Sprintf("[Tendermint-Debug] ProposalBlock is still nil in the gossip prevote phase for height %d", height))
 			txKeys := cs.Proposal.TxKeys
 			if cs.ProposalBlockParts.IsComplete() {
 				block, err := cs.getBlockFromBlockParts()
@@ -1646,6 +1667,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		}
 	} else {
 		if cs.ProposalBlock == nil {
+			logger.Info(fmt.Sprintf("[Tendermint-Debug] ProposalBlock is still nil in the normal prevote phase for height %d", height))
 			block, err := cs.getBlockFromBlockParts()
 			if err != nil {
 				cs.logger.Error("Encountered error building block from parts", "block parts", cs.ProposalBlockParts)
@@ -1677,7 +1699,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		// if there is still any missing tx, it means CheckTx failed on application level for some txs, and
 		// we should not vote for this block
 		if len(missingTxKeys) > 0 {
-			logger.Error("prevote step: CheckTx failed for some txs")
+			logger.Error("[Tendermint-Debug] prevote step: CheckTx failed for some txs, going to vote nil!!!")
 			cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 			return
 		}
@@ -1708,7 +1730,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	err := cs.blockExec.ValidateBlock(ctx, cs.state, cs.ProposalBlock)
 	if err != nil {
 		// ProposalBlock is invalid, prevote nil.
-		logger.Error("prevote step: consensus deems this block invalid; prevoting nil",
+		logger.Error("[Tendermint-Debug] prevote step: consensus deems this block invalid; prevoting nil",
 			"err", err)
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
@@ -1732,7 +1754,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 	// Vote nil if the Application rejected the block
 	if !isAppValid {
-		logger.Error("prevote step: state machine rejected a proposed block; this should not happen:"+
+		logger.Error("[Tendermint-Debug] prevote step: state machine rejected a proposed block; this should not happen:"+
 			"the proposer may be misbehaving; prevoting nil", "err", err)
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
@@ -1753,12 +1775,12 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	*/
 	if cs.Proposal.POLRound == -1 {
 		if cs.LockedRound == -1 {
-			logger.Info("prevote step: ProposalBlock is valid and there is no locked block; prevoting the proposal")
+			logger.Info("[Tendermint-Debug] prevote step: ProposalBlock is valid and there is no locked block; prevoting the proposal")
 			cs.signAddVote(ctx, tmproto.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
 			return
 		}
 		if cs.ProposalBlock.HashesTo(cs.LockedBlock.Hash()) {
-			logger.Info("prevote step: ProposalBlock is valid and matches our locked block; prevoting the proposal")
+			logger.Info("[Tendermint-Debug] prevote step: ProposalBlock is valid and matches our locked block; prevoting the proposal")
 			cs.signAddVote(ctx, tmproto.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
 			return
 		}
@@ -1784,19 +1806,19 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	blockID, ok := cs.Votes.Prevotes(cs.Proposal.POLRound).TwoThirdsMajority()
 	if ok && cs.ProposalBlock.HashesTo(blockID.Hash) && cs.Proposal.POLRound >= 0 && cs.Proposal.POLRound < cs.Round {
 		if cs.LockedRound <= cs.Proposal.POLRound {
-			logger.Info("prevote step: ProposalBlock is valid and received a 2/3" +
+			logger.Info("[Tendermint-Debug] prevote step: ProposalBlock is valid and received a 2/3" +
 				"majority in a round later than the locked round; prevoting the proposal")
 			cs.signAddVote(ctx, tmproto.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
 			return
 		}
 		if cs.ProposalBlock.HashesTo(cs.LockedBlock.Hash()) {
-			logger.Info("prevote step: ProposalBlock is valid and matches our locked block; prevoting the proposal")
+			logger.Info("[Tendermint-Debug] prevote step: ProposalBlock is valid and matches our locked block; prevoting the proposal")
 			cs.signAddVote(ctx, tmproto.PrevoteType, cs.ProposalBlock.Hash(), cs.ProposalBlockParts.Header())
 			return
 		}
 	}
 
-	logger.Info("prevote step: ProposalBlock is valid but was not our locked block or " +
+	logger.Info("[Tendermint-Debug] prevote step: ProposalBlock is valid but was not our locked block or " +
 		"did not receive a more recent majority; prevoting nil")
 	cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 }
@@ -1807,7 +1829,7 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevoteWait <= cs.Step) {
 		logger.Info(
-			"entering prevote wait step with invalid args",
+			"[Tendermint-Debug] entering prevote wait step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 		)
@@ -1816,12 +1838,12 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 
 	if !cs.Votes.Prevotes(round).HasTwoThirdsAny() {
 		panic(fmt.Sprintf(
-			"entering prevote wait step (%v/%v), but prevotes does not have any +2/3 votes",
+			"[Tendermint-Debug] entering prevote wait step (%v/%v), but prevotes does not have any +2/3 votes",
 			height, round,
 		))
 	}
 
-	logger.Info("entering prevote wait step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("[Tendermint-Debug] entering prevote wait step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
 		// Done enterPrevoteWait:
@@ -1848,7 +1870,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrecommit <= cs.Step) {
 		logger.Info(
-			"entering precommit step with invalid args",
+			"[Tendermint-Debug] entering precommit step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 			"expected", fmt.Sprintf("#%v/%v", height, round),
@@ -1857,7 +1879,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 
-	logger.Info("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("[Tendermint-Debug] entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
 		// Done enterPrecommit:
@@ -1968,7 +1990,7 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.TriggeredTimeoutPrecommit) {
 		logger.Info(
-			"entering precommit wait step with invalid args",
+			"[Tendermint-Debug] entering precommit wait step with invalid args",
 			"triggered_timeout", cs.TriggeredTimeoutPrecommit,
 			"current", fmt.Sprintf("%v/%v", cs.Height, cs.Round),
 			"time", time.Now().UnixMilli(),
@@ -1978,12 +2000,12 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 	if !cs.Votes.Precommits(round).HasTwoThirdsAny() {
 		panic(fmt.Sprintf(
-			"entering precommit wait step (%v/%v), but precommits does not have any +2/3 votes",
+			"[Tendermint-Debug] entering precommit wait step (%v/%v), but precommits does not have any +2/3 votes",
 			height, round,
 		))
 	}
 
-	logger.Info("entering precommit wait step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("[Tendermint-Debug] entering precommit wait step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
 		// Done enterPrecommitWait:
@@ -2006,14 +2028,14 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 
 	if cs.Height != height || cstypes.RoundStepCommit <= cs.Step {
 		logger.Info(
-			"entering commit step with invalid args",
+			"[Tendermint-Debug] entering commit step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 		)
 		return
 	}
 
-	logger.Info("entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("[Tendermint-Debug] entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
 		// Done enterCommit:
@@ -2102,7 +2124,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	if cs.Height != height || cs.Step != cstypes.RoundStepCommit {
 		logger.Info(
-			"entering finalize commit step",
+			"[Tendermint-Debug] entering finalize commit step",
 			"current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step),
 			"time", time.Now().UnixMilli(),
 		)
@@ -2129,7 +2151,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	}
 
 	logger.Info(
-		"finalizing commit of block",
+		"[Tendermint-Debug] entering finalizing commit of block",
 		"hash", block.Hash(),
 		"root", block.AppHash,
 		"num_txs", len(block.Txs),
@@ -2364,7 +2386,7 @@ func (cs *State) addProposalBlockPart(
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.Height != height {
-		cs.logger.Debug("received block part from wrong height", "height", height, "round", round)
+		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false, nil
 	}
@@ -2476,7 +2498,10 @@ func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommi
 	missingTxs := cs.blockExec.GetMissingTxs(txKeys)
 	if len(missingTxs) > 0 {
 		cs.metrics.ProposalMissingTxs.Set(float64(len(missingTxs)))
-		cs.logger.Error("Missing txs when trying to build block", "missing_txs", cs.blockExec.GetMissingTxs(txKeys))
+		cs.logger.Error("[Tendermint-Debug] Missing txs when trying to build block", "missing_txs", cs.blockExec.GetMissingTxs(txKeys), "height", height)
+		return nil
+	} else if height%33 == 0 {
+		cs.logger.Error("[Tendermint-Debug] Manually injected missing txs at height ", "height", height)
 		return nil
 	}
 	txs := cs.blockExec.GetTxsForKeys(txKeys)
@@ -2880,8 +2905,10 @@ func (cs *State) signAddVote(
 		// The signer will sign the extension, make sure to remove the data on the way out
 		vote.StripExtension()
 	}
+
+	cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Sending internal messages for signAddVote at height %d", cs.Height))
 	cs.sendInternalMessage(ctx, msgInfo{&VoteMessage{vote}, "", tmtime.Now()})
-	cs.logger.Debug("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
+	cs.logger.Debug(" signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
 	return vote
 }
 
