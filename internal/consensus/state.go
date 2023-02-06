@@ -959,7 +959,7 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 	for {
 		if maxSteps > 0 {
 			if cs.nSteps >= maxSteps {
-				cs.logger.Info("reached max steps; exiting receive routine")
+				cs.logger.Debug("reached max steps; exiting receive routine")
 				cs.nSteps = 0
 				return
 			}
