@@ -31,7 +31,7 @@ func TestRouter_ConstructQueueFactory(t *testing.T) {
 		require.True(t, ok)
 	})
 	t.Run("Fifo", func(t *testing.T) {
-		opts := RouterOptions{QueueType: queueTypeFifo}
+		opts := RouterOptions{QueueType: QueueTypeFifo}
 		r, err := NewRouter(log.NewNopLogger(), nil, nil, nil, func() *types.NodeInfo { return &types.NodeInfo{} }, nil, nil, nil, opts)
 		require.NoError(t, err)
 		require.NoError(t, r.setupQueueFactory(ctx))
@@ -40,7 +40,7 @@ func TestRouter_ConstructQueueFactory(t *testing.T) {
 		require.True(t, ok)
 	})
 	t.Run("Priority", func(t *testing.T) {
-		opts := RouterOptions{QueueType: queueTypePriority}
+		opts := RouterOptions{QueueType: QueueTypePriority}
 		r, err := NewRouter(log.NewNopLogger(), nil, nil, nil, func() *types.NodeInfo { return &types.NodeInfo{} }, nil, nil, nil, opts)
 		require.NoError(t, err)
 		require.NoError(t, r.setupQueueFactory(ctx))

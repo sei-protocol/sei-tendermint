@@ -76,17 +76,17 @@ type RouterOptions struct {
 }
 
 const (
-	queueTypeFifo           = "fifo"
-	queueTypePriority       = "priority"
-	queueTypeSimplePriority = "simple-priority"
+	QueueTypeFifo           = "fifo"
+	QueueTypePriority       = "priority"
+	QueueTypeSimplePriority = "simple-priority"
 )
 
 // Validate validates router options.
 func (o *RouterOptions) Validate() error {
 	switch o.QueueType {
 	case "":
-		o.QueueType = queueTypeFifo
-	case queueTypeFifo, queueTypePriority, queueTypeSimplePriority:
+		o.QueueType = QueueTypeFifo
+	case QueueTypeFifo, QueueTypePriority, QueueTypeSimplePriority:
 		// pass
 	default:
 		return fmt.Errorf("queue type %q is not supported", o.QueueType)
@@ -233,10 +233,10 @@ func NewRouter(
 
 func (r *Router) createQueueFactory(ctx context.Context) (func(int) queue, error) {
 	switch r.options.QueueType {
-	case queueTypeFifo:
+	case QueueTypeFifo:
 		return newFIFOQueue, nil
 
-	case queueTypePriority:
+	case QueueTypePriority:
 		return func(size int) queue {
 			if size%2 != 0 {
 				size++
@@ -247,7 +247,7 @@ func (r *Router) createQueueFactory(ctx context.Context) (func(int) queue, error
 			return q
 		}, nil
 
-	case queueTypeSimplePriority:
+	case QueueTypeSimplePriority:
 		return func(size int) queue { return newSimplePriorityQueue(ctx, size, r.chDescs) }, nil
 
 	default:
