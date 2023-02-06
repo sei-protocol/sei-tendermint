@@ -2865,7 +2865,7 @@ func (cs *State) signAddVote(
 		vote.StripExtension()
 	}
 	cs.sendInternalMessage(ctx, msgInfo{&VoteMessage{vote}, "", tmtime.Now()})
-	cs.logger.Debug("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
+	cs.logger.Info("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
 	return vote
 }
 
