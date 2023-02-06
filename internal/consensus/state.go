@@ -959,7 +959,7 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 	for {
 		if maxSteps > 0 {
 			if cs.nSteps >= maxSteps {
-				cs.logger.Debug("reached max steps; exiting receive routine")
+				cs.logger.Info("reached max steps; exiting receive routine")
 				cs.nSteps = 0
 				return
 			}
@@ -1612,6 +1612,7 @@ func (cs *State) proposalIsTimely() bool {
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
 
+	logger.Info("[TMDEBUG] Entered defaultDoPrevote", "height", height, "round", round, "gossipTxKeyOnly config", cs.config.GossipTransactionKeyOnly, "proposal", cs.Proposal, "proposal block", cs.ProposalBlock)
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
 	if !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil {
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
@@ -1628,19 +1629,24 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		if cs.ProposalBlock == nil {
 			// If we're not the proposer, we need to build the block
 			txKeys := cs.Proposal.TxKeys
+			logger.Info("[TMDEBUG] defaultDoPrevote ProposalBlockPartsIsComplete", cs.ProposalBlockParts.IsComplete())
 			if cs.ProposalBlockParts.IsComplete() {
 				block, err := cs.getBlockFromBlockParts()
 				if err != nil {
 					cs.logger.Error("Encountered error building block from parts", "block parts", cs.ProposalBlockParts)
+					//cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 					return
 				}
 				// We have full proposal block and txs. Build proposal block with txKeys
 				proposalBlock := cs.buildProposalBlock(height, block.Header, block.LastCommit, block.Evidence, block.ProposerAddress, txKeys)
 				if proposalBlock == nil {
+					cs.logger.Error("[TMDEBUG] Proposal block parts is complete but proposal block is nil, returning")
+					//cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 					return
 				}
 				cs.ProposalBlock = proposalBlock
 			} else {
+				//cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 				return
 			}
 		}
@@ -1649,6 +1655,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 			block, err := cs.getBlockFromBlockParts()
 			if err != nil {
 				cs.logger.Error("Encountered error building block from parts", "block parts", cs.ProposalBlockParts)
+				//cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 				return
 			}
 			if block == nil {
