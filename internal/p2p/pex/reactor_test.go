@@ -451,6 +451,7 @@ func (r *reactorTestSuite) addNodes(ctx context.Context, t *testing.T, nodes int
 			r.logger.With("nodeID", nodeID),
 			r.network.Nodes[nodeID].PeerManager,
 			func(_ context.Context) *p2p.PeerUpdates { return r.peerUpdates[nodeID] },
+			make(chan struct{}),
 		)
 		r.nodes = append(r.nodes, nodeID)
 		r.total++
