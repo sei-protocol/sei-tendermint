@@ -1628,6 +1628,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 		if cs.ProposalBlock == nil {
 			// If we're not the proposer, we need to build the block
 			txKeys := cs.Proposal.TxKeys
+			logger.Info("[TMDEBUG] defaultDoPrevote ProposalBlockPartsIsComplete", "isComplete", cs.ProposalBlockParts.IsComplete())
 			if cs.ProposalBlockParts.IsComplete() {
 				block, err := cs.getBlockFromBlockParts()
 				if err != nil {
@@ -1641,6 +1642,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 				}
 				cs.ProposalBlock = proposalBlock
 			} else {
+				cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 				return
 			}
 		}
