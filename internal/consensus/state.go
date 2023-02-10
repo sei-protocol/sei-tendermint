@@ -2004,6 +2004,7 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 		cs.newStep()
 
 		// Maybe finalize immediately.
+		cs.logger.Info("[TMDEBUG] - calling tryFinalizeCommit from enterCommit", "height", height, "commitRound", commitRound)
 		cs.tryFinalizeCommit(spanCtx, height)
 	}()
 
@@ -2071,7 +2072,9 @@ func (cs *State) tryFinalizeCommit(ctx context.Context, height int64) {
 		return
 	}
 
+	cs.logger.Info("[TMDEBUG] - calling finalizeCommit", "height", height)
 	cs.finalizeCommit(ctx, height)
+	cs.logger.Info("[TMDEBUG] - finished calling finalizeCommit", "height", height)
 }
 
 // Increment height and goto cstypes.RoundStepNewHeight
@@ -2503,6 +2506,7 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 		}
 	} else if cs.Step == cstypes.RoundStepCommit {
 		// If we're waiting on the proposal block...
+		cs.logger.Info("[TMDEBUG] - calling tryFinalizeCommit from handleCompleteProposal", "height", height)
 		cs.tryFinalizeCommit(ctx, height)
 	}
 }
