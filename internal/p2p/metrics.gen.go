@@ -37,7 +37,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "peer_num_channels",
 			Help:      "Number of channels open for peer",
-		}, labels).With(labelsAndValues...),
+		}, append(labels, "peer_id")).With(labelsAndValues...),
 		PeerPendingSendBytes: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
