@@ -361,10 +361,6 @@ func (r *Router) routeChannel(
 					// check whether the peer is receiving on that channel
 					if _, ok := peerChs[chID]; ok {
 						queues = append(queues, q)
-						r.metrics.PeerSendBytesTotal.With(
-							"chID", fmt.Sprintf("%d", chID),
-							"peer_id", string(nodeID),
-							"message_type", "").Add(1)
 					}
 				}
 
@@ -943,6 +939,11 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 				r.logger.Error("failed to send message", "peer", peerID, "err", err)
 				return err
 			}
+
+			r.metrics.PeerSendBytesTotal.With(
+				"chID", fmt.Sprintf("%d", envelope.ChannelID),
+				"peer_id", string(peerID),
+				"message_type", "").Add(1)
 
 			r.logger.Debug("sent message", "peer", envelope.To, "message", envelope.Message)
 
