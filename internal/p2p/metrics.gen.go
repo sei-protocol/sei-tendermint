@@ -32,6 +32,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peer_send_bytes_total",
 			Help:      "Number of bytes per channel sent to a given peer.",
 		}, append(labels, "peer_id", "chID", "message_type")).With(labelsAndValues...),
+		PeerNumChannels: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "peer_num_channels",
+			Help:      "Number of channels open for peer",
+		}, labels).With(labelsAndValues...),
 		PeerPendingSendBytes: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -82,6 +88,7 @@ func NopMetrics() *Metrics {
 		Peers:                  discard.NewGauge(),
 		PeerReceiveBytesTotal:  discard.NewCounter(),
 		PeerSendBytesTotal:     discard.NewCounter(),
+		PeerNumChannels:        discard.NewGauge(),
 		PeerPendingSendBytes:   discard.NewGauge(),
 		RouterPeerQueueRecv:    discard.NewHistogram(),
 		RouterPeerQueueSend:    discard.NewHistogram(),

@@ -32,6 +32,8 @@ type Metrics struct {
 	PeerReceiveBytesTotal metrics.Counter `metrics_labels:"peer_id, chID, message_type"`
 	// Number of bytes per channel sent to a given peer.
 	PeerSendBytesTotal metrics.Counter `metrics_labels:"peer_id, chID, message_type"`
+	// Number of channels open for peer
+	PeerNumChannels metrics.Gauge
 	// Number of bytes pending being sent to a given peer.
 	PeerPendingSendBytes metrics.Gauge `metrics_labels:"peer_id"`
 

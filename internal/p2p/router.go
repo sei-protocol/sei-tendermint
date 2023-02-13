@@ -328,9 +328,11 @@ func (r *Router) routeChannel(
 		select {
 		case envelope, ok := <-outCh:
 			if !ok {
+				r.logger.Error("[TMDEBUG] receiving envelope failed, dropping message", "channel", chID)
 				return
 			}
 			if envelope.IsZero() {
+				r.logger.Error("[TMDEBUG] envelope is zero, dropping message", "channel", chID)
 				continue
 			}
 
@@ -361,6 +363,8 @@ func (r *Router) routeChannel(
 					// check whether the peer is receiving on that channel
 					if _, ok := peerChs[chID]; ok {
 						queues = append(queues, q)
+					} else {
+						r.logger.Error("[TMDEBUG] broadcast mode block dropping message because peer is not ok", "peer", envelope.To, "channel", chID)
 					}
 				}
 
@@ -373,13 +377,14 @@ func (r *Router) routeChannel(
 				if ok {
 					peerChs := r.peerChannels[envelope.To]
 
+					r.metrics.PeerNumChannels.With("peer_id", string(envelope.To)).Set(float64(len(peerChs)))
 					// check whether the peer is receiving on that channel
 					_, contains = peerChs[chID]
 				}
 				r.peerMtx.RUnlock()
 
 				if !ok {
-					r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chID)
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because we cannot find peer", "peer", envelope.To, "channel", chID)
 					continue
 				}
 
@@ -388,6 +393,7 @@ func (r *Router) routeChannel(
 					// peer doesn't have available. This is a known issue due to
 					// how peer subscriptions work:
 					// https://github.com/tendermint/tendermint/issues/6598
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because contains is false (peer is not receiving on channel)", "peer", envelope.To, "channel", chID)
 					continue
 				}
 
@@ -403,15 +409,17 @@ func (r *Router) routeChannel(
 					r.metrics.RouterPeerQueueSend.Observe(time.Since(start).Seconds())
 
 				case <-q.closed():
-					r.logger.Error("dropping message for unconnected peer", "peer", envelope.To, "channel", chID)
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because q is closed", "peer", envelope.To, "channel", chID)
 
 				case <-ctx.Done():
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because context is done", "peer", envelope.To, "channel", chID)
 					return
 				}
 			}
 
 		case peerError, ok := <-errCh:
 			if !ok {
+				r.logger.Error("[TMDEBUG] dropping message for unconnected peer because peer err", "channel", chID)
 				return
 			}
 
@@ -431,6 +439,7 @@ func (r *Router) routeChannel(
 			}
 
 		case <-ctx.Done():
+			r.logger.Error("[TMDEBUG] dropping message for unconnected peer because context is done 2", "channel", chID)
 			return
 		}
 	}
