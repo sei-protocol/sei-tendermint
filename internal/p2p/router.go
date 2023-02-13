@@ -363,7 +363,8 @@ func (r *Router) routeChannel(
 						queues = append(queues, q)
 						r.metrics.PeerSendBytesTotal.With(
 							"chID", fmt.Sprintf("%d", chID),
-							"peer_id", string(nodeID)).Add(1)
+							"peer_id", string(nodeID),
+							"message_type", "").Add(1)
 					}
 				}
 
