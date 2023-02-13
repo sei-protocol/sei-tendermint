@@ -361,6 +361,9 @@ func (r *Router) routeChannel(
 					// check whether the peer is receiving on that channel
 					if _, ok := peerChs[chID]; ok {
 						queues = append(queues, q)
+						r.metrics.PeerSendBytesTotal.With(
+							"chID", fmt.Sprintf("%d", chID),
+							"peer_id", string(nodeID)).Add(1)
 					}
 				}
 
@@ -403,7 +406,7 @@ func (r *Router) routeChannel(
 					r.metrics.RouterPeerQueueSend.Observe(time.Since(start).Seconds())
 
 				case <-q.closed():
-					r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chID)
+					r.logger.Error("dropping message for unconnected peer", "peer", envelope.To, "channel", chID)
 
 				case <-ctx.Done():
 					return

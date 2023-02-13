@@ -68,6 +68,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peer_queue_msg_size",
 			Help:      "The size of messages sent over a peer's queue for a specific p2p Channel.",
 		}, append(labels, "ch_id")).With(labelsAndValues...),
+		PeerChannelSend: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "peer_channel_send",
+			Help:      "",
+		}, labels).With(labelsAndValues...),
 	}
 }
 
@@ -82,5 +88,6 @@ func NopMetrics() *Metrics {
 		RouterChannelQueueSend: discard.NewHistogram(),
 		PeerQueueDroppedMsgs:   discard.NewCounter(),
 		PeerQueueMsgSize:       discard.NewGauge(),
+		PeerChannelSend:        discard.NewCounter(),
 	}
 }

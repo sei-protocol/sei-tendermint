@@ -59,6 +59,8 @@ type Metrics struct {
 	// queue for a specific flow (i.e. Channel).
 	//metrics:The size of messages sent over a peer's queue for a specific p2p Channel.
 	PeerQueueMsgSize metrics.Gauge `metrics_labels:"ch_id" metric_name:"router_channel_queue_msg_size"`
+
+	PeerChannelSend metrics.Counter
 }
 
 type metricsLabelCache struct {
