@@ -26,6 +26,7 @@ type Metrics struct {
 
 	GossipDataCount  metrics.Counter `metrics_labels:"peer_id, branch"`
 	GossipVotesCount metrics.Counter `metrics_labels:"peer_id, branch"`
+	GossipVotesCountDuration metrics.Gauge `metrics_labels:"peer_id"`
 
 	// Last height signed by this validator if the node is a validator.
 	ValidatorLastSignedHeight metrics.Gauge `metrics_labels:"validator_address"`

@@ -32,6 +32,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "gossip_votes_count",
 			Help:      "",
 		}, append(labels, "peer_id", "branch")).With(labelsAndValues...),
+		GossipVotesCountDuration: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "gossip_votes_count_duration",
+			Help:      "",
+		}, append(labels, "peer_id")).With(labelsAndValues...),
 		ValidatorLastSignedHeight: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -252,6 +258,7 @@ func NopMetrics() *Metrics {
 		Height:                        discard.NewGauge(),
 		GossipDataCount:               discard.NewCounter(),
 		GossipVotesCount:              discard.NewCounter(),
+		GossipVotesCountDuration:      discard.NewGauge(),
 		ValidatorLastSignedHeight:     discard.NewGauge(),
 		Rounds:                        discard.NewGauge(),
 		RoundDuration:                 discard.NewHistogram(),

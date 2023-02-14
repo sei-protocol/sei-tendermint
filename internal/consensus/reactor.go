@@ -773,7 +773,10 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 	}()
 
 	logCounter := 0
+	prevTime := time.Now()
 	for {
+		r.Metrics.GossipVotesCountDuration.With("peer_id", string(ps.peerID)).Set(time.Now().Sub(prevTime).Seconds())
+		prevTime = time.Now()
 		if !r.IsRunning() {
 			r.logger.Error("[TMDEBUG] gossipVotesRoutine reactor not running", "peer", ps.peerID)
 			return
@@ -824,15 +827,18 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 		blockStoreBase := r.state.blockStore.Base()
 		enteredCatchup := false
 		if blockStoreBase > 0 && prs.Height != 0 && rs.Height >= prs.Height+2 && prs.Height >= blockStoreBase {
+
 			enteredCatchup = true
 			// Load the block's extended commit for prs.Height, which contains precommit
 			// signatures for prs.Height.
+			loadBlockStoreStart := time.Now()
 			var ec *types.ExtendedCommit
 			if r.state.state.ConsensusParams.ABCI.VoteExtensionsEnabled(prs.Height) {
 				ec = r.state.blockStore.LoadBlockExtendedCommit(prs.Height)
 			} else {
 				ec = r.state.blockStore.LoadBlockCommit(prs.Height).WrappedExtendedCommit()
 			}
+			r.logger.Info("[TMDEBUG] finished loading block store for catchup", "durationMs", time.Now().Sub(loadBlockStoreStart).Milliseconds())
 			if ec == nil {
 				r.Metrics.GossipVotesCount.With(
 					"peer_id", string(ps.peerID),
