@@ -396,6 +396,7 @@ func (ps *PeerState) ApplyNewRoundStepMessage(msg *NewRoundStepMessage) {
 
 	// ignore duplicates or decreases
 	if CompareHRS(msg.Height, msg.Round, msg.Step, ps.PRS.Height, ps.PRS.Round, ps.PRS.Step) <= 0 {
+		ps.logger.Error(fmt.Sprintf("received duplicate new round step msg %d %d %d %d %d %d", msg.Height, msg.Round, msg.Step, ps.PRS.Height, ps.PRS.Round, ps.PRS.Step), "peer", ps.peerID)
 		return
 	}
 

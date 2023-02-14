@@ -772,6 +772,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			"branch", "6").Add(1)
 	}()
 
+	logCounter := 0
 	for {
 		if !r.IsRunning() {
 			r.logger.Error("[TMDEBUG] gossipVotesRoutine reactor not running", "peer", ps.peerID)
@@ -844,6 +845,11 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			}
 		}
 
+		if logCounter%100 == 0 {
+			// print every 10s
+			r.logger.Error(fmt.Sprintf("not gossiping votes %d %d %d", blockStoreBase, prs.Height, rs.Height))
+		}
+		logCounter++
 		r.Metrics.GossipVotesCount.With(
 			"peer_id", string(ps.peerID),
 			"branch", "5").Add(1)
