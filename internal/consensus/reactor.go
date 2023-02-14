@@ -510,6 +510,7 @@ func (r *Reactor) gossipDataRoutine(ctx context.Context, ps *PeerState, dataCh *
 OUTER_LOOP:
 	for {
 		if !r.IsRunning() {
+			r.logger.Error("[TMDEBUG] gossipDataRoutine reactor not running", "peer", ps.peerID)
 			return
 		}
 
@@ -517,6 +518,7 @@ OUTER_LOOP:
 
 		select {
 		case <-ctx.Done():
+			r.logger.Error("[TMDEBUG] gossipDataRoutine outer done", "peer", ps.peerID)
 			return
 		case <-timer.C:
 		}
@@ -530,7 +532,7 @@ OUTER_LOOP:
 				part := rs.ProposalBlockParts.GetPart(index)
 				partProto, err := part.ToProto()
 				if err != nil {
-					logger.Error("failed to convert block part to proto", "err", err)
+					r.logger.Error("[TMDEBUG] gossipDataRoutine failed to convert block part to proto", "peer", ps.peerID, "err", err)
 					return
 				}
 
@@ -543,6 +545,7 @@ OUTER_LOOP:
 						Part:   *partProto,
 					},
 				}); err != nil {
+					r.logger.Error("[TMDEBUG] gossipDataRoutine send part error", "peer", ps.peerID, "err", err)
 					return
 				}
 
@@ -602,6 +605,7 @@ OUTER_LOOP:
 						Proposal: *propProto,
 					},
 				}); err != nil {
+					r.logger.Error("[TMDEBUG] gossipDataRoutine send proposal error", "peer", ps.peerID, "err", err)
 					return
 				}
 
@@ -627,6 +631,7 @@ OUTER_LOOP:
 						ProposalPol:      *pPolProto,
 					},
 				}); err != nil {
+					r.logger.Error("[TMDEBUG] gossipDataRoutine send POL error", "peer", ps.peerID, "err", err)
 					return
 				}
 			}
@@ -744,11 +749,13 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 
 	for {
 		if !r.IsRunning() {
+			r.logger.Error("[TMDEBUG] gossipVotesRoutine reactor not running", "peer", ps.peerID)
 			return
 		}
 
 		select {
 		case <-ctx.Done():
+			r.logger.Error("[TMDEBUG] gossipVotesRoutine done", "peer", ps.peerID)
 			return
 		default:
 		}
@@ -759,6 +766,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 		// if height matches, then send LastCommit, Prevotes, and Precommits
 		if rs.Height == prs.Height {
 			if ok, err := r.gossipVotesForHeight(ctx, rs, prs, ps, voteCh); err != nil {
+				r.logger.Error("[TMDEBUG] gossipVotesRoutine height match error", "error", err, "peer", ps.peerID)
 				return
 			} else if ok {
 				continue
@@ -768,6 +776,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 		// special catchup logic -- if peer is lagging by height 1, send LastCommit
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
 			if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
+				r.logger.Error("[TMDEBUG] gossipVotesRoutine special catchup error", "error", err, "peer", ps.peerID)
 				return
 			} else if ok {
 				logger.Debug("picked rs.LastCommit to send", "height", prs.Height)
@@ -790,6 +799,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 				continue
 			}
 			if ok, err := r.pickSendVote(ctx, ps, ec, voteCh); err != nil {
+				r.logger.Error("[TMDEBUG] gossipVotesRoutine catchup error", "error", err, "peer", ps.peerID)
 				return
 			} else if ok {
 				logger.Debug("picked Catchup commit to send", "height", prs.Height)
@@ -800,6 +810,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 		timer.Reset(r.state.config.PeerGossipSleepDuration)
 		select {
 		case <-ctx.Done():
+			r.logger.Error("[TMDEBUG] gossipVotesRoutine done 2", "peer", ps.peerID)
 			return
 		case <-timer.C:
 		}
@@ -945,7 +956,7 @@ func (r *Reactor) queryMaj23Routine(ctx context.Context, ps *PeerState, stateCh 
 // the peer. During peer removal, we remove the peer for our set of peers and
 // signal to all spawned goroutines to gracefully exit in a non-blocking manner.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate, chans channelBundle) {
-	r.logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
+	r.logger.Info("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
 
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
@@ -976,12 +987,14 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			go func() {
 				select {
 				case <-ctx.Done():
+					r.logger.Error("[TMDEBUG] canceled", "peer", peerUpdate.NodeID)
 					return
 				case <-r.readySignal:
 				}
 				// do nothing if the peer has
 				// stopped while we've been waiting.
 				if !ps.IsRunning() {
+					r.logger.Error("[TMDEBUG] not running", "peer", peerUpdate.NodeID)
 					return
 				}
 				// start goroutines for this peer
