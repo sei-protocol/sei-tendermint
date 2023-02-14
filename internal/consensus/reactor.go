@@ -996,6 +996,8 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 				}
 
 			}()
+		} else {
+			r.logger.Error("[TMDEBUG] peer status up received while PeerState is running")
 		}
 
 	case p2p.PeerStatusDown:

@@ -761,7 +761,9 @@ func (r *Router) handshakePeer(
 	}
 
 	nodeInfo := r.nodeInfoProducer()
+	r.logger.Info(fmt.Sprintf("[TMDEBUG] handshaking %s with channels %s", expectID, nodeInfo.Channels))
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
+	r.logger.Info(fmt.Sprintf("[TMDEBUG] handshaked %s with channels %s", peerInfo.NodeID, peerInfo.Channels))
 	if err != nil {
 		return peerInfo, err
 	}
