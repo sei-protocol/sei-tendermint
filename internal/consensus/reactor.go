@@ -506,6 +506,11 @@ func (r *Reactor) gossipDataRoutine(ctx context.Context, ps *PeerState, dataCh *
 
 	timer := time.NewTimer(0)
 	defer timer.Stop()
+	defer func() {
+		r.Metrics.GossipDataCount.With(
+			"peer_id", string(ps.peerID),
+			"branch", "6").Add(1)
+	}()
 
 OUTER_LOOP:
 	for {
@@ -550,6 +555,9 @@ OUTER_LOOP:
 				}
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
+				r.Metrics.GossipDataCount.With(
+					"peer_id", string(ps.peerID),
+					"branch", "1").Add(1)
 				continue OUTER_LOOP
 			}
 		}
@@ -575,15 +583,24 @@ OUTER_LOOP:
 
 				// Continue the loop since prs is a copy and not effected by this
 				// initialization.
+				r.Metrics.GossipDataCount.With(
+					"peer_id", string(ps.peerID),
+					"branch", "2").Add(1)
 				continue OUTER_LOOP
 			}
 
 			r.gossipDataForCatchup(ctx, rs, prs, ps, dataCh)
+			r.Metrics.GossipDataCount.With(
+				"peer_id", string(ps.peerID),
+				"branch", "3").Add(1)
 			continue OUTER_LOOP
 		}
 
 		// if height and round don't match, sleep
 		if (rs.Height != prs.Height) || (rs.Round != prs.Round) {
+			r.Metrics.GossipDataCount.With(
+				"peer_id", string(ps.peerID),
+				"branch", "4").Add(1)
 			continue OUTER_LOOP
 		}
 
@@ -636,6 +653,9 @@ OUTER_LOOP:
 				}
 			}
 		}
+		r.Metrics.GossipDataCount.With(
+			"peer_id", string(ps.peerID),
+			"branch", "5").Add(1)
 	}
 }
 
@@ -746,6 +766,11 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 
 	timer := time.NewTimer(0)
 	defer timer.Stop()
+	defer func() {
+		r.Metrics.GossipVotesCount.With(
+			"peer_id", string(ps.peerID),
+			"branch", "6").Add(1)
+	}()
 
 	for {
 		if !r.IsRunning() {
@@ -769,6 +794,9 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 				r.logger.Error("[TMDEBUG] gossipVotesRoutine height match error", "error", err, "peer", ps.peerID)
 				return
 			} else if ok {
+				r.Metrics.GossipVotesCount.With(
+					"peer_id", string(ps.peerID),
+					"branch", "1").Add(1)
 				continue
 			}
 		}
@@ -780,6 +808,9 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 				return
 			} else if ok {
 				logger.Debug("picked rs.LastCommit to send", "height", prs.Height)
+				r.Metrics.GossipVotesCount.With(
+					"peer_id", string(ps.peerID),
+					"branch", "2").Add(1)
 				continue
 			}
 		}
@@ -796,6 +827,9 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 				ec = r.state.blockStore.LoadBlockCommit(prs.Height).WrappedExtendedCommit()
 			}
 			if ec == nil {
+				r.Metrics.GossipVotesCount.With(
+					"peer_id", string(ps.peerID),
+					"branch", "3").Add(1)
 				continue
 			}
 			if ok, err := r.pickSendVote(ctx, ps, ec, voteCh); err != nil {
@@ -803,10 +837,16 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 				return
 			} else if ok {
 				logger.Debug("picked Catchup commit to send", "height", prs.Height)
+				r.Metrics.GossipVotesCount.With(
+					"peer_id", string(ps.peerID),
+					"branch", "4").Add(1)
 				continue
 			}
 		}
 
+		r.Metrics.GossipVotesCount.With(
+			"peer_id", string(ps.peerID),
+			"branch", "5").Add(1)
 		timer.Reset(r.state.config.PeerGossipSleepDuration)
 		select {
 		case <-ctx.Done():
