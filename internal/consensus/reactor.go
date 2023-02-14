@@ -789,8 +789,10 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 
+		enteredB1 := false
 		// if height matches, then send LastCommit, Prevotes, and Precommits
 		if rs.Height == prs.Height {
+			enteredB1 = true
 			if ok, err := r.gossipVotesForHeight(ctx, rs, prs, ps, voteCh); err != nil {
 				r.logger.Error("[TMDEBUG] gossipVotesRoutine height match error", "error", err, "peer", ps.peerID)
 				return
@@ -802,8 +804,10 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			}
 		}
 
+		enteredB2 := false
 		// special catchup logic -- if peer is lagging by height 1, send LastCommit
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
+			enteredB2 = true
 			if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
 				r.logger.Error("[TMDEBUG] gossipVotesRoutine special catchup error", "error", err, "peer", ps.peerID)
 				return
@@ -818,7 +822,9 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 
 		// catchup logic -- if peer is lagging by more than 1, send Commit
 		blockStoreBase := r.state.blockStore.Base()
+		enteredCatchup := false
 		if blockStoreBase > 0 && prs.Height != 0 && rs.Height >= prs.Height+2 && prs.Height >= blockStoreBase {
+			enteredCatchup = true
 			// Load the block's extended commit for prs.Height, which contains precommit
 			// signatures for prs.Height.
 			var ec *types.ExtendedCommit
@@ -847,7 +853,8 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 
 		if logCounter%100 == 0 {
 			// print every 10s
-			r.logger.Error(fmt.Sprintf("not gossiping votes %d %d %d", blockStoreBase, prs.Height, rs.Height))
+			r.logger.Error(fmt.Sprintf("not gossiping votes %d %d %d %t %t %t", blockStoreBase, prs.Height, rs.Height, enteredB1, enteredB2, enteredCatchup))
+			r.logger.Error(ps.PRS.String())
 		}
 		logCounter++
 		r.Metrics.GossipVotesCount.With(
