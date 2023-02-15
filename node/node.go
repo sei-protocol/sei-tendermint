@@ -324,7 +324,7 @@ func makeNode(
 	node.rpcEnv.ConsensusState = csState
 
 	csReactor := consensus.NewReactor(
-		logger,
+		logger.With("module", "csreactor"),
 		csState,
 		peerManager.Subscribe,
 		eventBus,

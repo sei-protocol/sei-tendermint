@@ -24,6 +24,7 @@ func init() {
 			conn.DefaultMConnConfig(),
 			[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
 			p2p.MConnTransportOptions{},
+			nil,
 		)
 		err := transport.Listen(&p2p.Endpoint{
 			Protocol: p2p.MConnProtocol,
@@ -46,6 +47,7 @@ func TestMConnTransport_AcceptBeforeListen(t *testing.T) {
 		p2p.MConnTransportOptions{
 			MaxAcceptedConnections: 2,
 		},
+		nil,
 	)
 	t.Cleanup(func() {
 		_ = transport.Close()
@@ -69,6 +71,7 @@ func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 		p2p.MConnTransportOptions{
 			MaxAcceptedConnections: 2,
 		},
+		nil,
 	)
 	t.Cleanup(func() {
 		_ = transport.Close()
@@ -158,6 +161,7 @@ func TestMConnTransport_Listen(t *testing.T) {
 				conn.DefaultMConnConfig(),
 				[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
 				p2p.MConnTransportOptions{},
+				nil,
 			)
 
 			// Transport should not listen on any endpoints yet.

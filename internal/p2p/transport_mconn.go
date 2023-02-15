@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"golang.org/x/net/netutil"
 
@@ -51,6 +52,8 @@ type MConnTransport struct {
 
 	lastConnsMutex *sync.Mutex
 	lastConns      map[string]net.Conn
+
+	Met *Metrics
 }
 
 // NewMConnTransport sets up a new MConnection transport. This uses the
@@ -61,6 +64,7 @@ func NewMConnTransport(
 	mConnConfig conn.MConnConfig,
 	channelDescs []*ChannelDescriptor,
 	options MConnTransportOptions,
+	met *Metrics,
 ) *MConnTransport {
 	return &MConnTransport{
 		logger:         logger,
@@ -70,6 +74,7 @@ func NewMConnTransport(
 		channelDescs:   channelDescs,
 		lastConns:      make(map[string]net.Conn),
 		lastConnsMutex: &sync.Mutex{},
+		Met:            met,
 	}
 }
 
@@ -178,7 +183,7 @@ func (m *MConnTransport) Accept(ctx context.Context) (Connection, error) {
 		} else {
 			m.logger.Error("accepting a connection whose remote address is not TCPAddr")
 		}
-		return newMConnConnection(m.logger, tcpConn, m.mConnConfig, m.channelDescs), nil
+		return newMConnConnection(m.logger, tcpConn, m.mConnConfig, m.channelDescs, m.Met), nil
 	}
 
 }
@@ -217,7 +222,7 @@ func (m *MConnTransport) Dial(ctx context.Context, endpoint *Endpoint) (Connecti
 		}
 	}
 
-	return newMConnConnection(m.logger, tcpConn, m.mConnConfig, m.channelDescs), nil
+	return newMConnConnection(m.logger, tcpConn, m.mConnConfig, m.channelDescs, m.Met), nil
 }
 
 // Close implements Transport.
@@ -274,6 +279,7 @@ type mConnConnection struct {
 	errorCh      chan error
 	doneCh       chan struct{}
 	closeOnce    sync.Once
+	Met          *Metrics
 
 	mconn *conn.MConnection // set during Handshake()
 }
@@ -290,6 +296,7 @@ func newMConnConnection(
 	conn net.Conn,
 	mConnConfig conn.MConnConfig,
 	channelDescs []*ChannelDescriptor,
+	met *Metrics,
 ) *mConnConnection {
 	return &mConnConnection{
 		logger:       logger,
@@ -299,6 +306,7 @@ func newMConnConnection(
 		receiveCh:    make(chan mConnMessage),
 		errorCh:      make(chan error, 1), // buffered to avoid onError leak
 		doneCh:       make(chan struct{}),
+		Met:          met,
 	}
 }
 
@@ -414,6 +422,9 @@ func (c *mConnConnection) handshake(
 		c.onReceive,
 		c.onError,
 		c.mConnConfig,
+		func(t time.Time, s string) {
+			c.Met.LastWrittenAt.With("ch_id", s).Set(float64(t.UnixMilli()))
+		},
 	)
 
 	return mconn, peerInfo, secretConn.RemotePubKey(), nil

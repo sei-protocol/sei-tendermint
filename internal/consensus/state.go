@@ -49,6 +49,7 @@ var (
 )
 
 var msgQueueSize = 1000
+var heartbeatIntervalInSecs = 10
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -490,6 +491,7 @@ func (cs *State) OnStart(ctx context.Context) error {
 
 	// now start the receiveRoutine
 	go cs.receiveRoutine(ctx, 0)
+	go cs.heartbeater(ctx)
 
 	// schedule the first round!
 	// use GetRoundState so we don't race the receiveRoutine for access
@@ -892,6 +894,23 @@ func (cs *State) newStep() {
 
 		cs.evsw.FireEvent(types.EventNewRoundStepValue, &cs.RoundState)
 	}
+}
+
+func (cs *State) heartbeater(ctx context.Context) {
+	for {
+		select {
+		case <-time.After(time.Duration(heartbeatIntervalInSecs) * time.Second):
+			cs.fireHeartbeatEvent()
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func (cs *State) fireHeartbeatEvent() {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+	cs.evsw.FireEvent(types.EventNewRoundStepValue, &cs.RoundState)
 }
 
 //-----------------------------------------
@@ -1595,7 +1614,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		cs.newStep()
 	}()
 
-	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("entering prevote step", "entry", entryLabel, "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -1837,7 +1856,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 
-	logger.Info("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("entering precommit step", "entry", entryLabel, "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
 		// Done enterPrecommit:

@@ -324,13 +324,18 @@ func (r *Router) routeChannel(
 	errCh <-chan PeerError,
 	wrapper Wrapper,
 ) {
+	defer func() {
+		r.logger.Error("[TMDEBUG] exited", "channel", chID)
+	}()
 	for {
 		select {
 		case envelope, ok := <-outCh:
 			if !ok {
+				r.logger.Error("[TMDEBUG] receiving envelope failed, dropping message", "channel", chID)
 				return
 			}
 			if envelope.IsZero() {
+				r.logger.Error("[TMDEBUG] envelope is zero, dropping message", "channel", chID)
 				continue
 			}
 
@@ -351,16 +356,21 @@ func (r *Router) routeChannel(
 
 			// collect peer queues to pass the message via
 			var queues []queue
+			var peerIDs []types.NodeID
 			if envelope.Broadcast {
 				r.peerMtx.RLock()
 
 				queues = make([]queue, 0, len(r.peerQueues))
+				peerIDs = make([]types.NodeID, 0, len(r.peerQueues))
 				for nodeID, q := range r.peerQueues {
 					peerChs := r.peerChannels[nodeID]
 
 					// check whether the peer is receiving on that channel
 					if _, ok := peerChs[chID]; ok {
 						queues = append(queues, q)
+						peerIDs = append(peerIDs, nodeID)
+					} else {
+						r.logger.Error("[TMDEBUG] broadcast mode block dropping message because peer is not ok", "peer", envelope.To, "channel", chID)
 					}
 				}
 
@@ -373,13 +383,14 @@ func (r *Router) routeChannel(
 				if ok {
 					peerChs := r.peerChannels[envelope.To]
 
+					r.metrics.PeerNumChannels.With("peer_id", string(envelope.To)).Set(float64(len(peerChs)))
 					// check whether the peer is receiving on that channel
 					_, contains = peerChs[chID]
 				}
 				r.peerMtx.RUnlock()
 
 				if !ok {
-					r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chID)
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because we cannot find peer", "peer", envelope.To, "channel", chID)
 					continue
 				}
 
@@ -388,30 +399,35 @@ func (r *Router) routeChannel(
 					// peer doesn't have available. This is a known issue due to
 					// how peer subscriptions work:
 					// https://github.com/tendermint/tendermint/issues/6598
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because contains is false (peer is not receiving on channel)", "peer", envelope.To, "channel", chID)
 					continue
 				}
 
 				queues = []queue{q}
+				peerIDs = []types.NodeID{envelope.To}
 			}
 
 			// send message to peers
-			for _, q := range queues {
+			for idx, q := range queues {
 				start := time.Now().UTC()
 
 				select {
 				case q.enqueue() <- envelope:
+					r.metrics.LastEnqueuedAt.With("peer_id", string(peerIDs[idx]), "ch_id", fmt.Sprintf("%d", chID)).Set(float64(time.Now().UnixMilli()))
 					r.metrics.RouterPeerQueueSend.Observe(time.Since(start).Seconds())
 
 				case <-q.closed():
-					r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chID)
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because q is closed", "peer", envelope.To, "channel", chID)
 
 				case <-ctx.Done():
+					r.logger.Error("[TMDEBUG] dropping message for unconnected peer because context is done", "peer", envelope.To, "channel", chID)
 					return
 				}
 			}
 
 		case peerError, ok := <-errCh:
 			if !ok {
+				r.logger.Error("[TMDEBUG] dropping message for unconnected peer because peer err", "channel", chID)
 				return
 			}
 
@@ -431,6 +447,7 @@ func (r *Router) routeChannel(
 			}
 
 		case <-ctx.Done():
+			r.logger.Error("[TMDEBUG] dropping message for unconnected peer because context is done 2", "channel", chID)
 			return
 		}
 	}
@@ -752,7 +769,9 @@ func (r *Router) handshakePeer(
 	}
 
 	nodeInfo := r.nodeInfoProducer()
+	r.logger.Info(fmt.Sprintf("[TMDEBUG] handshaking %s with channels %s", expectID, nodeInfo.Channels))
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
+	r.logger.Info(fmt.Sprintf("[TMDEBUG] handshaked %s with channels %s", peerInfo.NodeID, peerInfo.Channels))
 	if err != nil {
 		return peerInfo, err
 	}
@@ -939,6 +958,13 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 				r.logger.Error("failed to send message", "peer", peerID, "err", err)
 				return err
 			}
+
+			r.metrics.LastSentAt.With("peer_id", string(peerID), "ch_id", fmt.Sprintf("%d", envelope.ChannelID)).Set(float64(time.Now().UnixMilli()))
+
+			r.metrics.PeerSendBytesTotal.With(
+				"chID", fmt.Sprintf("%d", envelope.ChannelID),
+				"peer_id", string(peerID),
+				"message_type", "").Add(1)
 
 			r.logger.Debug("sent message", "peer", envelope.To, "message", envelope.Message)
 

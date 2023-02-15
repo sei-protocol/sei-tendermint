@@ -32,6 +32,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peer_send_bytes_total",
 			Help:      "Number of bytes per channel sent to a given peer.",
 		}, append(labels, "peer_id", "chID", "message_type")).With(labelsAndValues...),
+		PeerNumChannels: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "peer_num_channels",
+			Help:      "Number of channels open for peer",
+		}, append(labels, "peer_id")).With(labelsAndValues...),
 		PeerPendingSendBytes: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -68,6 +74,30 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peer_queue_msg_size",
 			Help:      "The size of messages sent over a peer's queue for a specific p2p Channel.",
 		}, append(labels, "ch_id")).With(labelsAndValues...),
+		PeerChannelSend: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "peer_channel_send",
+			Help:      "",
+		}, labels).With(labelsAndValues...),
+		LastEnqueuedAt: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_enqueued_at",
+			Help:      "",
+		}, append(labels, "ch_id", "peer_id")).With(labelsAndValues...),
+		LastSentAt: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_sent_at",
+			Help:      "",
+		}, append(labels, "ch_id", "peer_id")).With(labelsAndValues...),
+		LastWrittenAt: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_written_at",
+			Help:      "",
+		}, append(labels, "ch_id")).With(labelsAndValues...),
 	}
 }
 
@@ -76,11 +106,16 @@ func NopMetrics() *Metrics {
 		Peers:                  discard.NewGauge(),
 		PeerReceiveBytesTotal:  discard.NewCounter(),
 		PeerSendBytesTotal:     discard.NewCounter(),
+		PeerNumChannels:        discard.NewGauge(),
 		PeerPendingSendBytes:   discard.NewGauge(),
 		RouterPeerQueueRecv:    discard.NewHistogram(),
 		RouterPeerQueueSend:    discard.NewHistogram(),
 		RouterChannelQueueSend: discard.NewHistogram(),
 		PeerQueueDroppedMsgs:   discard.NewCounter(),
 		PeerQueueMsgSize:       discard.NewGauge(),
+		PeerChannelSend:        discard.NewCounter(),
+		LastEnqueuedAt:         discard.NewGauge(),
+		LastSentAt:             discard.NewGauge(),
+		LastWrittenAt:          discard.NewGauge(),
 	}
 }

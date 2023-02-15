@@ -32,6 +32,8 @@ type Metrics struct {
 	PeerReceiveBytesTotal metrics.Counter `metrics_labels:"peer_id, chID, message_type"`
 	// Number of bytes per channel sent to a given peer.
 	PeerSendBytesTotal metrics.Counter `metrics_labels:"peer_id, chID, message_type"`
+	// Number of channels open for peer
+	PeerNumChannels metrics.Gauge `metrics_labels:"peer_id"`
 	// Number of bytes pending being sent to a given peer.
 	PeerPendingSendBytes metrics.Gauge `metrics_labels:"peer_id"`
 
@@ -59,6 +61,12 @@ type Metrics struct {
 	// queue for a specific flow (i.e. Channel).
 	//metrics:The size of messages sent over a peer's queue for a specific p2p Channel.
 	PeerQueueMsgSize metrics.Gauge `metrics_labels:"ch_id" metric_name:"router_channel_queue_msg_size"`
+
+	PeerChannelSend metrics.Counter
+
+	LastEnqueuedAt metrics.Gauge `metrics_labels:"ch_id, peer_id"`
+	LastSentAt     metrics.Gauge `metrics_labels:"ch_id, peer_id"`
+	LastWrittenAt  metrics.Gauge `metrics_labels:"ch_id"`
 }
 
 type metricsLabelCache struct {
