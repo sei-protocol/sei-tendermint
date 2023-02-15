@@ -851,10 +851,10 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			}
 		}
 
-		if logCounter%100 == 0 {
+		if logCounter%300 == 0 {
 			// print every 10s
-			r.logger.Error(fmt.Sprintf("not gossiping votes %d %d %d %t %t %t", blockStoreBase, prs.Height, rs.Height, enteredB1, enteredB2, enteredCatchup))
-			r.logger.Error(ps.PRS.String())
+			r.logger.Error(fmt.Sprintf("not gossiping votes %d %d %d %t %t %t", blockStoreBase, prs.Height, rs.Height, enteredB1, enteredB2, enteredCatchup), "peer", ps.peerID)
+			r.logger.Error(ps.PRS.String(), "peer", ps.peerID)
 		}
 		logCounter++
 		r.Metrics.GossipVotesCount.With(
