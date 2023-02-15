@@ -413,7 +413,7 @@ func (r *Router) routeChannel(
 
 				select {
 				case q.enqueue() <- envelope:
-					r.metrics.LastEnqueuedAt.With("peer_id", string(peerIDs[idx]), "chId", fmt.Sprintf("%d", chID)).Set(float64(time.Now().UnixMilli()))
+					r.metrics.LastEnqueuedAt.With("peer_id", string(peerIDs[idx]), "ch_id", fmt.Sprintf("%d", chID)).Set(float64(time.Now().UnixMilli()))
 					r.metrics.RouterPeerQueueSend.Observe(time.Since(start).Seconds())
 
 				case <-q.closed():
@@ -959,7 +959,7 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 				return err
 			}
 
-			r.metrics.LastSentAt.With("peer_id", string(peerID), "chId", fmt.Sprintf("%d", envelope.ChannelID)).Set(float64(time.Now().UnixMilli()))
+			r.metrics.LastSentAt.With("peer_id", string(peerID), "ch_id", fmt.Sprintf("%d", envelope.ChannelID)).Set(float64(time.Now().UnixMilli()))
 
 			r.metrics.PeerSendBytesTotal.With(
 				"chID", fmt.Sprintf("%d", envelope.ChannelID),

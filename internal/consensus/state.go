@@ -1595,7 +1595,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		cs.newStep()
 	}()
 
-	logger.Info("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("entering prevote step", "entry", entryLabel, "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -1837,7 +1837,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 
-	logger.Info("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
+	logger.Info("entering precommit step", "entry", entryLabel, "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
 		// Done enterPrecommit:
