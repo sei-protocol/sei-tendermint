@@ -80,6 +80,18 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peer_channel_send",
 			Help:      "",
 		}, labels).With(labelsAndValues...),
+		LastEnqueuedAt: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_enqueued_at",
+			Help:      "",
+		}, append(labels, "ch_id", "peer_id")).With(labelsAndValues...),
+		LastSentAt: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_sent_at",
+			Help:      "",
+		}, append(labels, "ch_id", "peer_id")).With(labelsAndValues...),
 	}
 }
 
@@ -96,5 +108,7 @@ func NopMetrics() *Metrics {
 		PeerQueueDroppedMsgs:   discard.NewCounter(),
 		PeerQueueMsgSize:       discard.NewGauge(),
 		PeerChannelSend:        discard.NewCounter(),
+		LastEnqueuedAt:         discard.NewGauge(),
+		LastSentAt:             discard.NewGauge(),
 	}
 }

@@ -324,6 +324,9 @@ func (r *Router) routeChannel(
 	errCh <-chan PeerError,
 	wrapper Wrapper,
 ) {
+	defer func() {
+		r.logger.Error("[TMDEBUG] exited", "channel", chID)
+	}()
 	for {
 		select {
 		case envelope, ok := <-outCh:
@@ -353,16 +356,19 @@ func (r *Router) routeChannel(
 
 			// collect peer queues to pass the message via
 			var queues []queue
+			var peerIDs []types.NodeID
 			if envelope.Broadcast {
 				r.peerMtx.RLock()
 
 				queues = make([]queue, 0, len(r.peerQueues))
+				peerIDs = make([]types.NodeID, 0, len(r.peerQueues))
 				for nodeID, q := range r.peerQueues {
 					peerChs := r.peerChannels[nodeID]
 
 					// check whether the peer is receiving on that channel
 					if _, ok := peerChs[chID]; ok {
 						queues = append(queues, q)
+						peerIDs = append(peerIDs, nodeID)
 					} else {
 						r.logger.Error("[TMDEBUG] broadcast mode block dropping message because peer is not ok", "peer", envelope.To, "channel", chID)
 					}
@@ -398,14 +404,16 @@ func (r *Router) routeChannel(
 				}
 
 				queues = []queue{q}
+				peerIDs = []types.NodeID{envelope.To}
 			}
 
 			// send message to peers
-			for _, q := range queues {
+			for idx, q := range queues {
 				start := time.Now().UTC()
 
 				select {
 				case q.enqueue() <- envelope:
+					r.metrics.LastEnqueuedAt.With("peer_id", string(peerIDs[idx]), "chId", fmt.Sprintf("%d", chID)).Set(float64(time.Now().UnixMilli()))
 					r.metrics.RouterPeerQueueSend.Observe(time.Since(start).Seconds())
 
 				case <-q.closed():
@@ -950,6 +958,8 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 				r.logger.Error("failed to send message", "peer", peerID, "err", err)
 				return err
 			}
+
+			r.metrics.LastSentAt.With("peer_id", string(peerID), "chId", fmt.Sprintf("%d", envelope.ChannelID)).Set(float64(time.Now().UnixMilli()))
 
 			r.metrics.PeerSendBytesTotal.With(
 				"chID", fmt.Sprintf("%d", envelope.ChannelID),

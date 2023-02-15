@@ -315,10 +315,12 @@ func (r *Reactor) GetPeerState(peerID types.NodeID) (*PeerState, bool) {
 }
 
 func (r *Reactor) broadcastNewRoundStepMessage(ctx context.Context, rs *cstypes.RoundState, stateCh *p2p.Channel) error {
-	return stateCh.Send(ctx, p2p.Envelope{
+	err := stateCh.Send(ctx, p2p.Envelope{
 		Broadcast: true,
 		Message:   makeRoundStepMessage(rs),
 	})
+	r.logger.Info(fmt.Sprintf("broadcasting %d-%d-%d: %s", rs.Height, rs.Round, rs.Step, err))
+	return err
 }
 
 func (r *Reactor) broadcastNewValidBlockMessage(ctx context.Context, rs *cstypes.RoundState, stateCh *p2p.Channel) error {

@@ -63,6 +63,9 @@ type Metrics struct {
 	PeerQueueMsgSize metrics.Gauge `metrics_labels:"ch_id" metric_name:"router_channel_queue_msg_size"`
 
 	PeerChannelSend metrics.Counter
+
+	LastEnqueuedAt metrics.Gauge `metrics_labels:"ch_id, peer_id"`
+	LastSentAt     metrics.Gauge `metrics_labels:"ch_id, peer_id"`
 }
 
 type metricsLabelCache struct {
