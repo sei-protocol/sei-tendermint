@@ -92,6 +92,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "last_sent_at",
 			Help:      "",
 		}, append(labels, "ch_id", "peer_id")).With(labelsAndValues...),
+		LastWrittenAt: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "last_written_at",
+			Help:      "",
+		}, append(labels, "ch_id")).With(labelsAndValues...),
 	}
 }
 
@@ -110,5 +116,6 @@ func NopMetrics() *Metrics {
 		PeerChannelSend:        discard.NewCounter(),
 		LastEnqueuedAt:         discard.NewGauge(),
 		LastSentAt:             discard.NewGauge(),
+		LastWrittenAt:          discard.NewGauge(),
 	}
 }

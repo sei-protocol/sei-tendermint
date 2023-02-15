@@ -119,6 +119,8 @@ type MConnection struct {
 	created time.Time // time of creation
 
 	_maxPacketMsgSize int
+
+	setMet func(time.Time, string)
 }
 
 // MConnConfig is a MConnection configuration.
@@ -163,6 +165,7 @@ func NewMConnection(
 	onReceive receiveCbFunc,
 	onError errorCbFunc,
 	config MConnConfig,
+	setMet func(time.Time, string),
 ) *MConnection {
 	mconn := &MConnection{
 		logger:        logger,
@@ -178,6 +181,7 @@ func NewMConnection(
 		config:        config,
 		created:       time.Now(),
 		cancel:        func() {},
+		setMet:        setMet,
 	}
 
 	mconn.BaseService = *service.NewBaseService(logger, "MConnection", mconn)
@@ -720,6 +724,9 @@ func (ch *channel) nextPacketMsg() tmp2p.PacketMsg {
 func (ch *channel) writePacketMsgTo(w io.Writer) (n int, err error) {
 	packet := ch.nextPacketMsg()
 	n, err = protoio.NewDelimitedWriter(w).WriteMsg(mustWrapPacket(&packet))
+	if err == nil {
+		ch.conn.setMet(time.Now(), fmt.Sprintf("%d", ch.desc.ID))
+	}
 	atomic.AddInt64(&ch.recentlySent, int64(n))
 	return
 }

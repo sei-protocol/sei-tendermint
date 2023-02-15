@@ -299,6 +299,7 @@ func createRouter(
 		p2p.MConnTransportOptions{
 			MaxAcceptedConnections: uint32(cfg.P2P.MaxConnections),
 		},
+		p2pMetrics,
 	)
 
 	ep, err := p2p.NewEndpoint(nodeKey.ID.AddressString(cfg.P2P.ListenAddress))

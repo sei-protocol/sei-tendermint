@@ -66,6 +66,7 @@ type Metrics struct {
 
 	LastEnqueuedAt metrics.Gauge `metrics_labels:"ch_id, peer_id"`
 	LastSentAt     metrics.Gauge `metrics_labels:"ch_id, peer_id"`
+	LastWrittenAt  metrics.Gauge `metrics_labels:"ch_id"`
 }
 
 type metricsLabelCache struct {
