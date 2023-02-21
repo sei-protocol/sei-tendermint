@@ -308,6 +308,7 @@ func (c *mConnConnection) Handshake(
 	nodeInfo types.NodeInfo,
 	privKey crypto.PrivKey,
 ) (types.NodeInfo, crypto.PubKey, error) {
+	fmt.Printf("[TMDEBUG] mConnConnection handshake enter: nodeInfo %s, privKey %s\n", nodeInfo, privKey)
 	var (
 		mconn    *conn.MConnection
 		peerInfo types.NodeInfo
@@ -326,6 +327,7 @@ func (c *mConnConnection) Handshake(
 			}
 		}()
 		var err error
+		fmt.Printf("[TMDEBUG] mConnConnection handshaking: nodeInfo %s, privKey %s\n", nodeInfo, privKey)
 		mconn, peerInfo, peerKey, err = c.handshake(ctx, nodeInfo, privKey)
 
 		select {
@@ -363,7 +365,7 @@ func (c *mConnConnection) handshake(
 	if c.mconn != nil {
 		return nil, types.NodeInfo{}, nil, errors.New("connection is already handshaked")
 	}
-
+	fmt.Printf("[TMDEBUG] transport mconn handshake enter make secret conn: nodeInfo %s, privKey %s\n", nodeInfo, privKey)
 	secretConn, err := conn.MakeSecretConnection(c.conn, privKey)
 	if err != nil {
 		return nil, types.NodeInfo{}, nil, err
@@ -375,7 +377,9 @@ func (c *mConnConnection) handshake(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("[TMDEBUG] handshake write message start\n")
 		_, err := protoio.NewDelimitedWriter(secretConn).WriteMsg(nodeInfo.ToProto())
+		fmt.Println("[TMDEBUG] handshake write message finished\n")
 		select {
 		case errCh <- err:
 		case <-ctx.Done():
@@ -385,13 +389,15 @@ func (c *mConnConnection) handshake(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("[TMDEBUG] handshake read message start\n")
 		_, err := protoio.NewDelimitedReader(secretConn, types.MaxNodeInfoSize()).ReadMsg(&pbPeerInfo)
+		fmt.Println("[TMDEBUG] handshake read message finished\n")
 		select {
 		case errCh <- err:
 		case <-ctx.Done():
 		}
 	}()
-
+	fmt.Println("[TMDEBUG] handshake waiting for wg")
 	wg.Wait()
 
 	if err, ok := <-errCh; ok && err != nil {

@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"net"
+	"reflect"
 	"sync"
 	"time"
 
@@ -93,6 +94,7 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	var (
 		locPubKey = locPrivKey.PubKey()
 	)
+	fmt.Println("[TMDEBUG] Secret conn - gen ephemeral keys\n")
 
 	// Generate ephemeral keys for perfect forward secrecy.
 	locEphPub, locEphPriv := genEphKeys()
@@ -100,11 +102,13 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	// Write local ephemeral pubkey and receive one too.
 	// NOTE: every 32-byte string is accepted as a Curve25519 public key (see
 	// DJB's Curve25519 paper: http://cr.yp.to/ecdh/curve25519-20060209.pdf)
+	fmt.Println("[TMDEBUG] Secret conn - share ephemeral keys\n")
 	remEphPub, err := shareEphPubKey(conn, locEphPub)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("[TMDEBUG] Secret conn - sort keys by lex\n")
 	// Sort by lexical order.
 	loEphPub, hiEphPub := sort32(locEphPub, remEphPub)
 
@@ -117,6 +121,7 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	// sorted.
 	locIsLeast := bytes.Equal(locEphPub[:], loEphPub[:])
 
+	fmt.Println("[TMDEBUG] Secret conn - compute DH secret\n")
 	// Compute common diffie hellman secret using X25519.
 	dhSecret, err := computeDHSecret(remEphPub, locEphPriv)
 	if err != nil {
@@ -128,6 +133,7 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	// Generate the secret used for receiving, sending, challenge via HKDF-SHA2
 	// on the transcript state (which itself also uses HKDF-SHA2 to derive a key
 	// from the dhSecret).
+	fmt.Println("[TMDEBUG] Secret conn - desrive secrets\n")
 	recvSecret, sendSecret := deriveSecrets(dhSecret, locIsLeast)
 
 	const challengeSize = 32
@@ -153,11 +159,13 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	}
 
 	// Sign the challenge bytes for authentication.
+	fmt.Println("[TMDEBUG] Secret conn - sign challenge\n")
 	locSignature, err := signChallenge(&challenge, locPrivKey)
 	if err != nil {
 		return nil, err
 	}
 
+	fmt.Println("[TMDEBUG] Secret conn - share auth signature\n")
 	// Share (in secret) each other's pubkey & challenge signature
 	authSigMsg, err := shareAuthSignature(sc, locPubKey, locSignature)
 	if err != nil {
@@ -170,9 +178,11 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 		return nil, fmt.Errorf("expected ed25519 pubkey, got %T", remPubKey)
 	}
 
+	fmt.Println("[TMDEBUG] Secret conn - verify\n")
 	if !remPubKey.VerifySignature(challenge[:], remSignature) {
 		return nil, errors.New("challenge verification failed")
 	}
+	fmt.Println("[TMDEBUG] Secret conn - finished making secret con\n")
 
 	// We've authorized.
 	sc.remPubKey = remPubKey
@@ -215,7 +225,9 @@ func (sc *SecretConnection) Write(data []byte) (n int, err error) {
 			incrNonce(sc.sendNonce)
 			// end encryption
 
+			fmt.Printf("[TMDEBUG] writing sealed frame start\n")
 			_, err = sc.conn.Write(sealedFrame)
+			fmt.Printf("[TMDEBUG] writing sealed frame finished\n")
 			if err != nil {
 				return err
 			}
@@ -241,12 +253,14 @@ func (sc *SecretConnection) Read(data []byte) (n int, err error) {
 	}
 
 	// read off the conn
+	fmt.Printf("[TMDEBUG] read sealed frame start\n")
 	var sealedFrame = pool.Get(aeadSizeOverhead + totalFrameSize)
 	defer pool.Put(sealedFrame)
 	_, err = io.ReadFull(sc.conn, sealedFrame)
 	if err != nil {
 		return
 	}
+	fmt.Printf("[TMDEBUG] read sealed frame finish\n")
 
 	// decrypt the frame.
 	// reads and updates the sc.recvNonce
@@ -304,7 +318,9 @@ func shareEphPubKey(conn io.ReadWriter, locEphPub *[32]byte) (remEphPub *[32]byt
 	var trs, _ = async.Parallel(
 		func(_ int) (val interface{}, abort bool, err error) {
 			lc := *locEphPub
+			fmt.Println("[TMDEBUG] Secret conn - share ephemeral keys - write msg start %s\n", reflect.TypeOf(conn).String())
 			_, err = protoio.NewDelimitedWriter(conn).WriteMsg(&gogotypes.BytesValue{Value: lc[:]})
+			fmt.Println("[TMDEBUG] Secret conn - share ephemeral keys - write msg finish\n")
 			if err != nil {
 				return nil, true, err // abort
 			}
@@ -312,7 +328,9 @@ func shareEphPubKey(conn io.ReadWriter, locEphPub *[32]byte) (remEphPub *[32]byt
 		},
 		func(_ int) (val interface{}, abort bool, err error) {
 			var bytes gogotypes.BytesValue
-			_, err = protoio.NewDelimitedReader(conn, 1024*1024).ReadMsg(&bytes)
+			fmt.Println("[TMDEBUG] Secret conn - share ephemeral keys - read msg start\n")
+			_, err = protoio.NewDelimitedReader(conn, 1024*1024*1024).ReadMsg(&bytes)
+			fmt.Println("[TMDEBUG] Secret conn - share ephemeral keys - read msg finish\n")
 			if err != nil {
 				return nil, true, err // abort
 			}

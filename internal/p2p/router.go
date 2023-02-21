@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -648,7 +649,9 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		return
 	}
 
+	r.logger.Info("[TMDEBUG] finished dialing peer, moving onto handshake", "address", address, "conn", reflect.TypeOf(conn).String())
 	peerInfo, err := r.handshakePeer(ctx, conn, address.NodeID)
+	r.logger.Info("[TMDEBUG] finished handshaking peer", "address", address)
 	switch {
 	case errors.Is(err, context.Canceled):
 		conn.Close()
@@ -752,7 +755,9 @@ func (r *Router) handshakePeer(
 	}
 
 	nodeInfo := r.nodeInfoProducer()
+	r.logger.Info("[TMDEBUG] handshaking peer start", "nodeInfo", nodeInfo, "conn", conn)
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
+	r.logger.Info("[TMDEBUG] handshaking peer finish", "nodeInfo", nodeInfo)
 	if err != nil {
 		return peerInfo, err
 	}

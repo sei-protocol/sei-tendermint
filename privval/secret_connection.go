@@ -195,6 +195,7 @@ func (sc *SecretConnection) RemotePubKey() crypto.PubKey {
 // Writes encrypted frames of `totalFrameSize + aeadSizeOverhead`.
 // CONTRACT: data smaller than dataMaxSize is written atomically.
 func (sc *SecretConnection) Write(data []byte) (n int, err error) {
+	fmt.Printf("privval secret conn\n")
 	sc.sendMtx.Lock()
 	defer sc.sendMtx.Unlock()
 

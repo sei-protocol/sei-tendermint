@@ -276,6 +276,7 @@ func (c *MemoryConnection) Handshake(
 	nodeInfo types.NodeInfo,
 	privKey crypto.PrivKey,
 ) (types.NodeInfo, crypto.PubKey, error) {
+	fmt.Println("Transport memory handshake, sending msg\n")
 	select {
 	case c.sendCh <- memoryMessage{nodeInfo: &nodeInfo, pubKey: privKey.PubKey()}:
 		c.logger.Debug("sent handshake", "nodeInfo", nodeInfo)
@@ -284,6 +285,7 @@ func (c *MemoryConnection) Handshake(
 	case <-ctx.Done():
 		return types.NodeInfo{}, nil, ctx.Err()
 	}
+	fmt.Println("Transport memory handshake, receiving msg\n")
 
 	select {
 	case msg := <-c.receiveCh:
