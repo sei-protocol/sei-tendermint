@@ -27,7 +27,10 @@ var (
 // Metrics contains metrics exposed by this package.
 type Metrics struct {
 	// Number of peers.
-	Peers metrics.Gauge
+	Peers               metrics.Gauge
+	AcceptPeers         metrics.Counter `metrics_labels:"ip"`
+	HandshakePeersStart metrics.Counter `metrics_labels:"ip"`
+	HandshakePeersFinish metrics.Counter `metrics_labels:"ip"`
 	// Number of bytes per channel received from a given peer.
 	PeerReceiveBytesTotal metrics.Counter `metrics_labels:"peer_id, chID, message_type"`
 	// Number of bytes per channel sent to a given peer.

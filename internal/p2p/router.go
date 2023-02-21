@@ -497,6 +497,8 @@ func (r *Router) dialSleep(ctx context.Context) {
 func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 	for {
 		conn, err := transport.Accept(ctx)
+		r.metrics.AcceptPeers.With("ip", conn.RemoteEndpoint().IP.String()).Add(1)
+		r.logger.Info("[TMDEBUG] Accept peer req", "remote endpoint", conn.RemoteEndpoint())
 		switch {
 		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 			r.logger.Debug("stopping accept routine", "transport", transport, "err", "context canceled")
@@ -511,6 +513,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 		}
 
 		incomingIP := conn.RemoteEndpoint().IP
+		r.logger.Info("[TMDEBUG] Accept peer req adding conn start", "incomingIP", incomingIP)
 		if err := r.connTracker.AddConn(incomingIP); err != nil {
 			closeErr := conn.Close()
 			r.logger.Error("rate limiting incoming peer",
@@ -521,6 +524,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 
 			continue
 		}
+		r.logger.Info("[TMDEBUG] Accept peer req adding conn fin", "incomingIP", incomingIP)
 
 		// Spawn a goroutine for the handshake, to avoid head-of-line blocking.
 		go r.openConnection(ctx, conn)
@@ -534,9 +538,10 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 
 	re := conn.RemoteEndpoint()
 	incomingIP := re.IP
+	r.logger.Info("[TMDEBUG] Open conn start", "incomingIP", incomingIP)
 
 	if err := r.filterPeersIP(ctx, incomingIP, re.Port); err != nil {
-		r.logger.Debug("peer filtered by IP", "ip", incomingIP.String(), "err", err)
+		r.logger.Info("[TMDEBUG] peer filtered by IP", "ip", incomingIP.String(), "err", err)
 		return
 	}
 
@@ -556,6 +561,7 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 	// message to make sure both ends have accepted the connection, such
 	// that it can be coordinated with the peer manager.
 	peerInfo, err := r.handshakePeer(ctx, conn, "")
+	r.logger.Info("[TMDEBUG] Open conn finished handshaking peer", "incomingIP", incomingIP)
 	switch {
 	case errors.Is(err, context.Canceled):
 		return
@@ -577,6 +583,8 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 			"op", "incoming/accepted", "peer", peerInfo.NodeID, "err", err)
 		return
 	}
+
+	r.logger.Info("[TMDEBUG] Open conn finished running peer with mutex, routing", "incomingIP", incomingIP)
 
 	r.routePeer(ctx, peerInfo.NodeID, conn, toChannelIDs(peerInfo.Channels))
 }
@@ -756,7 +764,9 @@ func (r *Router) handshakePeer(
 
 	nodeInfo := r.nodeInfoProducer()
 	r.logger.Info("[TMDEBUG] handshaking peer start", "nodeInfo", nodeInfo, "conn", conn)
+	r.metrics.HandshakePeersStart.With("ip", conn.RemoteEndpoint().IP.String()).Add(1)
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
+	r.metrics.HandshakePeersFinish.With("ip", conn.RemoteEndpoint().IP.String()).Add(1)
 	r.logger.Info("[TMDEBUG] handshaking peer finish", "nodeInfo", nodeInfo)
 	if err != nil {
 		return peerInfo, err

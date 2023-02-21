@@ -225,9 +225,7 @@ func (sc *SecretConnection) Write(data []byte) (n int, err error) {
 			incrNonce(sc.sendNonce)
 			// end encryption
 
-			fmt.Printf("[TMDEBUG] writing sealed frame start\n")
 			_, err = sc.conn.Write(sealedFrame)
-			fmt.Printf("[TMDEBUG] writing sealed frame finished\n")
 			if err != nil {
 				return err
 			}
@@ -253,14 +251,12 @@ func (sc *SecretConnection) Read(data []byte) (n int, err error) {
 	}
 
 	// read off the conn
-	fmt.Printf("[TMDEBUG] read sealed frame start\n")
 	var sealedFrame = pool.Get(aeadSizeOverhead + totalFrameSize)
 	defer pool.Put(sealedFrame)
 	_, err = io.ReadFull(sc.conn, sealedFrame)
 	if err != nil {
 		return
 	}
-	fmt.Printf("[TMDEBUG] read sealed frame finish\n")
 
 	// decrypt the frame.
 	// reads and updates the sc.recvNonce

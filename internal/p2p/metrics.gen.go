@@ -20,6 +20,24 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peers",
 			Help:      "Number of peers.",
 		}, labels).With(labelsAndValues...),
+		AcceptPeers: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "accept_peers",
+			Help:      "",
+		}, append(labels, "ip")).With(labelsAndValues...),
+		HandshakePeersStart: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "handshake_peers_start",
+			Help:      "",
+		}, append(labels, "ip")).With(labelsAndValues...),
+		HandshakePeersFinish: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "handshake_peers_finish",
+			Help:      "",
+		}, append(labels, "ip")).With(labelsAndValues...),
 		PeerReceiveBytesTotal: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -74,6 +92,9 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 func NopMetrics() *Metrics {
 	return &Metrics{
 		Peers:                  discard.NewGauge(),
+		AcceptPeers:            discard.NewCounter(),
+		HandshakePeersStart:    discard.NewCounter(),
+		HandshakePeersFinish:   discard.NewCounter(),
 		PeerReceiveBytesTotal:  discard.NewCounter(),
 		PeerSendBytesTotal:     discard.NewCounter(),
 		PeerPendingSendBytes:   discard.NewGauge(),

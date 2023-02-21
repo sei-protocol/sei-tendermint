@@ -133,7 +133,6 @@ func (m *MConnTransport) Listen(endpoint *Endpoint) error {
 		listener = netutil.LimitListener(listener, int(m.options.MaxAcceptedConnections))
 	}
 	m.listener = listener
-
 	return nil
 }
 
@@ -146,7 +145,9 @@ func (m *MConnTransport) Accept(ctx context.Context) (Connection, error) {
 	conCh := make(chan net.Conn)
 	errCh := make(chan error)
 	go func() {
+		fmt.Printf("[TMDEBUG] Accept is waiting for new tcpconn\n")
 		tcpConn, err := m.listener.Accept()
+		fmt.Printf("[TMDEBUG] Accept received new tcpconn %s\n", tcpConn.RemoteAddr().String())
 		if err != nil {
 			select {
 			case errCh <- err:
