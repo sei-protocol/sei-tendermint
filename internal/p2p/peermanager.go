@@ -528,8 +528,6 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 
 // DialFailed reports a failed dial attempt. This will make the peer available
 // for dialing again when appropriate (possibly after a retry timeout).
-//
-// FIXME: This should probably delete or mark bad addresses/peers after some time.
 func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
