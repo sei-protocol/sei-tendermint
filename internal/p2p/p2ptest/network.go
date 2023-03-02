@@ -253,7 +253,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 
 	peerManager, err := p2p.NewPeerManager(nodeID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MinRetryTime:    10 * time.Millisecond,
-		MaxRetryTime:    100 * time.Millisecond,
+		MaxRetryTime:    500 * time.Millisecond,
 		RetryTimeJitter: time.Millisecond,
 		MaxPeers:        opts.MaxPeers,
 		MaxConnected:    opts.MaxConnected,
