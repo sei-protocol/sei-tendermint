@@ -563,7 +563,6 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
 			}
-			fmt.Printf("dialing failed %d times will not retry for address=%s, deleting peer\n", addressInfo.DialFailures, address.NodeID)
 			return fmt.Errorf("dialing failed %d times will not retry for address=%s, deleting peer", addressInfo.DialFailures, address.NodeID)
 		}
 		go func() {
