@@ -3,7 +3,7 @@ package p2p_test
 import (
 	"context"
 	"errors"
-	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -364,7 +364,42 @@ func TestPeerManager_DialNext_Retry(t *testing.T) {
 
 	options := p2p.PeerManagerOptions{
 		MinRetryTime: 100 * time.Millisecond,
-		MaxRetryTime: 500 * time.Millisecond,
+		MaxRetryTime: 1000 * time.Millisecond,
+	}
+	peerManager, err := p2p.NewPeerManager(selfID, dbm.NewMemDB(), options)
+	require.NoError(t, err)
+
+	added, err := peerManager.Add(a)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	// Do five dial retries (six dials total). The retry time should double for
+	// each failure. At the forth retry, MaxRetryTime should kick in.
+	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	for i := 0; i < 3; i++ {
+		start := time.Now()
+		dial, err := peerManager.DialNext(ctx)
+		require.NoError(t, err)
+		require.Equal(t, a, dial)
+		elapsed := time.Since(start).Round(time.Millisecond)
+		if i > 0 {
+			require.GreaterOrEqual(t, elapsed, time.Duration(math.Pow(2, float64(i)))*options.MinRetryTime)
+		}
+		require.NoError(t, peerManager.DialFailed(ctx, a))
+	}
+}
+
+func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
+
+	options := p2p.PeerManagerOptions{
+		MinRetryTime: 100 * time.Millisecond,
+		MaxRetryTime: 1000 * time.Millisecond,
 	}
 	peerManager, err := p2p.NewPeerManager(selfID, dbm.NewMemDB(), options)
 	require.NoError(t, err)
@@ -384,71 +419,12 @@ func TestPeerManager_DialNext_Retry(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, a, dial)
 		elapsed := time.Since(start).Round(time.Millisecond)
-
-		fmt.Println(elapsed, options.MinRetryTime)
-		switch i {
-		case 0:
-			require.LessOrEqual(t, elapsed, options.MinRetryTime)
-		case 1:
-			require.GreaterOrEqual(t, elapsed, options.MinRetryTime)
-		case 2:
-			require.GreaterOrEqual(t, elapsed, 2*options.MinRetryTime)
-		case 3:
-			require.GreaterOrEqual(t, elapsed, 3*options.MinRetryTime)
-		default:
-			t.Fatal("unexpected retry")
+		if i > 0 {
+			require.GreaterOrEqual(t, elapsed, time.Duration(math.Pow(2, float64(i)))*options.MinRetryTime)
 		}
-		require.NoError(t, peerManager.DialFailed(ctx, a))
-	}
-}
-
-func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
-
-	options := p2p.PeerManagerOptions{
-		MinRetryTime: 100 * time.Millisecond,
-		MaxRetryTime: 500 * time.Millisecond,
-	}
-	peerManager, err := p2p.NewPeerManager(selfID, dbm.NewMemDB(), options)
-	require.NoError(t, err)
-
-	added, err := peerManager.Add(a)
-	require.NoError(t, err)
-	require.True(t, added)
-
-	// Do five dial retries (six dials total). The retry time should double for
-	// each failure. At the forth retry, MaxRetryTime should kick in.
-	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	for i := 0; i < 5; i++ {
-		start := time.Now()
-		dial, err := peerManager.DialNext(ctx)
-		require.NoError(t, err)
-		require.Equal(t, a, dial)
-		elapsed := time.Since(start).Round(time.Millisecond)
-
-		fmt.Println(elapsed, options.MinRetryTime)
-		switch i {
-		case 0:
-			require.LessOrEqual(t, elapsed, options.MinRetryTime)
-		case 1:
-			require.GreaterOrEqual(t, elapsed, options.MinRetryTime)
-		case 2:
-			require.GreaterOrEqual(t, elapsed, 2*options.MinRetryTime)
-		case 3:
-			require.GreaterOrEqual(t, elapsed, 3*options.MinRetryTime)
-		case 4:
-			require.GreaterOrEqual(t, elapsed, 4*options.MinRetryTime)
-		default:
-			t.Fatal("unexpected retry")
-		}
-
-		if i == 4 {
-			require.ErrorContains(t, peerManager.DialFailed(ctx, a), "dialing failed 5 times")
+		if i == 3 {
+			require.ErrorContains(t, peerManager.DialFailed(ctx, a), "dialing failed 4 times")
+			continue
 		}
 		require.NoError(t, peerManager.DialFailed(ctx, a))
 	}
