@@ -3,7 +3,6 @@ package pex
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +52,14 @@ const (
 
 	restartNoAvailablePeersWindow = 10 * time.Minute
 )
+
+type NoPeersAvailableError struct {
+	error
+}
+
+func (e *NoPeersAvailableError) Error() string {
+    return fmt.Sprintf("no available peers to send a PEX request to (retrying)")
+}
 
 // TODO: We should decide whether we want channel descriptors to be housed
 // within each reactor (as they are now) or, considering that the reactor doesn't
@@ -197,7 +204,7 @@ func (r *Reactor) processPexCh(ctx context.Context, pexCh *p2p.Channel) {
 			// Send a request for more peer addresses.
 			if err := r.sendRequestForPeers(ctx, pexCh); err != nil {
 				r.logger.Error("failed to send request for peers", "err", err)
-				if strings.Contains(err.Error(), "no available peers") {
+				if _, ok := err.(*NoPeersAvailableError); ok {
 					noAvailablePeerFailCounter++
 					lastNoAvailablePeersTime = time.Now()
 					continue
@@ -348,7 +355,7 @@ func (r *Reactor) sendRequestForPeers(ctx context.Context, pexCh *p2p.Channel) e
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 	if len(r.availablePeers) == 0 {
-		return fmt.Errorf("no available peers to send a PEX request to (retrying)")
+		return &NoPeersAvailableError{}
 	}
 
 	// Select an arbitrary peer from the available set.
