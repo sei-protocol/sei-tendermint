@@ -2143,17 +2143,24 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		// but may differ from the LastCommit included in the next block
 		_, storeBlockSpan := cs.tracer.Start(spanCtx, "cs.state.finalizeCommit.saveblockstore")
 		defer storeBlockSpan.End()
+		fmt.Println("breakpoint 0")
 		seenExtendedCommit := cs.Votes.Precommits(cs.CommitRound).MakeExtendedCommit()
 		if cs.state.ConsensusParams.ABCI.VoteExtensionsEnabled(block.Height) {
+			fmt.Println("breakpoint 0.1")
 			cs.blockStore.SaveBlockWithExtendedCommit(block, blockParts, seenExtendedCommit)
+			fmt.Println("breakpoint 0.2")
 		} else {
+			fmt.Println("breakpoint 0.15")
 			cs.blockStore.SaveBlock(block, blockParts, seenExtendedCommit.ToCommit())
+			fmt.Println("breakpoint 0.25")
 		}
 		storeBlockSpan.End()
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
 	}
+
+	fmt.Println("breakpoint 1")
 
 	// Write EndHeightMessage{} for this height, implying that the blockstore
 	// has saved the block.
@@ -2179,6 +2186,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	}
 	fsyncSpan.End()
 
+	fmt.Println("breakpoint 2")
+
 	// Create a copy of the state for staging and an event cache for txs.
 	stateCopy := cs.state.Copy()
 
@@ -2198,6 +2207,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		return
 	}
 
+	fmt.Println("breakpoint 3")
+
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
 
@@ -2208,6 +2219,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	if err := cs.updatePrivValidatorPubKey(ctx); err != nil {
 		logger.Error("failed to get private validator pubkey", "err", err)
 	}
+
+	fmt.Println("breakpoint 4")
 
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
