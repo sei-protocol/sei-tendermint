@@ -180,6 +180,8 @@ type Reactor struct {
 	chunkChannel      *p2p.Channel
 	lightBlockChannel *p2p.Channel
 	paramsChannel     *p2p.Channel
+
+	restartCh chan struct{} // a way to signal we should restart router b/c p2p is flaky
 }
 
 // NewReactor returns a reference to a new state sync reactor, which implements
@@ -970,7 +972,8 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			r.peers.Append(peerUpdate.NodeID)
 
 		} else {
-			r.logger.Error("could not use peer for statesync", "peer", peerUpdate.NodeID)
+			r.logger.Error("could not use peer for statesync, removing from peer list", "peer", peerUpdate.NodeID)
+			r.peers.Remove(peerUpdate.NodeID)
 		}
 
 	case p2p.PeerStatusDown:
