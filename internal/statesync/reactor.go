@@ -72,7 +72,7 @@ const (
 	maxLightBlockRequestRetries = 20
 
 	// How long to wait when there's no available epers to restart the router
-	restartNoAvailablePeersWindow = 10 * time.Minute
+	restartNoAvailablePeersWindow = 1 * time.Minute
 )
 
 func GetSnapshotChannelDescriptor() *p2p.ChannelDescriptor {
@@ -990,16 +990,12 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
-	if r.peers.Len() == 0 {
-		if r.lastNoAvailablePeers.IsZero() {
-			r.lastNoAvailablePeers = time.Now()
-		} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
-			r.logger.Error("no available peers left for statesync (restarting router)")
-			r.restartCh <- struct{}{}
-		}
-	} else {
-		// Reset
-		r.lastNoAvailablePeers = time.Time{}
+
+	if r.lastNoAvailablePeers.IsZero() {
+		r.lastNoAvailablePeers = time.Now()
+	} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+		r.logger.Error("no available peers left for statesync (restarting router)")
+		r.restartCh <- struct{}{}
 	}
 
 	if r.syncer == nil {
