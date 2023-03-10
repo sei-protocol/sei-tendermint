@@ -72,7 +72,7 @@ const (
 	maxLightBlockRequestRetries = 20
 
 	// How long to wait when there's no available epers to restart the router
-	restartNoAvailablePeersWindow = 10 * time.Minute
+	restartNoAvailablePeersWindow = 1 * time.Minute
 )
 
 func GetSnapshotChannelDescriptor() *p2p.ChannelDescriptor {
@@ -969,7 +969,6 @@ func (r *Reactor) processChannels(ctx context.Context, chanTable map[p2p.Channel
 // handle the PeerUpdate or if a panic is recovered.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate) {
 	r.logger.Info("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
-
 	switch peerUpdate.Status {
 	case p2p.PeerStatusUp:
 		if peerUpdate.Channels.Contains(SnapshotChannel) &&
@@ -981,22 +980,22 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 		} else {
 			r.logger.Error("could not use peer for statesync (removing)", "peer", peerUpdate.NodeID)
 			r.peers.Remove(peerUpdate.NodeID)
-			if r.peers.Len() == 0 {
-				r.logger.Error("no available peers left for statesync (restarting router)")
-				if r.lastNoAvailablePeers.IsZero() {
-					r.lastNoAvailablePeers = time.Now()
-				} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
-					r.restartCh <- struct{}{}
-				}
-			}
 		}
-
 	case p2p.PeerStatusDown:
 		r.peers.Remove(peerUpdate.NodeID)
 	}
 
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
+
+	if r.peers.Len() == 0 {
+		r.logger.Error("no available peers left for statesync (restarting router)")
+		if r.lastNoAvailablePeers.IsZero() {
+			r.lastNoAvailablePeers = time.Now()
+		} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+			r.restartCh <- struct{}{}
+		}
+	}
 
 	if r.syncer == nil {
 		return
