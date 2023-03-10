@@ -70,6 +70,9 @@ const (
 	// maxLightBlockRequestRetries is the amount of retries acceptable before
 	// the backfill process aborts
 	maxLightBlockRequestRetries = 20
+
+	// How long to wait when there's no available epers to restart the router
+	restartNoAvailablePeersWindow = 10 * time.Minute
 )
 
 func GetSnapshotChannelDescriptor() *p2p.ChannelDescriptor {
@@ -180,6 +183,11 @@ type Reactor struct {
 	chunkChannel      *p2p.Channel
 	lightBlockChannel *p2p.Channel
 	paramsChannel     *p2p.Channel
+
+	// keep track of the last time we saw no available peers, so we can restart if it's been too long
+	lastNoAvailablePeers time.Time
+	// a way to signal we should restart router b/c p2p is flaky
+	restartCh chan struct{}
 }
 
 // NewReactor returns a reference to a new state sync reactor, which implements
@@ -200,6 +208,7 @@ func NewReactor(
 	eventBus *eventbus.EventBus,
 	postSyncHook func(context.Context, sm.State) error,
 	needsStateSync bool,
+	restartCh chan struct{},
 ) *Reactor {
 	r := &Reactor{
 		logger:         logger,
@@ -217,6 +226,7 @@ func NewReactor(
 		eventBus:       eventBus,
 		postSyncHook:   postSyncHook,
 		needsStateSync: needsStateSync,
+		restartCh:		restartCh,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "StateSync", r)
@@ -969,9 +979,16 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 
 			r.peers.Append(peerUpdate.NodeID)
 		} else {
-			// TODO::(bweng) send signal to reset channel if there's no more peers
+			r.logger.Error("could not use peer for statesync (removing)", "peer", peerUpdate.NodeID)
 			r.peers.Remove(peerUpdate.NodeID)
-			r.logger.Error("could not use peer for statesync", "peer", peerUpdate.NodeID)
+			if r.peers.Len() == 0 {
+				r.logger.Error("no available peers left for statesync (restarting router)")
+				if r.lastNoAvailablePeers.IsZero() {
+					r.lastNoAvailablePeers = time.Now()
+				} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+					r.restartCh <- struct{}{}
+				}
+			}
 		}
 
 	case p2p.PeerStatusDown:
