@@ -969,6 +969,9 @@ func (r *Reactor) processChannels(ctx context.Context, chanTable map[p2p.Channel
 // handle the PeerUpdate or if a panic is recovered.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate) {
 	r.logger.Info("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
+
+	r.lastNoAvailablePeers = time.Now()
+
 	switch peerUpdate.Status {
 	case p2p.PeerStatusUp:
 		if peerUpdate.Channels.Contains(SnapshotChannel) &&
@@ -988,7 +991,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
-	if r.peers.Len() == 0 {
+	if r.peers.Len() > 0 {
 		r.logger.Error("no available peers left for statesync (restarting router)")
 		if r.lastNoAvailablePeers.IsZero() {
 			r.lastNoAvailablePeers = time.Now()
