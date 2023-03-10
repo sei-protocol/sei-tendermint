@@ -873,9 +873,7 @@ func (cs *State) updateToState(state sm.State) {
 	cs.LastValidators = state.LastValidators
 	cs.TriggeredTimeoutPrecommit = false
 
-	cs.mtx.Lock()
 	cs.state = state
-	cs.mtx.Unlock()
 
 	// Finally, broadcast RoundState
 	cs.newStep()
