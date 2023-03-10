@@ -788,7 +788,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			} else {
 				ec = r.state.blockStore.LoadBlockCommit(prs.Height).WrappedExtendedCommit()
 			}
-			r.state.mtx.Unlock()
+			r.state.mtx.RUnlock()
 			if ec == nil {
 				continue
 			}
