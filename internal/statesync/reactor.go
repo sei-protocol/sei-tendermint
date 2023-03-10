@@ -970,6 +970,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			r.peers.Append(peerUpdate.NodeID)
 
 		} else {
+			r.peers.Remove(peerUpdate.NodeID)
 			r.logger.Error("could not use peer for statesync", "peer", peerUpdate.NodeID)
 		}
 
