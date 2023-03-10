@@ -968,8 +968,8 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			peerUpdate.Channels.Contains(ParamsChannel) {
 
 			r.peers.Append(peerUpdate.NodeID)
-
 		} else {
+			// TODO::(bweng) send signal to reset channel if there's no more peers
 			r.peers.Remove(peerUpdate.NodeID)
 			r.logger.Error("could not use peer for statesync", "peer", peerUpdate.NodeID)
 		}
