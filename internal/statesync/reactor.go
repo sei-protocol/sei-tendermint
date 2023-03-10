@@ -990,10 +990,10 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	defer r.mtx.Unlock()
 
 	if r.peers.Len() == 0 {
-		r.logger.Error("no available peers left for statesync (restarting router)")
 		if r.lastNoAvailablePeers.IsZero() {
 			r.lastNoAvailablePeers = time.Now()
 		} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+			r.logger.Error("no available peers left for statesync (restarting router)")
 			r.restartCh <- struct{}{}
 		}
 	}
