@@ -226,6 +226,7 @@ func NewReactor(
 		eventBus:       eventBus,
 		postSyncHook:   postSyncHook,
 		needsStateSync: needsStateSync,
+		lastNoAvailablePeers: time.Time{},
 		restartCh:		restartCh,
 	}
 
@@ -996,6 +997,9 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			r.logger.Error("no available peers left for statesync (restarting router)")
 			r.restartCh <- struct{}{}
 		}
+	} else {
+		// Reset
+		r.lastNoAvailablePeers = time.Time{}
 	}
 
 	if r.syncer == nil {
