@@ -72,7 +72,7 @@ const (
 	maxLightBlockRequestRetries = 20
 
 	// How long to wait when there's no available epers to restart the router
-	restartNoAvailablePeersWindow = 1 * time.Minute
+	restartNoAvailablePeersWindow = 10 * time.Minute
 )
 
 func GetSnapshotChannelDescriptor() *p2p.ChannelDescriptor {
