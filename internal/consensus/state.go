@@ -667,6 +667,8 @@ func (cs *State) SetProposalAndBlock(
 
 func (cs *State) updateHeight(height int64) {
 	cs.metrics.Height.Set(float64(height))
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
 	cs.Height = height
 }
 
@@ -679,6 +681,8 @@ func (cs *State) updateRoundStep(round int32, step cstypes.RoundStepType) {
 			cs.metrics.MarkStep(cs.Step)
 		}
 	}
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
 	cs.Round = round
 	cs.Step = step
 }
@@ -720,6 +724,8 @@ func (cs *State) sendInternalMessage(ctx context.Context, mi msgInfo) {
 // the method will panic on an absent ExtendedCommit or an ExtendedCommit without
 // extension data.
 func (cs *State) reconstructLastCommit(state sm.State) {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
 	extensionsEnabled := cs.state.ConsensusParams.ABCI.VoteExtensionsEnabled(state.LastBlockHeight)
 	if !extensionsEnabled {
 		votes, err := cs.votesFromSeenCommit(state)
@@ -842,6 +848,7 @@ func (cs *State) updateToState(state sm.State) {
 	cs.updateHeight(height)
 	cs.updateRoundStep(0, cstypes.RoundStepNewHeight)
 
+	cs.mtx.Lock()
 	if cs.CommitTime.IsZero() {
 		// "Now" makes it easier to sync up dev nodes.
 		// We add timeoutCommit to allow transactions
@@ -874,6 +881,7 @@ func (cs *State) updateToState(state sm.State) {
 	cs.TriggeredTimeoutPrecommit = false
 
 	cs.state = state
+	cs.mtx.Unlock()
 
 	// Finally, broadcast RoundState
 	cs.newStep()
