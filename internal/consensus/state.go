@@ -319,8 +319,8 @@ func (cs *State) GetLastHeight() int64 {
 
 // GetRoundState returns a shallow copy of the internal consensus state.
 func (cs *State) GetRoundState() *cstypes.RoundState {
-	cs.mtx.RLock()
-	defer cs.mtx.RUnlock()
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
 
 	// NOTE: this might be dodgy, as RoundState itself isn't thread
 	// safe as it contains a number of pointers and is explicitly
@@ -666,11 +666,17 @@ func (cs *State) SetProposalAndBlock(
 // internal functions for managing the state
 
 func (cs *State) updateHeight(height int64) {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+
 	cs.metrics.Height.Set(float64(height))
 	cs.Height = height
 }
 
 func (cs *State) updateRoundStep(round int32, step cstypes.RoundStepType) {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+
 	if !cs.replayMode {
 		if round != cs.Round || round == 0 && step == cstypes.RoundStepNewRound {
 			cs.metrics.MarkRound(cs.Round, cs.StartTime)
