@@ -757,6 +757,7 @@ func (cs *State) votesFromSeenCommit(state sm.State) (*types.VoteSet, error) {
 // Updates State and increments height to match that of state.
 // The round becomes 0 and cs.Step becomes cstypes.RoundStepNewHeight.
 func (cs *State) updateToState(state sm.State) {
+	fmt.Println("updateToState begin")
 	if cs.roundState.CommitRound() > -1 && 0 < cs.roundState.Height() && cs.roundState.Height() != state.LastBlockHeight {
 		panic(fmt.Sprintf(
 			"updateToState() expected state height of %v but found %v",
@@ -860,6 +861,7 @@ func (cs *State) updateToState(state sm.State) {
 	}
 	cs.roundState.SetCommitRound(-1)
 	cs.roundState.SetLastValidators(state.LastValidators)
+	fmt.Printf("updateToState finish with %d, %d\n", cs.roundState.LastValidators().TotalVotingPower(), cs.GetRoundState().LastValidators.TotalVotingPower())
 	cs.roundState.SetTriggeredTimeoutPrecommit(false)
 
 	cs.state = state
