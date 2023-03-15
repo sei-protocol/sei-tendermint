@@ -65,11 +65,11 @@ type SafeRoundState struct {
 	mtx      sync.RWMutex
 }
 
-func (s *SafeRoundState) CopyInternal() RoundState {
+func (s *SafeRoundState) CopyInternal() *RoundState {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	copy := s.internal
-	return copy
+	return &copy
 }
 
 func (s *SafeRoundState) GetInternalPointer() *RoundState {
