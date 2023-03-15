@@ -72,6 +72,12 @@ func (s *SafeRoundState) CopyInternal() RoundState {
 	return copy
 }
 
+func (s *SafeRoundState) GetInternalPointer() *RoundState {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+	return &s.internal
+}
+
 func (s *SafeRoundState) Height() int64 {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
