@@ -202,7 +202,7 @@ func (vote *Vote) String() string {
 		panic("Unknown vote type")
 	}
 
-	return fmt.Sprintf("Vote{index=%v:addr=%X %v/%02d/%v(%v) %X %X %X @ %s}",
+	return fmt.Sprintf("Vote{index=%v:%X %v/%02d/%v(%v) %X %X %X @ %s}",
 		vote.ValidatorIndex,
 		vote.ValidatorAddress,
 		vote.Height,
