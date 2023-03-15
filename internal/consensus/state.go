@@ -318,12 +318,12 @@ func (cs *State) GetLastHeight() int64 {
 // GetRoundState returns a shallow copy of the internal consensus state.
 func (cs *State) GetRoundState() *cstypes.RoundState {
 	rs := cs.roundState.CopyInternal()
-	return &rs
+	return rs
 }
 
 // GetRoundStateJSON returns a json of RoundState.
 func (cs *State) GetRoundStateJSON() ([]byte, error) {
-	return json.Marshal(cs.roundState.CopyInternal())
+	return json.Marshal(*cs.roundState.CopyInternal())
 }
 
 // GetRoundStateSimpleJSON returns a json of RoundStateSimple
@@ -757,7 +757,6 @@ func (cs *State) votesFromSeenCommit(state sm.State) (*types.VoteSet, error) {
 // Updates State and increments height to match that of state.
 // The round becomes 0 and cs.Step becomes cstypes.RoundStepNewHeight.
 func (cs *State) updateToState(state sm.State) {
-	fmt.Println("updateToState begin")
 	if cs.roundState.CommitRound() > -1 && 0 < cs.roundState.Height() && cs.roundState.Height() != state.LastBlockHeight {
 		panic(fmt.Sprintf(
 			"updateToState() expected state height of %v but found %v",
@@ -861,7 +860,6 @@ func (cs *State) updateToState(state sm.State) {
 	}
 	cs.roundState.SetCommitRound(-1)
 	cs.roundState.SetLastValidators(state.LastValidators)
-	fmt.Printf("updateToState finish with %d, %d\n", cs.roundState.LastValidators().TotalVotingPower(), cs.GetRoundState().LastValidators.TotalVotingPower())
 	cs.roundState.SetTriggeredTimeoutPrecommit(false)
 
 	cs.state = state
@@ -885,7 +883,7 @@ func (cs *State) newStep() {
 		}
 
 		roundState := cs.roundState.CopyInternal()
-		cs.evsw.FireEvent(types.EventNewRoundStepValue, &roundState)
+		cs.evsw.FireEvent(types.EventNewRoundStepValue, roundState)
 	}
 }
 
@@ -902,7 +900,7 @@ func (cs *State) heartbeater(ctx context.Context) {
 
 func (cs *State) fireHeartbeatEvent() {
 	roundState := cs.roundState.CopyInternal()
-	cs.evsw.FireEvent(types.EventNewRoundStepValue, &roundState)
+	cs.evsw.FireEvent(types.EventNewRoundStepValue, roundState)
 }
 
 //-----------------------------------------
@@ -1007,7 +1005,7 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 
 			// if the timeout is relevant to the rs
 			// go to the next step
-			cs.handleTimeout(ctx, ti, cs.roundState.CopyInternal())
+			cs.handleTimeout(ctx, ti, *cs.roundState.CopyInternal())
 
 		case <-ctx.Done():
 			onExit(cs)
@@ -2051,7 +2049,7 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 			}
 
 			roundState := cs.roundState.CopyInternal()
-			cs.evsw.FireEvent(types.EventValidBlockValue, &roundState)
+			cs.evsw.FireEvent(types.EventValidBlockValue, roundState)
 		}
 	}
 }
@@ -2494,6 +2492,7 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 			cs.roundState.SetValidRound(cs.roundState.Round())
 			cs.roundState.SetValidBlock(cs.roundState.ProposalBlock())
 			cs.roundState.SetValidBlockParts(cs.roundState.ProposalBlockParts())
+			fmt.Printf("complete proposal blockID Hash: %X, header: %X\n", cs.roundState.ValidBlock().Hash(), cs.roundState.ValidBlockParts().Header().Hash)
 		}
 		// TODO: In case there is +2/3 majority in Prevotes set for some
 		// block and cs.ProposalBlock contains different block, either
@@ -2698,6 +2697,7 @@ func (cs *State) addVote(
 					cs.roundState.SetValidRound(vote.Round)
 					cs.roundState.SetValidBlock(cs.roundState.ProposalBlock())
 					cs.roundState.SetValidBlockParts(cs.roundState.ProposalBlockParts())
+					fmt.Printf("prevote blockID Hash: %X, header: %X\n", cs.roundState.ValidBlock().Hash(), cs.roundState.ValidBlockParts().Header().Hash)
 				} else {
 					cs.logger.Debug(
 						"valid block we do not know about; set ProposalBlock=nil",
@@ -2715,7 +2715,7 @@ func (cs *State) addVote(
 				}
 
 				roundState := cs.roundState.CopyInternal()
-				cs.evsw.FireEvent(types.EventValidBlockValue, &roundState)
+				cs.evsw.FireEvent(types.EventValidBlockValue, roundState)
 				if err := cs.eventBus.PublishEventValidBlock(cs.roundState.RoundStateEvent()); err != nil {
 					return added, err
 				}
