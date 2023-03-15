@@ -2199,8 +2199,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
-	copy := cs.roundState.CopyInternal()
-	cs.scheduleRound0(&copy)
+	cs.scheduleRound0(cs.roundState.GetInternalPointer())
 
 	// By here,
 	// * cs.Height has been increment to height+1
