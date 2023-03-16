@@ -1896,6 +1896,7 @@ func TestSetValidBlockOnDelayedProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	ensureNewProposal(t, proposalCh, height, round)
+	time.Sleep(2 * time.Second)
 	rs := cs1.GetRoundState()
 
 	fmt.Printf("blockID Hash: %X, header: %X\n", rs.ValidBlock.Hash(), rs.ValidBlockParts.Header().Hash)
