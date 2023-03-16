@@ -116,8 +116,6 @@ func (req RPCRequest) String() string {
 // MakeResponse constructs a success response to req with the given result.  If
 // there is an error marshaling result to JSON, it returns an error response.
 func (req RPCRequest) MakeResponse(result interface{}) RPCResponse {
-	fmt.Println("printing MakeResponse ", result)
-
 	data, err := tmjson.Marshal(result)
 	if err != nil {
 		return req.MakeErrorf(CodeInternalError, "marshaling result: %v", err)
