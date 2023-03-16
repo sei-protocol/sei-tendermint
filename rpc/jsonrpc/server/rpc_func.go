@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	tmjson "github.com/tendermint/tendermint/libs/json"
 	"github.com/tendermint/tendermint/libs/log"
 	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"
 )
@@ -108,7 +109,7 @@ func (rf *RPCFunc) parseParams(ctx context.Context, params json.RawMessage) ([]r
 		return nil, invalidParamsError(err.Error())
 	}
 	arg := reflect.New(rf.param)
-	if err := json.Unmarshal(bits, arg.Interface()); err != nil {
+	if err := tmjson.Unmarshal(bits, arg.Interface()); err != nil {
 		return nil, invalidParamsError(err.Error())
 	}
 	return []reflect.Value{reflect.ValueOf(ctx), arg}, nil
@@ -120,7 +121,7 @@ func (rf *RPCFunc) adjustParams(data []byte) (json.RawMessage, error) {
 	base := bytes.TrimSpace(data)
 	if bytes.HasPrefix(base, []byte("[")) {
 		var args []json.RawMessage
-		if err := json.Unmarshal(base, &args); err != nil {
+		if err := tmjson.Unmarshal(base, &args); err != nil {
 			return nil, err
 		} else if len(args) != len(rf.args) {
 			return nil, fmt.Errorf("got %d arguments, want %d", len(args), len(rf.args))
@@ -129,7 +130,7 @@ func (rf *RPCFunc) adjustParams(data []byte) (json.RawMessage, error) {
 		for i, arg := range args {
 			m[rf.args[i].name] = arg
 		}
-		return json.Marshal(m)
+		return tmjson.Marshal(m)
 	} else if bytes.HasPrefix(base, []byte("{")) || bytes.Equal(base, []byte("null")) {
 		return base, nil
 	}
