@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -487,7 +488,8 @@ func (n *nodeImpl) OnStart(ctx context.Context) error {
 
 		go func() {
 			n.logger.Info("Starting pprof server", "laddr", n.config.RPC.PprofListenAddress)
-
+			runtime.SetBlockProfileRate(1)
+			runtime.SetMutexProfileFraction(-1)
 			if err := srv.ListenAndServe(); err != nil {
 				n.logger.Error("pprof server error", "err", err)
 				close(signal)
