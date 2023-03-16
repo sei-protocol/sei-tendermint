@@ -530,9 +530,8 @@ func (cs *State) OnStop() {
 		select {
 		case <-cs.getOnStopCh():
 		case <-time.After(cs.state.ConsensusParams.Timeout.Commit):
-			cs.mtx.RLock()
+			// Potential race condition here on cs.state but should be okay since it's just logging on exit
 			cs.logger.Error("OnStop: timeout waiting for commit to finish", "time", cs.state.ConsensusParams.Timeout.Commit)
-			cs.mtx.RUnlock()
 		}
 	}
 
