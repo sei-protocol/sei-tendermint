@@ -3,7 +3,6 @@ package consensus
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -1879,7 +1878,6 @@ func TestSetValidBlockOnDelayedProposal(t *testing.T) {
 		Hash:          propBlock.Hash(),
 		PartSetHeader: partSet.Header(),
 	}
-	fmt.Printf("blockID Hash: %X, header: %X\n", blockID.Hash, blockID.PartSetHeader.Hash)
 
 	// vs2, vs3 and vs4 send prevote for propBlock
 	signAddVotes(ctx, t, cs1, tmproto.PrevoteType, config.ChainID(), blockID, vs2, vs3, vs4)
@@ -1899,7 +1897,6 @@ func TestSetValidBlockOnDelayedProposal(t *testing.T) {
 	time.Sleep(2 * time.Second)
 	rs := cs1.GetRoundState()
 
-	fmt.Printf("blockID Hash: %X, header: %X\n", rs.ValidBlock.Hash(), rs.ValidBlockParts.Header().Hash)
 	assert.True(t, bytes.Equal(rs.ValidBlock.Hash(), blockID.Hash))
 	assert.True(t, rs.ValidBlockParts.Header().Equals(blockID.PartSetHeader))
 	assert.True(t, rs.ValidRound == round)

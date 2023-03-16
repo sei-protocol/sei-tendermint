@@ -2492,7 +2492,6 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 			cs.roundState.SetValidRound(cs.roundState.Round())
 			cs.roundState.SetValidBlock(cs.roundState.ProposalBlock())
 			cs.roundState.SetValidBlockParts(cs.roundState.ProposalBlockParts())
-			fmt.Printf("complete proposal blockID Hash: %X, header: %X\n", cs.roundState.ValidBlock().Hash(), cs.roundState.ValidBlockParts().Header().Hash)
 		}
 		// TODO: In case there is +2/3 majority in Prevotes set for some
 		// block and cs.ProposalBlock contains different block, either
@@ -2697,7 +2696,6 @@ func (cs *State) addVote(
 					cs.roundState.SetValidRound(vote.Round)
 					cs.roundState.SetValidBlock(cs.roundState.ProposalBlock())
 					cs.roundState.SetValidBlockParts(cs.roundState.ProposalBlockParts())
-					fmt.Printf("prevote blockID Hash: %X, header: %X\n", cs.roundState.ValidBlock().Hash(), cs.roundState.ValidBlockParts().Header().Hash)
 				} else {
 					cs.logger.Debug(
 						"valid block we do not know about; set ProposalBlock=nil",
