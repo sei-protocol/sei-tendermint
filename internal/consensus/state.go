@@ -527,11 +527,13 @@ func (cs *State) getOnStopCh() chan *cstypes.RoundState {
 func (cs *State) OnStop() {
 	// If the node is committing a new block, wait until it is finished!
 	if cs.GetRoundState().Step == cstypes.RoundStepCommit {
+		cs.mtx.RLock()
+		commitTimeout := cs.state.ConsensusParams.Timeout.Commit
+		cs.mtx.RUnlock()
 		select {
 		case <-cs.getOnStopCh():
-		case <-time.After(cs.state.ConsensusParams.Timeout.Commit):
-			// Potential race condition here on cs.state but should be okay since it's just logging on exit
-			cs.logger.Error("OnStop: timeout waiting for commit to finish", "time", cs.state.ConsensusParams.Timeout.Commit)
+		case <-time.After(commitTimeout):
+			cs.logger.Error("OnStop: timeout waiting for commit to finish", "time", commitTimeout)
 		}
 	}
 
