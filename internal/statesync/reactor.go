@@ -249,6 +249,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	// define constructor and helper functions, that hold
 	// references to these channels for use later. This is not
 	// ideal.
+	r.logger.Info("[Tendermint-Debug] OnStart to initialize syncer")
 	r.initSyncer = func() *syncer {
 		return &syncer{
 			logger:        r.logger,
@@ -311,6 +312,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		return nil
 	}
 
+	r.logger.Info("[Tendermint-Debug] Creating process channels to snapshot and sync")
 	go r.processChannels(ctx, map[p2p.ChannelID]*p2p.Channel{
 		SnapshotChannel:   r.snapshotChannel,
 		ChunkChannel:      r.chunkChannel,
