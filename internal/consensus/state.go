@@ -2301,6 +2301,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
 			)
 		}
+		cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Block time is %dms", block.Time.Sub(lastBlockMeta.Header.Time).Milliseconds()))
 	}
 
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))

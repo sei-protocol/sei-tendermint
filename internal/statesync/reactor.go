@@ -284,6 +284,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			"trustHeight", to.Height, "useP2P", r.cfg.UseP2P)
 
 		if r.cfg.UseP2P {
+			spLogger.Info("[Tendermint-Debug] Going to use P2P state provider")
 			if err := r.waitForEnoughPeers(ctx, 2); err != nil {
 				return err
 			}
@@ -301,7 +302,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			r.stateProvider = stateProvider
 			return nil
 		}
-
+		spLogger.Info("[Tendermint-Debug] Going to use RPC state provider")
 		stateProvider, err := NewRPCStateProvider(ctx, chainID, initialHeight, r.cfg.RPCServers, to, spLogger)
 		if err != nil {
 			return fmt.Errorf("failed to initialize RPC state provider: %w", err)
@@ -622,13 +623,13 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 	case *ssproto.SnapshotsRequest:
 		snapshots, err := r.recentSnapshots(ctx, recentSnapshots)
 		if err != nil {
-			logger.Error("failed to fetch snapshots", "err", err)
+			logger.Error("[Tendermint-Debug] failed to fetch snapshots", "err", err)
 			return nil
 		}
 
 		for _, snapshot := range snapshots {
 			logger.Info(
-				"advertising snapshot",
+				" [Tendermint-Debug] advertising snapshot",
 				"height", snapshot.Height,
 				"format", snapshot.Format,
 				"peer", envelope.From,
@@ -653,11 +654,11 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 		defer r.mtx.RUnlock()
 
 		if r.syncer == nil {
-			logger.Debug("received unexpected snapshot; no state sync in progress")
+			logger.Debug("[Tendermint-Debug] received unexpected snapshot; no state sync in progress")
 			return nil
 		}
 
-		logger.Info("received snapshot", "height", msg.Height, "format", msg.Format)
+		logger.Info("[Tendermint-Debug] received snapshot", "height", msg.Height, "format", msg.Format)
 		_, err := r.syncer.AddSnapshot(envelope.From, &snapshot{
 			Height:   msg.Height,
 			Format:   msg.Format,
@@ -667,7 +668,7 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 		})
 		if err != nil {
 			logger.Error(
-				"failed to add snapshot",
+				"[Tendermint-Debug] failed to add snapshot",
 				"height", msg.Height,
 				"format", msg.Format,
 				"channel", envelope.ChannelID,
@@ -675,7 +676,7 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 			)
 			return nil
 		}
-		logger.Info("added snapshot", "height", msg.Height, "format", msg.Format)
+		logger.Info("[Tendermint-Debug] added snapshot", "height", msg.Height, "format", msg.Format)
 
 	default:
 		return fmt.Errorf("received unknown message: %T", msg)
@@ -779,10 +780,10 @@ func (r *Reactor) handleChunkMessage(ctx context.Context, envelope *p2p.Envelope
 func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Envelope, blockCh *p2p.Channel) error {
 	switch msg := envelope.Message.(type) {
 	case *ssproto.LightBlockRequest:
-		r.logger.Info("received light block request", "height", msg.Height)
+		r.logger.Info("[Tendermint-Debug] received light block request", "height", msg.Height)
 		lb, err := r.fetchLightBlock(msg.Height)
 		if err != nil {
-			r.logger.Error("failed to retrieve light block", "err", err, "height", msg.Height)
+			r.logger.Error("[Tendermint-Debug] failed to retrieve light block", "err", err, "height", msg.Height)
 			return err
 		}
 		if lb == nil {
@@ -799,7 +800,7 @@ func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Env
 
 		lbproto, err := lb.ToProto()
 		if err != nil {
-			r.logger.Error("marshaling light block to proto", "err", err)
+			r.logger.Error("[Tendermint-Debug] marshaling light block to proto", "err", err)
 			return nil
 		}
 
@@ -818,12 +819,12 @@ func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Env
 		if msg.LightBlock != nil {
 			height = msg.LightBlock.SignedHeader.Header.Height
 		}
-		r.logger.Info("received light block response", "peer", envelope.From, "height", height)
+		r.logger.Info("[Tendermint-Debug] received light block response", "peer", envelope.From, "height", height)
 		if err := r.dispatcher.Respond(ctx, msg.LightBlock, envelope.From); err != nil {
 			if errors.Is(err, context.Canceled) {
 				return err
 			}
-			r.logger.Error("error processing light block response", "err", err, "height", height)
+			r.logger.Error("[Tendermint-Debug] error processing light block response", "err", err, "height", height)
 		}
 
 	default:
@@ -894,7 +895,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, cha
 		}
 	}()
 
-	r.logger.Debug("received message", "message", reflect.TypeOf(envelope.Message), "peer", envelope.From)
+	r.logger.Info("[Tendermint-Debug] received message", "message", reflect.TypeOf(envelope.Message), "peer", envelope.From)
 
 	switch envelope.ChannelID {
 	case SnapshotChannel:
@@ -932,7 +933,7 @@ func (r *Reactor) processChannels(ctx context.Context, chanTable map[p2p.Channel
 		if err := r.handleMessage(ctx, envelope, chanTable); err != nil {
 			ch, ok := chanTable[envelope.ChannelID]
 			if !ok {
-				r.logger.Error("received impossible message",
+				r.logger.Error("[Tendermint-Debug] received impossible message",
 					"envelope_from", envelope.From,
 					"envelope_ch", envelope.ChannelID,
 					"num_chs", len(chanTable),
@@ -940,7 +941,7 @@ func (r *Reactor) processChannels(ctx context.Context, chanTable map[p2p.Channel
 				)
 				return
 			}
-			r.logger.Error("failed to process message",
+			r.logger.Error("[Tendermint-Debug] failed to process message",
 				"err", err,
 				"channel", ch.String(),
 				"ch_id", envelope.ChannelID,

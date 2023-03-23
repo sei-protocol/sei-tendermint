@@ -111,7 +111,7 @@ func (s *syncer) AddSnapshot(peerID types.NodeID, snapshot *snapshot) (bool, err
 // AddPeer adds a peer to the pool. For now we just keep it simple and send a
 // single request to discover snapshots, later we may want to do retries and stuff.
 func (s *syncer) AddPeer(ctx context.Context, peerID types.NodeID) error {
-	s.logger.Debug("Requesting snapshots from peer", "peer", peerID)
+	s.logger.Info("[Tendermint-Debug] Requesting snapshots from peer", "peer", peerID)
 
 	return s.snapshotCh.Send(ctx, p2p.Envelope{
 		To:      peerID,
@@ -121,7 +121,7 @@ func (s *syncer) AddPeer(ctx context.Context, peerID types.NodeID) error {
 
 // RemovePeer removes a peer from the pool.
 func (s *syncer) RemovePeer(peerID types.NodeID) {
-	s.logger.Debug("Removing peer from sync", "peer", peerID)
+	s.logger.Info("[Tendermint-Debug] Removing peer from sync", "peer", peerID)
 	s.snapshots.RemovePeer(peerID)
 }
 
@@ -162,7 +162,7 @@ func (s *syncer) SyncAny(
 			if discoveryTime == 0 {
 				return sm.State{}, nil, errNoSnapshots
 			}
-			s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
+			s.logger.Info(fmt.Sprintf("[Tenderming-Debug] In for loop, still waiting for snapshots for %v", discoveryTime))
 			time.Sleep(discoveryTime)
 			continue
 		}

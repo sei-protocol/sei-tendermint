@@ -79,6 +79,8 @@ func NewRPCStateProvider(
 	if err != nil {
 		return nil, err
 	}
+	logger.Info("[Tendermint-Debug] Created a new light client for stateProviderRPC")
+
 	return &stateProviderRPC{
 		logger:        logger,
 		lc:            lc,
