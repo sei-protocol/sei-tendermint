@@ -208,6 +208,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	ctx context.Context,
 	state State,
 	blockID types.BlockID, block *types.Block, tracer otrace.Tracer) (State, error) {
+	debugStartTime := time.Now()
 	if tracer != nil {
 		spanCtx, span := tracer.Start(ctx, "cs.state.ApplyBlock")
 		ctx = spanCtx
@@ -332,6 +333,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 
+	fmt.Printf("[TMDEBUG] ApplyBlock total latency is %d\n", time.Now().Sub(debugStartTime).Microseconds())
 	return state, nil
 }
 

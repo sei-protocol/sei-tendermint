@@ -1367,6 +1367,7 @@ func (cs *State) needProofBlock(height int64) bool {
 //
 // Enter (!CreateEmptyBlocks) : after enterNewRound(height,round), once txs are in the mempool
 func (cs *State) enterPropose(ctx context.Context, height int64, round int32, entryLabel string) {
+	fmt.Printf("[TMDEBUG] Enter Propose at time %s\n", time.Now())
 	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterPropose")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -1584,6 +1585,7 @@ func (cs *State) createProposalBlock(ctx context.Context) (*types.Block, error) 
 // locked on or matches a block that received a POL in a round later than our
 // locked round, prevote for the proposal, otherwise vote nil.
 func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, entryLabel string) {
+	fmt.Printf("[TMDEBUG] Enter Prevote at time %s\n", time.Now())
 	_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterPrevote")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -1830,6 +1832,7 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // Lock & precommit the ProposalBlock if we have enough prevotes for it (a POL in this round)
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, entryLabel string) {
+	fmt.Printf("[TMDEBUG] Enter Precommit at time %s\n", time.Now())
 	_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterPrecommit")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -1988,6 +1991,7 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 // Enter: +2/3 precommits for block
 func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int32, entryLabel string) {
+	fmt.Printf("[TMDEBUG] Enter Commit at time %s\n", time.Now())
 	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterCommit")
 	span.SetAttributes(attribute.Int("round", int(commitRound)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -2341,6 +2345,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	}
 
 	cs.logger.Info("received proposal", "proposal", proposal)
+	fmt.Printf("[TMDEBUG] Received proposal at time %s\n", time.Now())
 	return nil
 }
 
