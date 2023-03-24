@@ -756,7 +756,7 @@ func (r *Router) handshakePeer(
 	}
 
 	nodeInfo := r.nodeInfoProducer()
-	r.logger.Info(fmt.Sprintf("Going to handshake with %s, %s, %s", nodeInfo.Moniker, nodeInfo.Network, nodeInfo.ListenAddr))
+	r.logger.Info(fmt.Sprintf("Going to handshake with %s, %s", nodeInfo.Moniker, nodeInfo.ListenAddr))
 
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
 	if err != nil {
