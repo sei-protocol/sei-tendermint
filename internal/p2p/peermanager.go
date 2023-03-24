@@ -518,6 +518,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 			if m.options.MaxConnected > 0 && m.NumConnected() >= int(m.options.MaxConnected) {
 				upgradeFromPeer := m.findUpgradeCandidate(peer.ID, peer.Score())
 				if upgradeFromPeer == "" {
+					fmt.Println("[Tendermint-Debug] Returning due to empty upgrade peer")
 					return NodeAddress{}, nil
 				}
 				m.upgrading[upgradeFromPeer] = peer.ID
