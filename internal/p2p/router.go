@@ -612,6 +612,7 @@ LOOP:
 		address, err := r.peerManager.DialNext(ctx)
 		switch {
 		case errors.Is(err, context.Canceled):
+			r.logger.Info("Cancelling the dialing loop due to context.Cancelled=true")
 			break LOOP
 		case err != nil:
 			r.logger.Error("failed to find next peer to dial", "err", err)
@@ -628,6 +629,7 @@ LOOP:
 			continue
 		case <-ctx.Done():
 			close(addresses)
+			r.logger.Info("Breaking out of LOOP due to context is Done")
 			break LOOP
 		}
 	}

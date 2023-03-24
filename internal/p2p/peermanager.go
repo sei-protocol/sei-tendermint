@@ -529,6 +529,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 			return addressInfo.Address, nil
 		}
 	}
+	fmt.Println("[Tendermint-Debug] Returning an empty node address form TryDialNext")
 	return NodeAddress{}, nil
 }
 
