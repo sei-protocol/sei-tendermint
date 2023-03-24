@@ -102,6 +102,7 @@ func MakeSecretConnection(conn io.ReadWriteCloser, locPrivKey crypto.PrivKey) (*
 	// DJB's Curve25519 paper: http://cr.yp.to/ecdh/curve25519-20060209.pdf)
 	remEphPub, err := shareEphPubKey(conn, locEphPub)
 	if err != nil {
+		fmt.Printf("[Tendermint-Debug] Failed to shareEphPubKey to conn %v, using loclEphPub %v \n", conn, locEphPub)
 		return nil, err
 	}
 

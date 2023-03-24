@@ -335,7 +335,7 @@ func (c *mConnConnection) handshake(
 
 	secretConn, err := conn.MakeSecretConnection(c.conn, privKey)
 	if err != nil {
-		c.logger.Error(fmt.Sprintf("Failed to make secrete connection with %s", c.conn.RemoteAddr().String()), err)
+		c.logger.Error(fmt.Sprintf("Failed to make secrete connection with %s", c.conn.RemoteAddr().String()), "error", err)
 		return nil, types.NodeInfo{}, nil, err
 	}
 
@@ -348,7 +348,7 @@ func (c *mConnConnection) handshake(
 		_, err := protoio.NewDelimitedWriter(secretConn).WriteMsg(nodeInfo.ToProto())
 		select {
 		case errCh <- err:
-			c.logger.Error(fmt.Sprintf("Failed to write nodeInfo to proto for %v", nodeInfo), err)
+			c.logger.Error(fmt.Sprintf("Failed to write nodeInfo to proto for %v", nodeInfo), "error", err)
 		case <-ctx.Done():
 		}
 
@@ -359,7 +359,7 @@ func (c *mConnConnection) handshake(
 		_, err := protoio.NewDelimitedReader(secretConn, types.MaxNodeInfoSize()).ReadMsg(&pbPeerInfo)
 		select {
 		case errCh <- err:
-			c.logger.Error(fmt.Sprintf("Failed to read pbPeerInfo to proto for %v", pbPeerInfo), err)
+			c.logger.Error(fmt.Sprintf("Failed to read pbPeerInfo to proto for %v", pbPeerInfo), "error", err)
 		case <-ctx.Done():
 		}
 	}()
