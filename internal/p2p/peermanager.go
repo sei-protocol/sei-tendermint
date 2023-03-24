@@ -399,6 +399,7 @@ func (m *PeerManager) prunePeers() error {
 		case m.dialing[peerID]:
 		case m.connected[peerID]:
 		default:
+			fmt.Printf("[Tendermint-Debug] Pruning peer %s from store due to low score\n", peerID)
 			if err := m.store.Delete(peerID); err != nil {
 				return err
 			}
@@ -561,6 +562,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	// the mutex lock.
 	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
 		if d == m.options.MaxRetryTime {
+			fmt.Printf("[Tendermint-Debug] Deleting peer %s from store due to running out of retry timeout %s", address.NodeID, m.options.MaxRetryTime)
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
 			}
