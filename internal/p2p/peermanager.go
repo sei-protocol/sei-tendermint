@@ -563,7 +563,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	// the mutex lock.
 	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
 		if d == m.options.MaxRetryTime {
-			fmt.Printf("[Tendermint-Debug] Deleting peer %s from store due to running out of retry timeout \n%s", address.NodeID, m.options.MaxRetryTime)
+			fmt.Printf("[Tendermint-Debug] Deleting peer %s from store due to running out of retry timeout %s\n", address.NodeID, m.options.MaxRetryTime)
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
 			}
