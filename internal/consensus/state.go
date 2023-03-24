@@ -1425,7 +1425,7 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 
 	// Nothing more to do if we're not a validator
 	if cs.privValidator == nil {
-		logger.Debug("propose step; not proposing since node is not a validator")
+		logger.Info("[TMDEBUG] propose step; not proposing since node is not a validator")
 		return
 	}
 
@@ -1440,22 +1440,22 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 
 	// if not a validator, we're done
 	if !cs.Validators.HasAddress(addr) {
-		logger.Debug("propose step; not proposing since node is not in the validator set",
+		logger.Info("[TMDEBUG] propose step; not proposing since node is not in the validator set",
 			"addr", addr,
 			"vals", cs.Validators)
 		return
 	}
 
 	if cs.isProposer(addr) {
-		logger.Debug(
-			"propose step; our turn to propose",
+		logger.Info(
+			"[TMDEBUG] propose step; our turn to propose",
 			"proposer", addr,
 		)
 
 		cs.decideProposal(spanCtx, height, round)
 	} else {
-		logger.Debug(
-			"propose step; not our turn to propose",
+		logger.Info(
+			"[TMDEBUG] propose step; not our turn to propose",
 			"proposer", cs.Validators.GetProposer().Address,
 		)
 	}
