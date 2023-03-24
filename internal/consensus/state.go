@@ -1635,6 +1635,9 @@ func (cs *State) proposalIsTimely() bool {
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
+	defer func() {
+		logger.Info(fmt.Sprintf("[TMDEBUG] finished DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
+	}()
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
 	if !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil {
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
@@ -2330,6 +2333,9 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 		return nil
 	}
 	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter SetProposal for height %d at time %s", proposal.Height, time.Now()))
+	defer func() {
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] finished SetProposal for height %d at time %s", proposal.Height, time.Now()))
+	}()
 
 	// Does not apply
 	if proposal.Height != cs.Height || proposal.Round != cs.Round {
