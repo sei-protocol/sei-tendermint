@@ -2201,7 +2201,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		cs.tracer,
 	)
 	timePassed := time.Since(startTime)
-	logger.Info(fmt.Sprintf("[TMDEBUG] ApplyBlock for %d took %s", height, timePassed))
+	logger.Info(fmt.Sprintf("[TMDEBUG] ApplyBlock end for %d took %s at time %s", height, timePassed, time.Now()))
 
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
