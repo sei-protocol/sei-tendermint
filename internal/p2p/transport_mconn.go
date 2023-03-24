@@ -335,7 +335,7 @@ func (c *mConnConnection) handshake(
 
 	secretConn, err := conn.MakeSecretConnection(c.conn, privKey)
 	if err != nil {
-		c.logger.Error(fmt.Sprintf("Failed to make secrete connection with %s", c.conn.RemoteAddr().String()), "error", err)
+		c.logger.Error(fmt.Sprintf("Failed to make secret connection with %s", c.conn.RemoteAddr().String()), "error", err)
 		return nil, types.NodeInfo{}, nil, err
 	}
 

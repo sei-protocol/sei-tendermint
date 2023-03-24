@@ -521,7 +521,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 				m.upgrading[upgradeFromPeer] = peer.ID
 			}
 			m.dialing[peer.ID] = true
-			fmt.Printf("[Tendermint-Debug] TryDialNext adding peer %v to the pending dial list, dialing count %d\n", peer, len(m.dialing))
+			fmt.Printf("[Tendermint-Debug] TryDialNext adding peer %s to the pending dial list, dialing count %d\n", peer.ID, len(m.dialing))
 			return addressInfo.Address, nil
 		}
 	}
