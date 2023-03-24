@@ -986,7 +986,6 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	defer r.mtx.Unlock()
 
 	if r.syncer == nil {
-		r.logger.Info("[Tendermint-Debug] Syncer is nil, not able to move forward with state sync")
 		return
 	}
 

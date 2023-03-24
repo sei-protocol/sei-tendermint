@@ -487,7 +487,6 @@ func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
 func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	fmt.Println("[Tendermint-Debug] Start TryDialNext")
 	// We allow dialing MaxConnected+MaxConnectedUpgrade peers. Including
 	// MaxConnectedUpgrade allows us to probe additional peers that have a
 	// higher score than any other peers, and if successful evict it.
@@ -499,14 +498,11 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	peers := m.store.Ranked()
 	for _, peer := range peers {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
-			fmt.Printf("[Tendermint-Debug] Peer %s is still in dialing status\n", peer.ID)
 			continue
 		}
 
 		addresses := peer.AddressInfo
-		fmt.Printf("[Tendermint-Debug] Peer %s has %d address info\n", peer.ID, len(addresses))
 		for _, addressInfo := range addresses {
-			fmt.Printf("[Tendermint-Debug] Dialing address %s \n", addressInfo.Address)
 			retryDelay := m.retryDelay(addressInfo.DialFailures, peer.Persistent)
 			if time.Since(addressInfo.LastDialFailure) < retryDelay {
 				fmt.Printf("[Tendermint-Debug] Keep waiting until we reach next dial delay %s, retry options are %s, %s, %s\n", retryDelay, m.options.MinRetryTime, m.options.MaxRetryTime, m.options.MaxRetryTimePersistent)
@@ -523,13 +519,11 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 			if m.options.MaxConnected > 0 && m.NumConnected() >= int(m.options.MaxConnected) {
 				upgradeFromPeer := m.findUpgradeCandidate(peer.ID, peer.Score())
 				if upgradeFromPeer == "" {
-					fmt.Println("[Tendermint-Debug] Returning due to empty upgrade peer")
 					return NodeAddress{}, nil
 				}
 				m.upgrading[upgradeFromPeer] = peer.ID
 			}
 			m.dialing[peer.ID] = true
-			fmt.Printf("[Tendermint-Debug] TryDialNext adding peer %s to the pending dial list, dialing count %d\n", peer.ID, len(m.dialing))
 			return addressInfo.Address, nil
 		}
 	}
