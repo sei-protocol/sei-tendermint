@@ -502,7 +502,9 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 		}
 
 		for _, addressInfo := range peer.AddressInfo {
-			if time.Since(addressInfo.LastDialFailure) < m.retryDelay(addressInfo.DialFailures, peer.Persistent) {
+			retryDelay := m.retryDelay(addressInfo.DialFailures, peer.Persistent)
+			if time.Since(addressInfo.LastDialFailure) < retryDelay {
+				fmt.Printf("[Tendermint-Debug] Keep waiting until we reach next dial delay %s, retry options are %s, %s, %s\n", retryDelay, m.options.MinRetryTime, m.options.MaxRetryTime, m.options.MaxRetryTimePersistent)
 				continue
 			}
 
