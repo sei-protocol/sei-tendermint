@@ -432,6 +432,7 @@ func (m *PeerManager) Add(address NodeAddress) (bool, error) {
 	}
 
 	// else add the new address
+	fmt.Printf("[Tendermint-Debug] Adding new peer %v to the peer store in peerManager\n", peer)
 	peer.AddressInfo[address] = &peerAddressInfo{Address: address}
 	if err := m.store.Set(peer); err != nil {
 		return false, err
@@ -494,6 +495,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 		return NodeAddress{}, nil
 	}
 
+	fmt.Printf("[Tendermint-Debug] TryDialNext going to dial the following peers: %v\n", m.store.Ranked())
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
 			continue
