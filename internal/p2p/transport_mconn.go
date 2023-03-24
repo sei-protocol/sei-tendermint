@@ -348,9 +348,7 @@ func (c *mConnConnection) handshake(
 		_, err := protoio.NewDelimitedWriter(secretConn).WriteMsg(nodeInfo.ToProto())
 		select {
 		case errCh <- err:
-			c.logger.Error(fmt.Sprintf("Failed to write nodeInfo to proto for %v", nodeInfo), "error", err)
 		case <-ctx.Done():
-			c.logger.Info(fmt.Sprintf("Successfully write nodeInfo to proto for %v", nodeInfo))
 		}
 
 	}()
@@ -360,15 +358,14 @@ func (c *mConnConnection) handshake(
 		_, err := protoio.NewDelimitedReader(secretConn, types.MaxNodeInfoSize()).ReadMsg(&pbPeerInfo)
 		select {
 		case errCh <- err:
-			c.logger.Error(fmt.Sprintf("Failed to read pbPeerInfo to proto for %v", pbPeerInfo), "error", err)
 		case <-ctx.Done():
-			c.logger.Info(fmt.Sprintf("Successfuly read pbPeerInfo to proto for %v", pbPeerInfo))
 		}
 	}()
 
 	wg.Wait()
 
 	if err, ok := <-errCh; ok && err != nil {
+		c.logger.Error(fmt.Sprintf("Failed to write or read nodeInfo to proto for %v", nodeInfo), "error", err)
 		return nil, types.NodeInfo{}, nil, err
 	}
 
