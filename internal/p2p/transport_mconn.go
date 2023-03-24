@@ -350,6 +350,7 @@ func (c *mConnConnection) handshake(
 		case errCh <- err:
 			c.logger.Error(fmt.Sprintf("Failed to write nodeInfo to proto for %v", nodeInfo), "error", err)
 		case <-ctx.Done():
+			c.logger.Info(fmt.Sprintf("Successfully write nodeInfo to proto for %v", nodeInfo))
 		}
 
 	}()
@@ -361,6 +362,7 @@ func (c *mConnConnection) handshake(
 		case errCh <- err:
 			c.logger.Error(fmt.Sprintf("Failed to read pbPeerInfo to proto for %v", pbPeerInfo), "error", err)
 		case <-ctx.Done():
+			c.logger.Info(fmt.Sprintf("Successfuly read pbPeerInfo to proto for %v", pbPeerInfo))
 		}
 	}()
 
@@ -379,6 +381,7 @@ func (c *mConnConnection) handshake(
 		return nil, types.NodeInfo{}, nil, err
 	}
 
+	c.logger.Info(fmt.Sprintf("Creating a new MConnection with peer %s, %s, %s", peerInfo.NodeID, peerInfo.Moniker, peerInfo.ListenAddr))
 	mconn := conn.NewMConnection(
 		c.logger.With("peer", c.RemoteEndpoint().NodeAddress(peerInfo.NodeID)),
 		secretConn,
