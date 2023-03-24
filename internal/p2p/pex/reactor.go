@@ -43,7 +43,7 @@ const (
 	maxAddresses = 100
 
 	// How long to wait when there are no peers available before trying again
-	noAvailablePeersWaitPeriod = 1 * time.Second
+	noAvailablePeersWaitPeriod = 10 * time.Second
 
 	// indicates the ping rate of the pex reactor when the peer store is full.
 	// The reactor should still look to add new peers in order to flush out low
@@ -58,7 +58,7 @@ type NoPeersAvailableError struct {
 }
 
 func (e *NoPeersAvailableError) Error() string {
-    return fmt.Sprintf("no available peers to send a PEX request to (retrying)")
+	return fmt.Sprintf("no available peers to send a PEX request to (retrying)")
 }
 
 // TODO: We should decide whether we want channel descriptors to be housed
