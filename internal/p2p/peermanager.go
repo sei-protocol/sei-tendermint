@@ -487,7 +487,7 @@ func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
 func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-
+	fmt.Println("[Tendermint-Debug] Start TryDialNext")
 	// We allow dialing MaxConnected+MaxConnectedUpgrade peers. Including
 	// MaxConnectedUpgrade allows us to probe additional peers that have a
 	// higher score than any other peers, and if successful evict it.
@@ -496,7 +496,8 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 		return NodeAddress{}, nil
 	}
 
-	for _, peer := range m.store.Ranked() {
+	peers := m.store.Ranked()
+	for _, peer := range peers {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
 			fmt.Printf("[Tendermint-Debug] Peer %s is still in dialing status\n", peer.ID)
 			continue
@@ -529,7 +530,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 			return addressInfo.Address, nil
 		}
 	}
-	fmt.Println("[Tendermint-Debug] Returning an empty node address form TryDialNext")
+	fmt.Printf("[Tendermint-Debug] Returning an empty node address form TryDialNext with %d peers in store\n", len(peers))
 	return NodeAddress{}, nil
 }
 
@@ -538,7 +539,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-
+	fmt.Printf("[Tendermint-Debug] Peer %s got deleted from dialing map due to dial failed\n", address.NodeID)
 	delete(m.dialing, address.NodeID)
 	for from, to := range m.upgrading {
 		if to == address.NodeID {
@@ -768,6 +769,7 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 	// If any connected peers are explicitly scheduled for eviction, we return a
 	// random one.
 	for peerID := range m.evict {
+		fmt.Printf("[Tendermint-Debug] Peer %s got evicted from peer manager\n", peerID)
 		delete(m.evict, peerID)
 		if m.connected[peerID] && !m.evicting[peerID] {
 			m.evicting[peerID] = true
