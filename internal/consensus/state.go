@@ -1283,7 +1283,7 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 	// TODO: remove panics in this function and return an error
 
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter NewRound for height %d, round %d, at time %s", height, round, time.Now()))
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter NewRound for height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.Step != cstypes.RoundStepNewHeight) {
 		logger.Debug(
@@ -1603,7 +1603,6 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter Prevote fro height %d, round %d, at time %s", height, round, time.Now()))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevote <= cs.Step) {
 		logger.Info(
@@ -1613,6 +1612,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		)
 		return
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Prevote fro height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
 
 	defer func() {
 		// Done enterPrevote:
@@ -1853,7 +1853,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter Precommit for height %d, round %d, at time %s", height, round, time.Now()))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrecommit <= cs.Step) {
 		logger.Info(
@@ -1865,6 +1864,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		)
 		return
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Precommit for height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
 
 	logger.Info("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
@@ -2317,6 +2317,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			)
 		}
 		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s\n", height, block.Time.Sub(lastBlockMeta.Header.Time)))
+		cs.logger.Info("------------------------------------------------------")
 	}
 
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
