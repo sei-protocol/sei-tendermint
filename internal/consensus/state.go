@@ -1613,7 +1613,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		return
 	}
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter Prevote fro height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] RoundState: %s", cs.GetRoundState().String()))
 	defer func() {
 		// Done enterPrevote:
 		cs.updateRoundStep(round, cstypes.RoundStepPrevote)
@@ -1637,6 +1637,7 @@ func (cs *State) proposalIsTimely() bool {
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
+	logger.Info(fmt.Sprintf("[TMDEBUG] RoundState: %s", cs.GetRoundState().String()))
 	defer func() {
 		logger.Info(fmt.Sprintf("[TMDEBUG] finished DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
 	}()
@@ -1865,7 +1866,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter Precommit for height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] RoundState: %s", cs.GetRoundState().String()))
 	logger.Info("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
