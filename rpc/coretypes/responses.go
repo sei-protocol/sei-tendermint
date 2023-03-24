@@ -243,7 +243,6 @@ type ResultBroadcastTx struct {
 	Data      bytes.HexBytes `json:"data"`
 	Log       string         `json:"log"`
 	Codespace string         `json:"codespace"`
-	
 	Hash      bytes.HexBytes `json:"hash"`
 }
 
