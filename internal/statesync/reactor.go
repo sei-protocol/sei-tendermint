@@ -322,7 +322,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
 
 	if r.needsStateSync {
-		r.logger.Info("starting state sync")
+		r.logger.Info("Starting state sync")
 		if _, err := r.Sync(ctx); err != nil {
 			r.logger.Error("state sync failed; shutting down this node", "err", err)
 			return err
@@ -356,9 +356,11 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 
 	// We need at least two peers (for cross-referencing of light blocks) before we can
 	// begin state sync
+	r.logger.Info(" We need at least 2 peers to start Sync")
 	if err := r.waitForEnoughPeers(ctx, 2); err != nil {
 		return sm.State{}, err
 	}
+	r.logger.Info(" We now have at least 2 peers, moving on")
 
 	r.mtx.Lock()
 	if r.syncer != nil {
@@ -984,11 +986,13 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	defer r.mtx.Unlock()
 
 	if r.syncer == nil {
+		r.logger.Info("[Tendermint-Debug] Syncer is nil, not able to move forward with state sync")
 		return
 	}
 
 	switch peerUpdate.Status {
 	case p2p.PeerStatusUp:
+		r.logger.Info(fmt.Sprintf("[Tendermint-Debug] Now able to move forward with state sync provider for peer %s", peerUpdate.NodeID))
 		newProvider := NewBlockProvider(peerUpdate.NodeID, r.chainID, r.dispatcher)
 
 		r.providers[peerUpdate.NodeID] = newProvider
