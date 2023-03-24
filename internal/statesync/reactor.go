@@ -281,7 +281,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			Hash:   r.cfg.TrustHashBytes(),
 		}
 		spLogger := r.logger.With("module", "stateprovider")
-		spLogger.Info("initializing state provider", "trustPeriod", to.Period,
+		spLogger.Info("[Tendermint-Debug] initializing state provider", "trustPeriod", to.Period,
 			"trustHeight", to.Height, "useP2P", r.cfg.UseP2P)
 
 		if r.cfg.UseP2P {

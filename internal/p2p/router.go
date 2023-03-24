@@ -702,8 +702,9 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		defer cancel()
 	}
 
-	r.logger.Debug("resolving peer address", "peer", address)
 	endpoints, err := address.Resolve(resolveCtx)
+	r.logger.Info("Resolved peer address", "peer", address, "endpoints", endpoints)
+
 	switch {
 	case err != nil:
 		// Mark the peer as private so it's not broadcasted to other peers.
@@ -733,7 +734,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		if err != nil {
 			r.logger.Error("failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
 		} else {
-			r.logger.Debug("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
+			r.logger.Info("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
 			return conn, nil
 		}
 	}
@@ -755,6 +756,8 @@ func (r *Router) handshakePeer(
 	}
 
 	nodeInfo := r.nodeInfoProducer()
+	r.logger.Info(fmt.Sprintf("Going to handshake with %s, %s, %s", nodeInfo.Moniker, nodeInfo.Network, nodeInfo.ListenAddr))
+
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
 	if err != nil {
 		return peerInfo, err
