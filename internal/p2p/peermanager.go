@@ -1219,6 +1219,7 @@ func (s *peerStore) Delete(id types.NodeID) error {
 	if err := s.db.Delete(keyPeerInfo(id)); err != nil {
 		return err
 	}
+	fmt.Printf("[Tendermint-Debug] Peer %s got deleted from peer manager\n", id)
 	delete(s.peers, id)
 	s.ranked = nil
 	return nil
