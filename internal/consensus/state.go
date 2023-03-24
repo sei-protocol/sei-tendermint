@@ -1385,6 +1385,9 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 
 	logger := cs.logger.With("height", height, "round", round)
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter Propose for height %d, round %d, at time %s", height, round, time.Now()))
+	defer func() {
+		logger.Info(fmt.Sprintf("[TMDEBUG] finished Propose for height %d, round %d, at time %s", height, round, time.Now()))
+	}()
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPropose <= cs.Step) {
 		logger.Debug(
 			"entering propose step with invalid args",
@@ -1425,7 +1428,6 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 
 	// Nothing more to do if we're not a validator
 	if cs.privValidator == nil {
-		logger.Info("[TMDEBUG] propose step; not proposing since node is not a validator")
 		return
 	}
 
@@ -2314,8 +2316,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
 			)
 		}
-		cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Block time is %dms", block.Time.Sub(lastBlockMeta.Header.Time).Milliseconds()))
-		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s", height, block.Time.Sub(lastBlockMeta.Header.Time)))
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s\n", height, block.Time.Sub(lastBlockMeta.Header.Time)))
 	}
 
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
