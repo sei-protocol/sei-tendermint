@@ -505,7 +505,6 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 		for _, addressInfo := range addresses {
 			retryDelay := m.retryDelay(addressInfo.DialFailures, peer.Persistent)
 			if time.Since(addressInfo.LastDialFailure) < retryDelay {
-				fmt.Printf("[Tendermint-Debug] Keep waiting until we reach next dial delay %s, retry options are %s, %s, %s\n", retryDelay, m.options.MinRetryTime, m.options.MaxRetryTime, m.options.MaxRetryTimePersistent)
 				continue
 			}
 
@@ -536,7 +535,6 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	fmt.Printf("[Tendermint-Debug] Peer %s got deleted from dialing map due to dial failed\n", address.NodeID)
 	delete(m.dialing, address.NodeID)
 	for from, to := range m.upgrading {
 		if to == address.NodeID {
