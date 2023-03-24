@@ -1266,6 +1266,7 @@ func (cs *State) getTracingCtx(defaultCtx context.Context) context.Context {
 // Enter: +2/3 prevotes any or +2/3 precommits for block or any from (height, round)
 // NOTE: cs.StartTime was already set for height.
 func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, entryLabel string) {
+
 	if height > cs.heightBeingTraced {
 		if cs.heightSpan != nil {
 			cs.heightSpan.End()
@@ -1282,6 +1283,7 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 	// TODO: remove panics in this function and return an error
 
 	logger := cs.logger.With("height", height, "round", round)
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter NewRound for height %d, round %d, at time %s", height, round, time.Now()))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.Step != cstypes.RoundStepNewHeight) {
 		logger.Debug(
@@ -1382,7 +1384,7 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "round", round)
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Propose for height %d, round %d, at time %s", height, round, time.Now()))
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPropose <= cs.Step) {
 		logger.Debug(
 			"entering propose step with invalid args",
@@ -1467,7 +1469,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 	_, span := cs.tracer.Start(ctx, "cs.state.decideProposal")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	defer span.End()
-
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] DecideProposal for height %d, round %d, at time %s", height, round, time.Now()))
 	var block *types.Block
 	var blockParts *types.PartSet
 
@@ -1599,6 +1601,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "round", round)
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Prevote fro height %d, round %d, at time %s", height, round, time.Now()))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevote <= cs.Step) {
 		logger.Info(
@@ -1631,7 +1634,7 @@ func (cs *State) proposalIsTimely() bool {
 
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
 	if !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil {
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
@@ -1804,7 +1807,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 // Enter: any +2/3 prevotes at next round.
 func (cs *State) enterPrevoteWait(height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter PrevoteWait for height %d, round %d, at time %s", height, round, time.Now()))
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevoteWait <= cs.Step) {
 		logger.Info(
 			"entering prevote wait step with invalid args",
@@ -1845,6 +1848,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "round", round)
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Precommit for height %d, round %d, at time %s", height, round, time.Now()))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrecommit <= cs.Step) {
 		logger.Info(
@@ -1965,7 +1969,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 // Enter: any +2/3 precommits for next round.
 func (cs *State) enterPrecommitWait(height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter PrecommitWait for height %d, round %d, at time %s", height, round, time.Now()))
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.TriggeredTimeoutPrecommit) {
 		logger.Info(
 			"entering precommit wait step with invalid args",
@@ -2003,6 +2007,7 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "commit_round", commitRound)
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Commit for height %d, round %d, at time %s", height, commitRound, time.Now()))
 
 	if cs.Height != height || cstypes.RoundStepCommit <= cs.Step {
 		logger.Info(
@@ -2068,7 +2073,7 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 // If we have the block AND +2/3 commits for it, finalize.
 func (cs *State) tryFinalizeCommit(ctx context.Context, height int64) {
 	logger := cs.logger.With("height", height)
-
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter tryFinalizeCommit for height %d, at time %s", height, time.Now()))
 	if cs.Height != height {
 		panic(fmt.Sprintf("tryFinalizeCommit() cs.Height: %v vs height: %v", cs.Height, height))
 	}
@@ -2184,6 +2189,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash wont reflect these txs until the next block.
+
+	startTime := time.Now()
 	stateCopy, err := cs.blockExec.ApplyBlock(spanCtx,
 		stateCopy,
 		types.BlockID{
@@ -2193,6 +2200,9 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		block,
 		cs.tracer,
 	)
+	timePassed := time.Since(startTime)
+	logger.Info(fmt.Sprintf("[TMDEBUG] ApplyBlock for %d took %s", height, timePassed))
+
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
 		return
@@ -2302,6 +2312,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			)
 		}
 		cs.logger.Info(fmt.Sprintf("[Tendermint-Debug] Block time is %dms", block.Time.Sub(lastBlockMeta.Header.Time).Milliseconds()))
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s", height, block.Time.Sub(lastBlockMeta.Header.Time)))
 	}
 
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
@@ -2318,6 +2329,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	if cs.Proposal != nil || proposal == nil {
 		return nil
 	}
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter SetProposal for height %d at time %s", proposal.Height, time.Now())
 
 	// Does not apply
 	if proposal.Height != cs.Height || proposal.Round != cs.Round {
