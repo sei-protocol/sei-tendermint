@@ -2329,7 +2329,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	if cs.Proposal != nil || proposal == nil {
 		return nil
 	}
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter SetProposal for height %d at time %s", proposal.Height, time.Now())
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter SetProposal for height %d at time %s", proposal.Height, time.Now()))
 
 	// Does not apply
 	if proposal.Height != cs.Height || proposal.Round != cs.Round {
