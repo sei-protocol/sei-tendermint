@@ -201,6 +201,7 @@ func (env *Environment) BlockResults(ctx context.Context, req *coretypes.Request
 		Height:                height,
 		TxsResults:            results.TxResults,
 		TotalGasUsed:          totalGasUsed,
+		BeginBlockEvents:      results.Events,
 		FinalizeBlockEvents:   results.Events,
 		ValidatorUpdates:      results.ValidatorUpdates,
 		ConsensusParamUpdates: results.ConsensusParamUpdates,
