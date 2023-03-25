@@ -71,7 +71,7 @@ const (
 	// the backfill process aborts
 	maxLightBlockRequestRetries = 20
 
-	// How long to wait when there's no available epers to restart the router
+	// How long to wait when there's no available peers to restart the router
 	restartNoAvailablePeersWindow = 10 * time.Minute
 )
 
@@ -211,23 +211,23 @@ func NewReactor(
 	restartCh chan struct{},
 ) *Reactor {
 	r := &Reactor{
-		logger:         logger,
-		chainID:        chainID,
-		initialHeight:  initialHeight,
-		cfg:            cfg,
-		conn:           conn,
-		peerEvents:     peerEvents,
-		tempDir:        tempDir,
-		stateStore:     stateStore,
-		blockStore:     blockStore,
-		peers:          newPeerList(),
-		providers:      make(map[types.NodeID]*BlockProvider),
-		metrics:        ssMetrics,
-		eventBus:       eventBus,
-		postSyncHook:   postSyncHook,
-		needsStateSync: needsStateSync,
+		logger:               logger,
+		chainID:              chainID,
+		initialHeight:        initialHeight,
+		cfg:                  cfg,
+		conn:                 conn,
+		peerEvents:           peerEvents,
+		tempDir:              tempDir,
+		stateStore:           stateStore,
+		blockStore:           blockStore,
+		peers:                newPeerList(),
+		providers:            make(map[types.NodeID]*BlockProvider),
+		metrics:              ssMetrics,
+		eventBus:             eventBus,
+		postSyncHook:         postSyncHook,
+		needsStateSync:       needsStateSync,
 		lastNoAvailablePeers: time.Time{},
-		restartCh:		restartCh,
+		restartCh:            restartCh,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "StateSync", r)
