@@ -124,6 +124,7 @@ type EventDataNewBlock struct {
 	Block   *Block  `json:"block"`
 	BlockID BlockID `json:"block_id"`
 
+	ResultBeginBlock    abci.ResponseBeginBlock    `json:"result_begin_block"`
 	ResultFinalizeBlock abci.ResponseFinalizeBlock `json:"result_finalize_block"`
 }
 
@@ -140,6 +141,7 @@ type EventDataNewBlockHeader struct {
 	Header Header `json:"header"`
 
 	NumTxs              int64                      `json:"num_txs,string"` // Number of txs in a block
+	ResultBeginBlock    abci.ResponseBeginBlock    `json:"result_begin_block"`
 	ResultFinalizeBlock abci.ResponseFinalizeBlock `json:"result_finalize_block"`
 }
 

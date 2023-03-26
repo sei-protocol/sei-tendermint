@@ -692,6 +692,9 @@ func fireEvents(
 	if err := eventBus.PublishEventNewBlock(types.EventDataNewBlock{
 		Block:               block,
 		BlockID:             blockID,
+		ResultBeginBlock:    abci.ResponseBeginBlock{
+			Events:  finalizeBlockResponse.Events,
+		},
 		ResultFinalizeBlock: *finalizeBlockResponse,
 	}); err != nil {
 		logger.Error("failed publishing new block", "err", err)
@@ -700,6 +703,9 @@ func fireEvents(
 	if err := eventBus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
 		Header:              block.Header,
 		NumTxs:              int64(len(block.Txs)),
+		ResultBeginBlock:    abci.ResponseBeginBlock{
+			Events:  finalizeBlockResponse.Events,
+		},
 		ResultFinalizeBlock: *finalizeBlockResponse,
 	}); err != nil {
 		logger.Error("failed publishing new block header", "err", err)
