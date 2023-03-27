@@ -109,7 +109,7 @@ func TestEventBusPublishEventNewBlock(t *testing.T) {
 		edt := msg.Data().(types.EventDataNewBlock)
 		assert.Equal(t, block, edt.Block)
 		assert.Equal(t, blockID, edt.BlockID)
-		assert.Equal(t, resultFinalizeBlock.Events, edt.ResultFinalizeBlock)
+		assert.Equal(t, resultFinalizeBlock, edt.ResultFinalizeBlock)
 	}()
 
 	err = eventBus.PublishEventNewBlock(types.EventDataNewBlock{

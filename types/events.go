@@ -190,34 +190,48 @@ type LegacyVersionParams struct {
 }
 
 func (e EventDataNewBlock) ToLegacy() LegacyEventData {
-	return &LegacyEventDataNewBlock{
-		Block: &LegacyBlock{
+	block := &LegacyBlock{}
+	if e.Block != nil {
+		block = &LegacyBlock{
 			Header:     e.Block.Header,
 			Data:       e.Block.Data,
 			Evidence:   LegacyEvidence{Evidence: e.Block.Evidence},
 			LastCommit: e.Block.LastCommit,
-		},
+		}
+	}
+	consensusParamUpdates := &LegacyConsensusParams{}
+	if e.ResultFinalizeBlock.ConsensusParamUpdates != nil {
+		if e.ResultFinalizeBlock.ConsensusParamUpdates.Block != nil {
+			consensusParamUpdates.Block = &LegacyBlockParams{
+				MaxBytes: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Block.MaxBytes),
+				MaxGas:   fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Block.MaxGas),
+			}
+		}
+		if e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence != nil {
+			consensusParamUpdates.Evidence = &LegacyEvidenceParams{
+				MaxAgeNumBlocks: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxAgeNumBlocks),
+				MaxAgeDuration:  fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxAgeDuration),
+				MaxBytes:        fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxBytes),
+			}
+		}
+		if e.ResultFinalizeBlock.ConsensusParamUpdates.Validator != nil {
+			consensusParamUpdates.Validator = &types.ValidatorParams{
+				PubKeyTypes: e.ResultFinalizeBlock.ConsensusParamUpdates.Validator.PubKeyTypes,
+			}
+		}
+		if e.ResultFinalizeBlock.ConsensusParamUpdates.Version != nil {
+			consensusParamUpdates.Version = &LegacyVersionParams{
+				AppVersion: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Version.AppVersion),
+			}
+		}
+	}
+	return &LegacyEventDataNewBlock{
+		Block:            block,
 		ResultBeginBlock: abci.ResponseBeginBlock{Events: e.ResultFinalizeBlock.Events},
 		ResultEndBlock: LegacyResponseEndBlock{
-			ValidatorUpdates: e.ResultFinalizeBlock.ValidatorUpdates,
-			Events:           []abci.Event{},
-			ConsensusParamUpdates: &LegacyConsensusParams{
-				Block: &LegacyBlockParams{
-					MaxBytes: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Block.MaxBytes),
-					MaxGas:   fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Block.MaxGas),
-				},
-				Evidence: &LegacyEvidenceParams{
-					MaxAgeNumBlocks: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxAgeNumBlocks),
-					MaxAgeDuration:  fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxAgeDuration),
-					MaxBytes:        fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxBytes),
-				},
-				Validator: &types.ValidatorParams{
-					PubKeyTypes: e.ResultFinalizeBlock.ConsensusParamUpdates.Validator.PubKeyTypes,
-				},
-				Version: &LegacyVersionParams{
-					AppVersion: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Version.AppVersion),
-				},
-			},
+			ValidatorUpdates:      e.ResultFinalizeBlock.ValidatorUpdates,
+			Events:                []abci.Event{},
+			ConsensusParamUpdates: consensusParamUpdates,
 		},
 	}
 }
