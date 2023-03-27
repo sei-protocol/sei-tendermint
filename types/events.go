@@ -304,7 +304,9 @@ type LegacyResult struct {
 	Events    []abci.Event `json:"events,omitempty"`
 }
 
-func (LegacyEventDataTx) TypeTag() string { return "tendermint/event/Tx" }
+func (LegacyEventDataTx) TypeTag() string {
+	return "tendermint/event/Tx"
+}
 
 func (e EventDataTx) ToLegacy() LegacyEventData {
 	return LegacyEventDataTx{
