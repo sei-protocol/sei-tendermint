@@ -322,9 +322,10 @@ type ResultEvent struct {
 }
 
 type resultEventJSON struct {
-	Query  string              `json:"query"`
-	Data   json.RawMessage     `json:"data"`
-	Events map[string][]string `json:"events"`
+	SubscriptionID string              `json:"subscription_id"`
+	Query          string              `json:"query"`
+	Data           json.RawMessage     `json:"data"`
+	Events         map[string][]string `json:"events"`
 }
 
 func (r ResultEvent) MarshalJSON() ([]byte, error) {
@@ -333,9 +334,10 @@ func (r ResultEvent) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(resultEventJSON{
-		Query:  r.Query,
-		Data:   evt,
-		Events: compactEvents(r.Events),
+		SubscriptionID: r.SubscriptionID,
+		Query:          r.Query,
+		Data:           evt,
+		Events:         compactEvents(r.Events),
 	})
 }
 
@@ -347,6 +349,7 @@ func (r *ResultEvent) UnmarshalJSON(data []byte) error {
 	if err := jsontypes.Unmarshal(res.Data, &r.Data); err != nil {
 		return err
 	}
+	r.SubscriptionID = res.SubscriptionID
 	r.Query = res.Query
 	// no way to de-compact events as information is lost during compaction
 	r.Events = []abci.Event{}
