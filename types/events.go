@@ -7,6 +7,7 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/jsontypes"
 	tmquery "github.com/tendermint/tendermint/internal/pubsub/query"
+	"github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
 // Reserved event types (alphabetically sorted).
@@ -99,6 +100,11 @@ var (
 type EventData interface {
 	// The value must support encoding as a type-tagged JSON object.
 	jsontypes.Tagged
+	ToLegacy() LegacyEventData
+}
+
+type LegacyEventData interface {
+	jsontypes.Tagged
 }
 
 func init() {
@@ -136,6 +142,86 @@ func (e EventDataNewBlock) ABCIEvents() []abci.Event {
 	return append(base, e.ResultFinalizeBlock.Events...)
 }
 
+type LegacyEventDataNewBlock struct {
+	Block            *LegacyBlock            `json:"block"`
+	ResultBeginBlock abci.ResponseBeginBlock `json:"result_begin_block"`
+	ResultEndBlock   LegacyResponseEndBlock  `json:"result_end_block"`
+}
+
+func (LegacyEventDataNewBlock) TypeTag() string { return "tendermint/event/NewBlock" }
+
+type LegacyEvidence struct {
+	Evidence []Evidence `json:"evidence"`
+}
+
+type LegacyBlock struct {
+	Header     `json:"header"`
+	Data       `json:"data"`
+	Evidence   LegacyEvidence `json:"evidence"`
+	LastCommit *Commit        `json:"last_commit"`
+}
+
+type LegacyResponseEndBlock struct {
+	ValidatorUpdates      []abci.ValidatorUpdate `json:"validator_updates"`
+	ConsensusParamUpdates *LegacyConsensusParams `json:"consensus_param_updates,omitempty"`
+	Events                []abci.Event           `json:"events,omitempty"`
+}
+
+type LegacyConsensusParams struct {
+	Block     *LegacyBlockParams     `json:"block,omitempty"`
+	Evidence  *LegacyEvidenceParams  `json:"evidence,omitempty"`
+	Validator *types.ValidatorParams `json:"validator,omitempty"`
+	Version   *LegacyVersionParams   `json:"version,omitempty"`
+}
+
+type LegacyBlockParams struct {
+	MaxBytes string `json:"max_bytes,omitempty"`
+	MaxGas   string `json:"max_gas,omitempty"`
+}
+
+type LegacyEvidenceParams struct {
+	MaxAgeNumBlocks string `json:"max_age_num_blocks,omitempty"`
+	MaxAgeDuration  string `json:"max_age_duration"`
+	MaxBytes        string `json:"max_bytes,omitempty"`
+}
+
+type LegacyVersionParams struct {
+	AppVersion string `json:"app_version,omitempty"`
+}
+
+func (e EventDataNewBlock) ToLegacy() LegacyEventData {
+	return &LegacyEventDataNewBlock{
+		Block: &LegacyBlock{
+			Header:     e.Block.Header,
+			Data:       e.Block.Data,
+			Evidence:   LegacyEvidence{Evidence: e.Block.Evidence},
+			LastCommit: e.Block.LastCommit,
+		},
+		ResultBeginBlock: abci.ResponseBeginBlock{Events: e.ResultFinalizeBlock.Events},
+		ResultEndBlock: LegacyResponseEndBlock{
+			ValidatorUpdates: e.ResultFinalizeBlock.ValidatorUpdates,
+			Events:           []abci.Event{},
+			ConsensusParamUpdates: &LegacyConsensusParams{
+				Block: &LegacyBlockParams{
+					MaxBytes: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Block.MaxBytes),
+					MaxGas:   fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Block.MaxGas),
+				},
+				Evidence: &LegacyEvidenceParams{
+					MaxAgeNumBlocks: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxAgeNumBlocks),
+					MaxAgeDuration:  fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxAgeDuration),
+					MaxBytes:        fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Evidence.MaxBytes),
+				},
+				Validator: &types.ValidatorParams{
+					PubKeyTypes: e.ResultFinalizeBlock.ConsensusParamUpdates.Validator.PubKeyTypes,
+				},
+				Version: &LegacyVersionParams{
+					AppVersion: fmt.Sprintf("%d", e.ResultFinalizeBlock.ConsensusParamUpdates.Version.AppVersion),
+				},
+			},
+		},
+	}
+}
+
 type EventDataNewBlockHeader struct {
 	Header Header `json:"header"`
 
@@ -152,6 +238,10 @@ func (e EventDataNewBlockHeader) ABCIEvents() []abci.Event {
 	return append(base, e.ResultFinalizeBlock.Events...)
 }
 
+func (e EventDataNewBlockHeader) ToLegacy() LegacyEventData {
+	return e
+}
+
 type EventDataNewEvidence struct {
 	Evidence Evidence `json:"evidence"`
 
@@ -160,6 +250,10 @@ type EventDataNewEvidence struct {
 
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataNewEvidence) TypeTag() string { return "tendermint/event/NewEvidence" }
+
+func (e EventDataNewEvidence) ToLegacy() LegacyEventData {
+	return e
+}
 
 // All txs fire EventDataTx
 type EventDataTx struct {
@@ -178,6 +272,42 @@ func (e EventDataTx) ABCIEvents() []abci.Event {
 	return append(base, e.Result.Events...)
 }
 
+type LegacyEventDataTx struct {
+	TxResult LegacyTxResult `json:"TxResult"`
+}
+
+type LegacyTxResult struct {
+	Height string       `json:"height,omitempty"`
+	Index  uint32       `json:"index,omitempty"`
+	Tx     []byte       `json:"tx,omitempty"`
+	Result LegacyResult `json:"result"`
+}
+
+type LegacyResult struct {
+	Log       string       `json:"log,omitempty"`
+	GasWanted string       `json:"gas_wanted,omitempty"`
+	GasUsed   string       `json:"gas_used,omitempty"`
+	Events    []abci.Event `json:"events,omitempty"`
+}
+
+func (LegacyEventDataTx) TypeTag() string { return "tendermint/event/Tx" }
+
+func (e EventDataTx) ToLegacy() LegacyEventData {
+	return LegacyEventDataTx{
+		TxResult: LegacyTxResult{
+			Height: fmt.Sprintf("%d", e.Height),
+			Index:  e.Index,
+			Tx:     e.Tx,
+			Result: LegacyResult{
+				Log:       e.Result.Log,
+				GasWanted: fmt.Sprintf("%d", e.Result.GasWanted),
+				GasUsed:   fmt.Sprintf("%d", e.Result.GasUsed),
+				Events:    e.Result.Events,
+			},
+		},
+	}
+}
+
 // NOTE: This goes into the replay WAL
 type EventDataRoundState struct {
 	Height int64  `json:"height,string"`
@@ -187,6 +317,10 @@ type EventDataRoundState struct {
 
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataRoundState) TypeTag() string { return "tendermint/event/RoundState" }
+
+func (e EventDataRoundState) ToLegacy() LegacyEventData {
+	return e
+}
 
 type ValidatorInfo struct {
 	Address Address `json:"address"`
@@ -204,6 +338,10 @@ type EventDataNewRound struct {
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataNewRound) TypeTag() string { return "tendermint/event/NewRound" }
 
+func (e EventDataNewRound) ToLegacy() LegacyEventData {
+	return e
+}
+
 type EventDataCompleteProposal struct {
 	Height int64  `json:"height,string"`
 	Round  int32  `json:"round"`
@@ -215,6 +353,10 @@ type EventDataCompleteProposal struct {
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataCompleteProposal) TypeTag() string { return "tendermint/event/CompleteProposal" }
 
+func (e EventDataCompleteProposal) ToLegacy() LegacyEventData {
+	return e
+}
+
 type EventDataVote struct {
 	Vote *Vote
 }
@@ -222,10 +364,18 @@ type EventDataVote struct {
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataVote) TypeTag() string { return "tendermint/event/Vote" }
 
+func (e EventDataVote) ToLegacy() LegacyEventData {
+	return e
+}
+
 type EventDataString string
 
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataString) TypeTag() string { return "tendermint/event/ProposalString" }
+
+func (e EventDataString) ToLegacy() LegacyEventData {
+	return e
+}
 
 type EventDataValidatorSetUpdates struct {
 	ValidatorUpdates []*Validator `json:"validator_updates"`
@@ -233,6 +383,10 @@ type EventDataValidatorSetUpdates struct {
 
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataValidatorSetUpdates) TypeTag() string { return "tendermint/event/ValidatorSetUpdates" }
+
+func (e EventDataValidatorSetUpdates) ToLegacy() LegacyEventData {
+	return e
+}
 
 // EventDataBlockSyncStatus shows the fastsync status and the
 // height when the node state sync mechanism changes.
@@ -244,6 +398,10 @@ type EventDataBlockSyncStatus struct {
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataBlockSyncStatus) TypeTag() string { return "tendermint/event/FastSyncStatus" }
 
+func (e EventDataBlockSyncStatus) ToLegacy() LegacyEventData {
+	return e
+}
+
 // EventDataStateSyncStatus shows the statesync status and the
 // height when the node state sync mechanism changes.
 type EventDataStateSyncStatus struct {
@@ -254,6 +412,10 @@ type EventDataStateSyncStatus struct {
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataStateSyncStatus) TypeTag() string { return "tendermint/event/StateSyncStatus" }
 
+func (e EventDataStateSyncStatus) ToLegacy() LegacyEventData {
+	return e
+}
+
 type EventDataEvidenceValidated struct {
 	Evidence Evidence `json:"evidence"`
 
@@ -262,6 +424,10 @@ type EventDataEvidenceValidated struct {
 
 // TypeTag implements the required method of jsontypes.Tagged.
 func (EventDataEvidenceValidated) TypeTag() string { return "tendermint/event/EvidenceValidated" }
+
+func (e EventDataEvidenceValidated) ToLegacy() LegacyEventData {
+	return e
+}
 
 // PUBSUB
 

@@ -30,7 +30,7 @@ func TestEventBusPublishEventTx(t *testing.T) {
 	result := abci.ExecTxResult{
 		Data: []byte("bar"),
 		Events: []abci.Event{
-			{Type: "testType", Attributes: []abci.EventAttribute{{Key:[]byte( "baz"), Value: []byte("1")}}},
+			{Type: "testType", Attributes: []abci.EventAttribute{{Key: []byte("baz"), Value: []byte("1")}}},
 		},
 	}
 
@@ -109,7 +109,7 @@ func TestEventBusPublishEventNewBlock(t *testing.T) {
 		edt := msg.Data().(types.EventDataNewBlock)
 		assert.Equal(t, block, edt.Block)
 		assert.Equal(t, blockID, edt.BlockID)
-		assert.Equal(t, resultFinalizeBlock, edt.ResultFinalizeBlock)
+		assert.Equal(t, resultFinalizeBlock.Events, edt.ResultFinalizeBlock)
 	}()
 
 	err = eventBus.PublishEventNewBlock(types.EventDataNewBlock{

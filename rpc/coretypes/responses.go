@@ -317,15 +317,14 @@ type (
 type ResultEvent struct {
 	SubscriptionID string
 	Query          string
-	Data           types.EventData
+	Data           types.LegacyEventData
 	Events         []abci.Event
 }
 
 type resultEventJSON struct {
-	SubscriptionID string          `json:"subscription_id"`
-	Query          string          `json:"query"`
-	Data           json.RawMessage `json:"data"`
-	Events         []abci.Event    `json:"events"`
+	Query  string              `json:"query"`
+	Data   json.RawMessage     `json:"data"`
+	Events map[string][]string `json:"events"`
 }
 
 func (r ResultEvent) MarshalJSON() ([]byte, error) {
@@ -334,10 +333,9 @@ func (r ResultEvent) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(resultEventJSON{
-		SubscriptionID: r.SubscriptionID,
-		Query:          r.Query,
-		Data:           evt,
-		Events:         r.Events,
+		Query:  r.Query,
+		Data:   evt,
+		Events: compactEvents(r.Events),
 	})
 }
 
@@ -349,10 +347,24 @@ func (r *ResultEvent) UnmarshalJSON(data []byte) error {
 	if err := jsontypes.Unmarshal(res.Data, &r.Data); err != nil {
 		return err
 	}
-	r.SubscriptionID = res.SubscriptionID
 	r.Query = res.Query
-	r.Events = res.Events
+	// no way to de-compact events as information is lost during compaction
+	r.Events = []abci.Event{}
 	return nil
+}
+
+func compactEvents(events []abci.Event) map[string][]string {
+	res := map[string][]string{}
+	for _, e := range events {
+		for _, a := range e.Attributes {
+			key := e.Type + "." + string(a.Key)
+			if _, ok := res[key]; !ok {
+				res[key] = []string{}
+			}
+			res[key] = append(res[key], string(a.Value))
+		}
+	}
+	return res
 }
 
 // Evidence is an argument wrapper for a types.Evidence value, that handles
