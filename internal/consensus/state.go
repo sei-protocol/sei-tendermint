@@ -2603,7 +2603,7 @@ func (cs *State) addVote(
 	if vote.Height < cs.Height || (vote.Height == cs.Height && vote.Round < cs.Round) {
 		cs.metrics.MarkLateVote(vote.Type)
 	}
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d and peer %s, at time %s", vote.Height, peerID, time.Now()))
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d from peer %s, at time %s, vote is %v", vote.Height, peerID, time.Now(), vote))
 
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit
