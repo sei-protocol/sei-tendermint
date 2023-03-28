@@ -2310,7 +2310,29 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
 			)
 		}
-		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s, at time %s, prev time %s, this time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), time.Now(), lastBlockMeta.Header.Time, block.Time))
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s, prev block time %s, curr block time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), lastBlockMeta.Header.Time, block.Time))
+		roundState := cs.RoundState
+		startTime := cs.StartTime
+		proposalTime := roundState.Proposal.Timestamp
+		hvs := roundState.Votes
+		round := hvs.Round()
+		for roundId := 0; int32(roundId) <= round; roundId++ {
+			currRound := int32(roundId)
+			preVotes := hvs.Prevotes(currRound)
+			preCommitVotes := hvs.Precommits(currRound)
+			for _, vote := range preVotes.List() {
+				voteTime := vote.Timestamp
+				voteValidator := vote.ValidatorAddress
+				voteValidatorIndex := vote.ValidatorIndex
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime, proposalTime))
+			}
+			for _, vote := range preCommitVotes.List() {
+				voteTime := vote.Timestamp
+				voteValidator := vote.ValidatorAddress
+				voteValidatorIndex := vote.ValidatorIndex
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime, proposalTime))
+			}
+		}
 		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
 	}
 
@@ -2604,9 +2626,9 @@ func (cs *State) addVote(
 	if vote.Height < cs.Height || (vote.Height == cs.Height && vote.Round < cs.Round) {
 		cs.metrics.MarkLateVote(vote.Type)
 	}
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d from peer %s, at time %s, vote is %v", vote.Height, peerID, time.Now(), vote))
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current votes: %s", cs.Votes.String()))
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current round: %d, start time %s, proposal receive time %s ", cs.Round, cs.StartTime, cs.ProposalReceiveTime))
+	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d from peer %s, at time %s, vote is %v", vote.Height, peerID, time.Now(), vote))
+	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current votes: %s", cs.Votes.String()))
+	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current round: %d, start time %s, proposal receive time %s ", cs.Round, cs.StartTime, cs.ProposalReceiveTime))
 
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit
