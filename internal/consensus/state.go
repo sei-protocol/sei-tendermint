@@ -2881,7 +2881,6 @@ func (cs *State) signAddVote(
 	if !cs.Validators.HasAddress(cs.privValidatorPubKey.Address()) {
 		return nil
 	}
-
 	// TODO: pass pubKey to signVote
 	vote, err := cs.signVote(ctx, msgType, hash, header)
 	if err != nil {
@@ -2893,7 +2892,7 @@ func (cs *State) signAddVote(
 		vote.StripExtension()
 	}
 	cs.sendInternalMessage(ctx, msgInfo{&VoteMessage{vote}, "", tmtime.Now()})
-	cs.logger.Info("signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
+	cs.logger.Info("[TMDEBUG] signed and pushed vote", "height", cs.Height, "round", cs.Round, "vote", vote)
 	return vote
 }
 
