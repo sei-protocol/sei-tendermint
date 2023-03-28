@@ -2313,7 +2313,11 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s, prev block time %s, curr block time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), lastBlockMeta.Header.Time, block.Time))
 		roundState := cs.RoundState
 		startTime := cs.StartTime
-		proposalTime := roundState.Proposal.Timestamp
+
+		proposal := cs.Proposal
+		if proposal == nil {
+			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Proposal is not found for height %d", height))
+		}
 		hvs := roundState.Votes
 		round := hvs.Round()
 		for roundId := 0; int32(roundId) <= round; roundId++ {
@@ -2328,13 +2332,13 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime, proposalTime))
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
 			for _, vote := range preCommitVotes.List() {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime, proposalTime))
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
 		}
 		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
