@@ -3,6 +3,8 @@ package coretypes
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -351,8 +353,7 @@ func (r *ResultEvent) UnmarshalJSON(data []byte) error {
 	}
 	r.SubscriptionID = res.SubscriptionID
 	r.Query = res.Query
-	// no way to de-compact events as information is lost during compaction
-	r.Events = []abci.Event{}
+	r.Events = decompactEvents(res.Events)
 	return nil
 }
 
@@ -367,6 +368,56 @@ func compactEvents(events []abci.Event) map[string][]string {
 			res[key] = append(res[key], string(a.Value))
 		}
 	}
+	return res
+}
+
+// best effort decompaction that group attributes with common
+// prefix into the same event
+func decompactEvents(compact map[string][]string) []abci.Event {
+	eventTypeToAttrs := map[string]map[string][]string{}
+	for longKey, vals := range compact {
+		splitted := strings.Split(longKey, ".")
+		if len(splitted) != 2 {
+			fmt.Printf("invalid compact event key: %s\n", longKey)
+			continue
+		}
+		if _, ok := eventTypeToAttrs[splitted[0]]; !ok {
+			eventTypeToAttrs[splitted[0]] = map[string][]string{}
+		}
+		if existing, ok := eventTypeToAttrs[splitted[0]][splitted[1]]; ok {
+			fmt.Printf("duplicate compact event key: %s\n", longKey)
+			eventTypeToAttrs[splitted[0]][splitted[1]] = append(existing, vals...)
+		} else {
+			eventTypeToAttrs[splitted[0]][splitted[1]] = vals
+		}
+	}
+	res := []abci.Event{}
+	for eventType, kvs := range eventTypeToAttrs {
+		// at most N events of this type where N is the count of the most common
+		// attribute key
+		eventNum := 0
+		for _, vals := range kvs {
+			if len(vals) > eventNum {
+				eventNum = len(vals)
+			}
+		}
+		for i := 0; i < eventNum; i++ {
+			attributes := []abci.EventAttribute{}
+			for key, vals := range kvs {
+				if i < len(vals) {
+					attributes = append(attributes, abci.EventAttribute{
+						Key:   []byte(key),
+						Value: []byte(vals[i]),
+					})
+				}
+			}
+			res = append(res, abci.Event{
+				Type:       eventType,
+				Attributes: attributes,
+			})
+		}
+	}
+
 	return res
 }
 

@@ -120,6 +120,8 @@ func init() {
 	jsontypes.MustRegister(EventDataValidatorSetUpdates{})
 	jsontypes.MustRegister(EventDataVote{})
 	jsontypes.MustRegister(EventDataEvidenceValidated{})
+	jsontypes.MustRegister(LegacyEventDataNewBlock{})
+	jsontypes.MustRegister(LegacyEventDataTx{})
 	jsontypes.MustRegister(EventDataString(""))
 }
 
@@ -148,10 +150,10 @@ type LegacyEventDataNewBlock struct {
 	ResultEndBlock   LegacyResponseEndBlock  `json:"result_end_block"`
 }
 
-func (LegacyEventDataNewBlock) TypeTag() string { return "tendermint/event/NewBlock" }
+func (LegacyEventDataNewBlock) TypeTag() string { return "tendermint/event/NewBlock_legacy" }
 
 type LegacyEvidence struct {
-	Evidence []Evidence `json:"evidence"`
+	Evidence EvidenceList `json:"evidence"`
 }
 
 type LegacyBlock struct {
@@ -305,7 +307,7 @@ type LegacyResult struct {
 }
 
 func (LegacyEventDataTx) TypeTag() string {
-	return "tendermint/event/Tx"
+	return "tendermint/event/Tx_legacy"
 }
 
 func (e EventDataTx) ToLegacy() LegacyEventData {
