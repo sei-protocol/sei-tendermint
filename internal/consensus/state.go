@@ -2541,7 +2541,6 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 // Attempt to add the vote. if its a duplicate signature, dupeout the validator
 func (cs *State) tryAddVote(ctx context.Context, vote *types.Vote, peerID types.NodeID, handleVoteMsgSpan otrace.Span) (bool, error) {
 	added, err := cs.addVote(ctx, vote, peerID, handleVoteMsgSpan)
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter tryAddVote for height %d, at time %s", vote.Height, time.Now()))
 	if err != nil {
 		// If the vote height is off, we'll just ignore it,
 		// But if it's a conflicting sig, add it to the cs.evpool.
@@ -2604,6 +2603,7 @@ func (cs *State) addVote(
 	if vote.Height < cs.Height || (vote.Height == cs.Height && vote.Round < cs.Round) {
 		cs.metrics.MarkLateVote(vote.Type)
 	}
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d and peer %s, at time %s", vote.Height, peerID, time.Now()))
 
 	// A precommit for the previous height?
 	// These come in while we wait timeoutCommit
