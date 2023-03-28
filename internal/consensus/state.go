@@ -2320,6 +2320,10 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			currRound := int32(roundId)
 			preVotes := hvs.Prevotes(currRound)
 			preCommitVotes := hvs.Precommits(currRound)
+			if preVotes == nil || preCommitVotes == nil {
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d got nil votes", currRound))
+				continue
+			}
 			for _, vote := range preVotes.List() {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
