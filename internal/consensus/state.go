@@ -2310,7 +2310,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
 			)
 		}
-		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s\n", height, block.Time.Sub(lastBlockMeta.Header.Time)))
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s\n at time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), time.Now()))
 		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
 	}
 
