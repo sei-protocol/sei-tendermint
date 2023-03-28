@@ -685,7 +685,6 @@ func (cs *State) updateRoundStep(round int32, step cstypes.RoundStepType) {
 
 // enterNewRound(height, 0) at cs.StartTime.
 func (cs *State) scheduleRound0(rs *cstypes.RoundState) {
-	// cs.logger.Info("scheduleRound0", "now", tmtime.Now(), "startTime", cs.StartTime)
 	sleepDuration := rs.StartTime.Sub(tmtime.Now())
 	cs.scheduleTimeout(sleepDuration, rs.Height, 0, cstypes.RoundStepNewHeight)
 }
@@ -1283,7 +1282,6 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 	// TODO: remove panics in this function and return an error
 
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter NewRound for height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
 
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.Step != cstypes.RoundStepNewHeight) {
 		logger.Debug(
@@ -1292,6 +1290,7 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 		)
 		return
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter NewRound for height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
 
 	if now := tmtime.Now(); cs.StartTime.After(now) {
 		logger.Debug("need to set a buffer and log message here for sanity", "start_time", cs.StartTime, "now", now)
@@ -1384,10 +1383,6 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	defer span.End()
 
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter Propose for height %d, round %d, at time %s", height, round, time.Now()))
-	defer func() {
-		logger.Info(fmt.Sprintf("[TMDEBUG] finished Propose for height %d, round %d, at time %s", height, round, time.Now()))
-	}()
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPropose <= cs.Step) {
 		logger.Debug(
 			"entering propose step with invalid args",
@@ -1395,6 +1390,7 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 		)
 		return
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter Propose for height %d, round %d, at time %s", height, round, time.Now()))
 
 	// If this validator is the proposer of this round, and the previous block time is later than
 	// our local clock time, wait to propose until our local clock time has passed the block time.
@@ -1613,7 +1609,6 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		return
 	}
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter Prevote fro height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
-	logger.Info(fmt.Sprintf("[TMDEBUG] RoundState: %s", cs.RoundState.String()))
 	defer func() {
 		// Done enterPrevote:
 		cs.updateRoundStep(round, cstypes.RoundStepPrevote)
@@ -1637,10 +1632,6 @@ func (cs *State) proposalIsTimely() bool {
 func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
-	logger.Info(fmt.Sprintf("[TMDEBUG] RoundState: %s", cs.RoundState.String()))
-	defer func() {
-		logger.Info(fmt.Sprintf("[TMDEBUG] finished DoPrevote for height %d, round %d, at time %s", height, round, time.Now()))
-	}()
 	// Check that a proposed block was not received within this round (and thus executing this from a timeout).
 	if !cs.config.GossipTransactionKeyOnly && cs.ProposalBlock == nil {
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
@@ -1813,7 +1804,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 // Enter: any +2/3 prevotes at next round.
 func (cs *State) enterPrevoteWait(height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter PrevoteWait for height %d, round %d, at time %s", height, round, time.Now()))
+
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cstypes.RoundStepPrevoteWait <= cs.Step) {
 		logger.Info(
 			"entering prevote wait step with invalid args",
@@ -1822,6 +1813,8 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 		)
 		return
 	}
+
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter PrevoteWait for height %d, round %d, at time %s", height, round, time.Now()))
 
 	if !cs.Votes.Prevotes(round).HasTwoThirdsAny() {
 		panic(fmt.Sprintf(
@@ -1866,7 +1859,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 	logger.Info(fmt.Sprintf("[TMDEBUG] enter Precommit for height %d, round %d, at time %s, entryLabel %s", height, round, time.Now(), entryLabel))
-	logger.Info(fmt.Sprintf("[TMDEBUG] RoundState: %s", cs.RoundState.String()))
 	logger.Info("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.Height, cs.Round, cs.Step), "time", time.Now().UnixMilli())
 
 	defer func() {
@@ -1975,7 +1967,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 // Enter: any +2/3 precommits for next round.
 func (cs *State) enterPrecommitWait(height int64, round int32) {
 	logger := cs.logger.With("height", height, "round", round)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter PrecommitWait for height %d, round %d, at time %s", height, round, time.Now()))
 	if cs.Height != height || round < cs.Round || (cs.Round == round && cs.TriggeredTimeoutPrecommit) {
 		logger.Info(
 			"entering precommit wait step with invalid args",
@@ -1985,6 +1976,7 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 		)
 		return
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter PrecommitWait for height %d, round %d, at time %s", height, round, time.Now()))
 
 	if !cs.Votes.Precommits(round).HasTwoThirdsAny() {
 		panic(fmt.Sprintf(
@@ -2079,10 +2071,10 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 // If we have the block AND +2/3 commits for it, finalize.
 func (cs *State) tryFinalizeCommit(ctx context.Context, height int64) {
 	logger := cs.logger.With("height", height)
-	logger.Info(fmt.Sprintf("[TMDEBUG] enter tryFinalizeCommit for height %d, at time %s", height, time.Now()))
 	if cs.Height != height {
 		panic(fmt.Sprintf("tryFinalizeCommit() cs.Height: %v vs height: %v", cs.Height, height))
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter tryFinalizeCommit for height %d, at time %s", height, time.Now()))
 
 	blockID, ok := cs.Votes.Precommits(cs.CommitRound).TwoThirdsMajority()
 	if !ok || blockID.IsNil() {
@@ -2119,6 +2111,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		)
 		return
 	}
+	logger.Info(fmt.Sprintf("[TMDEBUG] enter finalizeCommit for height %d, at time %s", height, time.Now()))
 
 	cs.calculatePrevoteMessageDelayMetrics()
 
@@ -2336,10 +2329,6 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 		return nil
 	}
 	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter SetProposal for height %d at time %s", proposal.Height, time.Now()))
-	defer func() {
-		cs.logger.Info(fmt.Sprintf("[TMDEBUG] finished SetProposal for height %d at time %s", proposal.Height, time.Now()))
-	}()
-
 	// Does not apply
 	if proposal.Height != cs.Height || proposal.Round != cs.Round {
 		return nil
@@ -2552,6 +2541,7 @@ func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handl
 // Attempt to add the vote. if its a duplicate signature, dupeout the validator
 func (cs *State) tryAddVote(ctx context.Context, vote *types.Vote, peerID types.NodeID, handleVoteMsgSpan otrace.Span) (bool, error) {
 	added, err := cs.addVote(ctx, vote, peerID, handleVoteMsgSpan)
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter tryAddVote for height %d, at time %s", vote.Height, time.Now()))
 	if err != nil {
 		// If the vote height is off, we'll just ignore it,
 		// But if it's a conflicting sig, add it to the cs.evpool.
