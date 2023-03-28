@@ -2310,7 +2310,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
 			)
 		}
-		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s\n at time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), time.Now()))
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s at time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), time.Now()))
 		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
 	}
 
@@ -2491,6 +2491,7 @@ func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommi
 		return nil
 	}
 	txs := cs.blockExec.GetTxsForKeys(txKeys)
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter buildProposalBlock for height %d at time %s", height, time.Now()))
 	block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress)
 	block.Version = header.Version
 	block.Data.Txs = txs
