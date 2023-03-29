@@ -229,9 +229,9 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 		LateVotes: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "late_votes",
+			Name:      "validator_address",
 			Help:      "Number of votes received by the node since process start that correspond to earlier heights and rounds than this node is currently in.",
-		}, append(labels, "vote_type")).With(labelsAndValues...),
+		}, append(labels, "validator_address")).With(labelsAndValues...),
 	}
 }
 
