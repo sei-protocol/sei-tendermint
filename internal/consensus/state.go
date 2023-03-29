@@ -2319,6 +2319,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 		proposal := cs.Proposal
 		if proposal == nil {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Proposal is not found for height %d", height))
+			return
 		} else {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d proposer is %s, proposal time is %s", proposal.Height, proposal.ProposerAddress, proposal.Timestamp))
 		}
