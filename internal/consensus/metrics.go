@@ -202,7 +202,7 @@ func (m *Metrics) MarkLateVote(vote *types.Vote) {
 }
 
 func (m *Metrics) MarkFinalRound(round int32, proposer string) {
-	m.FinalRound.With("proposer", proposer).Observe(float64(round))
+	m.FinalRound.With("proposer_address", proposer).Observe(float64(round))
 }
 
 func (m *Metrics) MarkStep(s cstypes.RoundStepType) {
