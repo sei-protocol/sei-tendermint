@@ -1211,6 +1211,7 @@ func (cs *State) handleTimeout(
 		}
 
 		cs.enterPrecommit(ctx, ti.Height, ti.Round, "precommit-wait-timeout")
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Timeout RoundStepPrecommitWait for height %d and moving to round %d", ti.Height, ti.Round+1))
 		cs.enterNewRound(ctx, ti.Height, ti.Round+1, "precommit-wait-timeout")
 
 	default:
