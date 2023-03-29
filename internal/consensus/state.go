@@ -2332,13 +2332,13 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
 			for _, vote := range preCommitVotes.List() {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s, proposal time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
 		}
 		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
@@ -2634,7 +2634,7 @@ func (cs *State) addVote(
 	if vote.Height < cs.Height || (vote.Height == cs.Height && vote.Round < cs.Round) {
 		cs.metrics.MarkLateVote(vote.Type)
 	}
-	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d from peer %s, at time %s, vote is %v", vote.Height, peerID, time.Now(), vote))
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d, at time %s, start time %s, vote is %v", vote.Height, time.Now(), cs.StartTime, vote))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current votes: %s", cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current round: %d, start time %s, proposal receive time %s ", cs.Round, cs.StartTime, cs.ProposalReceiveTime))
 
