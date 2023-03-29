@@ -2346,7 +2346,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Prevote(%.2f), %s", fraction, vote.String()))
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %0.2f, %s, delay %s", fraction, vote.String(), vote.Timestamp.Sub(cs.StartTime)))
 				}
 
 				votingPowerSeen = 0
@@ -2354,7 +2354,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Precommit(%.2f), %s", fraction, vote.String()))
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %0.2f, %s, delay %s", fraction, vote.String(), vote.Timestamp.Sub(cs.StartTime)))
 				}
 			}
 		}
