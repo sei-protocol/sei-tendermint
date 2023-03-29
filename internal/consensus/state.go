@@ -2321,9 +2321,8 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 		if proposal == nil {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Proposal is not found for height %d", height))
 		} else {
-			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d proposer is %s, proposal time is %s, round %d, validRound %d", proposal.Height, proposal.ProposerAddress, proposal.Timestamp, cs.Round, cs.ValidRound))
+			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d proposer is %s, proposal time is %s, round %d, start time %s", proposal.Height, proposal.ProposerAddress, proposal.Timestamp, cs.Round, cs.StartTime))
 			roundState := cs.RoundState
-			startTime := cs.StartTime
 			hvs := roundState.Votes
 			round := hvs.Round()
 			for roundId := 0; int32(roundId) <= round; roundId++ {
@@ -2344,30 +2343,18 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				})
 				var votingPowerSeen int64
 				for _, vote := range pl {
-					voteTime := vote.Timestamp
-					voteValidator := vote.ValidatorAddress
-					voteValidatorIndex := vote.ValidatorIndex
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote (%.2f), validator %d %s delay %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
-				}
-				if preVotes.HasAll() {
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Prevotes has all voting power!"))
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Prevote(%.2f), %s", fraction, vote.String()))
 				}
 
 				votingPowerSeen = 0
 				for _, vote := range pcl {
-					voteTime := vote.Timestamp
-					voteValidator := vote.ValidatorAddress
-					voteValidatorIndex := vote.ValidatorIndex
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit (%.2f), validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
-				}
-				if preCommitVotes.HasAll() {
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Precommits has all voting power!"))
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Precommit(%.2f), %s", fraction, vote.String()))
 				}
 			}
 		}
