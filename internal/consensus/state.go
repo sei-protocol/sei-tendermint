@@ -2323,6 +2323,8 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 		} else {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d proposer is %s, proposal time %s, receive time  %s,  round %d, start time %s", proposal.Height, proposal.ProposerAddress, proposal.Timestamp, cs.ProposalReceiveTime, cs.Round, cs.StartTime))
 			cs.metrics.MarkFinalRound(cs.Round, proposal.ProposerAddress.String())
+			cs.metrics.MarkProposeLatency(proposal.ProposerAddress.String(), float64(proposal.Timestamp.Sub(cs.StartTime).Milliseconds()))
+
 			roundState := cs.RoundState
 			hvs := roundState.Votes
 			round := hvs.Round()
@@ -2347,6 +2349,10 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
+					delay := vote.Timestamp.Sub(cs.StartTime)
+					delay0 := pl[0].Timestamp.Sub(cs.StartTime)
+					prevoteLatency := delay - delay0
+					cs.metrics.MarkPrevoteLatency(val.Address.String(), float64(prevoteLatency))
 					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %0.2f, %s, delay %s", fraction, vote.String(), vote.Timestamp.Sub(cs.StartTime)))
 				}
 

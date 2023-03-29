@@ -242,7 +242,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "propose_latency",
-			Help:      "Time it takes from the proposal is created till it was received by other validators",
+			Help:      "Time it takes from the round 0 started till a proposal is created and deliverd",
 		}, append(labels, "proposer_address")).With(labelsAndValues...),
 		PrevoteLatency: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
