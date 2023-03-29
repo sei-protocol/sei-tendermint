@@ -2313,48 +2313,47 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			)
 		}
 		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Block time for height %d is: %s, prev block time %s, curr block time %s", height, block.Time.Sub(lastBlockMeta.Header.Time), lastBlockMeta.Header.Time, block.Time))
-		roundState := cs.RoundState
-		startTime := cs.StartTime
+		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
 
 		proposal := cs.Proposal
 		if proposal == nil {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Proposal is not found for height %d", height))
-			return
 		} else {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d proposer is %s, proposal time is %s", proposal.Height, proposal.ProposerAddress, proposal.Timestamp))
+			roundState := cs.RoundState
+			startTime := cs.StartTime
+			hvs := roundState.Votes
+			round := hvs.Round()
+			for roundId := 0; int32(roundId) <= round; roundId++ {
+				currRound := int32(roundId)
+				preVotes := hvs.Prevotes(currRound)
+				preCommitVotes := hvs.Precommits(currRound)
+				if preVotes == nil || preCommitVotes == nil {
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d got nil votes", currRound))
+					continue
+				}
+				pl := preVotes.List()
+				pcl := preCommitVotes.List()
+				sort.Slice(pl, func(i, j int) bool {
+					return pl[i].Timestamp.Before(pl[j].Timestamp)
+				})
+				sort.Slice(pcl, func(i, j int) bool {
+					return pcl[i].Timestamp.Before(pcl[j].Timestamp)
+				})
+				for _, vote := range pl {
+					voteTime := vote.Timestamp
+					voteValidator := vote.ValidatorAddress
+					voteValidatorIndex := vote.ValidatorIndex
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				}
+				for _, vote := range pcl {
+					voteTime := vote.Timestamp
+					voteValidator := vote.ValidatorAddress
+					voteValidatorIndex := vote.ValidatorIndex
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				}
+			}
 		}
-		hvs := roundState.Votes
-		round := hvs.Round()
-		for roundId := 0; int32(roundId) <= round; roundId++ {
-			currRound := int32(roundId)
-			preVotes := hvs.Prevotes(currRound)
-			preCommitVotes := hvs.Precommits(currRound)
-			if preVotes == nil || preCommitVotes == nil {
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d got nil votes", currRound))
-				continue
-			}
-			pl := preVotes.List()
-			pcl := preCommitVotes.List()
-			sort.Slice(pl, func(i, j int) bool {
-				return pl[i].Timestamp.Before(pl[j].Timestamp)
-			})
-			sort.Slice(pcl, func(i, j int) bool {
-				return pcl[i].Timestamp.Before(pcl[j].Timestamp)
-			})
-			for _, vote := range pl {
-				voteTime := vote.Timestamp
-				voteValidator := vote.ValidatorAddress
-				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
-			}
-			for _, vote := range pcl {
-				voteTime := vote.Timestamp
-				voteValidator := vote.ValidatorAddress
-				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
-			}
-		}
-		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
 	}
 
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
