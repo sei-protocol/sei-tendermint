@@ -139,7 +139,7 @@ type Metrics struct {
 	// correspond to earlier heights and rounds than this node is currently
 	// in.
 	//metrics:Number of votes received by the node since process start that correspond to earlier heights and rounds than this node is currently in.
-	LateVotes metrics.Counter `metrics_labels:"vote_type"`
+	LateVotes metrics.Counter `metrics_labels:"validator_address"`
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
