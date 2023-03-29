@@ -2636,7 +2636,7 @@ func (cs *State) addVote(
 		cs.metrics.MarkLateVote(vote.Type)
 	}
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d start time %s, vote is %v", vote.Height, cs.StartTime, vote))
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] Added new vote for height %d: %s", vote.Height, cs.Votes.String()))
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] Added new vote for height %d round %d valIndex %d: %s", vote.Height, vote.Round, vote.ValidatorIndex, cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current votes: %s", cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current round: %d, start time %s, proposal receive time %s ", cs.Round, cs.StartTime, cs.ProposalReceiveTime))
 
