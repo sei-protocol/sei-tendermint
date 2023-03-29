@@ -140,6 +140,8 @@ type Metrics struct {
 	// in.
 	//metrics:Number of votes received by the node since process start that correspond to earlier heights and rounds than this node is currently in.
 	LateVotes metrics.Counter `metrics_labels:"validator_address"`
+
+	FinalRound metrics.Histogram `metrics_labels:"proposer_address" metrics_bucketsizes:"0,1,2,3,5,10"`
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
@@ -197,6 +199,10 @@ func (m *Metrics) MarkRound(r int32, st time.Time) {
 func (m *Metrics) MarkLateVote(vote *types.Vote) {
 	validator := vote.ValidatorAddress.String()
 	m.LateVotes.With("validator_address", validator).Add(1)
+}
+
+func (m *Metrics) MarkFinalRound(round int32, proposer string) {
+	m.FinalRound.With("proposer", proposer).Observe(float64(round))
 }
 
 func (m *Metrics) MarkStep(s cstypes.RoundStepType) {

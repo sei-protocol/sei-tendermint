@@ -2322,6 +2322,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Proposal is not found for height %d", height))
 		} else {
 			cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d proposer is %s, proposal time is %s, round %d, start time %s", proposal.Height, proposal.ProposerAddress, proposal.Timestamp, cs.Round, cs.StartTime))
+			cs.metrics.MarkFinalRound(cs.Round, proposal.ProposerAddress.String())
 			roundState := cs.RoundState
 			hvs := roundState.Votes
 			round := hvs.Round()

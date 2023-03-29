@@ -199,7 +199,6 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "proposal_timestamp_difference",
 			Help:      "Difference between the timestamp in the proposal message and the local time of the validator at the time it received the message.",
-
 			Buckets: []float64{-10, -.5, -.025, 0, .1, .5, 1, 1.5, 2, 10},
 		}, append(labels, "is_timely")).With(labelsAndValues...),
 		VoteExtensionReceiveCount: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -229,9 +228,16 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 		LateVotes: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "validator_address",
+			Name:      "late_votes",
 			Help:      "Number of votes received by the node since process start that correspond to earlier heights and rounds than this node is currently in.",
 		}, append(labels, "validator_address")).With(labelsAndValues...),
+		FinalRound: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "final_round",
+			Help:      "Number of rounds going through from this proposer.",
+			Buckets: []float64{0,1,2,3,5,10},
+		}, append(labels, "proposer_address")).With(labelsAndValues...),
 	}
 }
 
@@ -272,5 +278,6 @@ func NopMetrics() *Metrics {
 		ProposalTxs:                   discard.NewGauge(),
 		ProposalMissingTxs:            discard.NewGauge(),
 		MissingTxs:                    discard.NewGauge(),
+		FinalRound: discard.NewHistogram(),
 	}
 }
