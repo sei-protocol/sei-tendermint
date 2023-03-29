@@ -2333,13 +2333,13 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d Round %d Prevote vote, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
 			for _, vote := range preCommitVotes.List() {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
-				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s", currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Height %d Round %d Precommit vote, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
 		}
 		cs.logger.Info("[TMDEBUG] ------------------------------------------------------")
