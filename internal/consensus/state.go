@@ -679,6 +679,7 @@ func (cs *State) updateRoundStep(round int32, step cstypes.RoundStepType) {
 			cs.metrics.MarkStep(cs.Step)
 		}
 	}
+
 	cs.Round = round
 	cs.Step = step
 }
@@ -2634,7 +2635,8 @@ func (cs *State) addVote(
 	if vote.Height < cs.Height || (vote.Height == cs.Height && vote.Round < cs.Round) {
 		cs.metrics.MarkLateVote(vote.Type)
 	}
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d, at time %s, start time %s, vote is %v", vote.Height, time.Now(), cs.StartTime, vote))
+	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d start time %s, vote is %v", vote.Height, cs.StartTime, vote))
+	cs.logger.Info(fmt.Sprintf("[TMDEBUG] Added new vote for height %d: %s", vote.Height, cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current votes: %s", cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current round: %d, start time %s, proposal receive time %s ", cs.Round, cs.StartTime, cs.ProposalReceiveTime))
 

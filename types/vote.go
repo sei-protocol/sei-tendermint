@@ -204,7 +204,7 @@ func (vote *Vote) String() string {
 
 	return fmt.Sprintf("Vote{%v:%X %v/%02d/%v(%v) %X %X %X @ %s}",
 		vote.ValidatorIndex,
-		tmbytes.Fingerprint(vote.ValidatorAddress),
+		vote.ValidatorAddress,
 		vote.Height,
 		vote.Round,
 		vote.Type,
