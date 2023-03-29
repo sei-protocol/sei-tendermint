@@ -2342,17 +2342,26 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				sort.Slice(pcl, func(i, j int) bool {
 					return pcl[i].Timestamp.Before(pcl[j].Timestamp)
 				})
+				var votingPowerSeen int64
 				for _, vote := range pl {
 					voteTime := vote.Timestamp
 					voteValidator := vote.ValidatorAddress
 					voteValidatorIndex := vote.ValidatorIndex
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
+					votingPowerSeen += val.VotingPower
+					fraction := votingPowerSeen / cs.Validators.TotalVotingPower()
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote (%v), validator %d %s delay %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 				}
+
+				votingPowerSeen = 0
 				for _, vote := range pcl {
 					voteTime := vote.Timestamp
 					voteValidator := vote.ValidatorAddress
 					voteValidatorIndex := vote.ValidatorIndex
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
+					votingPowerSeen += val.VotingPower
+					fraction := votingPowerSeen / cs.Validators.TotalVotingPower()
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit (%v), validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 				}
 			}
 		}
@@ -2649,7 +2658,7 @@ func (cs *State) addVote(
 		cs.metrics.MarkLateVote(vote.Type)
 	}
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d start time %s, vote is %v", vote.Height, cs.StartTime, vote))
-	cs.logger.Info(fmt.Sprintf("[TMDEBUG] Added new %s vote for height %d, round %d, start time %s, valIndex %d : %s", vote.Type.String(), vote.Height, vote.Round, cs.RoundState.StartTime, vote.ValidatorIndex, cs.Votes.String()))
+	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Added new %s vote for height %d, round %d, start time %s, valIndex %d : %s", vote.Type.String(), vote.Height, vote.Round, cs.RoundState.StartTime, vote.ValidatorIndex, cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current votes: %s", cs.Votes.String()))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Current round: %d, start time %s, proposal receive time %s ", cs.Round, cs.StartTime, cs.ProposalReceiveTime))
 
