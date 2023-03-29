@@ -2340,7 +2340,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			sort.Slice(pcl, func(i, j int) bool {
 				return pcl[i].Timestamp.Before(pcl[j].Timestamp)
 			})
-			for _, vote := range list {
+			for _, vote := range pl {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
