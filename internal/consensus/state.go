@@ -2352,6 +2352,9 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
 					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote (%.2f), validator %d %s delay %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 				}
+				if preVotes.HasAll() {
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Prevotes has all voting power!"))
+				}
 
 				votingPowerSeen = 0
 				for _, vote := range pcl {
@@ -2362,6 +2365,9 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
 					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit (%.2f), validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+				}
+				if preCommitVotes.HasAll() {
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] Precommits has all voting power!"))
 				}
 			}
 		}
