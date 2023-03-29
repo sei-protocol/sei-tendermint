@@ -2648,7 +2648,7 @@ func (cs *State) addVote(
 		"cs_height", cs.Height,
 	)
 	if vote.Height < cs.Height || (vote.Height == cs.Height && vote.Round < cs.Round) {
-		cs.metrics.MarkLateVote(vote.Type)
+		cs.metrics.MarkLateVote(vote)
 	}
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] enter addVote for height %d start time %s, vote is %v", vote.Height, cs.StartTime, vote))
 	//cs.logger.Info(fmt.Sprintf("[TMDEBUG] Added new %s vote for height %d, round %d, start time %s, valIndex %d : %s", vote.Type.String(), vote.Height, vote.Round, cs.RoundState.StartTime, vote.ValidatorIndex, cs.Votes.String()))

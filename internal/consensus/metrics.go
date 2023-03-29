@@ -194,9 +194,9 @@ func (m *Metrics) MarkRound(r int32, st time.Time) {
 	m.RoundVotingPowerPercent.With("vote_type", pcn).Set(0)
 }
 
-func (m *Metrics) MarkLateVote(vt tmproto.SignedMsgType) {
-	n := strings.ToLower(strings.TrimPrefix(vt.String(), "SIGNED_MSG_TYPE_"))
-	m.LateVotes.With("vote_type", n).Add(1)
+func (m *Metrics) MarkLateVote(vote *types.Vote) {
+	validator := vote.ValidatorAddress.String()
+	m.LateVotes.With("validator_address", validator).Add(1)
 }
 
 func (m *Metrics) MarkStep(s cstypes.RoundStepType) {
