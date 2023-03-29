@@ -143,9 +143,9 @@ type Metrics struct {
 
 	FinalRound metrics.Histogram `metrics_labels:"proposer_address" metrics_bucketsizes:"0,1,2,3,5,10"`
 
-	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.1, 10000, 8"`
+	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 8"`
 
-	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.1, 10000, 8"`
+	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 8"`
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
@@ -209,12 +209,12 @@ func (m *Metrics) MarkFinalRound(round int32, proposer string) {
 	m.FinalRound.With("proposer_address", proposer).Observe(float64(round))
 }
 
-func (m *Metrics) MarkProposeLatency(proposer string, latency float64) {
-	m.ProposeLatency.With("proposer_address", proposer).Observe(latency)
+func (m *Metrics) MarkProposeLatency(proposer string, seconds float64) {
+	m.ProposeLatency.With("proposer_address", proposer).Observe(seconds)
 }
 
-func (m *Metrics) MarkPrevoteLatency(validator string, latency float64) {
-	m.PrevoteLatency.With("validator_address", validator).Observe(latency)
+func (m *Metrics) MarkPrevoteLatency(validator string, seconds float64) {
+	m.PrevoteLatency.With("validator_address", validator).Observe(seconds)
 }
 
 func (m *Metrics) MarkStep(s cstypes.RoundStepType) {

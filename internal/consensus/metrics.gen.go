@@ -243,14 +243,14 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Subsystem: MetricsSubsystem,
 			Name:      "propose_latency",
 			Help:      "Time it takes from the round 0 started till a proposal is created and deliverd",
-			Buckets: stdprometheus.ExponentialBucketsRange(0.1, 10000, 8),
+			Buckets: stdprometheus.ExponentialBucketsRange(0.01, 10, 8),
 		}, append(labels, "proposer_address")).With(labelsAndValues...),
 		PrevoteLatency: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "prevote_latency",
 			Help:      "Time it takes for the validator to deliver its vote for a proposal in any round",
-			Buckets: stdprometheus.ExponentialBucketsRange(0.1, 10000, 8),
+			Buckets: stdprometheus.ExponentialBucketsRange(0.01, 10, 8),
 		}, append(labels, "validator_address")).With(labelsAndValues...),
 	}
 }
