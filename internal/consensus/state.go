@@ -2350,7 +2350,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote (%v), validator %d %s delay %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote (%.2f), validator %d %s delay %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 				}
 
 				votingPowerSeen = 0
@@ -2361,7 +2361,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 					_, val := cs.Validators.GetByAddress(vote.ValidatorAddress)
 					votingPowerSeen += val.VotingPower
 					fraction := float64(votingPowerSeen) / float64(cs.Validators.TotalVotingPower())
-					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit (%v), validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
+					cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Precommit (%.2f), validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, fraction, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 				}
 			}
 		}
