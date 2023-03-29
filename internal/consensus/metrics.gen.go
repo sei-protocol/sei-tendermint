@@ -238,6 +238,18 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Help:      "Number of rounds going through from this proposer.",
 			Buckets: []float64{0,1,2,3,5,10},
 		}, append(labels, "proposer_address")).With(labelsAndValues...),
+		ProposeLatency: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "propose_latency",
+			Help:      "Time it takes from the proposal is created till it was received by other validators",
+		}, append(labels, "proposer_address")).With(labelsAndValues...),
+		PrevoteLatency: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "prevote_latency",
+			Help:      "Time it takes for the validator to deliver its vote for a proposal in any round",
+		}, append(labels, "validator_address")).With(labelsAndValues...),
 	}
 }
 
@@ -278,6 +290,8 @@ func NopMetrics() *Metrics {
 		ProposalTxs:                   discard.NewGauge(),
 		ProposalMissingTxs:            discard.NewGauge(),
 		MissingTxs:                    discard.NewGauge(),
-		FinalRound: discard.NewHistogram(),
+		FinalRound: 				   discard.NewHistogram(),
+		ProposeLatency: 			   discard.NewHistogram(),
+		PrevoteLatency: 			   discard.NewHistogram(),
 	}
 }

@@ -142,6 +142,10 @@ type Metrics struct {
 	LateVotes metrics.Counter `metrics_labels:"validator_address"`
 
 	FinalRound metrics.Histogram `metrics_labels:"proposer_address" metrics_bucketsizes:"0,1,2,3,5,10"`
+
+	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address"`
+
+	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address"`
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
@@ -203,6 +207,14 @@ func (m *Metrics) MarkLateVote(vote *types.Vote) {
 
 func (m *Metrics) MarkFinalRound(round int32, proposer string) {
 	m.FinalRound.With("proposer_address", proposer).Observe(float64(round))
+}
+
+func (m *Metrics) MarkProposeLatency(proposer string, latency float64) {
+	m.ProposeLatency.With("proposer_address", proposer).Observe(latency)
+}
+
+func (m *Metrics) MarkPrevoteLatency(validator string, latency float64) {
+	m.PrevoteLatency.With("validator_address", validator).Observe(latency)
 }
 
 func (m *Metrics) MarkStep(s cstypes.RoundStepType) {
