@@ -143,9 +143,9 @@ type Metrics struct {
 
 	FinalRound metrics.Histogram `metrics_labels:"proposer_address" metrics_bucketsizes:"0,1,2,3,5,10"`
 
-	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address"`
+	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0, 10000, 8"`
 
-	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address"`
+	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0, 10000, 8"`
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
