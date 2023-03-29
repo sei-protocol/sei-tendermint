@@ -2332,13 +2332,21 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				cs.logger.Info(fmt.Sprintf("[TMDEBUG] Round %d got nil votes", currRound))
 				continue
 			}
-			for _, vote := range preVotes.List() {
+			pl := preVotes.List()
+			pcl := preCommitVotes.List()
+			sort.Slice(pl, func(i, j int) bool {
+				return pl[i].Timestamp.Before(pl[j].Timestamp)
+			})
+			sort.Slice(pcl, func(i, j int) bool {
+				return pcl[i].Timestamp.Before(pcl[j].Timestamp)
+			})
+			for _, vote := range list {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
 				cs.logger.Info(fmt.Sprintf("[TMDEBUG] %d Round %d Prevote, validator %d %s vote delay is %s, vote time %s, start time %s", height, currRound, voteValidatorIndex, voteValidator, voteTime.Sub(startTime), voteTime, startTime))
 			}
-			for _, vote := range preCommitVotes.List() {
+			for _, vote := range pcl {
 				voteTime := vote.Timestamp
 				voteValidator := vote.ValidatorAddress
 				voteValidatorIndex := vote.ValidatorIndex
