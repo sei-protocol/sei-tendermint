@@ -849,8 +849,10 @@ func (cs *State) updateToState(state sm.State) {
 		// And alternative solution that relies on clocks:
 		// cs.StartTime = state.LastBlockTime.Add(timeoutCommit)
 		cs.StartTime = cs.commitTime(tmtime.Now())
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Setting StartTime for height %d to %s since commit time is zero", height, cs.StartTime))
 	} else {
 		cs.StartTime = cs.commitTime(cs.CommitTime)
+		cs.logger.Info(fmt.Sprintf("[TMDEBUG] Setting StartTime for height %d to %s", height, cs.StartTime))
 	}
 
 	cs.Validators = validators
