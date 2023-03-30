@@ -74,8 +74,8 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "missing_validators_power",
-			Help:      "Total power of the missing validators.",
-		}, labels).With(labelsAndValues...),
+			Help:      "Voting power of the missing validators.",
+		}, append(labels, "validator_address")).With(labelsAndValues...),
 		ByzantineValidators: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
