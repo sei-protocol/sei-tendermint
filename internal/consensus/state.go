@@ -2145,6 +2145,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
 	}
+	// Calculate consensus time
+	cs.metrics.ConsensusTime.Observe(time.Since(cs.roundState.StartTime()).Seconds())
 
 	// Write EndHeightMessage{} for this height, implying that the blockstore
 	// has saved the block.
@@ -2174,7 +2176,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	stateCopy := cs.state.Copy()
 
 	// Execute and commit the block, update and save the state, and update the mempool.
-	// NOTE The block.AppHash wont reflect these txs until the next block.
+	// NOTE The block.AppHash won't reflect these txs until the next block.
+
 	stateCopy, err := cs.blockExec.ApplyBlock(spanCtx,
 		stateCopy,
 		types.BlockID{
@@ -2281,6 +2284,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				byzantineValidatorsPower += val.VotingPower
 			}
 		}
+			
 	}
 	cs.metrics.ByzantineValidators.Set(float64(byzantineValidatorsCount))
 	cs.metrics.ByzantineValidatorsPower.Set(float64(byzantineValidatorsPower))
@@ -2293,6 +2297,8 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			)
 		}
 	}
+
+	if cs.proposal
 
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
 	cs.metrics.TotalTxs.Add(float64(len(block.Data.Txs)))
@@ -2581,7 +2587,7 @@ func (cs *State) addVote(
 		"cs_height", cs.roundState.Height(),
 	)
 	if vote.Height < cs.roundState.Height() || (vote.Height == cs.roundState.Height() && vote.Round < cs.roundState.Round()) {
-		cs.metrics.MarkLateVote(vote.Type)
+		cs.metrics.MarkLateVote(vote)
 	}
 
 	// A precommit for the previous height?
