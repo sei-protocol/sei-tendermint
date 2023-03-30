@@ -2252,6 +2252,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			if commitSig.BlockIDFlag == types.BlockIDFlagAbsent {
 				missingValidators++
 				missingValidatorsPower += val.VotingPower
+				cs.metrics.MissingValidatorsPower.With("validator_address", val.Address.String()).Set(float64(val.VotingPower))
 			}
 
 			if bytes.Equal(val.Address, address) {
