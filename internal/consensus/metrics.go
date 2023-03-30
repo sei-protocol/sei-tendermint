@@ -148,16 +148,16 @@ type Metrics struct {
 	// ProposeLatency stores the latency in seconds from when the initial round
 	// starts till the proposal is created and received
 	//metrics:Number of seconds from when the consensus round started till the proposal receive time
-	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 8"`
+	ProposeLatency metrics.Histogram `metrics_labels:"proposer_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 10"`
 
 	// PrevoteLatency is measuring the relative delay in seconds from when the first vote arrive in each round
 	// till all remaining following prevote arrives from different validators to reach consensus.
 	//metrics:Number of seconds from when first prevote arrive till other remaining prevote arrives for each validator
-	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 8"`
+	PrevoteLatency metrics.Histogram `metrics_labels:"validator_address" metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 10"`
 
 	// ConsensusTime the metric to track how long the consensus takes in each block
 	//metrics: Number of seconds spent on consensus
-	ConsensusTime metrics.Histogram
+	ConsensusTime metrics.Histogram `metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 10"`
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
