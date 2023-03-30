@@ -281,7 +281,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	blockExec.logger.Info(
 		"finalized block",
 		"height", block.Height,
-		"latency", time.Now().Sub(startTime).Seconds(),
+		"latency_ms", time.Now().Sub(startTime).Milliseconds(),
 		"num_txs_res", len(fBlockRes.TxResults),
 		"num_val_updates", len(fBlockRes.ValidatorUpdates),
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
