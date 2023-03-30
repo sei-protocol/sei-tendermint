@@ -299,5 +299,9 @@ func NopMetrics() *Metrics {
 		ProposalTxs:                   discard.NewGauge(),
 		ProposalMissingTxs:            discard.NewGauge(),
 		MissingTxs:                    discard.NewGauge(),
+		FinalRound:                    discard.NewHistogram(),
+		ProposeLatency:                discard.NewHistogram(),
+		PrevoteLatency:                discard.NewHistogram(),
+		ConsensusTime:                 discard.NewHistogram(),
 	}
 }
