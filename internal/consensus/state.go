@@ -2313,9 +2313,9 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			sort.Slice(pl, func(i, j int) bool {
 				return pl[i].Timestamp.Before(pl[j].Timestamp)
 			})
+			firstVoteDelay := pl[0].Timestamp.Sub(roundState.StartTime).Seconds()
 			for _, vote := range pl {
 				currVoteDelay := vote.Timestamp.Sub(roundState.StartTime).Seconds()
-				firstVoteDelay := pl[0].Timestamp.Sub(roundState.StartTime).Seconds()
 				relativeVoteDelay := currVoteDelay - firstVoteDelay
 				cs.metrics.MarkPrevoteLatency(vote.ValidatorAddress.String(), relativeVoteDelay)
 			}
