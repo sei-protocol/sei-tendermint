@@ -2253,6 +2253,8 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				missingValidators++
 				missingValidatorsPower += val.VotingPower
 				cs.metrics.MissingValidatorsPower.With("validator_address", val.Address.String()).Set(float64(val.VotingPower))
+			} else {
+				cs.metrics.MissingValidatorsPower.With("validator_address", val.Address.String()).Set(0)
 			}
 
 			if bytes.Equal(val.Address, address) {
@@ -2270,7 +2272,6 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 		}
 	}
 	cs.metrics.MissingValidators.Set(float64(missingValidators))
-	cs.metrics.MissingValidatorsPower.Set(float64(missingValidatorsPower))
 
 	// NOTE: byzantine validators power and count is only for consensus evidence i.e. duplicate vote
 	var (

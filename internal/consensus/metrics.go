@@ -157,7 +157,7 @@ type Metrics struct {
 
 	// ConsensusTime the metric to track how long the consensus takes in each block
 	//metrics: Number of seconds spent on consensus
-	ConsensusTime metrics.Histogram `metrics_buckettype:"exprange" metrics_bucketsizes:"0.01, 10, 10"`
+	ConsensusTime metrics.Histogram
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.
