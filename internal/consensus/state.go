@@ -2141,12 +2141,12 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		} else {
 			cs.blockStore.SaveBlock(block, blockParts, seenExtendedCommit.ToCommit())
 		}
+		// Calculate consensus time
+		cs.metrics.ConsensusTime.Observe(time.Since(cs.roundState.StartTime()).Seconds())
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
 	}
-	// Calculate consensus time
-	cs.metrics.ConsensusTime.Observe(time.Since(cs.roundState.StartTime()).Seconds())
 
 	// Write EndHeightMessage{} for this height, implying that the blockstore
 	// has saved the block.
