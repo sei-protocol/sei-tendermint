@@ -2284,11 +2284,12 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				byzantineValidatorsPower += val.VotingPower
 			}
 		}
-			
+
 	}
 	cs.metrics.ByzantineValidators.Set(float64(byzantineValidatorsCount))
 	cs.metrics.ByzantineValidatorsPower.Set(float64(byzantineValidatorsPower))
 
+	// Block Interval metric
 	if height > 1 {
 		lastBlockMeta := cs.blockStore.LoadBlockMeta(height - 1)
 		if lastBlockMeta != nil {
@@ -2298,8 +2299,27 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 		}
 	}
 
-	if cs.proposal
+	roundState := cs.GetRoundState()
+	proposal := roundState.Proposal
 
+	// Latency metric for prevote delay
+	if proposal != nil {
+		cs.metrics.MarkFinalRound(roundState.Round, proposal.ProposerAddress.String())
+		cs.metrics.MarkProposeLatency(proposal.ProposerAddress.String(), proposal.Timestamp.Sub(roundState.StartTime).Seconds())
+		for roundId := 0; int32(roundId) <= roundState.ValidRound; roundId++ {
+			preVotes := roundState.Votes.Prevotes(int32(roundId))
+			pl := preVotes.List()
+			sort.Slice(pl, func(i, j int) bool {
+				return pl[i].Timestamp.Before(pl[j].Timestamp)
+			})
+			for _, vote := range pl {
+				currVoteDelay := vote.Timestamp.Sub(roundState.StartTime).Seconds()
+				firstVoteDelay := pl[0].Timestamp.Sub(roundState.StartTime).Seconds()
+				relativeVoteDelay := currVoteDelay - firstVoteDelay
+				cs.metrics.MarkPrevoteLatency(vote.ValidatorAddress.String(), relativeVoteDelay)
+			}
+		}
+	}
 	cs.metrics.NumTxs.Set(float64(len(block.Data.Txs)))
 	cs.metrics.TotalTxs.Add(float64(len(block.Data.Txs)))
 	cs.metrics.BlockSizeBytes.Observe(float64(block.Size()))
