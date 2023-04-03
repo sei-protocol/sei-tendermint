@@ -92,7 +92,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "block_interval_seconds",
-			Help:      "Time between this and the last block.",
+			Help:      "Time in seconds between this and the last block.",
 
 			Buckets: []float64{.3, .5, 1, 1.5, 2, 5, 10},
 		}, labels).With(labelsAndValues...),
@@ -164,25 +164,25 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "proposal_block_created_on_propose",
-			Help:      "",
+			Help:      "Number of proposal blocks created on propose received.",
 		}, append(labels, "success")).With(labelsAndValues...),
 		ProposalTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "proposal_txs",
-			Help:      "",
+			Help:      "Number of txs in a proposal.",
 		}, labels).With(labelsAndValues...),
 		ProposalMissingTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "proposal_missing_txs",
-			Help:      "",
+			Help:      "Number of missing txs when trying to create proposal.",
 		}, labels).With(labelsAndValues...),
 		MissingTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "missing_txs",
-			Help:      "",
+			Help:      "Number of missing txs when a proposal is received",
 		}, append(labels, "proposer_address")).With(labelsAndValues...),
 		QuorumPrevoteDelay: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
