@@ -51,7 +51,7 @@ type Metrics struct {
 	ByzantineValidatorsPower metrics.Gauge
 
 	// Time between this and the last block.
-	BlockIntervalSeconds metrics.Histogram
+	BlockIntervalSeconds metrics.Histogram `metrics_bucketsizes:".3, .5, 1, 1.5, 2, 5, 10"`
 
 	// Number of transactions.
 	NumTxs metrics.Gauge
