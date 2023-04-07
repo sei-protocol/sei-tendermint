@@ -5,6 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -133,124 +140,180 @@ func (s *syncer) SyncAny(
 	discoveryTime time.Duration,
 	requestSnapshots func() error,
 ) (sm.State, *types.Commit, error) {
-	if discoveryTime != 0 && discoveryTime < minimumDiscoveryTime {
-		discoveryTime = minimumDiscoveryTime
-	}
+	// if discoveryTime != 0 && discoveryTime < minimumDiscoveryTime {
+	// 	discoveryTime = minimumDiscoveryTime
+	// }
 
-	if discoveryTime > 0 {
-		if err := requestSnapshots(); err != nil {
-			return sm.State{}, nil, err
-		}
-		s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
-		time.Sleep(discoveryTime)
-	}
+	// if discoveryTime > 0 {
+	// 	if err := requestSnapshots(); err != nil {
+	// 		return sm.State{}, nil, err
+	// 	}
+	// 	s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
+	// 	time.Sleep(discoveryTime)
+	// }
 
 	// The app may ask us to retry a snapshot restoration, in which case we need to reuse
 	// the snapshot and chunk queue from the previous loop iteration.
-	var (
-		snapshot *snapshot
-		chunks   *chunkQueue
-		err      error
-	)
+	// var (
+	// 	snapshot *snapshot
+	// 	chunks   *chunkQueue
+	// 	err      error
+	// )
 	for {
-		// If not nil, we're going to retry restoration of the same snapshot.
-		if snapshot == nil {
-			snapshot = s.snapshots.Best()
-			chunks = nil
-		}
-		if snapshot == nil {
-			if discoveryTime == 0 {
-				return sm.State{}, nil, errNoSnapshots
-			}
-			s.logger.Info(fmt.Sprintf("No snapshots discovered sleeping for %v", discoveryTime))
-			time.Sleep(discoveryTime)
-			continue
-		}
-		if chunks == nil {
-			chunks, err = newChunkQueue(snapshot, s.tempDir)
-			if err != nil {
-				return sm.State{}, nil, fmt.Errorf("failed to create chunk queue: %w", err)
-			}
-			defer chunks.Close() // in case we forget to close it elsewhere
-		}
+		// // If not nil, we're going to retry restoration of the same snapshot.
+		// if snapshot == nil {
+		// 	snapshot = s.snapshots.Best()
+		// 	chunks = nil
+		// }
+		// if snapshot == nil {
+		// 	if discoveryTime == 0 {
+		// 		return sm.State{}, nil, errNoSnapshots
+		// 	}
+		// 	s.logger.Info(fmt.Sprintf("No snapshots discovered sleeping for %v", discoveryTime))
+		// 	time.Sleep(discoveryTime)
+		// 	continue
+		// }
+		// if chunks == nil {
+		// 	chunks, err = newChunkQueue(snapshot, s.tempDir)
+		// 	if err != nil {
+		// 		return sm.State{}, nil, fmt.Errorf("failed to create chunk queue: %w", err)
+		// 	}
+		// 	defer chunks.Close() // in case we forget to close it elsewhere
+		// }
 
-		s.processingSnapshot = snapshot
-		s.metrics.SnapshotChunkTotal.Set(float64(snapshot.Chunks))
+		// s.processingSnapshot = snapshot
+		// s.metrics.SnapshotChunkTotal.Set(float64(snapshot.Chunks))
 
-		newState, commit, err := s.Sync(ctx, snapshot, chunks)
+		height, filenames := getMetadata()
+		newState, commit, err := s.Sync(ctx, height, filenames)
 		switch {
 		case err == nil:
-			s.metrics.SnapshotHeight.Set(float64(snapshot.Height))
-			s.lastSyncedSnapshotHeight = int64(snapshot.Height)
+			s.metrics.SnapshotHeight.Set(float64(height))
+			s.lastSyncedSnapshotHeight = int64(height)
 			return newState, commit, nil
 
 		case errors.Is(err, errAbort):
 			return sm.State{}, nil, err
 
-		case errors.Is(err, errRetrySnapshot):
-			chunks.RetryAll()
-			s.logger.Info("Retrying snapshot", "height", snapshot.Height, "format", snapshot.Format,
-				"hash", snapshot.Hash)
-			continue
+		// case errors.Is(err, errRetrySnapshot):
+		// 	chunks.RetryAll()
+		// 	s.logger.Info("Retrying snapshot", "height", snapshot.Height, "format", snapshot.Format,
+		// 		"hash", snapshot.Hash)
+		// 	continue
 
-		case errors.Is(err, errTimeout):
-			s.snapshots.Reject(snapshot)
-			s.logger.Error("Timed out waiting for snapshot chunks, rejected snapshot",
-				"height", snapshot.Height, "format", snapshot.Format, "hash", snapshot.Hash)
+		// case errors.Is(err, errTimeout):
+		// 	s.snapshots.Reject(snapshot)
+		// 	s.logger.Error("Timed out waiting for snapshot chunks, rejected snapshot",
+		// 		"height", snapshot.Height, "format", snapshot.Format, "hash", snapshot.Hash)
 
-		case errors.Is(err, errRejectSnapshot):
-			s.snapshots.Reject(snapshot)
-			s.logger.Info("Snapshot rejected", "height", snapshot.Height, "format", snapshot.Format,
-				"hash", snapshot.Hash)
+		// case errors.Is(err, errRejectSnapshot):
+		// 	s.snapshots.Reject(snapshot)
+		// 	s.logger.Info("Snapshot rejected", "height", snapshot.Height, "format", snapshot.Format,
+		// 		"hash", snapshot.Hash)
 
-		case errors.Is(err, errRejectFormat):
-			s.snapshots.RejectFormat(snapshot.Format)
-			s.logger.Info("Snapshot format rejected", "format", snapshot.Format)
+		// case errors.Is(err, errRejectFormat):
+		// 	s.snapshots.RejectFormat(snapshot.Format)
+		// 	s.logger.Info("Snapshot format rejected", "format", snapshot.Format)
 
-		case errors.Is(err, errRejectSender):
-			s.logger.Info("Snapshot senders rejected", "height", snapshot.Height, "format", snapshot.Format,
-				"hash", snapshot.Hash)
-			for _, peer := range s.snapshots.GetPeers(snapshot) {
-				s.snapshots.RejectPeer(peer)
-				s.logger.Info("Snapshot sender rejected", "peer", peer)
-			}
+		// case errors.Is(err, errRejectSender):
+		// 	s.logger.Info("Snapshot senders rejected", "height", snapshot.Height, "format", snapshot.Format,
+		// 		"hash", snapshot.Hash)
+		// 	for _, peer := range s.snapshots.GetPeers(snapshot) {
+		// 		s.snapshots.RejectPeer(peer)
+		// 		s.logger.Info("Snapshot sender rejected", "peer", peer)
+		// 	}
 
 		default:
 			return sm.State{}, nil, fmt.Errorf("snapshot restoration failed: %w", err)
 		}
 
-		// Discard snapshot and chunks for next iteration
-		err = chunks.Close()
-		if err != nil {
-			s.logger.Error("Failed to clean up chunk queue", "err", err)
-		}
-		snapshot = nil
-		chunks = nil
-		s.processingSnapshot = nil
+		// // Discard snapshot and chunks for next iteration
+		// err = chunks.Close()
+		// if err != nil {
+		// 	s.logger.Error("Failed to clean up chunk queue", "err", err)
+		// }
+		// snapshot = nil
+		// chunks = nil
+		// s.processingSnapshot = nil
 	}
+}
+
+func clearApplicationData() {
+	os.RemoveAll("/root/.sei/data/application.db/")
+	os.MkdirAll("/root/.sei/data/application.db/", fs.ModeDir)
+}
+
+func downloadApplicationData(height uint64, filenames []string) {
+	for _, filename := range filenames {
+		out, err := os.Create(fmt.Sprintf("/root/.sei/data/application.db/%s", filename))
+		if err != nil {
+			panic(err)
+		}
+		defer out.Close()
+
+		resp, err := http.Get(fmt.Sprintf("18.223.160.113:8000/snapshot_%d/%s", height, filename))
+		if err != nil {
+			panic(err)
+		}
+		defer resp.Body.Close()
+
+		n, err := io.Copy(out, resp.Body)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Written %d bytes to %s\n", n, filename)
+	}
+}
+
+func getMetadata() (uint64, []string) {
+	resp, err := http.Get("18.223.160.113:8000/LATEST_HEIGHT")
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	parts := strings.Split(string(body), "\n")
+	height, err := strconv.ParseUint(parts[0], 10, 64)
+	if err != nil {
+		panic(err)
+	}
+
+	resp, err = http.Get(fmt.Sprintf("18.223.160.113:8000/snapshot_%d/METADATA", height))
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+	body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		panic(err)
+	}
+	return height, strings.Split(string(body), "\n")
 }
 
 // Sync executes a sync for a specific snapshot, returning the latest state and block commit which
 // the caller must use to bootstrap the node.
-func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueue) (sm.State, *types.Commit, error) {
-	s.mtx.Lock()
-	if s.chunks != nil {
-		s.mtx.Unlock()
-		return sm.State{}, nil, errors.New("a state sync is already in progress")
-	}
-	s.chunks = chunks
-	s.mtx.Unlock()
-	defer func() {
-		s.mtx.Lock()
-		s.chunks = nil
-		s.mtx.Unlock()
-	}()
+func (s *syncer) Sync(ctx context.Context, height uint64, filenames []string) (sm.State, *types.Commit, error) {
+	// s.mtx.Lock()
+	// if s.chunks != nil {
+	// 	s.mtx.Unlock()
+	// 	return sm.State{}, nil, errors.New("a state sync is already in progress")
+	// }
+	// s.chunks = chunks
+	// s.mtx.Unlock()
+	// defer func() {
+	// 	s.mtx.Lock()
+	// 	s.chunks = nil
+	// 	s.mtx.Unlock()
+	// }()
 
-	hctx, hcancel := context.WithTimeout(ctx, 30*time.Second)
+	hctx, hcancel := context.WithTimeout(ctx, 300*time.Second)
 	defer hcancel()
 
 	// Fetch the app hash corresponding to the snapshot
-	appHash, err := s.stateProvider.AppHash(hctx, snapshot.Height)
+	appHash, err := s.stateProvider.AppHash(hctx, height)
 	if err != nil {
 		// check if the main context was triggered
 		if ctx.Err() != nil {
@@ -259,33 +322,33 @@ func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueu
 		// catch the case where all the light client providers have been exhausted
 		if err == light.ErrNoWitnesses {
 			return sm.State{}, nil,
-				fmt.Errorf("failed to get app hash at height %d. No witnesses remaining", snapshot.Height)
+				fmt.Errorf("failed to get app hash at height %d. No witnesses remaining", height)
 		}
 		s.logger.Info("failed to get and verify tendermint state. Dropping snapshot and trying again",
-			"err", err, "height", snapshot.Height)
+			"err", err, "height", height)
 		return sm.State{}, nil, errRejectSnapshot
 	}
-	snapshot.trustedAppHash = appHash
+	// snapshot.trustedAppHash = appHash
 
 	// Offer snapshot to ABCI app.
-	err = s.offerSnapshot(ctx, snapshot)
-	if err != nil {
-		return sm.State{}, nil, err
-	}
+	// err = s.offerSnapshot(ctx, snapshot)
+	// if err != nil {
+	// 	return sm.State{}, nil, err
+	// }
 
 	// Spawn chunk fetchers. They will terminate when the chunk queue is closed or context canceled.
-	fetchCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	fetchStartTime := time.Now()
-	for i := int32(0); i < s.fetchers; i++ {
-		go s.fetchChunks(fetchCtx, snapshot, chunks)
-	}
+	// fetchCtx, cancel := context.WithCancel(ctx)
+	// defer cancel()
+	// fetchStartTime := time.Now()
+	// for i := int32(0); i < s.fetchers; i++ {
+	// 	go s.fetchChunks(fetchCtx, snapshot, chunks)
+	// }
 
 	pctx, pcancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer pcancel()
 
 	// Optimistically build new state, so we don't discover any light client failures at the end.
-	state, err := s.stateProvider.State(pctx, snapshot.Height)
+	state, err := s.stateProvider.State(pctx, height)
 	if err != nil {
 		// check if the main context was triggered
 		if ctx.Err() != nil {
@@ -293,13 +356,13 @@ func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueu
 		}
 		if err == light.ErrNoWitnesses {
 			return sm.State{}, nil,
-				fmt.Errorf("failed to get tendermint state at height %d. No witnesses remaining", snapshot.Height)
+				fmt.Errorf("failed to get tendermint state at height %d. No witnesses remaining", height)
 		}
 		s.logger.Info("failed to get and verify tendermint state. Dropping snapshot and trying again",
-			"err", err, "height", snapshot.Height)
+			"err", err, "height", height)
 		return sm.State{}, nil, errRejectSnapshot
 	}
-	commit, err := s.stateProvider.Commit(pctx, snapshot.Height)
+	commit, err := s.stateProvider.Commit(pctx, height)
 	if err != nil {
 		// check if the provider context exceeded the 10 second deadline
 		if ctx.Err() != nil {
@@ -307,27 +370,27 @@ func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueu
 		}
 		if err == light.ErrNoWitnesses {
 			return sm.State{}, nil,
-				fmt.Errorf("failed to get commit at height %d. No witnesses remaining", snapshot.Height)
+				fmt.Errorf("failed to get commit at height %d. No witnesses remaining", height)
 		}
 		s.logger.Info("failed to get and verify commit. Dropping snapshot and trying again",
-			"err", err, "height", snapshot.Height)
+			"err", err, "height", height)
 		return sm.State{}, nil, errRejectSnapshot
 	}
 
 	// Restore snapshot
-	err = s.applyChunks(ctx, chunks, fetchStartTime)
-	if err != nil {
-		return sm.State{}, nil, err
-	}
+	// err = s.applyChunks(ctx, chunks, fetchStartTime)
+	// if err != nil {
+	// 	return sm.State{}, nil, err
+	// }
+	downloadApplicationData(height, filenames)
 
 	// Verify app and app version
-	if err := s.verifyApp(ctx, snapshot, state.Version.Consensus.App); err != nil {
+	if err := s.verifyApp(ctx, height, appHash, state.Version.Consensus.App); err != nil {
 		return sm.State{}, nil, err
 	}
 
 	// Done! 🎉
-	s.logger.Info("Snapshot restored", "height", snapshot.Height, "format", snapshot.Format,
-		"hash", snapshot.Hash)
+	s.logger.Info("Snapshot restored", "height", height)
 
 	return state, commit, nil
 }
@@ -518,7 +581,7 @@ func (s *syncer) requestChunk(ctx context.Context, snapshot *snapshot, chunk uin
 }
 
 // verifyApp verifies the sync, checking the app hash, last block height and app version
-func (s *syncer) verifyApp(ctx context.Context, snapshot *snapshot, appVersion uint64) error {
+func (s *syncer) verifyApp(ctx context.Context, height uint64, hash []byte, appVersion uint64) error {
 	resp, err := s.conn.Info(ctx, &proxy.RequestInfo)
 	if err != nil {
 		return fmt.Errorf("failed to query ABCI app for appHash: %w", err)
@@ -533,22 +596,22 @@ func (s *syncer) verifyApp(ctx context.Context, snapshot *snapshot, appVersion u
 			appVersion, resp.AppVersion)
 	}
 
-	if !bytes.Equal(snapshot.trustedAppHash, resp.LastBlockAppHash) {
+	if !bytes.Equal(hash, resp.LastBlockAppHash) {
 		s.logger.Error("appHash verification failed",
-			"expected", snapshot.trustedAppHash,
+			"expected", hash,
 			"actual", resp.LastBlockAppHash)
 		return errVerifyFailed
 	}
 
-	if uint64(resp.LastBlockHeight) != snapshot.Height {
+	if uint64(resp.LastBlockHeight) != height {
 		s.logger.Error(
 			"ABCI app reported unexpected last block height",
-			"expected", snapshot.Height,
+			"expected", height,
 			"actual", resp.LastBlockHeight,
 		)
 		return errVerifyFailed
 	}
 
-	s.logger.Info("Verified ABCI app", "height", snapshot.Height, "appHash", snapshot.trustedAppHash)
+	s.logger.Info("Verified ABCI app", "height", height, "appHash", hash)
 	return nil
 }
