@@ -2369,7 +2369,7 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 		cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(proposal.BlockID.PartSetHeader))
 	}
 
-	cs.logger.Info("received proposal", "proposal", proposal)
+	cs.logger.Debug("received proposal", "proposal", proposal)
 	return nil
 }
 
@@ -2903,6 +2903,7 @@ func (cs *State) signAddVote(
 	}
 	cs.sendInternalMessage(ctx, msgInfo{&VoteMessage{vote}, "", tmtime.Now()})
 	cs.logger.Info("signed and pushed vote", "height", cs.roundState.Height(), "round", cs.roundState.Round(), "vote", vote)
+	time.Sleep(30 * time.Second)
 	return vote
 }
 
