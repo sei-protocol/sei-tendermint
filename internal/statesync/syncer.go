@@ -245,13 +245,16 @@ func clearApplicationData() {
 
 func downloadApplicationData(height uint64, filenames []string) {
 	for _, filename := range filenames {
+		if filename == "" {
+			continue
+		}
 		out, err := os.Create(fmt.Sprintf("/root/.sei/data/application.db/%s", filename))
 		if err != nil {
 			panic(err)
 		}
 		defer out.Close()
 
-		resp, err := http.Get(fmt.Sprintf("18.223.160.113:8000/snapshot_%d/%s", height, filename))
+		resp, err := http.Get(fmt.Sprintf("http://3.68.95.254:8000/snapshot_%d/%s", height, filename))
 		if err != nil {
 			panic(err)
 		}
@@ -266,7 +269,7 @@ func downloadApplicationData(height uint64, filenames []string) {
 }
 
 func getMetadata() (uint64, []string) {
-	resp, err := http.Get("18.223.160.113:8000/LATEST_HEIGHT")
+	resp, err := http.Get("http://3.68.95.254:8000/LATEST_HEIGHT")
 	if err != nil {
 		panic(err)
 	}
@@ -281,7 +284,7 @@ func getMetadata() (uint64, []string) {
 		panic(err)
 	}
 
-	resp, err = http.Get(fmt.Sprintf("18.223.160.113:8000/snapshot_%d/METADATA", height))
+	resp, err = http.Get(fmt.Sprintf("http://3.68.95.254:8000/snapshot_%d/METADATA", height))
 	if err != nil {
 		panic(err)
 	}
