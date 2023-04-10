@@ -1066,7 +1066,7 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
 		DoubleSignCheckHeight:       int64(0),
 		// Sei Configurations
-		GossipTransactionKeyOnly:          true,
+		GossipTransactionKeyOnly: true,
 	}
 }
 
@@ -1255,6 +1255,20 @@ func (cfg *InstrumentationConfig) ValidateBasic() error {
 		return errors.New("max-open-connections can't be negative")
 	}
 	return nil
+}
+
+type DBSyncConfig struct {
+	Enable            bool   `mapstructure:"enable"`
+	SnapshotDirectory string `mapstructure:"snapshot-directory"`
+	TimeoutInSeconds  int    `mapstructure:"timeout-in-seconds"`
+}
+
+func DefaultDBSyncConfig() *DBSyncConfig {
+	return &DBSyncConfig{
+		Enable:            false,
+		SnapshotDirectory: "",
+		TimeoutInSeconds:  0,
+	}
 }
 
 //-----------------------------------------------------------------------------
