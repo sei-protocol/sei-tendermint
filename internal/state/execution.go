@@ -419,7 +419,7 @@ func (blockExec *BlockExecutor) Commit(
 		blockExec.logger.Error("client error during mempool.FlushAppConn", "err", err)
 		return 0, err
 	}
-	blockExec.metrics.FlushAppConnectionTime.Set(float64(time.Since(start)))
+	blockExec.metrics.FlushAppConnectionTime.Observe(float64(time.Since(start)))
 
 	// Commit block, get hash back
 	start = time.Now()
@@ -428,7 +428,7 @@ func (blockExec *BlockExecutor) Commit(
 		blockExec.logger.Error("client error during proxyAppConn.Commit", "err", err)
 		return 0, err
 	}
-	blockExec.metrics.ApplicationCommitTime.Set(float64(time.Since(start)))
+	blockExec.metrics.ApplicationCommitTime.Observe(float64(time.Since(start)))
 
 	// ResponseCommit has no error code - just data
 	blockExec.logger.Info(
@@ -450,7 +450,7 @@ func (blockExec *BlockExecutor) Commit(
 		TxPostCheckForState(state),
 		state.ConsensusParams.ABCI.RecheckTx,
 	)
-	blockExec.metrics.UpdateMempoolTime.Set(float64(time.Since(start)))
+	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(start)))
 
 	return res.RetainHeight, err
 }

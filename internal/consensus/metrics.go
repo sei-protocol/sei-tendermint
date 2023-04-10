@@ -169,7 +169,7 @@ type Metrics struct {
 	// CompleteProposalTime measures how long it takes between receiving a proposal and finishing
 	// processing all of its parts. Note that this means it also includes network latency from
 	// block parts gossip
-	CompleteProposalTime metrics.Gauge
+	CompleteProposalTime metrics.Histogram
 }
 
 // RecordConsMetrics uses for recording the block related metrics during fast-sync.

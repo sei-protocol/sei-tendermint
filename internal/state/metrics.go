@@ -29,12 +29,12 @@ type Metrics struct {
 
 	// ValidatorSetUpdates measures how long it takes async ABCI requests to be flushed before
 	// committing application state
-	FlushAppConnectionTime metrics.Gauge
+	FlushAppConnectionTime metrics.Histogram
 
 	// ApplicationCommitTime meaures how long it takes to commit application state
-	ApplicationCommitTime metrics.Gauge
+	ApplicationCommitTime metrics.Histogram
 
 	// UpdateMempoolTime meaures how long it takes to update mempool after commiting, including
 	// reCheckTx
-	UpdateMempoolTime metrics.Gauge
+	UpdateMempoolTime metrics.Histogram
 }

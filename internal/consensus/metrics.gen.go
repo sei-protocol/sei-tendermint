@@ -264,7 +264,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "consensus_time",
 			Help:      "Number of seconds spent on consensus",
 		}, labels).With(labelsAndValues...),
-		CompleteProposalTime: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+		CompleteProposalTime: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "complete_proposal_time",
@@ -314,6 +314,6 @@ func NopMetrics() *Metrics {
 		ProposeLatency:                discard.NewHistogram(),
 		PrevoteLatency:                discard.NewHistogram(),
 		ConsensusTime:                 discard.NewHistogram(),
-		CompleteProposalTime:          discard.NewGauge(),
+		CompleteProposalTime:          discard.NewHistogram(),
 	}
 }
