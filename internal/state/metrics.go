@@ -26,4 +26,15 @@ type Metrics struct {
 	// udated the validator set since process start.
 	//metrics:Number of validator set updates returned by the application since process start.
 	ValidatorSetUpdates metrics.Counter
+
+	// ValidatorSetUpdates measures how long it takes async ABCI requests to be flushed before
+	// committing application state
+	FlushAppConnectionTime metrics.Gauge
+
+	// ApplicationCommitTime meaures how long it takes to commit application state
+	ApplicationCommitTime metrics.Gauge
+
+	// UpdateMempoolTime meaures how long it takes to update mempool after commiting, including
+	// reCheckTx
+	UpdateMempoolTime metrics.Gauge
 }
