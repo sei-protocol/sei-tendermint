@@ -382,8 +382,8 @@ func (r *Reactor) switchToBlockSyncIfBehind(ctx context.Context) {
 
 	behindHeight := maxPeerHeight - selfHeight
 	// No peer info yet so maxPeerHeight will be 0
-	if maxPeerHeight == 0 || behindHeight <= threshold {
-		r.logger.Info("[Block Sync Testing] Node not behind", "threshold", threshold, "behind", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+	if maxPeerHeight == 0 || behindHeight < threshold {
+		r.logger.Info("[Block Sync Testing] Node not behind", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
 		return
 	}
 
