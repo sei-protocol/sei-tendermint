@@ -31,6 +31,8 @@ type seedNodeImpl struct {
 	config     *config.Config
 	genesisDoc *types.GenesisDoc // initial validator set
 
+	nodeInfo        types.NodeInfo
+
 	// network
 	peerManager *p2p.PeerManager
 	router      *p2p.Router
@@ -127,6 +129,7 @@ func makeSeedNode(
 	eventBus := eventbus.NewDefault(logger.With("module", "events"))
 
 	stateStore := sm.NewStore(stateDB)
+
 	node := &seedNodeImpl{
 		config:     cfg,
 		logger:     logger,
@@ -153,15 +156,18 @@ func makeSeedNode(
 			Logger:     logger.With("module", "rpc"),
 			Config:     *cfg.RPC,
 		},
+		nodeInfo: nodeInfo,
 	}
 	node.router.AddChDescToBeAdded(pex.ChannelDescriptor(), pexReactor.SetChannel)
 	node.BaseService = *service.NewBaseService(logger, "SeedNode", node)
+
 
 	return node, nil
 }
 
 // OnStart starts the Seed Node. It implements service.Service.
 func (n *seedNodeImpl) OnStart(ctx context.Context) error {
+
 	if n.config.RPC.PprofListenAddress != "" {
 		rpcCtx, rpcCancel := context.WithCancel(ctx)
 		srv := &http.Server{Addr: n.config.RPC.PprofListenAddress, Handler: nil}
@@ -225,4 +231,13 @@ func (n *seedNodeImpl) OnStop() {
 // EventBus returns the Node's EventBus.
 func (n *seedNodeImpl) EventBus() *eventbus.EventBus {
 	return n.rpcEnv.EventBus
+}
+
+// RPCEnvironment makes sure RPC has all the objects it needs to operate.
+func (n *seedNodeImpl) RPCEnvironment() *rpccore.Environment {
+	return n.rpcEnv
+}
+
+func (n *seedNodeImpl) NodeInfo() *types.NodeInfo {
+	return &n.nodeInfo
 }
