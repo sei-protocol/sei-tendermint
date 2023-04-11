@@ -248,10 +248,7 @@ func (r *Reactor) ResetAndStop() {
 	r.readySignal = make(chan bool, 1)
 	r.channels = &channelBundle{}
 	r.BaseService = *service.NewBaseService(r.logger, "Consensus", r)
-
-	if !r.waitSync {
-		r.readySignal <- true
-	}
+	r.waitSync = true
 }
 
 // WaitSync returns whether the consensus reactor is waiting for state/block sync.
