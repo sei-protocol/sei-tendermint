@@ -330,7 +330,7 @@ func (r *Reactor) processBlockSyncCh(ctx context.Context, blockSyncCh *p2p.Chann
 func (r *Reactor) autoSwitchToBlockSyncIfBehind(ctx context.Context) {
 	for {
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(300 * time.Second):
 			r.logger.Info("[Block Sync Testing] checking if behind")
 			r.switchToBlockSyncIfBehind(ctx)
 		case <-ctx.Done():
