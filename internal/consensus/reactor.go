@@ -130,7 +130,7 @@ type Reactor struct {
 	peers       map[types.NodeID]*PeerState
 	waitSync    bool
 	rs          *cstypes.RoundState
-	readySignal chan bool // closed when the node is ready to start consensus
+	readySignal chan struct{} // closed when the node is ready to start consensus
 
 	peerEvents p2p.PeerEventSubscriber
 
@@ -158,13 +158,13 @@ func NewReactor(
 		eventBus:    eventBus,
 		Metrics:     metrics,
 		peerEvents:  peerEvents,
-		readySignal: make(chan bool, 1),
+		readySignal: make(chan struct{}),
 		channels:    &channelBundle{},
 	}
 	r.BaseService = *service.NewBaseService(logger, "Consensus", r)
 
 	if !r.waitSync {
-		r.readySignal <- true
+		close(r.readySignal)
 	}
 
 	return r
@@ -199,7 +199,7 @@ func (r *Reactor) SetVoteSetChannel(ch *p2p.Channel) {
 // OnStop to ensure the outbound p2p Channels are closed.
 func (r *Reactor) OnStart(ctx context.Context) error {
 	r.logger.Debug("consensus wait sync", "wait_sync", r.WaitSync())
-	r.logger.Info("[Block Sync Testing] Starting consensus reactor")
+
 	peerUpdates := r.peerEvents(ctx)
 
 	// start routine that computes peer statistics for evaluating peer quality
@@ -233,24 +233,10 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 // blocking until they all exit, as well as unsubscribing from events and stopping
 // state.
 func (r *Reactor) OnStop() {
-	r.logger.Info("[Block Sync Testing] Stopping consensus reactor")
 	r.state.Stop()
 
 	if !r.WaitSync() {
 		r.state.Wait()
-	}
-}
-
-func (r *Reactor) ResetAndStop() {
-	r.logger.Info("[Block Sync Testing] ResetAndStop Consensus Reactor")
-	r.OnStop()
-	r.peers = make(map[types.NodeID]*PeerState)
-	r.readySignal = make(chan bool, 1)
-	r.channels = &channelBundle{}
-	r.BaseService = *service.NewBaseService(r.logger, "Consensus", r)
-
-	if !r.waitSync {
-		r.readySignal <- true
 	}
 }
 
@@ -265,13 +251,6 @@ func (r *Reactor) WaitSync() bool {
 func (r *Reactor) StopWaitSync() {
 	r.mtx.Lock()
 	r.waitSync = false
-	r.mtx.Unlock()
-}
-
-func (r *Reactor) StartWaitSync() {
-	r.logger.Info("[Block Sync Testing] Start WaitSync")
-	r.mtx.Lock()
-	r.waitSync = true
 	r.mtx.Unlock()
 }
 
@@ -300,7 +279,7 @@ conR:
 
 	r.mtx.Lock()
 	r.waitSync = false
-	r.readySignal <- true
+	close(r.readySignal)
 	r.mtx.Unlock()
 
 	r.Metrics.BlockSyncing.Set(0)

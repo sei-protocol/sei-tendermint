@@ -188,6 +188,7 @@ type Reactor struct {
 	lastNoAvailablePeers time.Time
 	// a way to signal we should restart router b/c p2p is flaky
 	restartCh chan struct{}
+	restartNoAvailablePeersWindow time.Duration
 }
 
 // NewReactor returns a reference to a new state sync reactor, which implements
@@ -209,6 +210,7 @@ func NewReactor(
 	postSyncHook func(context.Context, sm.State) error,
 	needsStateSync bool,
 	restartCh chan struct{},
+	selfRemediationConfig *config.SelfRemediationConfig,
 ) *Reactor {
 	r := &Reactor{
 		logger:               logger,
@@ -228,6 +230,7 @@ func NewReactor(
 		needsStateSync:       needsStateSync,
 		lastNoAvailablePeers: time.Time{},
 		restartCh:            restartCh,
+		restartNoAvailablePeersWindow: time.Duration(selfRemediationConfig.StatesyncNoPeersRestartWindowSeconds) * time.Second,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "StateSync", r)
@@ -990,7 +993,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	r.mtx.Lock()
 	defer r.mtx.Unlock()
 
-	if r.peers.Len() == 0 {
+	if r.peers.Len() == 0 && r.restartNoAvailablePeersWindow > 0 {
 		if r.lastNoAvailablePeers.IsZero() {
 			r.lastNoAvailablePeers = time.Now()
 		} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/consensus"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	"github.com/tendermint/tendermint/internal/p2p"
@@ -55,7 +56,8 @@ type consensusReactor interface {
 	SwitchToConsensus(ctx context.Context, state sm.State, skipWAL bool)
 	OnStart(ctx context.Context) error
 	OnStop()
-	ResetAndStop()
+	WaitSync() bool
+	String() string
 }
 
 type peerError struct {
@@ -93,6 +95,10 @@ type Reactor struct {
 	eventBus *eventbus.EventBus
 
 	syncStartTime time.Time
+
+	restartCh chan struct{}
+	blocksBehindThreshold uint64
+	blocksBehindCheckInterval time.Duration
 }
 
 // NewReactor returns new reactor instance.
@@ -106,6 +112,8 @@ func NewReactor(
 	blockSync bool,
 	metrics *consensus.Metrics,
 	eventBus *eventbus.EventBus,
+	restartCh chan struct{},
+	selfRemediationConfig *config.SelfRemediationConfig,
 ) *Reactor {
 	r := &Reactor{
 		logger:      logger,
@@ -117,6 +125,9 @@ func NewReactor(
 		peerEvents:  peerEvents,
 		metrics:     metrics,
 		eventBus:    eventBus,
+		restartCh: restartCh,
+		blocksBehindThreshold: selfRemediationConfig.BlocksBehindThreshold,
+		blocksBehindCheckInterval: time.Duration(selfRemediationConfig.BlocksBehindCheckInterval) * time.Second,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "BlockSync", r)
@@ -164,7 +175,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 
 		go r.poolRoutine(ctx, false, r.channel)
 
-		go r.autoSwitchToBlockSyncIfBehind(ctx)
+		go r.autoRestartIfBehind(ctx)
 	}
 
 	go r.processBlockSyncCh(ctx, r.channel)
@@ -181,13 +192,6 @@ func (r *Reactor) OnStop() {
 	}
 }
 
-func (r *Reactor) ResetAndStop() {
-	r.logger.Info("[Block Sync Testing] ResetAndStop Blocksync Reactor")
-	r.OnStop()
-
-	r.blockSync = newAtomicBool(r.blockSync.IsSet())
-	r.BaseService = *service.NewBaseService(r.logger, "BlockSync", r)
-}
 
 // respondToPeer loads a block and sends it to the requesting peer, if we have it.
 // Otherwise, we'll respond saying we do not have it.
@@ -326,13 +330,32 @@ func (r *Reactor) processBlockSyncCh(ctx context.Context, blockSyncCh *p2p.Chann
 	}
 }
 
+// autoRestartIfBehind will check if the node is behind the max peer height by
+// a certain threshold. If it is, the node will attempt to restart itself
+func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
+	if r.blocksBehindThreshold == 0 {
+		r.logger.Debug("blocks behind threshold is 0, not checking for blocks behind")
+		return
+	}
 
-func (r *Reactor) autoSwitchToBlockSyncIfBehind(ctx context.Context) {
 	for {
 		select {
-		case <-time.After(5 * time.Second):
-			r.logger.Info("[Block Sync Testing] checking if behind")
-			r.switchToBlockSyncIfBehind(ctx)
+		case <-time.After(r.blocksBehindCheckInterval):
+			selfHeight := r.store.Height()
+			maxPeerHeight := r.pool.MaxPeerHeight()
+			threshold := int64(r.blocksBehindThreshold)
+			behindHeight := maxPeerHeight - selfHeight
+
+			// No peer info yet so maxPeerHeight will be 0
+			if maxPeerHeight == 0 || behindHeight < threshold {
+				r.logger.Debug("blocks behind does not exceed threshold", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+				return
+			}
+
+			r.logger.Info("Blocks behind threshold, switching to block sync", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+
+			// Send signal to restart the node
+			r.restartCh <- struct{}{}
 		case <-ctx.Done():
 			return
 		}
@@ -341,7 +364,7 @@ func (r *Reactor) autoSwitchToBlockSyncIfBehind(ctx context.Context) {
 
 // processPeerUpdate processes a PeerUpdate.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate, blockSyncCh *p2p.Channel) {
-	r.logger.Info("[Block Sync Testing] received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
+	r.logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
 
 	// XXX: Pool#RedoRequest can sometimes give us an empty peer.
 	if len(peerUpdate.NodeID) == 0 {
@@ -369,46 +392,6 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 
 	case p2p.PeerStatusDown:
 		r.pool.RemovePeer(peerUpdate.NodeID)
-	}
-}
-
-// processPeerUpdates initiates a blocking process where we listen for and handle
-// PeerUpdate messages. When the reactor is stopped, we will catch the signal and
-// close the p2p PeerUpdatesCh gracefully.
-func (r *Reactor) switchToBlockSyncIfBehind(ctx context.Context) {
-	selfHeight := r.store.Height()
-	maxPeerHeight := r.pool.MaxPeerHeight()
-	threshold := int64(100)
-
-	behindHeight := maxPeerHeight - selfHeight
-	// No peer info yet so maxPeerHeight will be 0
-	if maxPeerHeight == 0 || behindHeight <= threshold {
-		r.logger.Info("[Block Sync Testing] Node not behind", "threshold", threshold, "behind", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
-		return
-	}
-
-	if r.blockSync.IsSet() {
-		r.logger.Info("[Block Sync Testing] Already in blocksync mode, skipping switch", "startTime", r.syncStartTime.String())
-		return
-	}
-
-	r.logger.Info("[Block Sync Testing] Node is behind its peers, switching to blocksync", "threshold", threshold, "behind", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
-	state, err := r.stateStore.Load()
-	if err != nil {
-		r.logger.Error("[Block Sync Testing] Unable to switch to blocksync, failed to load state", "err", err)
-		return
-	}
-	r.logger.Info("[Block Sync Testing] Switching to blocksync mode with state", "state.AppHash", state.AppHash, "state.LastBlockHeight", state.LastBlockHeight)
-
-	r.consReactor.ResetAndStop()
-	r.ResetAndStop()
-	err = r.SwitchToBlockSync(ctx, state)
-
-	if err != nil {
-		r.logger.Error("[Block Sync Testing] Unable to switch to blocksync", "err", err)
-	}
-	if err != nil {
-		r.logger.Error("[Block Sync Testing] Unable to switch to back to consensus", "err", err)
 	}
 }
 
@@ -459,8 +442,6 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 	for {
 		select {
 		case <-ctx.Done():
-			r.logger.Info("[Block Sync Testing] ctx.Done()")
-			go r.switchToBlockSyncIfBehind(ctx)
 			return
 		case request := <-r.requestsCh:
 			if err := blockSyncCh.Send(ctx, p2p.Envelope{
@@ -585,7 +566,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			r.blockSync.UnSet()
 
 			if r.consReactor != nil {
-				r.logger.Info("[Block Sync Testing] switching to consensus reactor", "height", height, "blocks_synced", blocksSynced, "state_synced", stateSynced, "max_peer_height", r.pool.MaxPeerHeight())
+				r.logger.Info("switching to consensus reactor", "height", height, "blocks_synced", blocksSynced, "state_synced", stateSynced, "max_peer_height", r.pool.MaxPeerHeight())
 				r.consReactor.SwitchToConsensus(ctx, state, blocksSynced > 0 || stateSynced)
 			}
 
