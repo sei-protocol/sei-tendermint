@@ -11,7 +11,6 @@ import (
 	abciclient "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/eventbus"
-	"github.com/tendermint/tendermint/internal/eventlog"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/internal/p2p/pex"
 	"github.com/tendermint/tendermint/internal/proxy"
@@ -112,8 +111,7 @@ func makeSeedNode(
 
 	pexReactor := pex.NewReactor(logger, peerManager, peerManager.Subscribe, restartCh)
 
-	nodeMetrics := defaultMetricsProvider(cfg.Instrumentation)(genDoc.ChainID)
-	proxyApp := proxy.New(client, logger.With("module", "proxy"), nodeMetrics.proxy)
+	proxyApp := proxy.New(client, logger.With("module", "proxy"), proxy.NopMetrics())
 
 	closers := []closer{convertCancelCloser(cancel)}
 	blockStore, stateDB, dbCloser, err := initDBs(cfg, dbProvider)
@@ -127,18 +125,6 @@ func makeSeedNode(
 		return nil, combineCloseError(err, makeCloser(closers))
 	}
 	eventBus := eventbus.NewDefault(logger.With("module", "events"))
-	var eventLog *eventlog.Log
-	if w := cfg.RPC.EventLogWindowSize; w > 0 {
-		var err error
-		eventLog, err = eventlog.New(eventlog.LogSettings{
-			WindowSize: w,
-			MaxItems:   cfg.RPC.EventLogMaxItems,
-			Metrics:    nodeMetrics.eventlog,
-		})
-		if err != nil {
-			return nil, combineCloseError(fmt.Errorf("initializing event log: %w", err), makeCloser(closers))
-		}
-	}
 
 	stateStore := sm.NewStore(stateDB)
 	node := &seedNodeImpl{
@@ -164,7 +150,6 @@ func makeSeedNode(
 			GenDoc:     genDoc,
 			EventSinks: eventSinks,
 			EventBus:   eventBus,
-			EventLog:   eventLog,
 			Logger:     logger.With("module", "rpc"),
 			Config:     *cfg.RPC,
 		},
