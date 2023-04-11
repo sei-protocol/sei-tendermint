@@ -47,7 +47,7 @@ func TestRollbackIntegration(t *testing.T) {
 		require.NoError(t, err, "%d", height)
 	})
 	t.Run("Restart", func(t *testing.T) {
-		require.True(t, height > 0, "%d", height)
+		require.NotEqual(t, 0, height)
 
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
