@@ -2903,7 +2903,7 @@ func (cs *State) signAddVote(
 	}
 	cs.sendInternalMessage(ctx, msgInfo{&VoteMessage{vote}, "", tmtime.Now()})
 	cs.logger.Info("signed and pushed vote", "height", cs.roundState.Height(), "round", cs.roundState.Round(), "vote", vote)
-	// time.Sleep(30 * time.Second)
+	time.Sleep(5 * time.Second)
 	return vote
 }
 
