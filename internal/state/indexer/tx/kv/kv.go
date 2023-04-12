@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
@@ -42,6 +43,12 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 		return nil, indexer.ErrorEmptyHash
 	}
 
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Get tx key took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	rawBytes, err := txi.store.Get(primaryKey(hash))
 	if err != nil {
 		panic(err)

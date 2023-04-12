@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/orderedcode"
 	dbm "github.com/tendermint/tm-db"
@@ -125,6 +126,12 @@ func (s *dbs) LightBlock(height int64) (*types.LightBlock, error) {
 		panic("negative or zero height")
 	}
 
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load light block took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := s.db.Get(s.lbKey(height))
 	if err != nil {
 		panic(err)
@@ -268,6 +275,12 @@ func (s *dbs) Size() uint16 {
 }
 
 func (s *dbs) batchDelete(batch dbm.Batch, numToPrune uint16) error {
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Batch delete light took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	itr, err := s.db.Iterator(
 		s.lbKey(1),
 		append(s.lbKey(1<<63-1), byte(0x00)),

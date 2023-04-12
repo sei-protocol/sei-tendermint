@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
@@ -165,6 +166,12 @@ func (bs *BlockStore) LoadBlock(height int64) *types.Block {
 // If no block is found for that hash, it returns nil.
 // Panics if it fails to parse height associated with the given hash.
 func (bs *BlockStore) LoadBlockByHash(hash []byte) *types.Block {
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block by hash took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(blockHashKey(hash))
 	if err != nil {
 		panic(err)
@@ -185,6 +192,12 @@ func (bs *BlockStore) LoadBlockByHash(hash []byte) *types.Block {
 // LoadBlockMetaByHash returns the blockmeta who's header corresponds to the given
 // hash. If none is found, returns nil.
 func (bs *BlockStore) LoadBlockMetaByHash(hash []byte) *types.BlockMeta {
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block meta by hash took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(blockHashKey(hash))
 	if err != nil {
 		panic(err)
@@ -208,6 +221,12 @@ func (bs *BlockStore) LoadBlockMetaByHash(hash []byte) *types.BlockMeta {
 func (bs *BlockStore) LoadBlockPart(height int64, index int) *types.Part {
 	var pbpart = new(tmproto.Part)
 
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block part took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(blockPartKey(height, index))
 	if err != nil {
 		panic(err)
@@ -232,6 +251,12 @@ func (bs *BlockStore) LoadBlockPart(height int64, index int) *types.Part {
 // If no block is found for the given height, it returns nil.
 func (bs *BlockStore) LoadBlockMeta(height int64) *types.BlockMeta {
 	var pbbm = new(tmproto.BlockMeta)
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block meta took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(blockMetaKey(height))
 
 	if err != nil {
@@ -261,6 +286,12 @@ func (bs *BlockStore) LoadBlockMeta(height int64) *types.BlockMeta {
 // If no commit is found for the given height, it returns nil.
 func (bs *BlockStore) LoadBlockCommit(height int64) *types.Commit {
 	var pbc = new(tmproto.Commit)
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block commit took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(blockCommitKey(height))
 	if err != nil {
 		panic(err)
@@ -284,6 +315,12 @@ func (bs *BlockStore) LoadBlockCommit(height int64) *types.Commit {
 // as the commit in the block.
 func (bs *BlockStore) LoadBlockExtendedCommit(height int64) *types.ExtendedCommit {
 	pbec := new(tmproto.ExtendedCommit)
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block extended commit took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(extCommitKey(height))
 	if err != nil {
 		panic(fmt.Errorf("fetching extended commit: %w", err))
@@ -308,6 +345,12 @@ func (bs *BlockStore) LoadBlockExtendedCommit(height int64) *types.ExtendedCommi
 // commit in its block.LastCommit.
 func (bs *BlockStore) LoadSeenCommit() *types.Commit {
 	var pbc = new(tmproto.Commit)
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load seen commit took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(seenCommitKey())
 	if err != nil {
 		panic(err)
@@ -437,6 +480,12 @@ func (bs *BlockStore) batchDelete(
 	preDeletionHook func(key, value []byte, batch dbm.Batch) error,
 ) (uint64, []byte, error) {
 	var pruned uint64
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Batch delete took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	iter, err := bs.db.Iterator(start, end)
 	if err != nil {
 		return pruned, start, err
@@ -603,6 +652,12 @@ func (bs *BlockStore) SaveSeenCommit(height int64, seenCommit *types.Commit) err
 
 func (bs *BlockStore) SaveSignedHeader(sh *types.SignedHeader, blockID types.BlockID) error {
 	// first check that the block store doesn't already have the block
+	startTime := time.Now()
+	defer func() {
+		if startTime.Second()%30 == 0 {
+			fmt.Printf("[TMDEBUG] Load block meta for save signed header took %d\n", time.Since(startTime).Microseconds())
+		}
+	}()
 	bz, err := bs.db.Get(blockMetaKey(sh.Height))
 	if err != nil {
 		return err
