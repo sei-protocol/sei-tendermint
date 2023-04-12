@@ -20,6 +20,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/internal/blocksync"
 	"github.com/tendermint/tendermint/internal/consensus"
+	"github.com/tendermint/tendermint/internal/dbsync"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	"github.com/tendermint/tendermint/internal/eventlog"
 	"github.com/tendermint/tendermint/internal/evidence"
@@ -54,7 +55,7 @@ type nodeImpl struct {
 	config          *config.Config
 	genesisDoc      *types.GenesisDoc   // initial validator set
 	privValidator   types.PrivValidator // local node's validator key
-	shouldStateSync bool                // set during makeNode
+	shouldHandshake bool                // set during makeNode
 
 	// network
 	peerManager     *p2p.PeerManager
@@ -305,6 +306,10 @@ func makeNode(
 		stateSync = false
 	}
 
+	if stateSync && cfg.DBSync.Enable {
+		panic("statesync and dbsync cannot be turned on at the same time")
+	}
+
 	// Determine whether we should do block sync. This must happen after the handshake, since the
 	// app may modify the validator set, specifying ourself as the only validator.
 	blockSync := !onlyValidatorIsUs(state, pubKey)
@@ -312,6 +317,8 @@ func makeNode(
 
 	csState, err := consensus.NewState(logger.With("module", "consensus"),
 		cfg.Consensus,
+		cfg.DBSync,
+		cfg.BaseConfig,
 		stateStore,
 		blockExec,
 		blockStore,
@@ -418,12 +425,30 @@ func makeNode(
 		restartCh,
 		cfg.SelfRemediation,
 	)
-	node.shouldStateSync = stateSync
+
+	node.shouldHandshake = !stateSync && !cfg.DBSync.Enable
 	node.services = append(node.services, ssReactor)
 	node.router.AddChDescToBeAdded(statesync.GetSnapshotChannelDescriptor(), ssReactor.SetSnapshotChannel)
 	node.router.AddChDescToBeAdded(statesync.GetChunkChannelDescriptor(), ssReactor.SetChunkChannel)
 	node.router.AddChDescToBeAdded(statesync.GetLightBlockChannelDescriptor(), ssReactor.SetLightBlockChannel)
 	node.router.AddChDescToBeAdded(statesync.GetParamsChannelDescriptor(), ssReactor.SetParamsChannel)
+
+	dbsyncReactor := dbsync.NewReactor(
+		logger.With("module", "dbsync"),
+		*cfg.DBSync,
+		cfg.BaseConfig,
+		peerManager.Subscribe,
+		stateStore,
+		blockStore,
+		genDoc.InitialHeight,
+		genDoc.ChainID,
+		eventBus,
+	)
+	node.services = append(node.services, dbsyncReactor)
+	node.router.AddChDescToBeAdded(dbsync.GetMetadataChannelDescriptor(), dbsyncReactor.SetMetadataChannel)
+	node.router.AddChDescToBeAdded(dbsync.GetFileChannelDescriptor(), dbsyncReactor.SetFileChannel)
+	node.router.AddChDescToBeAdded(dbsync.GetLightBlockChannelDescriptor(), dbsyncReactor.SetLightBlockChannel)
+	node.router.AddChDescToBeAdded(dbsync.GetParamsChannelDescriptor(), dbsyncReactor.SetParamsChannel)
 
 	if cfg.Mode == config.ModeValidator {
 		if privValidator != nil {
@@ -458,7 +483,7 @@ func (n *nodeImpl) OnStart(ctx context.Context) error {
 	// state sync will cover initialization the chain. Also calling InitChain isn't safe
 	// when there is state sync as InitChain itself doesn't commit application state which
 	// would get mixed up with application state writes by state sync.
-	if !n.shouldStateSync {
+	if n.shouldHandshake {
 		// Create the handshaker, which calls RequestInfo, sets the AppVersion on the state,
 		// and replays any blocks as necessary to sync tendermint with the app.
 		if err := consensus.NewHandshaker(n.logger.With("module", "handshaker"),

@@ -505,6 +505,8 @@ func newStateWithConfigAndBlockStore(
 	blockExec := sm.NewBlockExecutor(stateStore, logger, proxyAppConnCon, mempool, evpool, blockStore, eventBus, sm.NopMetrics())
 	cs, err := NewState(logger.With("module", "consensus"),
 		thisConfig.Consensus,
+		thisConfig.DBSync,
+		thisConfig.BaseConfig,
 		stateStore,
 		blockExec,
 		blockStore,
