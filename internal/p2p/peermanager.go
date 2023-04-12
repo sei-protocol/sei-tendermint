@@ -432,6 +432,7 @@ func (m *PeerManager) Add(address NodeAddress) (bool, error) {
 	}
 
 	// else add the new address
+	fmt.Printf("[Tendermint-Debug] Adding peer %s to peer manager\n", address.NodeID)
 	peer.AddressInfo[address] = &peerAddressInfo{Address: address}
 	if err := m.store.Set(peer); err != nil {
 		return false, err
@@ -491,9 +492,13 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	// higher score than any other peers, and if successful evict it.
 	if m.options.MaxConnected > 0 && m.NumConnected()+len(m.dialing) >=
 		int(m.options.MaxConnected)+int(m.options.MaxConnectedUpgrade) {
+		fmt.Printf("[Tendermint-Debug] Reaching max connection, not dialing any more")
 		return NodeAddress{}, nil
 	}
 
+	for _, peer := range m.store.Ranked() {
+		fmt.Printf("[Tendermint-Debug] Ranked nodes with id %s and score %d\n", peer.ID, peer.Score())
+	}
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
 			continue

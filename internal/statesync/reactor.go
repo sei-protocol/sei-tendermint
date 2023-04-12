@@ -277,6 +277,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	r.dispatcher = NewDispatcher(r.lightBlockChannel)
 	r.requestSnaphot = func() error {
 		// request snapshots from all currently connected peers
+		r.logger.Info(fmt.Sprintf("[Tendermint-Debug] Broadcast SnapshotsRequest to peers %v", r.peers.peers))
 		return r.snapshotChannel.Send(ctx, p2p.Envelope{
 			Broadcast: true,
 			Message:   &ssproto.SnapshotsRequest{},
@@ -330,7 +331,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
 
 	if r.needsStateSync {
-		r.logger.Info("starting state sync")
+		r.logger.Info("[Tendermint-Debug] starting state sync")
 		if _, err := r.Sync(ctx); err != nil {
 			r.logger.Error("state sync failed; shutting down this node", "err", err)
 			return err
@@ -364,9 +365,11 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 
 	// We need at least two peers (for cross-referencing of light blocks) before we can
 	// begin state sync
+	r.logger.Info("[Tendermint-Debug] Waiting for 2 peers in Sync")
 	if err := r.waitForEnoughPeers(ctx, 2); err != nil {
 		return sm.State{}, err
 	}
+	r.logger.Info("[Tendermint-Debug] Finished waiting for 2 peers in Sync")
 
 	r.mtx.Lock()
 	if r.syncer != nil {
@@ -374,12 +377,17 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		return sm.State{}, errors.New("a state sync is already in progress")
 	}
 
+	r.logger.Info("[Tendermint-Debug] start initStateProvider ")
 	if err := r.initStateProvider(ctx, r.chainID, r.initialHeight); err != nil {
 		r.mtx.Unlock()
 		return sm.State{}, err
 	}
+	r.logger.Info("[Tendermint-Debug] Finished initStateProvider ")
 
+	r.logger.Info("[Tendermint-Debug] Start initSyncer ")
 	r.syncer = r.initSyncer()
+	r.logger.Info("[Tendermint-Debug] Finished initSyncer ")
+
 	r.mtx.Unlock()
 
 	defer func() {
@@ -390,7 +398,10 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		r.mtx.Unlock()
 	}()
 
+	r.logger.Info("[Tendermint-Debug] Start SyncAny ")
 	state, commit, err := r.syncer.SyncAny(ctx, r.cfg.DiscoveryTime, r.requestSnaphot)
+	r.logger.Info("[Tendermint-Debug] Finished SyncAny ")
+
 	if err != nil {
 		return sm.State{}, err
 	}
@@ -668,7 +679,7 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 			return nil
 		}
 
-		logger.Info("received snapshot", "height", msg.Height, "format", msg.Format)
+		logger.Info("[Tendermint-Debug] received snapshot", "height", msg.Height, "format", msg.Format)
 		_, err := r.syncer.AddSnapshot(envelope.From, &snapshot{
 			Height:   msg.Height,
 			Format:   msg.Format,
@@ -686,7 +697,7 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 			)
 			return nil
 		}
-		logger.Info("added snapshot", "height", msg.Height, "format", msg.Format)
+		logger.Info("[Tendermint-Debug] added snapshot", "height", msg.Height, "format", msg.Format)
 
 	default:
 		return fmt.Errorf("received unknown message: %T", msg)
@@ -969,7 +980,7 @@ func (r *Reactor) processChannels(ctx context.Context, chanTable map[p2p.Channel
 // processPeerUpdate processes a PeerUpdate, returning an error upon failing to
 // handle the PeerUpdate or if a panic is recovered.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate) {
-	r.logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
+	r.logger.Info("[Tendermint-Debug] received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
 
 	switch peerUpdate.Status {
 	case p2p.PeerStatusUp:
@@ -977,7 +988,6 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			peerUpdate.Channels.Contains(ChunkChannel) &&
 			peerUpdate.Channels.Contains(LightBlockChannel) &&
 			peerUpdate.Channels.Contains(ParamsChannel) {
-
 			r.peers.Append(peerUpdate.NodeID)
 		} else {
 			r.logger.Error("could not use peer for statesync (removing)", "peer", peerUpdate.NodeID)
