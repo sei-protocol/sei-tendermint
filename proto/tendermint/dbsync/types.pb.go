@@ -7,7 +7,7 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	_ "github.com/tendermint/tendermint/proto/tendermint/types"
+	types "github.com/tendermint/tendermint/proto/tendermint/types"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -30,6 +30,10 @@ type Message struct {
 	//	*Message_MetadataResponse
 	//	*Message_FileRequest
 	//	*Message_FileResponse
+	//	*Message_LightBlockRequest
+	//	*Message_LightBlockResponse
+	//	*Message_ParamsRequest
+	//	*Message_ParamsResponse
 	Sum isMessage_Sum `protobuf_oneof:"sum"`
 }
 
@@ -84,11 +88,27 @@ type Message_FileRequest struct {
 type Message_FileResponse struct {
 	FileResponse *FileResponse `protobuf:"bytes,4,opt,name=file_response,json=fileResponse,proto3,oneof" json:"file_response,omitempty"`
 }
+type Message_LightBlockRequest struct {
+	LightBlockRequest *LightBlockRequest `protobuf:"bytes,5,opt,name=light_block_request,json=lightBlockRequest,proto3,oneof" json:"light_block_request,omitempty"`
+}
+type Message_LightBlockResponse struct {
+	LightBlockResponse *LightBlockResponse `protobuf:"bytes,6,opt,name=light_block_response,json=lightBlockResponse,proto3,oneof" json:"light_block_response,omitempty"`
+}
+type Message_ParamsRequest struct {
+	ParamsRequest *ParamsRequest `protobuf:"bytes,7,opt,name=params_request,json=paramsRequest,proto3,oneof" json:"params_request,omitempty"`
+}
+type Message_ParamsResponse struct {
+	ParamsResponse *ParamsResponse `protobuf:"bytes,8,opt,name=params_response,json=paramsResponse,proto3,oneof" json:"params_response,omitempty"`
+}
 
-func (*Message_MetadataRequest) isMessage_Sum()  {}
-func (*Message_MetadataResponse) isMessage_Sum() {}
-func (*Message_FileRequest) isMessage_Sum()      {}
-func (*Message_FileResponse) isMessage_Sum()     {}
+func (*Message_MetadataRequest) isMessage_Sum()    {}
+func (*Message_MetadataResponse) isMessage_Sum()   {}
+func (*Message_FileRequest) isMessage_Sum()        {}
+func (*Message_FileResponse) isMessage_Sum()       {}
+func (*Message_LightBlockRequest) isMessage_Sum()  {}
+func (*Message_LightBlockResponse) isMessage_Sum() {}
+func (*Message_ParamsRequest) isMessage_Sum()      {}
+func (*Message_ParamsResponse) isMessage_Sum()     {}
 
 func (m *Message) GetSum() isMessage_Sum {
 	if m != nil {
@@ -125,6 +145,34 @@ func (m *Message) GetFileResponse() *FileResponse {
 	return nil
 }
 
+func (m *Message) GetLightBlockRequest() *LightBlockRequest {
+	if x, ok := m.GetSum().(*Message_LightBlockRequest); ok {
+		return x.LightBlockRequest
+	}
+	return nil
+}
+
+func (m *Message) GetLightBlockResponse() *LightBlockResponse {
+	if x, ok := m.GetSum().(*Message_LightBlockResponse); ok {
+		return x.LightBlockResponse
+	}
+	return nil
+}
+
+func (m *Message) GetParamsRequest() *ParamsRequest {
+	if x, ok := m.GetSum().(*Message_ParamsRequest); ok {
+		return x.ParamsRequest
+	}
+	return nil
+}
+
+func (m *Message) GetParamsResponse() *ParamsResponse {
+	if x, ok := m.GetSum().(*Message_ParamsResponse); ok {
+		return x.ParamsResponse
+	}
+	return nil
+}
+
 // XXX_OneofWrappers is for the internal use of the proto package.
 func (*Message) XXX_OneofWrappers() []interface{} {
 	return []interface{}{
@@ -132,6 +180,10 @@ func (*Message) XXX_OneofWrappers() []interface{} {
 		(*Message_MetadataResponse)(nil),
 		(*Message_FileRequest)(nil),
 		(*Message_FileResponse)(nil),
+		(*Message_LightBlockRequest)(nil),
+		(*Message_LightBlockResponse)(nil),
+		(*Message_ParamsRequest)(nil),
+		(*Message_ParamsResponse)(nil),
 	}
 }
 
@@ -351,44 +403,243 @@ func (m *FileResponse) GetData() []byte {
 	return nil
 }
 
+type LightBlockRequest struct {
+	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+}
+
+func (m *LightBlockRequest) Reset()         { *m = LightBlockRequest{} }
+func (m *LightBlockRequest) String() string { return proto.CompactTextString(m) }
+func (*LightBlockRequest) ProtoMessage()    {}
+func (*LightBlockRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_aab44cdc90da47cb, []int{5}
+}
+func (m *LightBlockRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LightBlockRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LightBlockRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LightBlockRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LightBlockRequest.Merge(m, src)
+}
+func (m *LightBlockRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *LightBlockRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LightBlockRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LightBlockRequest proto.InternalMessageInfo
+
+func (m *LightBlockRequest) GetHeight() uint64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+type LightBlockResponse struct {
+	LightBlock *types.LightBlock `protobuf:"bytes,1,opt,name=light_block,json=lightBlock,proto3" json:"light_block,omitempty"`
+}
+
+func (m *LightBlockResponse) Reset()         { *m = LightBlockResponse{} }
+func (m *LightBlockResponse) String() string { return proto.CompactTextString(m) }
+func (*LightBlockResponse) ProtoMessage()    {}
+func (*LightBlockResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_aab44cdc90da47cb, []int{6}
+}
+func (m *LightBlockResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LightBlockResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LightBlockResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LightBlockResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LightBlockResponse.Merge(m, src)
+}
+func (m *LightBlockResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *LightBlockResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_LightBlockResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LightBlockResponse proto.InternalMessageInfo
+
+func (m *LightBlockResponse) GetLightBlock() *types.LightBlock {
+	if m != nil {
+		return m.LightBlock
+	}
+	return nil
+}
+
+type ParamsRequest struct {
+	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+}
+
+func (m *ParamsRequest) Reset()         { *m = ParamsRequest{} }
+func (m *ParamsRequest) String() string { return proto.CompactTextString(m) }
+func (*ParamsRequest) ProtoMessage()    {}
+func (*ParamsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_aab44cdc90da47cb, []int{7}
+}
+func (m *ParamsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ParamsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ParamsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ParamsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ParamsRequest.Merge(m, src)
+}
+func (m *ParamsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ParamsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ParamsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ParamsRequest proto.InternalMessageInfo
+
+func (m *ParamsRequest) GetHeight() uint64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+type ParamsResponse struct {
+	Height          uint64                `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	ConsensusParams types.ConsensusParams `protobuf:"bytes,2,opt,name=consensus_params,json=consensusParams,proto3" json:"consensus_params"`
+}
+
+func (m *ParamsResponse) Reset()         { *m = ParamsResponse{} }
+func (m *ParamsResponse) String() string { return proto.CompactTextString(m) }
+func (*ParamsResponse) ProtoMessage()    {}
+func (*ParamsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_aab44cdc90da47cb, []int{8}
+}
+func (m *ParamsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ParamsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ParamsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ParamsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ParamsResponse.Merge(m, src)
+}
+func (m *ParamsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ParamsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ParamsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ParamsResponse proto.InternalMessageInfo
+
+func (m *ParamsResponse) GetHeight() uint64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+func (m *ParamsResponse) GetConsensusParams() types.ConsensusParams {
+	if m != nil {
+		return m.ConsensusParams
+	}
+	return types.ConsensusParams{}
+}
+
 func init() {
 	proto.RegisterType((*Message)(nil), "tendermint.dbsync.Message")
 	proto.RegisterType((*MetadataRequest)(nil), "tendermint.dbsync.MetadataRequest")
 	proto.RegisterType((*MetadataResponse)(nil), "tendermint.dbsync.MetadataResponse")
 	proto.RegisterType((*FileRequest)(nil), "tendermint.dbsync.FileRequest")
 	proto.RegisterType((*FileResponse)(nil), "tendermint.dbsync.FileResponse")
+	proto.RegisterType((*LightBlockRequest)(nil), "tendermint.dbsync.LightBlockRequest")
+	proto.RegisterType((*LightBlockResponse)(nil), "tendermint.dbsync.LightBlockResponse")
+	proto.RegisterType((*ParamsRequest)(nil), "tendermint.dbsync.ParamsRequest")
+	proto.RegisterType((*ParamsResponse)(nil), "tendermint.dbsync.ParamsResponse")
 }
 
 func init() { proto.RegisterFile("tendermint/dbsync/types.proto", fileDescriptor_aab44cdc90da47cb) }
 
 var fileDescriptor_aab44cdc90da47cb = []byte{
-	// 404 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x93, 0x41, 0xaf, 0x93, 0x40,
-	0x10, 0xc7, 0xe1, 0x81, 0x4f, 0x3b, 0x60, 0x5e, 0xbb, 0x31, 0x86, 0x90, 0x57, 0x24, 0x78, 0xe9,
-	0x09, 0x12, 0x8d, 0x89, 0x57, 0x6b, 0xd2, 0xf4, 0xd2, 0x98, 0xec, 0xc1, 0x83, 0x17, 0xb3, 0x85,
-	0x2d, 0x10, 0xbb, 0x80, 0xec, 0x72, 0xe8, 0xc5, 0xcf, 0xe0, 0x67, 0xf2, 0xe4, 0xb1, 0x47, 0x8f,
-	0xa6, 0xfd, 0x22, 0x86, 0x05, 0xcb, 0xda, 0x5a, 0x0f, 0xde, 0x66, 0xe6, 0x3f, 0xf9, 0xcd, 0x7f,
-	0x86, 0x05, 0xa6, 0x82, 0x16, 0x09, 0xad, 0x59, 0x5e, 0x88, 0x28, 0x59, 0xf3, 0x5d, 0x11, 0x47,
-	0x62, 0x57, 0x51, 0x1e, 0x56, 0x75, 0x29, 0x4a, 0x34, 0x19, 0xe4, 0xb0, 0x93, 0xdd, 0x27, 0x69,
-	0x99, 0x96, 0x52, 0x8d, 0xda, 0xa8, 0x6b, 0x74, 0xef, 0x15, 0x8e, 0x04, 0xa8, 0x18, 0x77, 0x7a,
-	0xa1, 0x56, 0xa4, 0x26, 0xac, 0x97, 0x83, 0x6f, 0x37, 0xf0, 0x70, 0x45, 0x39, 0x27, 0x29, 0x45,
-	0xef, 0x60, 0xcc, 0xa8, 0x20, 0x09, 0x11, 0xe4, 0x63, 0x4d, 0x3f, 0x37, 0x94, 0x0b, 0x47, 0xf7,
-	0xf5, 0x99, 0xf5, 0x22, 0x08, 0x2f, 0xcc, 0x84, 0xab, 0xbe, 0x15, 0x77, 0x9d, 0x4b, 0x0d, 0xdf,
-	0xb1, 0x3f, 0x4b, 0x08, 0xc3, 0x44, 0x01, 0xf2, 0xaa, 0x2c, 0x38, 0x75, 0x6e, 0x24, 0xf1, 0xf9,
-	0x3f, 0x89, 0x5d, 0xeb, 0x52, 0xc3, 0x63, 0x76, 0x56, 0x43, 0x6f, 0xc1, 0xde, 0xe4, 0x5b, 0x7a,
-	0x32, 0x68, 0x48, 0x9c, 0xf7, 0x17, 0xdc, 0x22, 0xdf, 0xd2, 0xc1, 0x9c, 0xb5, 0x19, 0x52, 0xb4,
-	0x80, 0xc7, 0x3d, 0xa4, 0x37, 0x65, 0x4a, 0xca, 0xb3, 0xab, 0x94, 0x93, 0x21, 0x7b, 0xa3, 0xe4,
-	0xf3, 0x07, 0x60, 0xf0, 0x86, 0x05, 0x13, 0xb8, 0x3b, 0xbb, 0x46, 0xf0, 0x05, 0xc6, 0xe7, 0xeb,
-	0xa0, 0xa7, 0x70, 0x9b, 0xd1, 0x3c, 0xcd, 0xba, 0xab, 0x9a, 0xb8, 0xcf, 0x10, 0x02, 0x33, 0x23,
-	0x3c, 0x93, 0x97, 0xb1, 0xb1, 0x8c, 0xd1, 0x3d, 0x8c, 0xda, 0x49, 0x05, 0x61, 0x94, 0x3b, 0x86,
-	0x6f, 0xcc, 0x46, 0x78, 0x28, 0x20, 0x1f, 0x2c, 0x96, 0xbc, 0x8a, 0x33, 0x1a, 0x7f, 0xe2, 0x0d,
-	0x73, 0x4c, 0xdf, 0x98, 0xd9, 0x58, 0x2d, 0x05, 0x6f, 0xc0, 0x52, 0xf6, 0xbf, 0x3a, 0xda, 0x85,
-	0x47, 0xbf, 0xa9, 0x72, 0xfc, 0x08, 0x9f, 0xf2, 0xe0, 0x3d, 0xd8, 0xea, 0xf2, 0xff, 0xc3, 0x68,
-	0x57, 0x6b, 0x4f, 0x20, 0xbf, 0x92, 0x8d, 0x65, 0x3c, 0xc7, 0xdf, 0x0f, 0x9e, 0xbe, 0x3f, 0x78,
-	0xfa, 0xcf, 0x83, 0xa7, 0x7f, 0x3d, 0x7a, 0xda, 0xfe, 0xe8, 0x69, 0x3f, 0x8e, 0x9e, 0xf6, 0xe1,
-	0x75, 0x9a, 0x8b, 0xac, 0x59, 0x87, 0x71, 0xc9, 0x22, 0xf5, 0xd9, 0x0e, 0x61, 0xf7, 0xf8, 0x2f,
-	0x7e, 0x9c, 0xf5, 0xad, 0x14, 0x5e, 0xfe, 0x0a, 0x00, 0x00, 0xff, 0xff, 0x9b, 0x20, 0xfe, 0xa9,
-	0x54, 0x03, 0x00, 0x00,
+	// 577 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x94, 0xcb, 0x6a, 0xdb, 0x40,
+	0x18, 0x85, 0xe5, 0xfa, 0x92, 0xf8, 0xb7, 0x7c, 0x9b, 0x86, 0x62, 0x8c, 0xa3, 0x38, 0x6a, 0x4b,
+	0x0d, 0x05, 0x1b, 0x5a, 0x0a, 0xdd, 0x74, 0x51, 0x07, 0x42, 0x0a, 0x09, 0x2d, 0x53, 0x08, 0xb4,
+	0x1b, 0x23, 0xcb, 0x63, 0x4b, 0x44, 0x23, 0xa9, 0x1e, 0x69, 0x11, 0x28, 0x7d, 0x84, 0xd2, 0xc7,
+	0xca, 0x32, 0xcb, 0xae, 0x4a, 0xb1, 0x5f, 0xa4, 0x68, 0xa4, 0x48, 0x23, 0xc9, 0x4a, 0x21, 0xbb,
+	0x99, 0xf3, 0x1f, 0x7f, 0x73, 0x24, 0x1d, 0x0f, 0x1c, 0x7a, 0xc4, 0x5e, 0x90, 0x35, 0x35, 0x6d,
+	0x6f, 0xb2, 0x98, 0xb3, 0x6b, 0x5b, 0x9f, 0x78, 0xd7, 0x2e, 0x61, 0x63, 0x77, 0xed, 0x78, 0x0e,
+	0xea, 0x26, 0xe3, 0x71, 0x38, 0xee, 0x1f, 0xac, 0x9c, 0x95, 0xc3, 0xa7, 0x93, 0x60, 0x15, 0x1a,
+	0xfb, 0x03, 0x81, 0xc3, 0x01, 0x22, 0xa6, 0x7f, 0x98, 0x9b, 0xba, 0xda, 0x5a, 0xa3, 0xd1, 0x58,
+	0xfd, 0x59, 0x85, 0xbd, 0x0b, 0xc2, 0x98, 0xb6, 0x22, 0xe8, 0x23, 0x74, 0x28, 0xf1, 0xb4, 0x85,
+	0xe6, 0x69, 0xb3, 0x35, 0xf9, 0xe6, 0x13, 0xe6, 0xf5, 0x4a, 0xc3, 0xd2, 0xa8, 0xf1, 0x4a, 0x1d,
+	0xe7, 0xc2, 0x8c, 0x2f, 0x22, 0x2b, 0x0e, 0x9d, 0x67, 0x12, 0x6e, 0xd3, 0xb4, 0x84, 0x30, 0x74,
+	0x05, 0x20, 0x73, 0x1d, 0x9b, 0x91, 0xde, 0x23, 0x4e, 0x7c, 0x7a, 0x2f, 0x31, 0xb4, 0x9e, 0x49,
+	0xb8, 0x43, 0x33, 0x1a, 0x3a, 0x01, 0x79, 0x69, 0x5a, 0x24, 0x0e, 0x58, 0xe6, 0x38, 0x65, 0x07,
+	0xee, 0xd4, 0xb4, 0x48, 0x12, 0xae, 0xb1, 0x4c, 0xb6, 0xe8, 0x14, 0x9a, 0x11, 0x24, 0x0a, 0x55,
+	0xe1, 0x94, 0xa3, 0x42, 0x4a, 0x1c, 0x48, 0x5e, 0x0a, 0x7b, 0x74, 0x09, 0x8f, 0x2d, 0x73, 0x65,
+	0x78, 0xb3, 0xb9, 0xe5, 0xe8, 0x57, 0x71, 0xa6, 0x2a, 0xa7, 0x3d, 0xdb, 0x41, 0x3b, 0x0f, 0xdc,
+	0xd3, 0xc0, 0x9c, 0x24, 0xeb, 0x5a, 0x59, 0x11, 0x7d, 0x81, 0x83, 0x34, 0x37, 0x8a, 0x59, 0xe3,
+	0xe0, 0xe7, 0xff, 0x01, 0xc7, 0x61, 0x91, 0x95, 0x53, 0xd1, 0x07, 0x68, 0x85, 0x05, 0x88, 0xd3,
+	0xee, 0x71, 0xe8, 0x70, 0x07, 0xf4, 0x13, 0x37, 0x26, 0x49, 0x9b, 0xae, 0x28, 0xa0, 0x73, 0x68,
+	0xc7, 0xa8, 0x28, 0xe0, 0x3e, 0x67, 0x1d, 0xdf, 0xc3, 0x8a, 0xc3, 0xb5, 0xdc, 0x94, 0x32, 0xad,
+	0x42, 0x99, 0xf9, 0x54, 0xed, 0x42, 0x3b, 0xd3, 0x2c, 0xf5, 0x07, 0x74, 0xb2, 0xd5, 0x40, 0x4f,
+	0xa0, 0x66, 0x90, 0xe0, 0xe9, 0x78, 0x43, 0x2b, 0x38, 0xda, 0x21, 0x04, 0x15, 0x43, 0x63, 0x06,
+	0x6f, 0x99, 0x8c, 0xf9, 0x1a, 0x0d, 0xa0, 0x1e, 0x7c, 0x35, 0x5b, 0xa3, 0x84, 0xf5, 0xca, 0xc3,
+	0xf2, 0xa8, 0x8e, 0x13, 0x01, 0x0d, 0xa1, 0x41, 0x17, 0x6f, 0x74, 0x83, 0xe8, 0x57, 0xcc, 0xa7,
+	0xbd, 0xca, 0xb0, 0x3c, 0x92, 0xb1, 0x28, 0xa9, 0xef, 0xa1, 0x21, 0x74, 0xa9, 0xf0, 0xe8, 0x3e,
+	0xec, 0xdf, 0x51, 0xf9, 0xf1, 0x75, 0x1c, 0xef, 0xd5, 0x4b, 0x90, 0xc5, 0x22, 0x3d, 0x84, 0x11,
+	0x3c, 0x5a, 0xf0, 0x0a, 0x78, 0xe3, 0x65, 0xcc, 0xd7, 0xea, 0x4b, 0xe8, 0xe6, 0x2a, 0x55, 0x04,
+	0x57, 0x3f, 0x03, 0xca, 0xd7, 0x04, 0xbd, 0x83, 0x86, 0xd0, 0xb5, 0xe8, 0x0f, 0x3f, 0x10, 0xbf,
+	0x60, 0x78, 0x9d, 0x08, 0x3f, 0x85, 0xa4, 0x57, 0xea, 0x0b, 0x68, 0xa6, 0x6a, 0x52, 0x78, 0xfa,
+	0x77, 0x68, 0xa5, 0x3b, 0x50, 0xf8, 0x12, 0x30, 0x74, 0xf4, 0xc0, 0x60, 0x33, 0x9f, 0xcd, 0xc2,
+	0x96, 0x44, 0xb7, 0xc6, 0x71, 0x3e, 0xd6, 0xc9, 0x9d, 0x33, 0x84, 0x4f, 0x2b, 0x37, 0x7f, 0x8e,
+	0x24, 0xdc, 0xd6, 0x33, 0x32, 0xbe, 0xd9, 0x28, 0xa5, 0xdb, 0x8d, 0x52, 0xfa, 0xbb, 0x51, 0x4a,
+	0xbf, 0xb6, 0x8a, 0x74, 0xbb, 0x55, 0xa4, 0xdf, 0x5b, 0x45, 0xfa, 0xfa, 0x76, 0x65, 0x7a, 0x86,
+	0x3f, 0x1f, 0xeb, 0x0e, 0x9d, 0x88, 0x77, 0x65, 0xb2, 0x0c, 0x6f, 0xdc, 0xdc, 0x6d, 0x3d, 0xaf,
+	0xf1, 0xc1, 0xeb, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x94, 0x9f, 0x5e, 0x2b, 0xc9, 0x05, 0x00,
+	0x00,
 }
 
 func (m *Message) Marshal() (dAtA []byte, err error) {
@@ -504,6 +755,90 @@ func (m *Message_FileResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		}
 		i--
 		dAtA[i] = 0x22
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Message_LightBlockRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Message_LightBlockRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.LightBlockRequest != nil {
+		{
+			size, err := m.LightBlockRequest.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Message_LightBlockResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Message_LightBlockResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.LightBlockResponse != nil {
+		{
+			size, err := m.LightBlockResponse.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Message_ParamsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Message_ParamsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.ParamsRequest != nil {
+		{
+			size, err := m.ParamsRequest.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	return len(dAtA) - i, nil
+}
+func (m *Message_ParamsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Message_ParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.ParamsResponse != nil {
+		{
+			size, err := m.ParamsResponse.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x42
 	}
 	return len(dAtA) - i, nil
 }
@@ -660,6 +995,135 @@ func (m *FileResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *LightBlockRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LightBlockRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LightBlockRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Height != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Height))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *LightBlockResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LightBlockResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LightBlockResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.LightBlock != nil {
+		{
+			size, err := m.LightBlock.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ParamsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ParamsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ParamsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Height != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Height))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ParamsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ParamsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ParamsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	{
+		size, err := m.ConsensusParams.MarshalToSizedBuffer(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = encodeVarintTypes(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x12
+	if m.Height != 0 {
+		i = encodeVarintTypes(dAtA, i, uint64(m.Height))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintTypes(dAtA []byte, offset int, v uint64) int {
 	offset -= sovTypes(v)
 	base := offset
@@ -727,6 +1191,54 @@ func (m *Message_FileResponse) Size() (n int) {
 	_ = l
 	if m.FileResponse != nil {
 		l = m.FileResponse.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+func (m *Message_LightBlockRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.LightBlockRequest != nil {
+		l = m.LightBlockRequest.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+func (m *Message_LightBlockResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.LightBlockResponse != nil {
+		l = m.LightBlockResponse.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+func (m *Message_ParamsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ParamsRequest != nil {
+		l = m.ParamsRequest.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+func (m *Message_ParamsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ParamsResponse != nil {
+		l = m.ParamsResponse.Size()
 		n += 1 + l + sovTypes(uint64(l))
 	}
 	return n
@@ -801,6 +1313,57 @@ func (m *FileResponse) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovTypes(uint64(l))
 	}
+	return n
+}
+
+func (m *LightBlockRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Height != 0 {
+		n += 1 + sovTypes(uint64(m.Height))
+	}
+	return n
+}
+
+func (m *LightBlockResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.LightBlock != nil {
+		l = m.LightBlock.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+
+func (m *ParamsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Height != 0 {
+		n += 1 + sovTypes(uint64(m.Height))
+	}
+	return n
+}
+
+func (m *ParamsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Height != 0 {
+		n += 1 + sovTypes(uint64(m.Height))
+	}
+	l = m.ConsensusParams.Size()
+	n += 1 + l + sovTypes(uint64(l))
 	return n
 }
 
@@ -978,6 +1541,146 @@ func (m *Message) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			m.Sum = &Message_FileResponse{v}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LightBlockRequest", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &LightBlockRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Sum = &Message_LightBlockRequest{v}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LightBlockResponse", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &LightBlockResponse{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Sum = &Message_LightBlockResponse{v}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ParamsRequest", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ParamsRequest{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Sum = &Message_ParamsRequest{v}
+			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ParamsResponse", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			v := &ParamsResponse{}
+			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			m.Sum = &Message_ParamsResponse{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1430,6 +2133,332 @@ func (m *FileResponse) Unmarshal(dAtA []byte) error {
 			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
 			if m.Data == nil {
 				m.Data = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LightBlockRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LightBlockRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LightBlockRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Height", wireType)
+			}
+			m.Height = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Height |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LightBlockResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LightBlockResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LightBlockResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LightBlock", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LightBlock == nil {
+				m.LightBlock = &types.LightBlock{}
+			}
+			if err := m.LightBlock.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ParamsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ParamsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ParamsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Height", wireType)
+			}
+			m.Height = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Height |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ParamsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ParamsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ParamsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Height", wireType)
+			}
+			m.Height = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Height |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConsensusParams", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.ConsensusParams.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:

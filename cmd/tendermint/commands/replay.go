@@ -14,7 +14,7 @@ func MakeReplayCommand(conf *config.Config, logger log.Logger) *cobra.Command {
 		Use:   "replay",
 		Short: "Replay messages from WAL",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return consensus.RunReplayFile(cmd.Context(), logger, conf.BaseConfig, conf.Consensus, false)
+			return consensus.RunReplayFile(cmd.Context(), logger, conf.BaseConfig, conf.Consensus, conf.DBSync, false)
 		},
 	}
 }
@@ -25,7 +25,7 @@ func MakeReplayConsoleCommand(conf *config.Config, logger log.Logger) *cobra.Com
 		Use:   "replay-console",
 		Short: "Replay messages from WAL in a console",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return consensus.RunReplayFile(cmd.Context(), logger, conf.BaseConfig, conf.Consensus, true)
+			return consensus.RunReplayFile(cmd.Context(), logger, conf.BaseConfig, conf.Consensus, conf.DBSync, true)
 		},
 	}
 }

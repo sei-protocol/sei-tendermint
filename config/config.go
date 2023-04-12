@@ -73,6 +73,7 @@ type Config struct {
 	Instrumentation *InstrumentationConfig `mapstructure:"instrumentation"`
 	PrivValidator   *PrivValidatorConfig   `mapstructure:"priv-validator"`
 	SelfRemediation *SelfRemediationConfig `mapstructure:"self-remediation"`
+	DBSync          *DBSyncConfig          `mapstructure:"db-sync"`
 }
 
 // DefaultConfig returns a default configuration for a Tendermint node
@@ -88,6 +89,7 @@ func DefaultConfig() *Config {
 		Instrumentation: DefaultInstrumentationConfig(),
 		PrivValidator:   DefaultPrivValidatorConfig(),
 		SelfRemediation: DefaultSelfRemediationConfig(),
+		DBSync:          DefaultDBSyncConfig(),
 	}
 }
 
@@ -111,6 +113,7 @@ func TestConfig() *Config {
 		Instrumentation: TestInstrumentationConfig(),
 		PrivValidator:   DefaultPrivValidatorConfig(),
 		SelfRemediation: DefaultSelfRemediationConfig(),
+		DBSync:          DefaultDBSyncConfig(),
 	}
 }
 
@@ -1258,17 +1261,40 @@ func (cfg *InstrumentationConfig) ValidateBasic() error {
 }
 
 type DBSyncConfig struct {
-	Enable            bool   `mapstructure:"enable"`
-	SnapshotDirectory string `mapstructure:"snapshot-directory"`
-	TimeoutInSeconds  int    `mapstructure:"timeout-in-seconds"`
+	Enable               bool          `mapstructure:"enable"`
+	SnapshotInterval     int           `mapstructure:"snapshot-interval"`
+	SnapshotDirectory    string        `mapstructure:"snapshot-directory"`
+	TimeoutInSeconds     int           `mapstructure:"timeout-in-seconds"`
+	NoFileSleepInSeconds int           `mapstructure:"no-file-sleep-in-seconds"`
+	FileWorkerCount      int           `mapstructure:"file-worker-count"`
+	FileWorkerTimeout    int           `mapstructure:"file-worker-timeout"`
+	TrustHeight          int64         `mapstructure:"trust-height"`
+	TrustHash            string        `mapstructure:"trust-hash"`
+	TrustPeriod          time.Duration `mapstructure:"trust-period"`
 }
 
 func DefaultDBSyncConfig() *DBSyncConfig {
 	return &DBSyncConfig{
-		Enable:            false,
-		SnapshotDirectory: "",
-		TimeoutInSeconds:  0,
+		Enable:               false,
+		SnapshotInterval:     0,
+		SnapshotDirectory:    "",
+		TimeoutInSeconds:     0,
+		NoFileSleepInSeconds: 5,
+		FileWorkerCount:      0,
+		FileWorkerTimeout:    0,
+		TrustHeight:          0,
+		TrustHash:            "",
+		TrustPeriod:          0,
 	}
+}
+
+func (cfg *DBSyncConfig) TrustHashBytes() []byte {
+	// validated in ValidateBasic, so we can safely panic here
+	bytes, err := hex.DecodeString(cfg.TrustHash)
+	if err != nil {
+		panic(err)
+	}
+	return bytes
 }
 
 //-----------------------------------------------------------------------------
@@ -1296,7 +1322,6 @@ func getDefaultMoniker() string {
 	}
 	return moniker
 }
-
 
 //-----------------------------------------------------------------------------
 // SelfRemediationConfig
@@ -1326,10 +1351,10 @@ type SelfRemediationConfig struct {
 // reporting.
 func DefaultSelfRemediationConfig() *SelfRemediationConfig {
 	return &SelfRemediationConfig{
-		P2pNoPeersRestarWindowSeconds: 0,
+		P2pNoPeersRestarWindowSeconds:        0,
 		StatesyncNoPeersRestartWindowSeconds: 0,
-		BlocksBehindThreshold: 0,
-		BlocksBehindCheckIntervalSeconds: 30,
+		BlocksBehindThreshold:                0,
+		BlocksBehindCheckIntervalSeconds:     30,
 		// 30 minutes
 		RestartCooldownSeconds: 1800,
 	}
@@ -1344,4 +1369,3 @@ func TestSelfRemediationConfig() *SelfRemediationConfig {
 func (cfg *SelfRemediationConfig) ValidateBasic() error {
 	return nil
 }
-
