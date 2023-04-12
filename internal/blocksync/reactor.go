@@ -468,7 +468,6 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 		select {
 		case <-ctx.Done():
 			r.logger.Info("[Block Sync Testing] ctx.Done()")
-			go r.switchToBlockSyncIfBehind(ctx)
 			return
 		case request := <-r.requestsCh:
 			if err := blockSyncCh.Send(ctx, p2p.Envelope{
