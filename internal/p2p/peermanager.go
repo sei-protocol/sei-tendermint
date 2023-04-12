@@ -498,9 +498,6 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	}
 
 	for _, peer := range m.store.Ranked() {
-		fmt.Printf("[Tendermint-Debug] Ranked nodes with id %s and score %d\n", peer.ID, peer.Score())
-	}
-	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
 			fmt.Printf("[Tendermint-Debug] We are still dialing peer %s, skipped\n", peer.ID)
 			continue
@@ -508,6 +505,9 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 
 		for _, addressInfo := range peer.AddressInfo {
 			if time.Since(addressInfo.LastDialFailure) < m.retryDelay(addressInfo.DialFailures, peer.Persistent) {
+				passedTime := time.Since(addressInfo.LastDialFailure)
+				retryDelay := m.retryDelay(addressInfo.DialFailures, peer.Persistent)
+				fmt.Printf("[Tendermint-Debug] Waiting for pass time %d to exceed retry delay %d", passedTime.Milliseconds(), retryDelay.Milliseconds())
 				continue
 			}
 
