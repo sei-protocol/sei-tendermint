@@ -471,6 +471,7 @@ func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
 	for {
 		address, err := m.TryDialNext()
 		if err != nil || (address != NodeAddress{}) {
+			fmt.Printf("[Tendermint-Debug] Got a new address to dialNext %s", address)
 			return address, err
 		}
 		select {
@@ -492,7 +493,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	// higher score than any other peers, and if successful evict it.
 	if m.options.MaxConnected > 0 && m.NumConnected()+len(m.dialing) >=
 		int(m.options.MaxConnected)+int(m.options.MaxConnectedUpgrade) {
-		fmt.Printf("[Tendermint-Debug] Reaching max connection, not dialing any more")
+		fmt.Printf("[Tendermint-Debug] Reaching max connection, not dialing any more\n")
 		return NodeAddress{}, nil
 	}
 
@@ -501,6 +502,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	}
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
+			fmt.Printf("[Tendermint-Debug] We are still dialing peer %s, skipped\n", peer.ID)
 			continue
 		}
 

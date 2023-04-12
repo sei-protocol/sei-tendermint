@@ -300,7 +300,6 @@ func (r *Reactor) handlePexMessage(ctx context.Context, envelope *p2p.Envelope, 
 				r.logger.Error(fmt.Sprintf("PEX parse node address error %s", err))
 				continue
 			}
-			logger.Info(fmt.Sprintf("[Tendermint-Debug] Adding peer %s to peer manager from PEX", peerAddress))
 			added, err := r.peerManager.Add(peerAddress)
 			if err != nil {
 				logger.Error("failed to add PEX address", "address", peerAddress, "err", err)
