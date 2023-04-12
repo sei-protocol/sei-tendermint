@@ -805,6 +805,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 
 	sendQueue := r.getOrMakeQueue(peerID, channels)
 	defer func() {
+		r.logger.Info(fmt.Sprintf("[Tendermint-Debug] Deleting peer %s in routePeer since we are done", peerID))
 		r.peerMtx.Lock()
 		delete(r.peerQueues, peerID)
 		delete(r.peerChannels, peerID)
@@ -816,7 +817,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 		r.metrics.Peers.Add(-1)
 	}()
 
-	r.logger.Info("peer connected", "peer", peerID, "endpoint", conn, "connected peers", r.peerManager.connected)
+	r.logger.Info("[Tendermint-Debug] routePeer peer connected", "peer", peerID, "endpoint", conn, "connected peers", r.peerManager.connected)
 
 	errCh := make(chan error, 2)
 
