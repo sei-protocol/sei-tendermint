@@ -57,6 +57,7 @@ type consensusReactor interface {
 	OnStop()
 	ResetAndStop()
 	WaitSync() bool
+	StartService(ctx context.Context) error
 }
 
 type peerError struct {
@@ -181,6 +182,12 @@ func (r *Reactor) OnStop() {
 		r.pool.Stop()
 	}
 }
+
+func (r *Reactor) StartService(ctx context.Context) error {
+	r.logger.Info("[Block Sync Testing] Block Sync Start Service")
+	return r.BaseService.Start(ctx)
+}
+
 
 func (r *Reactor) ResetAndStop() {
 	r.logger.Info("[Block Sync Testing] ResetAndStop Blocksync Reactor")
@@ -556,7 +563,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			case state.ConsensusParams.ABCI.VoteExtensionsEnabled(state.LastBlockHeight) &&
 				(blocksSynced == 0 && !initialCommitHasExtensions):
 				r.logger.Info(
-					"no extended commit yet",
+					"[Block Sync Testing] no extended commit yet",
 					"height", height,
 					"last_block_height", state.LastBlockHeight,
 					"initial_height", state.InitialHeight,
@@ -566,14 +573,14 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				continue
 
 			case r.pool.IsCaughtUp():
-				r.logger.Info("switching to consensus reactor", "height", height)
+				r.logger.Info("[Block Sync Testing] switching to consensus reactor", "height", height)
 
 			case time.Since(lastAdvance) > syncTimeout:
-				r.logger.Error("no progress since last advance", "last_advance", lastAdvance)
+				r.logger.Error("[Block Sync Testing] no progress since last advance", "last_advance", lastAdvance)
 
 			default:
 				r.logger.Info(
-					"not caught up yet",
+					"[Block Sync Testing] not caught up yet",
 					"height", height,
 					"max_peer_height", r.pool.MaxPeerHeight(),
 					"timeout_in", syncTimeout-time.Since(lastAdvance),

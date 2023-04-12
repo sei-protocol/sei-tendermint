@@ -241,8 +241,14 @@ func (r *Reactor) OnStop() {
 	}
 }
 
+func (r *Reactor) StartService(ctx context.Context) error {
+	r.logger.Info("[Block Sync Testing] Consensus Start Service")
+	return r.BaseService.Start(ctx)
+}
+
 func (r *Reactor) ResetAndStop() {
 	r.logger.Info("[Block Sync Testing] ResetAndStop Consensus Reactor")
+	r.BaseService.Stop()
 	r.OnStop()
 	r.peers = make(map[types.NodeID]*PeerState)
 	r.readySignal = make(chan bool, 1)
