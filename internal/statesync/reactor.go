@@ -679,7 +679,7 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 			return nil
 		}
 
-		logger.Info("received snapshot", "height", msg.Height, "format", msg.Format)
+		logger.Info("[Tendermint-Debug] received snapshot", "height", msg.Height, "format", msg.Format)
 		_, err := r.syncer.AddSnapshot(envelope.From, &snapshot{
 			Height:   msg.Height,
 			Format:   msg.Format,
@@ -697,7 +697,7 @@ func (r *Reactor) handleSnapshotMessage(ctx context.Context, envelope *p2p.Envel
 			)
 			return nil
 		}
-		logger.Info("added snapshot", "height", msg.Height, "format", msg.Format)
+		logger.Info("[Tendermint-Debug] added snapshot", "height", msg.Height, "format", msg.Format)
 
 	default:
 		return fmt.Errorf("received unknown message: %T", msg)
@@ -980,7 +980,7 @@ func (r *Reactor) processChannels(ctx context.Context, chanTable map[p2p.Channel
 // processPeerUpdate processes a PeerUpdate, returning an error upon failing to
 // handle the PeerUpdate or if a panic is recovered.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate) {
-	r.logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
+	r.logger.Info("[Tendermint-Debug] received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
 
 	switch peerUpdate.Status {
 	case p2p.PeerStatusUp:
@@ -988,7 +988,6 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			peerUpdate.Channels.Contains(ChunkChannel) &&
 			peerUpdate.Channels.Contains(LightBlockChannel) &&
 			peerUpdate.Channels.Contains(ParamsChannel) {
-
 			r.peers.Append(peerUpdate.NodeID)
 		} else {
 			r.logger.Error("could not use peer for statesync (removing)", "peer", peerUpdate.NodeID)

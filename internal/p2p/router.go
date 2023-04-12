@@ -636,6 +636,7 @@ LOOP:
 }
 
 func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
+	r.logger.Info(fmt.Sprintf("[Tendermint-Debug] Dialing peer %s", address.NodeID))
 	conn, err := r.dialPeer(ctx, address)
 	switch {
 	case errors.Is(err, context.Canceled):
