@@ -563,6 +563,18 @@ max-open-connections = {{ .Instrumentation.MaxOpenConnections }}
 
 # Instrumentation namespace
 namespace = "{{ .Instrumentation.Namespace }}"
+
+[db-sync]
+enable = "{{ .DBSync.Enable }}"
+snapshot-interval = "{{ .DBSync.SnapshotInterval }}"
+snapshot-directory = "{{ .DBSync.SnapshotDirectory }}"
+timeout-in-seconds = "{{ .DBSync.TimeoutInSeconds }}"
+no-file-sleep-in-seconds = "{{ .DBSync.NoFileSleepInSeconds }}"
+file-worker-count = "{{ .DBSync.FileWorkerCount }}"
+file-worker-timeout = "{{ .DBSync.FileWorkerTimeout }}"
+trust-height = "{{ .DBSync.TrustHeight }}"
+trust-hash = "{{ .DBSync.TrustHash }}"
+trust-period = "{{ .DBSync.TrustPeriod }}"
 `
 
 /****** these are for test settings ***********/

@@ -498,7 +498,7 @@ func TestReactorWithEvidence(t *testing.T) {
 		blockExec := sm.NewBlockExecutor(stateStore, log.NewNopLogger(), proxyAppConnCon, mempool, evpool, blockStore, eventBus, sm.NopMetrics())
 
 		cs, err := NewState(logger.With("validator", i, "module", "consensus"),
-			thisConfig.Consensus, stateStore, blockExec, blockStore, mempool, evpool2, eventBus, []trace.TracerProviderOption{})
+			thisConfig.Consensus, thisConfig.DBSync, thisConfig.BaseConfig, stateStore, blockExec, blockStore, mempool, evpool2, eventBus, []trace.TracerProviderOption{})
 		require.NoError(t, err)
 		cs.SetPrivValidator(ctx, pv)
 
@@ -772,7 +772,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 }
 
 func TestReactorVotingPowerChange(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
