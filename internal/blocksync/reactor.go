@@ -56,6 +56,7 @@ type consensusReactor interface {
 	OnStart(ctx context.Context) error
 	OnStop()
 	ResetAndStop()
+	WaitSync() bool
 }
 
 type peerError struct {
@@ -387,7 +388,7 @@ func (r *Reactor) switchToBlockSyncIfBehind(ctx context.Context) {
 		return
 	}
 
-	if r.blockSync.IsSet() {
+	if r.blockSync.IsSet() || r.consReactor.WaitSync(){
 		r.logger.Info("[Block Sync Testing] Already in blocksync mode, skipping switch", "startTime", r.syncStartTime.String())
 		return
 	}
