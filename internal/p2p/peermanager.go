@@ -471,7 +471,7 @@ func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
 	for {
 		address, err := m.TryDialNext()
 		if err != nil || (address != NodeAddress{}) {
-			fmt.Printf("[Tendermint-Debug] Got a new address to dialNext %s", address)
+			fmt.Printf("[Tendermint-Debug] Got a new address to dialNext %s\n", address)
 			return address, err
 		}
 		select {
@@ -499,7 +499,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
-			fmt.Printf("[Tendermint-Debug] We are still dialing peer %s, skipped\n", peer.ID)
+			fmt.Printf("[Tendermint-Debug] We are still dialing or already connected to peer %s, skipped to next\n", peer.ID)
 			continue
 		}
 
@@ -507,7 +507,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 			if time.Since(addressInfo.LastDialFailure) < m.retryDelay(addressInfo.DialFailures, peer.Persistent) {
 				passedTime := time.Since(addressInfo.LastDialFailure)
 				retryDelay := m.retryDelay(addressInfo.DialFailures, peer.Persistent)
-				fmt.Printf("[Tendermint-Debug] Waiting for pass time %d to exceed retry delay %d", passedTime.Milliseconds(), retryDelay.Milliseconds())
+				fmt.Printf("[Tendermint-Debug] Waiting for pass time %d to exceed retry delay %d\n", passedTime.Milliseconds(), retryDelay.Milliseconds())
 				continue
 			}
 
