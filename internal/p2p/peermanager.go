@@ -497,6 +497,9 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	}
 
 	for _, peer := range m.store.Ranked() {
+		fmt.Printf("[Tendermint-Debug] Ranked nodes with id %s and score %d\n", peer.ID, peer.Score())
+	}
+	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
 			continue
 		}
