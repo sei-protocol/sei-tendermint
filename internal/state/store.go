@@ -132,7 +132,7 @@ func (store dbStore) Load() (State, error) {
 func (store dbStore) loadState(key []byte) (state State, err error) {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load state took %d for %s\n", time.Since(startTime).Microseconds(), key)
 		}
 	}()
@@ -442,7 +442,7 @@ func (store dbStore) reverseBatchDelete(batch dbm.Batch, start, end []byte) ([]b
 func (store dbStore) LoadFinalizeBlockResponses(height int64) (*abci.ResponseFinalizeBlock, error) {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load finalize block response took %d \n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -573,7 +573,7 @@ func lastStoredHeightFor(height, lastHeightChanged int64) int64 {
 func loadValidatorsInfo(db dbm.DB, height int64) (*tmstate.ValidatorsInfo, error) {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load validators took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -668,7 +668,7 @@ func (store dbStore) LoadConsensusParams(height int64) (types.ConsensusParams, e
 func (store dbStore) loadConsensusParamsInfo(height int64) (*tmstate.ConsensusParamsInfo, error) {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load consensus params took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()

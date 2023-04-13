@@ -1146,7 +1146,7 @@ func (s *peerStore) loadPeers() error {
 	iter, err := s.db.Iterator(start, end)
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load peers took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()

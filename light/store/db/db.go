@@ -277,7 +277,7 @@ func (s *dbs) Size() uint16 {
 func (s *dbs) batchDelete(batch dbm.Batch, numToPrune uint16) error {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Batch delete light took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()

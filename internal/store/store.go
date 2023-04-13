@@ -168,7 +168,7 @@ func (bs *BlockStore) LoadBlock(height int64) *types.Block {
 func (bs *BlockStore) LoadBlockByHash(hash []byte) *types.Block {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load block by hash took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -194,7 +194,7 @@ func (bs *BlockStore) LoadBlockByHash(hash []byte) *types.Block {
 func (bs *BlockStore) LoadBlockMetaByHash(hash []byte) *types.BlockMeta {
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load block meta by hash took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -223,7 +223,7 @@ func (bs *BlockStore) LoadBlockPart(height int64, index int) *types.Part {
 
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load block part took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -288,7 +288,7 @@ func (bs *BlockStore) LoadBlockCommit(height int64) *types.Commit {
 	var pbc = new(tmproto.Commit)
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load block commit took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -317,7 +317,7 @@ func (bs *BlockStore) LoadBlockExtendedCommit(height int64) *types.ExtendedCommi
 	pbec := new(tmproto.ExtendedCommit)
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load block extended commit took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -347,7 +347,7 @@ func (bs *BlockStore) LoadSeenCommit() *types.Commit {
 	var pbc = new(tmproto.Commit)
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load seen commit took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -482,7 +482,7 @@ func (bs *BlockStore) batchDelete(
 	var pruned uint64
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Batch delete took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
@@ -654,7 +654,7 @@ func (bs *BlockStore) SaveSignedHeader(sh *types.SignedHeader, blockID types.Blo
 	// first check that the block store doesn't already have the block
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Load block meta for save signed header took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()

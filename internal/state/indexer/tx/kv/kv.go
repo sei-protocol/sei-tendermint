@@ -45,7 +45,7 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 
 	startTime := time.Now()
 	defer func() {
-		if startTime.Second()%30 == 0 {
+		if startTime.Second()%120 == 0 {
 			fmt.Printf("[TMDEBUG] Get tx key took %d\n", time.Since(startTime).Microseconds())
 		}
 	}()
