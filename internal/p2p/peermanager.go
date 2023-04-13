@@ -468,6 +468,7 @@ func (m *PeerManager) HasMaxPeerCapacity() bool {
 // becomes available. The caller must call Dialed() or DialFailed() for the
 // returned peer.
 func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
+	fmt.Printf("[Tendermint-Debug] Enter into DialNext")
 	for {
 		address, err := m.TryDialNext()
 		if err != nil || (address != NodeAddress{}) {
@@ -487,7 +488,7 @@ func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
 func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-
+	fmt.Printf("[Tendermint-Debug] Enter into TryDialNext")
 	// We allow dialing MaxConnected+MaxConnectedUpgrade peers. Including
 	// MaxConnectedUpgrade allows us to probe additional peers that have a
 	// higher score than any other peers, and if successful evict it.
@@ -527,6 +528,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 			}
 
 			m.dialing[peer.ID] = true
+			fmt.Printf("[Tendermint-Debug] Found a new address to return %s\n", addressInfo.Address.NodeID)
 			return addressInfo.Address, nil
 		}
 	}
