@@ -479,6 +479,7 @@ func (r *Router) dialSleep(ctx context.Context) {
 
 		timer := time.NewTimer(dur * time.Millisecond)
 		defer timer.Stop()
+		r.logger.Info(fmt.Sprintf("[Tendermint-Debug] Going to sleep %dms before dial next", dur.Milliseconds()))
 
 		select {
 		case <-ctx.Done():
