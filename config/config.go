@@ -1307,8 +1307,8 @@ type SelfRemediationConfig struct {
 	// Set to 0 to disable
 	BlocksBehindThreshold uint64 `mapstructure:"blocks-behind-threshold"`
 
-	// How often to check if node is behind
-	BlocksBehindCheckInterval uint64 `mapstructure:"blocks-behind-check-interval"`
+	// How often to check if node is behind in seconds
+	BlocksBehindCheckIntervalSeconds uint64 `mapstructure:"blocks-behind-check-interval-seconds"`
 
 	// Cooldown between each restart
 	// Exponential backoff will be applied on this value
@@ -1322,7 +1322,7 @@ func DefaultSelfRemediationConfig() *SelfRemediationConfig {
 		P2pNoPeersRestarWindowSeconds: 0,
 		StatesyncNoPeersRestartWindowSeconds: 0,
 		BlocksBehindThreshold: 0,
-		BlocksBehindCheckInterval: 30,
+		BlocksBehindCheckIntervalSeconds: 30,
 		RestartCooldownSeconds: 30,
 	}
 }
@@ -1334,7 +1334,7 @@ func TestSelfRemediationConfig() *SelfRemediationConfig {
 // ValidateBasic performs basic validation (checking param bounds, etc.) and
 // returns an error if any check fails.
 func (cfg *SelfRemediationConfig) ValidateBasic() error {
-	if cfg.BlocksBehindThreshold > 0 && cfg.BlocksBehindCheckInterval == 0{
+	if cfg.BlocksBehindThreshold > 0 && cfg.BlocksBehindCheckIntervalSeconds == 0{
 		return errors.New("blocks-behind-check-interval must be greater than 0 if blocks-behind-threshold is greater than 0")
 	}
 	return nil

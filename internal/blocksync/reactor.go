@@ -98,7 +98,7 @@ type Reactor struct {
 
 	restartCh chan struct{}
 	blocksBehindThreshold uint64
-	blocksBehindCheckInterval time.Duration
+	blocksBehindCheckIntervalSeconds time.Duration
 }
 
 // NewReactor returns new reactor instance.
@@ -127,7 +127,7 @@ func NewReactor(
 		eventBus:    eventBus,
 		restartCh: restartCh,
 		blocksBehindThreshold: selfRemediationConfig.BlocksBehindThreshold,
-		blocksBehindCheckInterval: time.Duration(selfRemediationConfig.BlocksBehindCheckInterval) * time.Second,
+		blocksBehindCheckIntervalSeconds: time.Duration(selfRemediationConfig.BlocksBehindCheckIntervalSeconds) * time.Second,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "BlockSync", r)
@@ -340,7 +340,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 
 	for {
 		select {
-		case <-time.After(r.blocksBehindCheckInterval):
+		case <-time.After(r.blocksBehindCheckIntervalSeconds):
 			selfHeight := r.store.Height()
 			maxPeerHeight := r.pool.MaxPeerHeight()
 			threshold := int64(r.blocksBehindThreshold)

@@ -579,7 +579,7 @@ statesync-no-peers-available-window-seconds = {{ .SelfRemediation.StatesyncNoPee
 blocks-behind-threshold = {{ .SelfRemediation.BlocksBehindThreshold }}
 
 # How often to check if node is behind
-blocks-behind-check-interval = {{ .SelfRemediation.BlocksBehindCheckInterval }}
+blocks-behind-check-interval = {{ .SelfRemediation.BlocksBehindCheckIntervalSeconds }}
 
 # Cooldown between each restart
 # Exponential backoff will be applied on this value
