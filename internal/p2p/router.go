@@ -817,7 +817,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 		r.metrics.Peers.Add(-1)
 	}()
 
-	r.logger.Info("peer connected", "peer", peerID, "endpoint", conn, "total connected peers", len(r.peerManager.connected))
+	r.logger.Info("peer connected", "peer", peerID, "endpoint", conn)
 
 	errCh := make(chan error, 2)
 
