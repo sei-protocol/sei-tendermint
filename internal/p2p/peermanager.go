@@ -807,6 +807,14 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
+	// Update score
+
+	m.processPeerEvent(ctx, PeerUpdate{
+		NodeID: peerID,
+		Status: PeerStatusBad,
+	})
+	fmt.Printf("[Tendermint-Debug] Updated score for %s after it is Disconnected\n", peerID)
+
 	ready := m.ready[peerID]
 
 	delete(m.connected, peerID)
@@ -821,12 +829,6 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 			Status: PeerStatusDown,
 		})
 	}
-
-	// Update peer score
-	m.processPeerEvent(ctx, PeerUpdate{
-		NodeID: peerID,
-		Status: PeerStatusBad,
-	})
 
 	m.dialWaker.Wake()
 }
@@ -955,19 +957,17 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 	if ctx.Err() != nil {
 		return
 	}
-	peer, ok := m.store.Get(pu.NodeID)
-	if !ok {
-		// Peer may have been removed ignore.
-		return
+
+	if _, ok := m.store.peers[pu.NodeID]; !ok {
+		m.store.peers[pu.NodeID] = &peerInfo{}
 	}
+
 	switch pu.Status {
 	case PeerStatusBad:
-		peer.MutableScore--
+		m.store.peers[pu.NodeID].MutableScore--
 	case PeerStatusGood:
-		peer.MutableScore++
+		m.store.peers[pu.NodeID].MutableScore++
 	}
-	
-	_ = m.store.Set(peer)
 }
 
 // broadcast broadcasts a peer update to all subscriptions. The caller must
@@ -1421,6 +1421,7 @@ type peerAddressInfo struct {
 	LastDialSuccess time.Time
 	LastDialFailure time.Time
 	DialFailures    uint32 // since last successful dial
+	ConnectFailures uint32
 }
 
 // peerAddressInfoFromProto converts a Protobuf PeerAddressInfo message
