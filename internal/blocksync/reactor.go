@@ -333,7 +333,6 @@ func (r *Reactor) processBlockSyncCh(ctx context.Context, blockSyncCh *p2p.Chann
 // autoRestartIfBehind will check if the node is behind the max peer height by
 // a certain threshold. If it is, the node will attempt to restart itself
 func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
-	println("Starting go rountine ")
 	if r.blocksBehindThreshold == 0 {
 		r.logger.Debug("blocks behind threshold is 0, not checking for blocks behind")
 		return
@@ -342,8 +341,6 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 	for {
 		select {
 		case <-time.After(r.blocksBehindCheckInterval):
-			println("Checking if behind")
-
 			selfHeight := r.store.Height()
 			maxPeerHeight := r.pool.MaxPeerHeight()
 			threshold := int64(r.blocksBehindThreshold)
