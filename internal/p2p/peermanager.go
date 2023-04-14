@@ -1349,8 +1349,18 @@ func (p *peerInfo) Copy() peerInfo {
 	if p == nil {
 		return peerInfo{}
 	}
-	c := *p
-	for i, addressInfo := range c.AddressInfo {
+	c := peerInfo{
+		ID:            p.ID,
+		LastConnected: p.LastConnected,
+		Persistent:    p.Persistent,
+		Unconditional: p.Unconditional,
+		Seed:          p.Seed,
+		Height:        p.Height,
+		FixedScore:    p.FixedScore,
+		MutableScore:  p.MutableScore,
+	}
+	c.AddressInfo = make(map[NodeAddress]*peerAddressInfo)
+	for i, addressInfo := range p.AddressInfo {
 		addressInfoCopy := addressInfo.Copy()
 		c.AddressInfo[i] = &addressInfoCopy
 	}
@@ -1443,7 +1453,15 @@ func (a *peerAddressInfo) ToProto() *p2pproto.PeerAddressInfo {
 
 // Copy returns a copy of the address info.
 func (a *peerAddressInfo) Copy() peerAddressInfo {
-	return *a
+	if a == nil {
+		return peerAddressInfo{}
+	}
+	return peerAddressInfo{
+		Address:         a.Address,
+		LastDialSuccess: a.LastDialSuccess,
+		LastDialFailure: a.LastDialFailure,
+		DialFailures:    a.DialFailures,
+	}
 }
 
 // Validate validates the address info.
