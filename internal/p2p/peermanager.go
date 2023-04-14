@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/libs/log"
 	"math"
 	"math/rand"
 	"sort"
@@ -298,7 +299,12 @@ type PeerManager struct {
 }
 
 // NewPeerManager creates a new peer manager.
-func NewPeerManager(selfID types.NodeID, peerDB dbm.DB, options PeerManagerOptions) (*PeerManager, error) {
+func NewPeerManager(
+	logger log.Logger,
+	selfID types.NodeID,
+	peerDB dbm.DB,
+	options PeerManagerOptions,
+) (*PeerManager, error) {
 	if selfID == "" {
 		return nil, errors.New("self ID not given")
 	}

@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"github.com/tendermint/tendermint/libs/log"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestPeerScoring(t *testing.T) {
 
 	// create a mock peer manager
 	db := dbm.NewMemDB()
-	peerManager, err := NewPeerManager(selfID, db, PeerManagerOptions{})
+	peerManager, err := NewPeerManager(log.NewNopLogger(), selfID, db, PeerManagerOptions{})
 	require.NoError(t, err)
 
 	// create a fake node
