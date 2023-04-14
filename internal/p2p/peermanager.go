@@ -24,6 +24,8 @@ import (
 const (
 	// retryNever is returned by retryDelay() when retries are disabled.
 	retryNever time.Duration = math.MaxInt64
+	// DefaultScore is the default score for a peer during initialization
+	DefaultMutableScore int64 = 10
 )
 
 // PeerStatus is a peer status.
@@ -388,7 +390,7 @@ func (m *PeerManager) newPeerInfo(id types.NodeID) peerInfo {
 	peerInfo := peerInfo{
 		ID:           id,
 		AddressInfo:  map[NodeAddress]*peerAddressInfo{},
-		MutableScore: 10, // Start with an initial score above 0
+		MutableScore: DefaultMutableScore, // Should start with a default value above 0
 	}
 	return m.configurePeer(peerInfo)
 }
