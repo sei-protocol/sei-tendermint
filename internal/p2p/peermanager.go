@@ -374,11 +374,13 @@ func (m *PeerManager) configurePeer(peer peerInfo) peerInfo {
 	return peer
 }
 
-// newPeerInfo creates a peerInfo for a new peer.
+// newPeerInfo creates a peerInfo for a new peer. Each peer will start with a positive MutableScore.
+// If a peer is misbehaving, we will decrease the MutableScore, and it will be ranked down.
 func (m *PeerManager) newPeerInfo(id types.NodeID) peerInfo {
 	peerInfo := peerInfo{
-		ID:          id,
-		AddressInfo: map[NodeAddress]*peerAddressInfo{},
+		ID:           id,
+		AddressInfo:  map[NodeAddress]*peerAddressInfo{},
+		MutableScore: 10, // Start with an initial score above 0
 	}
 	return m.configurePeer(peerInfo)
 }
@@ -433,6 +435,7 @@ func (m *PeerManager) Add(address NodeAddress) (bool, error) {
 
 	// else add the new address
 	peer.AddressInfo[address] = &peerAddressInfo{Address: address}
+	fmt.Printf("Adding new peer %s with address %s to peer store\n", peer.ID, address.String())
 	if err := m.store.Set(peer); err != nil {
 		return false, err
 	}
@@ -550,6 +553,8 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 
 	addressInfo.LastDialFailure = time.Now().UTC()
 	addressInfo.DialFailures++
+	// We need to invalidate the cache after score changed
+	m.store.ranked = nil
 	if err := m.store.Set(peer); err != nil {
 		return err
 	}
@@ -793,6 +798,12 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
+	// Update score and invalidate cache if a peer got disconnected
+	if _, ok := m.store.peers[peerID]; ok {
+		m.store.peers[peerID].NumOfDisconnections++
+		m.store.ranked = nil
+	}
+
 	ready := m.ready[peerID]
 
 	delete(m.connected, peerID)
@@ -946,6 +957,8 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 	case PeerStatusGood:
 		m.store.peers[pu.NodeID].MutableScore++
 	}
+	// Invalidate the cache after score changed
+	m.store.ranked = nil
 }
 
 // broadcast broadcasts a peer update to all subscriptions. The caller must
@@ -1274,9 +1287,10 @@ func (s *peerStore) Size() int {
 
 // peerInfo contains peer information stored in a peerStore.
 type peerInfo struct {
-	ID            types.NodeID
-	AddressInfo   map[NodeAddress]*peerAddressInfo
-	LastConnected time.Time
+	ID                  types.NodeID
+	AddressInfo         map[NodeAddress]*peerAddressInfo
+	LastConnected       time.Time
+	NumOfDisconnections int64
 
 	// These fields are ephemeral, i.e. not persisted to the database.
 	Persistent    bool
@@ -1363,6 +1377,8 @@ func (p *peerInfo) Score() PeerScore {
 		// is either the number of dial failures or 0.
 		score -= int64(addr.DialFailures)
 	}
+	// We consider lower the score for every 5 disconnection events
+	score -= p.NumOfDisconnections % 5
 
 	if score <= 0 {
 		return 0
