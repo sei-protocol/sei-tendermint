@@ -809,10 +809,9 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 
 	// Update score
 
-	m.processPeerEvent(ctx, PeerUpdate{
-		NodeID: peerID,
-		Status: PeerStatusBad,
-	})
+	if _, ok := m.store.peers[peerID]; ok {
+		m.store.peers[peerID].MutableScore--
+	}
 	fmt.Printf("[Tendermint-Debug] Updated score for %s after it is Disconnected\n", peerID)
 
 	ready := m.ready[peerID]
