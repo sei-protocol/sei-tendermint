@@ -815,10 +815,6 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 
 		sendQueue.close()
 
-		r.peerManager.processPeerEvent(ctx, PeerUpdate{
-			NodeID: peerID,
-			Status: PeerStatusBad,
-		})
 		r.peerManager.Disconnected(ctx, peerID)
 		r.metrics.Peers.Add(-1)
 	}()

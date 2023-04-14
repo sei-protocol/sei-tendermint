@@ -822,6 +822,12 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 		})
 	}
 
+	// Update peer score
+	m.processPeerEvent(ctx, PeerUpdate{
+		NodeID: peerID,
+		Status: PeerStatusBad,
+	})
+
 	m.dialWaker.Wake()
 }
 
@@ -949,17 +955,19 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 	if ctx.Err() != nil {
 		return
 	}
-
-	if _, ok := m.store.peers[pu.NodeID]; !ok {
-		m.store.peers[pu.NodeID] = &peerInfo{}
+	peer, ok := m.store.Get(pu.NodeID)
+	if !ok {
+		// Peer may have been removed ignore.
+		return
 	}
-
 	switch pu.Status {
 	case PeerStatusBad:
-		m.store.peers[pu.NodeID].MutableScore--
+		peer.MutableScore--
 	case PeerStatusGood:
-		m.store.peers[pu.NodeID].MutableScore++
+		peer.MutableScore++
 	}
+	
+	_ = m.store.Set(peer)
 }
 
 // broadcast broadcasts a peer update to all subscriptions. The caller must
@@ -1360,6 +1368,7 @@ func (p *peerInfo) Copy() peerInfo {
 		MutableScore:  p.MutableScore,
 	}
 	c.AddressInfo = make(map[NodeAddress]*peerAddressInfo)
+
 	for i, addressInfo := range p.AddressInfo {
 		addressInfoCopy := addressInfo.Copy()
 		c.AddressInfo[i] = &addressInfoCopy
