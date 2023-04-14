@@ -377,8 +377,9 @@ func (m *PeerManager) configurePeer(peer peerInfo) peerInfo {
 // newPeerInfo creates a peerInfo for a new peer.
 func (m *PeerManager) newPeerInfo(id types.NodeID) peerInfo {
 	peerInfo := peerInfo{
-		ID:          id,
-		AddressInfo: map[NodeAddress]*peerAddressInfo{},
+		ID:           id,
+		AddressInfo:  map[NodeAddress]*peerAddressInfo{},
+		MutableScore: 1,
 	}
 	return m.configurePeer(peerInfo)
 }
@@ -498,7 +499,11 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 		return NodeAddress{}, nil
 	}
 
-	for _, peer := range m.store.Ranked() {
+	rankedPeers := m.store.Ranked()
+	for _, peer := range rankedPeers {
+		fmt.Printf("[Tendermint-Debug] Ranked peer %s has score %d\n", peer.ID, peer.Score())
+	}
+	for _, peer := range rankedPeers {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
 			fmt.Printf("[Tendermint-Debug] We are still dialing or already connected to peer %s, skipped to next\n", peer.ID)
 			continue
