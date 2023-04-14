@@ -281,6 +281,7 @@ func (o *PeerManagerOptions) optimize() {
 //   - EvictNext: pick peer from evict, mark as evicting.
 //   - Disconnected: unmark connected, upgrading[from]=to, evict, evicting.
 type PeerManager struct {
+	logger     log.Logger
 	selfID     types.NodeID
 	options    PeerManagerOptions
 	rand       *rand.Rand
@@ -320,6 +321,7 @@ func NewPeerManager(
 	}
 
 	peerManager := &PeerManager{
+		logger:     logger,
 		selfID:     selfID,
 		options:    options,
 		rand:       rand.New(rand.NewSource(time.Now().UnixNano())), // nolint:gosec
@@ -441,7 +443,7 @@ func (m *PeerManager) Add(address NodeAddress) (bool, error) {
 
 	// else add the new address
 	peer.AddressInfo[address] = &peerAddressInfo{Address: address}
-	fmt.Printf("Adding new peer %s with address %s to peer store\n", peer.ID, address.String())
+	m.logger.Info("Adding new peer %s with address %s to peer store\n", peer.ID, address.String())
 	if err := m.store.Set(peer); err != nil {
 		return false, err
 	}
