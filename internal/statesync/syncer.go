@@ -176,7 +176,7 @@ func (s *syncer) SyncAny(
 
 		s.processingSnapshot = snapshot
 		s.metrics.SnapshotChunkTotal.Set(float64(snapshot.Chunks))
-
+		s.logger.Info(fmt.Sprintf("Going to start sync with picked snapshot %v", snapshot))
 		newState, commit, err := s.Sync(ctx, snapshot, chunks)
 		switch {
 		case err == nil:
