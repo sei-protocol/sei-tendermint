@@ -1180,6 +1180,7 @@ func (s *peerStore) loadPeers() error {
 	}
 	s.peers = peers
 	s.ranked = nil // invalidate cache if populated
+	fmt.Printf("[Tendermint-Debug] Invalidated ranked cache in loadPeers\n")
 	return nil
 }
 
@@ -1212,6 +1213,7 @@ func (s *peerStore) Set(peer peerInfo) error {
 		// If the peer is new, or its score changes, we invalidate the Ranked() cache.
 		s.peers[peer.ID] = &peer
 		s.ranked = nil
+		fmt.Printf("[Tendermint-Debug] Invalidated ranked cache in Set\n")
 	} else {
 		// Otherwise, since s.ranked contains pointers to the old data and we
 		// want those pointers to remain valid with the new data, we have to
@@ -1232,6 +1234,7 @@ func (s *peerStore) Delete(id types.NodeID) error {
 	}
 	delete(s.peers, id)
 	s.ranked = nil
+	fmt.Printf("[Tendermint-Debug] Invalidated ranked cache in Delete\n")
 	return nil
 }
 
