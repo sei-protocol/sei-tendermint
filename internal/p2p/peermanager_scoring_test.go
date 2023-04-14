@@ -96,7 +96,6 @@ func TestPeerScoring(t *testing.T) {
 	})
 	t.Run("TestNonPersistantPeerUpperBound", func(t *testing.T) {
 		start := int64(peerManager.Scores()[id] + 1)
-
 		for i := start; i <= int64(PeerScorePersistent); i++ {
 			peerManager.processPeerEvent(ctx, PeerUpdate{
 				NodeID: id,
