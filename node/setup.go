@@ -202,7 +202,6 @@ func createPeerManager(
 	dbProvider config.DBProvider,
 	nodeID types.NodeID,
 ) (*p2p.PeerManager, closer, error) {
-	p2pLogger := logger.With("module", "p2p")
 	selfAddr, err := p2p.ParseNodeAddress(nodeID.AddressString(cfg.P2P.ExternalAddress))
 	if err != nil {
 		return nil, func() error { return nil }, fmt.Errorf("couldn't parse ExternalAddress %q: %w", cfg.P2P.ExternalAddress, err)
@@ -263,7 +262,7 @@ func createPeerManager(
 	if err != nil {
 		return nil, func() error { return nil }, fmt.Errorf("unable to initialize peer store: %w", err)
 	}
-
+	p2pLogger := logger.With("module", "p2p")
 	peerManager, err := p2p.NewPeerManager(p2pLogger, nodeID, peerDB, options)
 	if err != nil {
 		return nil, peerDB.Close, fmt.Errorf("failed to create peer manager: %w", err)
