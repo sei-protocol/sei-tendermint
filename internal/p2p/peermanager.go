@@ -812,6 +812,7 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	if _, ok := m.store.peers[peerID]; ok {
 		m.store.peers[peerID].MutableScore--
 	}
+
 	fmt.Printf("[Tendermint-Debug] Updated score for %s after it is Disconnected\n", peerID)
 
 	ready := m.ready[peerID]
@@ -1356,19 +1357,8 @@ func (p *peerInfo) Copy() peerInfo {
 	if p == nil {
 		return peerInfo{}
 	}
-	c := peerInfo{
-		ID:            p.ID,
-		LastConnected: p.LastConnected,
-		Persistent:    p.Persistent,
-		Unconditional: p.Unconditional,
-		Seed:          p.Seed,
-		Height:        p.Height,
-		FixedScore:    p.FixedScore,
-		MutableScore:  p.MutableScore,
-	}
-	c.AddressInfo = make(map[NodeAddress]*peerAddressInfo)
-
-	for i, addressInfo := range p.AddressInfo {
+	c := *p
+	for i, addressInfo := range c.AddressInfo {
 		addressInfoCopy := addressInfo.Copy()
 		c.AddressInfo[i] = &addressInfoCopy
 	}
@@ -1462,15 +1452,7 @@ func (a *peerAddressInfo) ToProto() *p2pproto.PeerAddressInfo {
 
 // Copy returns a copy of the address info.
 func (a *peerAddressInfo) Copy() peerAddressInfo {
-	if a == nil {
-		return peerAddressInfo{}
-	}
-	return peerAddressInfo{
-		Address:         a.Address,
-		LastDialSuccess: a.LastDialSuccess,
-		LastDialFailure: a.LastDialFailure,
-		DialFailures:    a.DialFailures,
-	}
+	return *a
 }
 
 // Validate validates the address info.
