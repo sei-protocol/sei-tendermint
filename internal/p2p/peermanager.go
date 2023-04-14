@@ -553,26 +553,27 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 		}
 	}
 
-	peer, ok := m.store.Get(address.NodeID)
+	peer, ok := m.store.peers[address.NodeID]
 	if !ok { // Peer may have been removed while dialing, ignore.
 		return nil
 	}
-	addressInfo, ok := peer.AddressInfo[address]
+	peerCopy := peer.DeepCopy()
+	addressInfo, ok := peerCopy.AddressInfo[address]
 	if !ok {
 		return nil // Assume the address has been removed, ignore.
 	}
-
 	addressInfo.LastDialFailure = time.Now().UTC()
 	addressInfo.DialFailures++
-	if err := m.store.Set(peer); err != nil {
+	if err := m.store.Set(peerCopy); err != nil {
 		return err
 	}
+	m.store.ranked = nil
 
 	// We spawn a goroutine that notifies DialNext() again when the retry
 	// timeout has elapsed, so that we can consider dialing it again. We
 	// calculate the retry delay outside the goroutine, since it must hold
 	// the mutex lock.
-	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
+	if d := m.retryDelay(addressInfo.DialFailures, peerCopy.Persistent); d != 0 && d != retryNever {
 		if d == m.options.MaxRetryTime {
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
@@ -1205,6 +1206,7 @@ func (s *peerStore) Set(peer peerInfo) error {
 	if err := peer.Validate(); err != nil {
 		return err
 	}
+
 	peer = peer.Copy()
 
 	// FIXME: We may want to optimize this by avoiding saving to the database
@@ -1352,7 +1354,7 @@ func (p *peerInfo) ToProto() *p2pproto.PeerInfo {
 	return msg
 }
 
-// Copy returns a deep copy of the peer info.
+// Copy returns a shallow copy of the peer info.
 func (p *peerInfo) Copy() peerInfo {
 	if p == nil {
 		return peerInfo{}
@@ -1360,6 +1362,34 @@ func (p *peerInfo) Copy() peerInfo {
 	c := *p
 	for i, addressInfo := range c.AddressInfo {
 		addressInfoCopy := addressInfo.Copy()
+		c.AddressInfo[i] = &addressInfoCopy
+	}
+	return c
+}
+
+// DeepCopy returns a deep copy of the peer info.
+func (p *peerInfo) DeepCopy() peerInfo {
+	if p == nil {
+		return peerInfo{}
+	}
+	c := peerInfo{
+		ID:            p.ID,
+		LastConnected: p.LastConnected,
+		Persistent:    p.Persistent,
+		Unconditional: p.Unconditional,
+		Seed:          p.Seed,
+		Height:        p.Height,
+		FixedScore:    p.FixedScore,
+		MutableScore:  p.MutableScore,
+	}
+	c.AddressInfo = make(map[NodeAddress]*peerAddressInfo)
+	for i, addressInfo := range p.AddressInfo {
+		addressInfoCopy := peerAddressInfo{
+			Address:         addressInfo.Address,
+			LastDialSuccess: addressInfo.LastDialSuccess,
+			LastDialFailure: addressInfo.LastDialFailure,
+			DialFailures:    addressInfo.DialFailures,
+		}
 		c.AddressInfo[i] = &addressInfoCopy
 	}
 	return c
