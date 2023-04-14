@@ -1377,7 +1377,7 @@ func (p *peerInfo) Score() PeerScore {
 		// is either the number of dial failures or 0.
 		score -= int64(addr.DialFailures)
 	}
-	// We consider lower the score for every 5 disconnection events
+	// We consider lowering the score for every 3 disconnection events
 	score -= p.NumOfDisconnections % 3
 
 	if score <= 0 {
