@@ -2,7 +2,6 @@ package p2p
 
 import (
 	"context"
-	"fmt"
 	"github.com/tendermint/tendermint/libs/log"
 	"strings"
 	"testing"
@@ -49,12 +48,10 @@ func TestPeerScoring(t *testing.T) {
 		}
 		// watch the corresponding decreases respond to update
 		for i := 1; i < 10; i++ {
-			fmt.Println(peerManager.Scores()[id])
 			peerManager.processPeerEvent(ctx, PeerUpdate{
 				NodeID: id,
 				Status: PeerStatusBad,
 			})
-			fmt.Println(peerManager.Scores()[id])
 			require.EqualValues(t, DefaultMutableScore+int64(9)-int64(i), peerManager.Scores()[id])
 		}
 
@@ -96,13 +93,15 @@ func TestPeerScoring(t *testing.T) {
 	})
 	t.Run("TestNonPersistantPeerUpperBound", func(t *testing.T) {
 		start := int64(peerManager.Scores()[id] + 1)
-		for i := start; i <= int64(PeerScorePersistent); i++ {
+		println(peerManager.Scores()[id])
+		for i := start; i <= int64(PeerScorePersistent)+start; i++ {
 			peerManager.processPeerEvent(ctx, PeerUpdate{
 				NodeID: id,
 				Status: PeerStatusGood,
 			})
 
-			if i == int64(PeerScorePersistent) {
+			println(peerManager.Scores()[id])
+			if i >= int64(PeerScorePersistent) {
 				require.EqualValues(t, MaxPeerScoreNotPersistent, peerManager.Scores()[id])
 			} else {
 				require.EqualValues(t, i, peerManager.Scores()[id])

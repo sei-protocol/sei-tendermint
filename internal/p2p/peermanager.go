@@ -1378,10 +1378,6 @@ func (p *peerInfo) Score() PeerScore {
 	}
 
 	score := p.MutableScore
-	if score > int64(MaxPeerScoreNotPersistent) {
-		score = int64(MaxPeerScoreNotPersistent)
-	}
-
 	for _, addr := range p.AddressInfo {
 		// DialFailures is reset when dials succeed, so this
 		// is either the number of dial failures or 0.
@@ -1389,6 +1385,10 @@ func (p *peerInfo) Score() PeerScore {
 	}
 	// We consider lowering the score for every 3 disconnection events
 	score -= p.NumOfDisconnections / 3
+
+	if score > int64(MaxPeerScoreNotPersistent) {
+		score = int64(MaxPeerScoreNotPersistent)
+	}
 
 	if score <= 0 {
 		return 0
