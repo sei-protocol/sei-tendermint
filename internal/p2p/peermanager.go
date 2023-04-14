@@ -808,10 +808,10 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
-	// Update score
-
-	if _, ok := m.store.peers[peerID]; ok {
-		m.store.peers[peerID].MutableScore--
+	// Update score and invalidate cache
+	if peer, ok := m.store.peers[peerID]; ok {
+		peer.MutableScore--
+		m.store.ranked = nil
 	}
 
 	fmt.Printf("[Tendermint-Debug] Updated score for %s after it is Disconnected\n", peerID)
@@ -969,6 +969,8 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 	case PeerStatusGood:
 		m.store.peers[pu.NodeID].MutableScore++
 	}
+	// We need to invalidate the cache after score changed
+	m.store.ranked = nil
 }
 
 // broadcast broadcasts a peer update to all subscriptions. The caller must
