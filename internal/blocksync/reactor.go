@@ -54,10 +54,6 @@ type consensusReactor interface {
 	// For when we switch from block sync reactor to the consensus
 	// machine.
 	SwitchToConsensus(ctx context.Context, state sm.State, skipWAL bool)
-	OnStart(ctx context.Context) error
-	OnStop()
-	WaitSync() bool
-	String() string
 }
 
 type peerError struct {
