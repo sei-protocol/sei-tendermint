@@ -346,7 +346,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 			// No peer info yet so maxPeerHeight will be 0
 			if maxPeerHeight == 0 || behindHeight < threshold {
 				r.logger.Debug("blocks behind does not exceed threshold", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
-				return
+				continue
 			}
 
 			r.logger.Info("Blocks behind threshold restarting node", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
