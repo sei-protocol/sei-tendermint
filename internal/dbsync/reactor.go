@@ -171,34 +171,36 @@ func (r *Reactor) SetParamsChannel(ch *p2p.Channel) {
 }
 
 func (r *Reactor) OnStart(ctx context.Context) error {
-	r.dispatcher = light.NewDispatcher(r.lightBlockChannel)
-	to := light.TrustOptions{
-		Period: r.config.TrustPeriod,
-		Height: r.config.TrustHeight,
-		Hash:   r.config.TrustHashBytes(),
-	}
-	if err := r.waitForEnoughPeers(ctx, 2); err != nil {
-		return err
-	}
+	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
+	if r.config.Enable {
+		r.dispatcher = light.NewDispatcher(r.lightBlockChannel)
+		to := light.TrustOptions{
+			Period: r.config.TrustPeriod,
+			Height: r.config.TrustHeight,
+			Hash:   r.config.TrustHashBytes(),
+		}
+		if err := r.waitForEnoughPeers(ctx, 2); err != nil {
+			return err
+		}
 
-	peers := r.peers.All()
-	providers := make([]provider.Provider, len(peers))
-	for idx, p := range peers {
-		providers[idx] = light.NewBlockProvider(p, r.chainID, r.dispatcher)
-	}
+		peers := r.peers.All()
+		providers := make([]provider.Provider, len(peers))
+		for idx, p := range peers {
+			providers[idx] = light.NewBlockProvider(p, r.chainID, r.dispatcher)
+		}
 
-	stateProvider, err := light.NewP2PStateProvider(ctx, r.chainID, r.initialHeight, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"))
-	if err != nil {
-		return fmt.Errorf("failed to initialize P2P state provider: %w", err)
+		stateProvider, err := light.NewP2PStateProvider(ctx, r.chainID, r.initialHeight, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"))
+		if err != nil {
+			return fmt.Errorf("failed to initialize P2P state provider: %w", err)
+		}
+		r.stateProvider = stateProvider
 	}
-	r.stateProvider = stateProvider
 	go r.processMetadataCh(ctx, r.metadataChannel)
 	go r.processFileCh(ctx, r.fileChannel)
 	go r.processLightBlockCh(ctx, r.lightBlockChannel)
 	go r.processParamsCh(ctx, r.paramsChannel)
-	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
 
-	r.syncer.Process(ctx)
+	go r.syncer.Process(ctx)
 	return nil
 }
 
