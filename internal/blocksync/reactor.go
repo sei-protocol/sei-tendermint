@@ -170,9 +170,9 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		go r.requestRoutine(ctx, r.channel)
 
 		go r.poolRoutine(ctx, false, r.channel)
-
-		go r.autoRestartIfBehind(ctx)
 	}
+
+	go r.autoRestartIfBehind(ctx)
 
 	go r.processBlockSyncCh(ctx, r.channel)
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx), r.channel)
