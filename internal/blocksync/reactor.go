@@ -341,7 +341,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 			maxPeerHeight := r.pool.MaxPeerHeight()
 			threshold := int64(r.blocksBehindThreshold)
 			behindHeight := maxPeerHeight - selfHeight
-			println("Blocks behind threshold, switching to block sync", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+			println("Blocks behind threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
 
 			// No peer info yet so maxPeerHeight will be 0
 			if maxPeerHeight == 0 || behindHeight < threshold {
