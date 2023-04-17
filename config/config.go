@@ -1323,7 +1323,8 @@ func DefaultSelfRemediationConfig() *SelfRemediationConfig {
 		StatesyncNoPeersRestartWindowSeconds: 0,
 		BlocksBehindThreshold: 0,
 		BlocksBehindCheckIntervalSeconds: 30,
-		RestartCooldownSeconds: 30,
+		// 30 minutes
+		RestartCooldownSeconds: 1800,
 	}
 }
 
