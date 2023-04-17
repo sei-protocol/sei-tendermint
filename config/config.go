@@ -1311,7 +1311,6 @@ type SelfRemediationConfig struct {
 	BlocksBehindCheckIntervalSeconds uint64 `mapstructure:"blocks-behind-check-interval-seconds"`
 
 	// Cooldown between each restart
-	// Exponential backoff will be applied on this value
 	RestartCooldownSeconds uint64 `mapstructure:"restart-cooldown-seconds"`
 }
 

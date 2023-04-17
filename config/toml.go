@@ -582,7 +582,6 @@ blocks-behind-threshold = {{ .SelfRemediation.BlocksBehindThreshold }}
 blocks-behind-check-interval = {{ .SelfRemediation.BlocksBehindCheckIntervalSeconds }}
 
 # Cooldown between each restart
-# Exponential backoff will be applied on this value
 restart-cooldown-seconds = {{ .SelfRemediation.RestartCooldownSeconds }}
 
 `
