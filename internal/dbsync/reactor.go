@@ -172,8 +172,8 @@ func (r *Reactor) SetParamsChannel(ch *p2p.Channel) {
 
 func (r *Reactor) OnStart(ctx context.Context) error {
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
+	r.dispatcher = light.NewDispatcher(r.lightBlockChannel)
 	if r.config.Enable {
-		r.dispatcher = light.NewDispatcher(r.lightBlockChannel)
 		to := light.TrustOptions{
 			Period: r.config.TrustPeriod,
 			Height: r.config.TrustHeight,
