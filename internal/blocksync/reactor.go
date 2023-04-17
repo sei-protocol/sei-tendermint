@@ -94,7 +94,7 @@ type Reactor struct {
 
 	restartCh chan struct{}
 	blocksBehindThreshold uint64
-	blocksBehindCheckIntervalSeconds time.Duration
+	blocksBehindCheckInterval time.Duration
 }
 
 // NewReactor returns new reactor instance.
@@ -123,7 +123,7 @@ func NewReactor(
 		eventBus:    eventBus,
 		restartCh: restartCh,
 		blocksBehindThreshold: selfRemediationConfig.BlocksBehindThreshold,
-		blocksBehindCheckIntervalSeconds: time.Duration(selfRemediationConfig.BlocksBehindCheckIntervalSeconds) * time.Second,
+		blocksBehindCheckInterval: time.Duration(selfRemediationConfig.BlocksBehindCheckIntervalSeconds) * time.Second,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "BlockSync", r)
@@ -330,25 +330,26 @@ func (r *Reactor) processBlockSyncCh(ctx context.Context, blockSyncCh *p2p.Chann
 // a certain threshold. If it is, the node will attempt to restart itself
 func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 	if r.blocksBehindThreshold == 0 {
-		r.logger.Debug("blocks behind threshold is 0, not checking for blocks behind")
+		r.logger.Info("blocks behind threshold is 0, not checking if node is behind")
 		return
 	}
 
 	for {
 		select {
-		case <-time.After(r.blocksBehindCheckIntervalSeconds):
+		case <-time.After(r.blocksBehindCheckInterval):
 			selfHeight := r.store.Height()
 			maxPeerHeight := r.pool.MaxPeerHeight()
 			threshold := int64(r.blocksBehindThreshold)
 			behindHeight := maxPeerHeight - selfHeight
 			println("Blocks behind threshold, switching to block sync", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+
 			// No peer info yet so maxPeerHeight will be 0
 			if maxPeerHeight == 0 || behindHeight < threshold {
 				r.logger.Debug("blocks behind does not exceed threshold", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
 				return
 			}
 
-			r.logger.Info("Blocks behind threshold, switching to block sync", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+			r.logger.Info("Blocks behind threshold restarting node", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
 
 			// Send signal to restart the node
 			r.restartCh <- struct{}{}
