@@ -376,6 +376,21 @@ func makeNode(
 		node.router.AddChDescToBeAdded(pex.ChannelDescriptor(), pxReactor.SetChannel)
 	}
 
+	postSyncHook := func(ctx context.Context, state sm.State) error {
+		csReactor.SetStateSyncingMetrics(0)
+
+		// TODO: Some form of orchestrator is needed here between the state
+		// advancing reactors to be able to control which one of the three
+		// is running
+		// FIXME Very ugly to have these metrics bleed through here.
+		csReactor.SetBlockSyncingMetrics(1)
+		if err := bcReactor.SwitchToBlockSync(ctx, state); err != nil {
+			logger.Error("failed to switch to block sync", "err", err)
+			return err
+		}
+
+		return nil
+	}
 	// Set up state sync reactor, and schedule a sync if requested.
 	// FIXME The way we do phased startups (e.g. replay -> block sync -> consensus) is very messy,
 	// we should clean this whole thing up. See:
@@ -393,21 +408,7 @@ func makeNode(
 		nodeMetrics.statesync,
 		eventBus,
 		// the post-sync operation
-		func(ctx context.Context, state sm.State) error {
-			csReactor.SetStateSyncingMetrics(0)
-
-			// TODO: Some form of orchestrator is needed here between the state
-			// advancing reactors to be able to control which one of the three
-			// is running
-			// FIXME Very ugly to have these metrics bleed through here.
-			csReactor.SetBlockSyncingMetrics(1)
-			if err := bcReactor.SwitchToBlockSync(ctx, state); err != nil {
-				logger.Error("failed to switch to block sync", "err", err)
-				return err
-			}
-
-			return nil
-		},
+		postSyncHook,
 		stateSync,
 		restartCh,
 	)
@@ -429,6 +430,7 @@ func makeNode(
 		genDoc.InitialHeight,
 		genDoc.ChainID,
 		eventBus,
+		postSyncHook,
 	)
 	node.services = append(node.services, dbsyncReactor)
 	node.router.AddChDescToBeAdded(dbsync.GetMetadataChannelDescriptor(), dbsyncReactor.SetMetadataChannel)
