@@ -307,7 +307,11 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 				providers[idx] = light.NewBlockProvider(p, chainID, r.dispatcher)
 			}
 
-			stateProvider, err := light.NewP2PStateProvider(ctx, chainID, initialHeight, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"))
+			stateProvider, err := light.NewP2PStateProvider(ctx, chainID, initialHeight, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"), func(height uint64) proto.Message {
+				return &ssproto.ParamsRequest{
+					Height: height,
+				}
+			})
 			if err != nil {
 				return fmt.Errorf("failed to initialize P2P state provider: %w", err)
 			}
