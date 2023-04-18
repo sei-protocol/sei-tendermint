@@ -363,7 +363,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 		{
 			name: "Should not restart if blocksBehindThreshold is 0",
 			blocksBehindThreshold: 0,
-			blocksBehindCheckInterval: 100 * time.Millisecond,
+			blocksBehindCheckInterval: 10 * time.Millisecond,
 			selfHeight:            100,
 			maxPeerHeight:         200,
 			restartExpected:       false,
@@ -372,7 +372,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			name: "Should not restart if behindHeight is less than threshold",
 			blocksBehindThreshold: 50,
 			selfHeight:            100,
-			blocksBehindCheckInterval: 100 * time.Millisecond,
+			blocksBehindCheckInterval: 10 * time.Millisecond,
 			maxPeerHeight:         140,
 			restartExpected:       false,
 		},
@@ -380,13 +380,14 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			name: "Should restart if behindHeight is greater than or equal to threshold",
 			blocksBehindThreshold: 50,
 			selfHeight:            100,
-			blocksBehindCheckInterval: 100 * time.Millisecond,
+			blocksBehindCheckInterval: 10 * time.Millisecond,
 			maxPeerHeight:         160,
 			restartExpected:       true,
 		},
 	}
 
 	for _, tt := range tests {
+		t.Log(tt.name)
 		t.Run(tt.name, func(t *testing.T) {
 			mockBlockStore := new(MockBlockStore)
 			mockBlockStore.On("Height").Return(tt.selfHeight)
@@ -412,12 +413,12 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 			defer cancel()
 
-			r.autoRestartIfBehind(ctx)
+			go r.autoRestartIfBehind(ctx)
 
 			select {
 			case <-restartChan:
 				assert.True(t, tt.restartExpected, "Unexpected restart")
-			case <-time.After(250 * time.Millisecond):
+			case <-time.After(50 * time.Millisecond):
 				assert.False(t, tt.restartExpected, "Expected restart but did not occur")
 			}
 		})
