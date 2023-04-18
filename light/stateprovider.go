@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/internal/p2p"
@@ -18,7 +19,6 @@ import (
 	lighthttp "github.com/tendermint/tendermint/light/provider/http"
 	lightrpc "github.com/tendermint/tendermint/light/rpc"
 	lightdb "github.com/tendermint/tendermint/light/store/db"
-	ssproto "github.com/tendermint/tendermint/proto/tendermint/statesync"
 	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/version"
@@ -208,11 +208,12 @@ func rpcClient(server string) (*rpchttp.HTTP, error) {
 }
 
 type StateProviderP2P struct {
-	sync.Mutex    // light.Client is not concurrency-safe
-	lc            *Client
-	initialHeight int64
-	paramsSendCh  *p2p.Channel
-	paramsRecvCh  chan types.ConsensusParams
+	sync.Mutex       // light.Client is not concurrency-safe
+	lc               *Client
+	initialHeight    int64
+	paramsSendCh     *p2p.Channel
+	paramsRecvCh     chan types.ConsensusParams
+	paramsReqCreator func(uint64) proto.Message
 }
 
 // NewP2PStateProvider creates a light client state
@@ -225,6 +226,7 @@ func NewP2PStateProvider(
 	trustOptions TrustOptions,
 	paramsSendCh *p2p.Channel,
 	logger log.Logger,
+	paramsReqCreator func(uint64) proto.Message,
 ) (StateProvider, error) {
 	if len(providers) < 2 {
 		return nil, fmt.Errorf("at least 2 peers are required, got %d", len(providers))
@@ -237,10 +239,11 @@ func NewP2PStateProvider(
 	}
 
 	return &StateProviderP2P{
-		lc:            lc,
-		initialHeight: initialHeight,
-		paramsSendCh:  paramsSendCh,
-		paramsRecvCh:  make(chan types.ConsensusParams),
+		lc:               lc,
+		initialHeight:    initialHeight,
+		paramsSendCh:     paramsSendCh,
+		paramsRecvCh:     make(chan types.ConsensusParams),
+		paramsReqCreator: paramsReqCreator,
 	}, nil
 }
 
@@ -396,10 +399,8 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 				for {
 					iterCount++
 					if err := s.paramsSendCh.Send(ctx, p2p.Envelope{
-						To: peer,
-						Message: &ssproto.ParamsRequest{
-							Height: uint64(height),
-						},
+						To:      peer,
+						Message: s.paramsReqCreator(uint64(height)),
 					}); err != nil {
 						// this only errors if
 						// the context is
