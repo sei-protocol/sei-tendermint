@@ -124,6 +124,8 @@ type Reactor struct {
 	syncer *Syncer
 
 	mtx sync.RWMutex
+
+	postSyncHook func(context.Context, sm.State) error
 }
 
 func NewReactor(
@@ -136,6 +138,7 @@ func NewReactor(
 	initialHeight int64,
 	chainID string,
 	eventBus *eventbus.EventBus,
+	postSyncHook func(context.Context, sm.State) error,
 ) *Reactor {
 	reactor := &Reactor{
 		logger:        logger,
@@ -148,6 +151,7 @@ func NewReactor(
 		providers:     make(map[types.NodeID]*light.BlockProvider),
 		eventBus:      eventBus,
 		config:        config,
+		postSyncHook:  postSyncHook,
 	}
 	syncer := NewSyncer(logger, config, baseConfig, reactor.requestMetadata, reactor.requestFile, reactor.commitState, reactor.postSync)
 	reactor.syncer = syncer
@@ -439,7 +443,7 @@ func (r *Reactor) handleParamsMessage(ctx context.Context, envelope *p2p.Envelop
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-time.After(time.Second):
-				return errors.New("failed to send consensus params, stateprovider not ready for response")
+				r.logger.Error("failed to send consensus params, stateprovider not ready for response")
 			}
 		} else {
 			r.logger.Debug("received unexpected params response; using RPC state provider", "peer", envelope.From)
@@ -657,7 +661,7 @@ func (r *Reactor) commitState(ctx context.Context, height uint64) (sm.State, *ty
 	return state, commit, nil
 }
 
-func (r *Reactor) postSync(state sm.State, commit *types.Commit) error {
+func (r *Reactor) postSync(ctx context.Context, state sm.State, commit *types.Commit) error {
 	if err := r.stateStore.Bootstrap(state); err != nil {
 		return err
 	}
@@ -670,5 +674,10 @@ func (r *Reactor) postSync(state sm.State, commit *types.Commit) error {
 	}); err != nil {
 		return err
 	}
+	if err := r.postSyncHook(ctx, state); err != nil {
+		r.logger.Error(fmt.Sprintf("encountered error in post sync hook: %s", err))
+		return nil
+	}
+
 	return nil
 }
