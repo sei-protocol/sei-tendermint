@@ -1334,9 +1334,6 @@ func TestSelfRemediationConfig() *SelfRemediationConfig {
 // ValidateBasic performs basic validation (checking param bounds, etc.) and
 // returns an error if any check fails.
 func (cfg *SelfRemediationConfig) ValidateBasic() error {
-	if cfg.BlocksBehindThreshold > 0 && cfg.BlocksBehindCheckIntervalSeconds == 0{
-		return errors.New("blocks-behind-check-interval must be greater than 0 if blocks-behind-threshold is greater than 0")
-	}
 	return nil
 }
 

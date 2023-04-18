@@ -355,7 +355,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 	tests := []struct {
 		name                   string
 		blocksBehindThreshold  uint64
-		blocksBehindCheckIntervalSeconds time.Duration
+		blocksBehindCheckInterval time.Duration
 		selfHeight             int64
 		maxPeerHeight          int64
 		restartExpected        bool
@@ -363,7 +363,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 		{
 			name: "Should not restart if blocksBehindThreshold is 0",
 			blocksBehindThreshold: 0,
-			blocksBehindCheckIntervalSeconds: 100 * time.Millisecond,
+			blocksBehindCheckInterval: 100 * time.Millisecond,
 			selfHeight:            100,
 			maxPeerHeight:         200,
 			restartExpected:       false,
@@ -372,7 +372,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			name: "Should not restart if behindHeight is less than threshold",
 			blocksBehindThreshold: 50,
 			selfHeight:            100,
-			blocksBehindCheckIntervalSeconds: 100 * time.Millisecond,
+			blocksBehindCheckInterval: 100 * time.Millisecond,
 			maxPeerHeight:         140,
 			restartExpected:       false,
 		},
@@ -380,7 +380,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			name: "Should restart if behindHeight is greater than or equal to threshold",
 			blocksBehindThreshold: 50,
 			selfHeight:            100,
-			blocksBehindCheckIntervalSeconds: 100 * time.Millisecond,
+			blocksBehindCheckInterval: 100 * time.Millisecond,
 			maxPeerHeight:         160,
 			restartExpected:       true,
 		},
