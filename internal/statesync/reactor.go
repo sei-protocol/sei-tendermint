@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	abciclient "github.com/tendermint/tendermint/abci/client"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
@@ -271,7 +272,11 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			metrics:       r.metrics,
 		}
 	}
-	r.dispatcher = light.NewDispatcher(r.lightBlockChannel)
+	r.dispatcher = light.NewDispatcher(r.lightBlockChannel, func(height uint64) proto.Message {
+		return &ssproto.LightBlockRequest{
+			Height: height,
+		}
+	})
 	r.requestSnaphot = func() error {
 		// request snapshots from all currently connected peers
 		return r.snapshotChannel.Send(ctx, p2p.Envelope{

@@ -62,12 +62,12 @@ func NewSyncer(
 	return &Syncer{
 		logger:                 logger,
 		active:                 dbsyncConfig.Enable,
-		timeoutInSeconds:       time.Duration(dbsyncConfig.TimeoutInSeconds),
+		timeoutInSeconds:       time.Duration(dbsyncConfig.TimeoutInSeconds) * time.Second,
 		fileQueue:              []*dstypes.FileResponse{},
 		applicationDBDirectory: path.Join(baseConfig.DBDir(), ApplicationDBSubdirectory),
-		sleepInSeconds:         time.Duration(dbsyncConfig.NoFileSleepInSeconds),
+		sleepInSeconds:         time.Duration(dbsyncConfig.NoFileSleepInSeconds) * time.Second,
 		fileWorkerCount:        dbsyncConfig.FileWorkerCount,
-		fileWorkerTimeout:      time.Duration(dbsyncConfig.FileWorkerTimeout),
+		fileWorkerTimeout:      time.Duration(dbsyncConfig.FileWorkerTimeout) * time.Second,
 		metadataRequestFn:      metadataRequestFn,
 		fileRequestFn:          fileRequestFn,
 		commitStateFn:          commitStateFn,
@@ -205,7 +205,7 @@ func (s *Syncer) isCurrentMetadataTimedOut() (bool, time.Time) {
 	defer s.mtx.RUnlock()
 	now := time.Now()
 	if s.metadataSetAt.IsZero() {
-		return false, now
+		return true, now
 	}
 	return now.After(s.metadataSetAt.Add(time.Second * s.timeoutInSeconds)), now
 }
@@ -238,6 +238,7 @@ func (s *Syncer) requestFiles(ctx context.Context, metadataSetAt time.Time) {
 			s.pendingFiles[picked] = struct{}{}
 			completionSignal := make(chan struct{})
 			s.completionSignals[picked] = completionSignal
+			s.fileRequestFn(ctx, s.peersToSync[0], s.heightToSync, picked)
 			s.mtx.Unlock()
 
 			ticker := time.NewTicker(s.fileWorkerTimeout)
