@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	"github.com/tendermint/tendermint/internal/p2p"
@@ -146,6 +147,7 @@ func NewReactor(
 		chainID:       chainID,
 		providers:     make(map[types.NodeID]*light.BlockProvider),
 		eventBus:      eventBus,
+		config:        config,
 	}
 	syncer := NewSyncer(logger, config, baseConfig, reactor.requestMetadata, reactor.requestFile, reactor.commitState, reactor.postSync)
 	reactor.syncer = syncer
@@ -172,7 +174,15 @@ func (r *Reactor) SetParamsChannel(ch *p2p.Channel) {
 
 func (r *Reactor) OnStart(ctx context.Context) error {
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
-	r.dispatcher = light.NewDispatcher(r.lightBlockChannel)
+	r.dispatcher = light.NewDispatcher(r.lightBlockChannel, func(height uint64) proto.Message {
+		return &dstypes.LightBlockRequest{
+			Height: height,
+		}
+	})
+	go r.processMetadataCh(ctx, r.metadataChannel)
+	go r.processFileCh(ctx, r.fileChannel)
+	go r.processLightBlockCh(ctx, r.lightBlockChannel)
+	go r.processParamsCh(ctx, r.paramsChannel)
 	if r.config.Enable {
 		to := light.TrustOptions{
 			Period: r.config.TrustPeriod,
@@ -195,10 +205,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		}
 		r.stateProvider = stateProvider
 	}
-	go r.processMetadataCh(ctx, r.metadataChannel)
-	go r.processFileCh(ctx, r.fileChannel)
-	go r.processLightBlockCh(ctx, r.lightBlockChannel)
-	go r.processParamsCh(ctx, r.paramsChannel)
 
 	go r.syncer.Process(ctx)
 	return nil
@@ -240,6 +246,7 @@ func (r *Reactor) handleMetadataRequest(ctx context.Context, req *dstypes.Metada
 	height, err := strconv.ParseUint(string(heightData), 10, 64)
 	if err != nil {
 		err = fmt.Errorf("height data should be an integer but got %s", heightData)
+		return
 	}
 	heightSubdirectory := filepath.Join(r.config.SnapshotDirectory, fmt.Sprintf("%s%d", HeightSubdirectoryPrefix, height))
 	metadataFilename := filepath.Join(heightSubdirectory, MetadataFilename)

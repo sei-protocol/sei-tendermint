@@ -309,7 +309,7 @@ func makeNode(
 	// Determine whether we should do block sync. This must happen after the handshake, since the
 	// app may modify the validator set, specifying ourself as the only validator.
 	blockSync := !onlyValidatorIsUs(state, pubKey)
-	waitSync := stateSync || blockSync
+	waitSync := stateSync || blockSync || cfg.DBSync.Enable
 
 	csState, err := consensus.NewState(logger.With("module", "consensus"),
 		cfg.Consensus,
@@ -354,7 +354,7 @@ func makeNode(
 		blockStore,
 		csReactor,
 		peerManager.Subscribe,
-		blockSync && !stateSync,
+		blockSync && !stateSync && !cfg.DBSync.Enable,
 		nodeMetrics.consensus,
 		eventBus,
 	)

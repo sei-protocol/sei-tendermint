@@ -49,7 +49,6 @@ func main() {
 		debug.GetDebugCommand(logger),
 		commands.NewCompletionCmd(rcmd, true),
 		commands.MakeCompactDBCommand(conf, logger),
-		commands.MakeSnapshotCommand(conf),
 	)
 
 	// NOTE:

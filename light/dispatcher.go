@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/light/provider"
-	ssproto "github.com/tendermint/tendermint/proto/tendermint/statesync"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
 )
@@ -31,12 +31,15 @@ type Dispatcher struct {
 	mtx sync.Mutex
 	// all pending calls that have been dispatched and are awaiting an answer
 	calls map[types.NodeID]chan *types.LightBlock
+
+	lightBlockMsgCreator func(uint64) proto.Message
 }
 
-func NewDispatcher(requestChannel *p2p.Channel) *Dispatcher {
+func NewDispatcher(requestChannel *p2p.Channel, lightBlockMsgCreator func(uint64) proto.Message) *Dispatcher {
 	return &Dispatcher{
-		requestCh: requestChannel,
-		calls:     make(map[types.NodeID]chan *types.LightBlock),
+		requestCh:            requestChannel,
+		calls:                make(map[types.NodeID]chan *types.LightBlock),
+		lightBlockMsgCreator: lightBlockMsgCreator,
 	}
 }
 
@@ -92,10 +95,8 @@ func (d *Dispatcher) dispatch(ctx context.Context, peer types.NodeID, height int
 
 	// send request
 	if err := d.requestCh.Send(ctx, p2p.Envelope{
-		To: peer,
-		Message: &ssproto.LightBlockRequest{
-			Height: uint64(height),
-		},
+		To:      peer,
+		Message: d.lightBlockMsgCreator(uint64(height)),
 	}); err != nil {
 		close(ch)
 		return ch, err
