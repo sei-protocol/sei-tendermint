@@ -352,12 +352,14 @@ func (m *MockBlockStore) Height() int64 {
 }
 
 func TestAutoRestartIfBehind(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name                   string
 		blocksBehindThreshold  uint64
 		blocksBehindCheckInterval time.Duration
 		selfHeight             int64
 		maxPeerHeight          int64
+		isBlockSync        	   bool
 		restartExpected        bool
 	}{
 		{
@@ -366,6 +368,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			blocksBehindCheckInterval: 10 * time.Millisecond,
 			selfHeight:            100,
 			maxPeerHeight:         200,
+			isBlockSync:           false,
 			restartExpected:       false,
 		},
 		{
@@ -374,6 +377,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			selfHeight:            100,
 			blocksBehindCheckInterval: 10 * time.Millisecond,
 			maxPeerHeight:         140,
+			isBlockSync:           false,
 			restartExpected:       false,
 		},
 		{
@@ -382,7 +386,17 @@ func TestAutoRestartIfBehind(t *testing.T) {
 			selfHeight:            100,
 			blocksBehindCheckInterval: 10 * time.Millisecond,
 			maxPeerHeight:         160,
+			isBlockSync:           false,
 			restartExpected:       true,
+		},
+		{
+			name: "Should not restart if blocksync",
+			blocksBehindThreshold: 50,
+			selfHeight:            100,
+			blocksBehindCheckInterval: 10 * time.Millisecond,
+			maxPeerHeight:         160,
+			isBlockSync:           true,
+			restartExpected:       false,
 		},
 	}
 
@@ -407,7 +421,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 				blocksBehindThreshold:    tt.blocksBehindThreshold,
 				blocksBehindCheckInterval: tt.blocksBehindCheckInterval,
 				restartCh:                restartChan,
-				blockSync:                newAtomicBool(true),
+				blockSync:                newAtomicBool(tt.isBlockSync),
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
