@@ -20,6 +20,7 @@ import (
 )
 
 const ApplicationDBSubdirectory = "application.db"
+const LockFile = "LOCK"
 
 type Syncer struct {
 	mtx    *sync.RWMutex
@@ -44,7 +45,7 @@ type Syncer struct {
 	metadataRequestFn func(context.Context) error
 	fileRequestFn     func(context.Context, types.NodeID, uint64, string) error
 	commitStateFn     func(context.Context, uint64) (sm.State, *types.Commit, error)
-	postSyncFn        func(sm.State, *types.Commit) error
+	postSyncFn        func(context.Context, sm.State, *types.Commit) error
 
 	state  sm.State
 	commit *types.Commit
@@ -57,7 +58,7 @@ func NewSyncer(
 	metadataRequestFn func(context.Context) error,
 	fileRequestFn func(context.Context, types.NodeID, uint64, string) error,
 	commitStateFn func(context.Context, uint64) (sm.State, *types.Commit, error),
-	postSyncFn func(sm.State, *types.Commit) error,
+	postSyncFn func(context.Context, sm.State, *types.Commit) error,
 ) *Syncer {
 	return &Syncer{
 		logger:                 logger,
@@ -110,6 +111,10 @@ func (s *Syncer) SetMetadata(ctx context.Context, sender types.NodeID, metadata 
 		s.pendingFiles = map[string]struct{}{}
 		s.completionSignals = map[string]chan struct{}{}
 		for i, filename := range metadata.Filenames {
+			if filename == LockFile {
+				// ignore lockfile
+				continue
+			}
 			s.expectedChecksums[filename] = metadata.Md5Checksum[i]
 		}
 		s.fileQueue = []*dstypes.FileResponse{}
@@ -147,13 +152,13 @@ func (s *Syncer) Process(ctx context.Context) {
 			time.Sleep(s.sleepInSeconds)
 			continue
 		}
-		if err := s.processFile(file); err != nil {
+		if err := s.processFile(ctx, file); err != nil {
 			s.logger.Error(err.Error())
 		}
 	}
 }
 
-func (s *Syncer) processFile(file *dstypes.FileResponse) error {
+func (s *Syncer) processFile(ctx context.Context, file *dstypes.FileResponse) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	defer func() {
@@ -190,7 +195,7 @@ func (s *Syncer) processFile(file *dstypes.FileResponse) error {
 	s.syncedFiles[file.Filename] = struct{}{}
 	if len(s.syncedFiles) == len(s.expectedChecksums) {
 		// we have finished syncing
-		if err := s.postSyncFn(s.state, s.commit); err != nil {
+		if err := s.postSyncFn(ctx, s.state, s.commit); err != nil {
 			// no graceful way to handle postsync error since we might be in a partially updated state
 			panic(err)
 		}
