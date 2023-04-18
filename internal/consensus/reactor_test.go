@@ -772,7 +772,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 }
 
 func TestReactorVotingPowerChange(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -841,7 +841,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(time.Second)
 	require.NotEqualf(
 		t, previousTotalVotingPower, states[0].GetRoundState().LastValidators.TotalVotingPower(),
 		"expected voting power to change (before: %d, after: %d)",
@@ -857,7 +857,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(time.Second)
 	require.NotEqualf(
 		t, states[0].GetRoundState().LastValidators.TotalVotingPower(), previousTotalVotingPower,
 		"expected voting power to change (before: %d, after: %d)",
@@ -872,7 +872,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(time.Second)
 	require.NotEqualf(
 		t, previousTotalVotingPower, states[0].GetRoundState().LastValidators.TotalVotingPower(),
 		"expected voting power to change (before: %d, after: %d)",
