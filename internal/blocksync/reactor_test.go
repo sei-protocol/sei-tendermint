@@ -404,7 +404,7 @@ func TestAutoRestartIfBehind(t *testing.T) {
 				store:                    mockBlockStore,
 				pool:                     blockPool,
 				blocksBehindThreshold:    tt.blocksBehindThreshold,
-				blocksBehindCheckIntervalSeconds: tt.blocksBehindCheckIntervalSeconds,
+				blocksBehindCheckInterval: tt.blocksBehindCheckInterval,
 				restartCh:                restartChan,
 				blockSync:                newAtomicBool(true),
 			}
