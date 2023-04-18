@@ -70,9 +70,6 @@ const (
 	// maxLightBlockRequestRetries is the amount of retries acceptable before
 	// the backfill process aborts
 	maxLightBlockRequestRetries = 20
-
-	// How long to wait when there's no available peers to restart the router
-	restartNoAvailablePeersWindow = 10 * time.Minute
 )
 
 func GetSnapshotChannelDescriptor() *p2p.ChannelDescriptor {
@@ -997,7 +994,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	if r.peers.Len() == 0 && r.restartNoAvailablePeersWindow > 0 {
 		if r.lastNoAvailablePeers.IsZero() {
 			r.lastNoAvailablePeers = time.Now()
-		} else if time.Since(r.lastNoAvailablePeers) > restartNoAvailablePeersWindow {
+		} else if time.Since(r.lastNoAvailablePeers) > r.restartNoAvailablePeersWindow {
 			r.logger.Error("no available peers left for statesync (restarting router)")
 			r.restartCh <- struct{}{}
 		}

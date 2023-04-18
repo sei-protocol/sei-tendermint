@@ -342,14 +342,17 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 			threshold := int64(r.blocksBehindThreshold)
 			behindHeight := maxPeerHeight - selfHeight
 			// No peer info yet so maxPeerHeight will be 0
-			if maxPeerHeight == 0 || behindHeight < threshold {
-				r.logger.Debug("blocks behind does not exceed threshold", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+
+			blockSyncIsSet := r.blockSync.IsSet()
+			if maxPeerHeight == 0 || behindHeight < threshold || blockSyncIsSet {
+				r.logger.Debug("blocks behind does not exceed threshold", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight, "blockSyncIsSet", blockSyncIsSet)
 				continue
 			}
 
 			r.logger.Info("Blocks behind threshold restarting node", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
 
 			// Send signal to restart the node
+			r.blockSync.Set()
 			r.restartCh <- struct{}{}
 		case <-ctx.Done():
 			return

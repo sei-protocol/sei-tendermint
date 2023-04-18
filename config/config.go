@@ -704,7 +704,6 @@ func DefaultP2PConfig() *P2PConfig {
 		DialTimeout:             3 * time.Second,
 		TestDialFail:            false,
 		QueueType:               "simple-priority",
-		DeprecatedSelfKillNoPeers:         false,
 	}
 }
 
