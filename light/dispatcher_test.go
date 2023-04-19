@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fortytw2/leaktest"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -43,7 +44,11 @@ func TestDispatcherBasic(t *testing.T) {
 
 	chans, ch := testChannel(100)
 
-	d := NewDispatcher(ch)
+	d := NewDispatcher(ch, func(height uint64) proto.Message {
+		return &ssproto.LightBlockRequest{
+			Height: height,
+		}
+	})
 	go handleRequests(ctx, t, d, chans.Out)
 
 	peers := createPeerSet(numPeers)
@@ -75,7 +80,11 @@ func TestDispatcherReturnsNoBlock(t *testing.T) {
 
 	chans, ch := testChannel(100)
 
-	d := NewDispatcher(ch)
+	d := NewDispatcher(ch, func(height uint64) proto.Message {
+		return &ssproto.LightBlockRequest{
+			Height: height,
+		}
+	})
 
 	peer := factory.NodeID(t, "a")
 
@@ -99,7 +108,11 @@ func TestDispatcherTimeOutWaitingOnLightBlock(t *testing.T) {
 	defer cancel()
 
 	_, ch := testChannel(100)
-	d := NewDispatcher(ch)
+	d := NewDispatcher(ch, func(height uint64) proto.Message {
+		return &ssproto.LightBlockRequest{
+			Height: height,
+		}
+	})
 	peer := factory.NodeID(t, "a")
 
 	ctx, cancelFunc := context.WithTimeout(ctx, 10*time.Millisecond)
@@ -122,7 +135,11 @@ func TestDispatcherProviders(t *testing.T) {
 
 	chans, ch := testChannel(100)
 
-	d := NewDispatcher(ch)
+	d := NewDispatcher(ch, func(height uint64) proto.Message {
+		return &ssproto.LightBlockRequest{
+			Height: height,
+		}
+	})
 	go handleRequests(ctx, t, d, chans.Out)
 
 	peers := createPeerSet(5)
