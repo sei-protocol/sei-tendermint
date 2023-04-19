@@ -173,20 +173,20 @@ func waitForAndValidateBlock(
 ) {
 	t.Helper()
 
-	ctx, cancel := context.WithCancel(bctx)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	fn := func(j int) {
 		msg, err := blocksSubs[j].Next(ctx)
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
-			println("timed out waiting for block")
+			t.Error("timed out waiting for block")
 			return
 		case errors.Is(err, context.Canceled):
-			println("context canceled")
+			t.Error("context canceled")
 			return
 		case err != nil:
-			println(err)
+			t.Error(err)
 			cancel() // terminate other workers
 			require.NoError(t, err)
 			return
@@ -232,18 +232,19 @@ func waitForAndValidateBlockWithTx(
 ) {
 	t.Helper()
 
-	ctx, cancel := context.WithCancel(bctx)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
+
 	fn := func(j int) {
 		ntxs := 0
 		for {
 			msg, err := blocksSubs[j].Next(ctx)
 			switch {
 			case errors.Is(err, context.DeadlineExceeded):
-				println("timed out waiting for block with tx", j)
+				t.Error("timed out waiting for block with tx", j)
 				return
 			case errors.Is(err, context.Canceled):
-				println("context cancelled waiting for block with tx", j)
+				t.Error("context canceled waiting for block with tx", j)
 				return
 			case err != nil:
 				println(err)
