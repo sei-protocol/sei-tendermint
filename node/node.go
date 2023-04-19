@@ -430,7 +430,13 @@ func makeNode(
 		genDoc.InitialHeight,
 		genDoc.ChainID,
 		eventBus,
-		postSyncHook,
+		func(ctx context.Context, state sm.State) error {
+			if err := postSyncHook(ctx, state); err != nil {
+				return err
+			}
+			_, err := client.LoadLatest(ctx, &abci.RequestLoadLatest{})
+			return err
+		},
 	)
 	node.services = append(node.services, dbsyncReactor)
 	node.router.AddChDescToBeAdded(dbsync.GetMetadataChannelDescriptor(), dbsyncReactor.SetMetadataChannel)
