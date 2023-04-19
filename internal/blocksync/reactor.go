@@ -345,7 +345,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 
 			blockSyncIsSet := r.blockSync.IsSet()
 			if maxPeerHeight == 0 || behindHeight < threshold || blockSyncIsSet {
-				r.logger.Debug("blocks behind does not exceed threshold", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight, "blockSyncIsSet", blockSyncIsSet)
+				r.logger.Debug("does not exceed threshold or is already in block sync mode", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight, "blockSyncIsSet", blockSyncIsSet)
 				continue
 			}
 
