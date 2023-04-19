@@ -50,8 +50,6 @@ const (
 	// The reactor should still look to add new peers in order to flush out low
 	// scoring peers that are still in the peer store
 	fullCapacityInterval = 10 * time.Minute
-
-	restartNoAvailablePeersWindow = 10 * time.Minute
 )
 
 type NoPeersAvailableError struct {
@@ -115,7 +113,8 @@ type Reactor struct {
 
 	channel *p2p.Channel
 
-	restartCh chan struct{} // a way to signal we should restart router b/c p2p is flaky
+	// Used to signal a restart the node on the application level
+	restartCh chan struct{}
 	restartNoAvailablePeersWindow time.Duration
 }
 

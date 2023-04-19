@@ -183,7 +183,8 @@ type Reactor struct {
 
 	// keep track of the last time we saw no available peers, so we can restart if it's been too long
 	lastNoAvailablePeers time.Time
-	// a way to signal we should restart router b/c p2p is flaky
+
+	// Used to signal a restart the node on the application level
 	restartCh chan struct{}
 	restartNoAvailablePeersWindow time.Duration
 }

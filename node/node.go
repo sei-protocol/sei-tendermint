@@ -59,7 +59,7 @@ type nodeImpl struct {
 	// network
 	peerManager     *p2p.PeerManager
 	router          *p2p.Router
-	routerRestartCh  chan struct{} // due to p2p flakiness, have a way to signal when to restart router
+	routerRestartCh  chan struct{} // Used to signal a restart the node on the application level
 	ServiceRestartCh chan []string
 	nodeInfo        types.NodeInfo
 	nodeKey         types.NodeKey // our node privkey
