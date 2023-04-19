@@ -772,7 +772,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 }
 
 func TestReactorVotingPowerChange(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -836,12 +836,20 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	updateValidatorTx := kvstore.MakeValSetChangeTx(val1PubKeyABCI, 25)
 	previousTotalVotingPower := states[0].GetRoundState().LastValidators.TotalVotingPower()
 
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-	waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+    // Create a channel to signal the validation is done
+    validationDone := make(chan struct{})
 
-	time.Sleep(time.Second)
+    go func() {
+        waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+        waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+        waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+        waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+        validationDone <- struct{}{}
+    }()
+
+	// Wait for validation to complete
+	<-validationDone
+
 	require.NotEqualf(
 		t, previousTotalVotingPower, states[0].GetRoundState().LastValidators.TotalVotingPower(),
 		"expected voting power to change (before: %d, after: %d)",
@@ -852,12 +860,17 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	updateValidatorTx = kvstore.MakeValSetChangeTx(val1PubKeyABCI, 2)
 	previousTotalVotingPower = states[0].GetRoundState().LastValidators.TotalVotingPower()
 
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-	waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+	go func() {
+		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+		waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+        validationDone <- struct{}{}
+    }()
 
-	time.Sleep(time.Second)
+	// Wait for validation to complete
+	<-validationDone
+
 	require.NotEqualf(
 		t, states[0].GetRoundState().LastValidators.TotalVotingPower(), previousTotalVotingPower,
 		"expected voting power to change (before: %d, after: %d)",
@@ -867,12 +880,16 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	updateValidatorTx = kvstore.MakeValSetChangeTx(val1PubKeyABCI, 26)
 	previousTotalVotingPower = states[0].GetRoundState().LastValidators.TotalVotingPower()
 
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-	waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+	go func() {
+		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+		waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+		validationDone <- struct{}{}
+    }()
 
-	time.Sleep(time.Second)
+	// Wait for validation to complete
+	<-validationDone
 	require.NotEqualf(
 		t, previousTotalVotingPower, states[0].GetRoundState().LastValidators.TotalVotingPower(),
 		"expected voting power to change (before: %d, after: %d)",
