@@ -237,7 +237,6 @@ func waitForAndValidateBlockWithTx(
 	fn := func(j int) {
 		ntxs := 0
 		for {
-			println(j)
 			msg, err := blocksSubs[j].Next(ctx)
 			switch {
 			case errors.Is(err, context.DeadlineExceeded):
@@ -844,21 +843,10 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	updateValidatorTx := kvstore.MakeValSetChangeTx(val1PubKeyABCI, 25)
 	previousTotalVotingPower := states[0].GetRoundState().LastValidators.TotalVotingPower()
 
-    // Create a channel to signal the validation is done
-    validationDone := make(chan struct{}, 1)
-
-    go func() {
-		// Submit TX
-        waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-        waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-		// Wait for Block
-        waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-        waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-        validationDone <- struct{}{}
-    }()
-
-	// Wait for validation to complete
-	<-validationDone
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+	waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 
 	// Msg sent to mempool, needs to be processed by nodes
 	require.Eventually(
@@ -876,16 +864,10 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	updateValidatorTx = kvstore.MakeValSetChangeTx(val1PubKeyABCI, 2)
 	previousTotalVotingPower = states[0].GetRoundState().LastValidators.TotalVotingPower()
 
-	go func() {
-		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-		waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-        validationDone <- struct{}{}
-    }()
-
-	// Wait for validation to complete
-	<-validationDone
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+	waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 
 	// Msg sent to mempool, needs to be processed by nodes
 	require.Eventually(
@@ -902,16 +884,11 @@ func TestReactorVotingPowerChange(t *testing.T) {
 	updateValidatorTx = kvstore.MakeValSetChangeTx(val1PubKeyABCI, 26)
 	previousTotalVotingPower = states[0].GetRoundState().LastValidators.TotalVotingPower()
 
-	go func() {
-		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-		waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
-		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-		waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
-		validationDone <- struct{}{}
-    }()
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+	waitForAndValidateBlockWithTx(ctx, t, n, activeVals, blocksSubs, states, updateValidatorTx)
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
+	waitForAndValidateBlock(ctx, t, n, activeVals, blocksSubs, states)
 
-	// Wait for validation to complete
-	<-validationDone
 	// Msg sent to mempool, needs to be processed by nodes
 	require.Eventually(
 		t,
