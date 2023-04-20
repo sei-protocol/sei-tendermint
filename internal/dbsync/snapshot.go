@@ -14,6 +14,7 @@ import (
 
 func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config.BaseConfig) error {
 	src := path.Join(baseConfig.DBDir(), ApplicationDBSubdirectory)
+	wasmSrc := path.Join(baseConfig.RootDir, WasmDirectory)
 	dst := path.Join(dbsyncConfig.SnapshotDirectory, fmt.Sprintf("%s%d", HeightSubdirectoryPrefix, height))
 	os.RemoveAll(dst)
 	err := os.MkdirAll(dst, os.ModePerm)
@@ -24,9 +25,19 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 	if fds, err = ioutil.ReadDir(src); err != nil {
 		return err
 	}
+	wasmNames := map[string]struct{}{}
+	if wasmFds, _ := ioutil.ReadDir(wasmSrc); wasmFds != nil {
+		fds = append(fds, wasmFds...)
+		for _, fd := range wasmFds {
+			wasmNames[fd.Name()] = struct{}{}
+		}
+	}
 	for _, fd := range fds {
 		srcfp := path.Join(src, fd.Name())
 		dstfp := path.Join(dst, fd.Name())
+		if _, ok := wasmNames[fd.Name()]; ok {
+			dstfp += WasmSuffix
+		}
 
 		var srcfd *os.File
 		var dstfd *os.File
@@ -56,9 +67,13 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 	}
 
 	for _, fd := range fds {
-		metadata.Filenames = append(metadata.Filenames, fd.Name())
+		filename := fd.Name()
+		if _, ok := wasmNames[fd.Name()]; ok {
+			filename += WasmSuffix
+		}
+		metadata.Filenames = append(metadata.Filenames, filename)
 
-		bz, err := ioutil.ReadFile(path.Join(dst, fd.Name()))
+		bz, err := ioutil.ReadFile(path.Join(dst, filename))
 		if err != nil {
 			return err
 		}
