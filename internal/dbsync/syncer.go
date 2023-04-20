@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,11 @@ import (
 )
 
 const ApplicationDBSubdirectory = "application.db"
+
+// TODO: this is bad as TM shouldn't be aware of wasm. DB sync/restore logic should ideally happen
+// on application-level (i.e. Cosmos layer) and communicate to TM via new ABCI methods
+const WasmDirectory = "wasm/wasm/state/wasm"
+const WasmSuffix = "_wasm"
 const LockFile = "LOCK"
 
 type Syncer struct {
@@ -37,6 +43,7 @@ type Syncer struct {
 	timeoutInSeconds       time.Duration
 	fileQueue              []*dstypes.FileResponse
 	applicationDBDirectory string
+	wasmStateDirectory     string
 	sleepInSeconds         time.Duration
 	fileWorkerCount        int
 	fileWorkerTimeout      time.Duration
@@ -66,6 +73,7 @@ func NewSyncer(
 		timeoutInSeconds:       time.Duration(dbsyncConfig.TimeoutInSeconds) * time.Second,
 		fileQueue:              []*dstypes.FileResponse{},
 		applicationDBDirectory: path.Join(baseConfig.DBDir(), ApplicationDBSubdirectory),
+		wasmStateDirectory:     path.Join(baseConfig.RootDir, WasmDirectory),
 		sleepInSeconds:         time.Duration(dbsyncConfig.NoFileSleepInSeconds) * time.Second,
 		fileWorkerCount:        dbsyncConfig.FileWorkerCount,
 		fileWorkerTimeout:      time.Duration(dbsyncConfig.FileWorkerTimeout) * time.Second,
@@ -121,6 +129,8 @@ func (s *Syncer) SetMetadata(ctx context.Context, sender types.NodeID, metadata 
 		s.peersToSync = []types.NodeID{sender}
 		os.RemoveAll(s.applicationDBDirectory)
 		os.MkdirAll(s.applicationDBDirectory, fs.ModeDir)
+		os.RemoveAll(s.wasmStateDirectory)
+		os.MkdirAll(s.wasmStateDirectory, fs.ModeDir)
 
 		cancellableCtx, cancel := context.WithCancel(ctx)
 		s.fileWorkerCancelFn = cancel
@@ -148,7 +158,7 @@ func (s *Syncer) Process(ctx context.Context) {
 		}
 		file := s.popFile()
 		if file == nil {
-			s.logger.Info(fmt.Sprintf("no file to sync; sleeping for %d seconds", s.sleepInSeconds))
+			s.logger.Info(fmt.Sprintf("no file to sync; sleeping for %f seconds", s.sleepInSeconds.Seconds()))
 			time.Sleep(s.sleepInSeconds)
 			continue
 		}
@@ -182,7 +192,13 @@ func (s *Syncer) processFile(ctx context.Context, file *dstypes.FileResponse) er
 		}
 	}
 
-	dbFile, err := os.Create(path.Join(s.applicationDBDirectory, file.Filename))
+	var dbFile *os.File
+	var err error
+	if strings.HasSuffix(file.Filename, WasmSuffix) {
+		dbFile, err = os.Create(path.Join(s.wasmStateDirectory, strings.TrimSuffix(file.Filename, WasmSuffix)))
+	} else {
+		dbFile, err = os.Create(path.Join(s.applicationDBDirectory, file.Filename))
+	}
 	if err != nil {
 		return err
 	}

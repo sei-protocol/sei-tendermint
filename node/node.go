@@ -284,6 +284,9 @@ func makeNode(
 	mpReactor, mp := createMempoolReactor(logger, cfg, proxyApp, stateStore, nodeMetrics.mempool,
 		peerManager.Subscribe, peerManager)
 	node.router.AddChDescToBeAdded(mempool.GetChannelDescriptor(cfg.Mempool), mpReactor.SetChannel)
+	if !cfg.DBSync.Enable {
+		mpReactor.MarkReadyToStart()
+	}
 	node.rpcEnv.Mempool = mp
 	node.services = append(node.services, mpReactor)
 
@@ -445,11 +448,11 @@ func makeNode(
 		genDoc.ChainID,
 		eventBus,
 		func(ctx context.Context, state sm.State) error {
-			if err := postSyncHook(ctx, state); err != nil {
+			if _, err := client.LoadLatest(ctx, &abci.RequestLoadLatest{}); err != nil {
 				return err
 			}
-			_, err := client.LoadLatest(ctx, &abci.RequestLoadLatest{})
-			return err
+			mpReactor.MarkReadyToStart()
+			return postSyncHook(ctx, state)
 		},
 	)
 	node.services = append(node.services, dbsyncReactor)
