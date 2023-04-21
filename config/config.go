@@ -1261,7 +1261,7 @@ func (cfg *InstrumentationConfig) ValidateBasic() error {
 }
 
 type DBSyncConfig struct {
-	Enable               bool          `mapstructure:"enable"`
+	Enable               bool          `mapstructure:"db-sync-enable"`
 	SnapshotInterval     int           `mapstructure:"snapshot-interval"`
 	SnapshotDirectory    string        `mapstructure:"snapshot-directory"`
 	TimeoutInSeconds     int           `mapstructure:"timeout-in-seconds"`

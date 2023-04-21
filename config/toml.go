@@ -585,7 +585,7 @@ blocks-behind-check-interval = {{ .SelfRemediation.BlocksBehindCheckIntervalSeco
 restart-cooldown-seconds = {{ .SelfRemediation.RestartCooldownSeconds }}
 
 [db-sync]
-enable = "{{ .DBSync.Enable }}"
+db-sync-enable = "{{ .DBSync.Enable }}"
 snapshot-interval = "{{ .DBSync.SnapshotInterval }}"
 snapshot-directory = "{{ .DBSync.SnapshotDirectory }}"
 timeout-in-seconds = "{{ .DBSync.TimeoutInSeconds }}"
