@@ -1278,13 +1278,13 @@ func DefaultDBSyncConfig() *DBSyncConfig {
 		Enable:               false,
 		SnapshotInterval:     0,
 		SnapshotDirectory:    "",
-		TimeoutInSeconds:     0,
+		TimeoutInSeconds:     600,
 		NoFileSleepInSeconds: 5,
-		FileWorkerCount:      0,
-		FileWorkerTimeout:    0,
+		FileWorkerCount:      8,
+		FileWorkerTimeout:    30,
 		TrustHeight:          0,
 		TrustHash:            "",
-		TrustPeriod:          0,
+		TrustPeriod:          time.Duration(86400) * time.Second,
 	}
 }
 

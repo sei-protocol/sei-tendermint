@@ -156,7 +156,7 @@ func NewReactor(
 	syncer := NewSyncer(logger, config, baseConfig, reactor.requestMetadata, reactor.requestFile, reactor.commitState, reactor.postSync)
 	reactor.syncer = syncer
 
-	reactor.BaseService = *service.NewBaseService(logger, "BlockSync", reactor)
+	reactor.BaseService = *service.NewBaseService(logger, "DBSync", reactor)
 	return reactor
 }
 
@@ -193,9 +193,11 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			Height: r.config.TrustHeight,
 			Hash:   r.config.TrustHashBytes(),
 		}
+		r.logger.Info("begin waiting for at least 2 peers")
 		if err := r.waitForEnoughPeers(ctx, 2); err != nil {
 			return err
 		}
+		r.logger.Info("enough peers discovered")
 
 		peers := r.peers.All()
 		providers := make([]provider.Provider, len(peers))
