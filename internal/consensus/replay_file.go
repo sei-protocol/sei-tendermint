@@ -37,10 +37,9 @@ func RunReplayFile(
 	logger log.Logger,
 	cfg config.BaseConfig,
 	csConfig *config.ConsensusConfig,
-	dbsyncConfig *config.DBSyncConfig,
 	console bool,
 ) error {
-	consensusState, err := newConsensusStateForReplay(ctx, cfg, logger, csConfig, dbsyncConfig)
+	consensusState, err := newConsensusStateForReplay(ctx, cfg, logger, csConfig)
 	if err != nil {
 		return err
 	}
@@ -147,7 +146,7 @@ func (pb *playback) replayReset(ctx context.Context, count int, newStepSub event
 	pb.cs.Stop()
 	pb.cs.Wait()
 
-	newCS, err := NewState(pb.cs.logger, pb.cs.config, pb.cs.dbsyncConfig, pb.cs.baseConfig, pb.stateStore, pb.cs.blockExec,
+	newCS, err := NewState(pb.cs.logger, pb.cs.config, pb.stateStore, pb.cs.blockExec,
 		pb.cs.blockStore, pb.cs.txNotifier, pb.cs.evpool, pb.cs.eventBus, pb.cs.tracerProviderOptions)
 	if err != nil {
 		return err
@@ -301,7 +300,6 @@ func newConsensusStateForReplay(
 	cfg config.BaseConfig,
 	logger log.Logger,
 	csConfig *config.ConsensusConfig,
-	dbsyncConfig *config.DBSyncConfig,
 ) (*State, error) {
 	dbType := dbm.BackendType(cfg.DBBackend)
 	// Get BlockStore
@@ -353,7 +351,7 @@ func newConsensusStateForReplay(
 	mempool, evpool := emptyMempool{}, sm.EmptyEvidencePool{}
 	blockExec := sm.NewBlockExecutor(stateStore, logger, proxyApp, mempool, evpool, blockStore, eventBus, sm.NopMetrics())
 
-	consensusState, err := NewState(logger, csConfig, dbsyncConfig, cfg, stateStore, blockExec,
+	consensusState, err := NewState(logger, csConfig, stateStore, blockExec,
 		blockStore, mempool, evpool, eventBus, []trace.TracerProviderOption{})
 	if err != nil {
 		return nil, err

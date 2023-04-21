@@ -58,12 +58,12 @@ type nodeImpl struct {
 	shouldHandshake bool                // set during makeNode
 
 	// network
-	peerManager     *p2p.PeerManager
-	router          *p2p.Router
+	peerManager      *p2p.PeerManager
+	router           *p2p.Router
 	routerRestartCh  chan struct{} // Used to signal a restart the node on the application level
 	ServiceRestartCh chan []string
-	nodeInfo        types.NodeInfo
-	nodeKey         types.NodeKey // our node privkey
+	nodeInfo         types.NodeInfo
+	nodeKey          types.NodeKey // our node privkey
 
 	// services
 	eventSinks     []indexer.EventSink
@@ -72,7 +72,7 @@ type nodeImpl struct {
 	blockStore     *store.BlockStore // store the blockchain to disk
 	evPool         *evidence.Pool
 	indexerService *indexer.Service
-	services 	   []service.Service
+	services       []service.Service
 	rpcListeners   []net.Listener // rpc servers
 	shutdownOps    closer
 	rpcEnv         *rpccore.Environment
@@ -320,8 +320,6 @@ func makeNode(
 
 	csState, err := consensus.NewState(logger.With("module", "consensus"),
 		cfg.Consensus,
-		cfg.DBSync,
-		cfg.BaseConfig,
 		stateStore,
 		blockExec,
 		blockStore,
