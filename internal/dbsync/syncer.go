@@ -151,7 +151,7 @@ func (s *Syncer) Process(ctx context.Context) {
 		s.mtx.RUnlock()
 		timedOut, _ := s.isCurrentMetadataTimedOut()
 		if timedOut {
-			s.logger.Info(fmt.Sprintf("last metadata has timed out; sleeping for %d seconds", s.sleepInSeconds))
+			s.logger.Info(fmt.Sprintf("last metadata has timed out; sleeping for %f seconds", s.sleepInSeconds.Seconds()))
 			s.metadataRequestFn(ctx)
 			time.Sleep(s.sleepInSeconds)
 			continue

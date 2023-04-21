@@ -33,10 +33,13 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 		}
 	}
 	for _, fd := range fds {
-		srcfp := path.Join(src, fd.Name())
-		dstfp := path.Join(dst, fd.Name())
+		var srcfp, dstfp string
 		if _, ok := wasmNames[fd.Name()]; ok {
-			dstfp += WasmSuffix
+			srcfp = path.Join(wasmSrc, fd.Name())
+			dstfp = path.Join(dst, fd.Name()) + WasmSuffix
+		} else {
+			srcfp = path.Join(src, fd.Name())
+			dstfp = path.Join(dst, fd.Name())
 		}
 
 		var srcfd *os.File
