@@ -22,7 +22,6 @@ import (
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	cstypes "github.com/tendermint/tendermint/internal/consensus/types"
-	"github.com/tendermint/tendermint/internal/dbsync"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	"github.com/tendermint/tendermint/internal/jsontypes"
 	"github.com/tendermint/tendermint/internal/libs/autofile"
@@ -123,8 +122,6 @@ type State struct {
 	// config details
 	config            *config.ConsensusConfig
 	mempoolConfig     *config.MempoolConfig
-	dbsyncConfig      *config.DBSyncConfig
-	baseConfig        config.BaseConfig
 	privValidator     types.PrivValidator // for signing votes
 	privValidatorType types.PrivValidatorType
 
@@ -210,8 +207,6 @@ func SkipStateStoreBootstrap(sm *State) {
 func NewState(
 	logger log.Logger,
 	cfg *config.ConsensusConfig,
-	dbsyncConfig *config.DBSyncConfig,
-	baseConfig config.BaseConfig,
 	store sm.Store,
 	blockExec *sm.BlockExecutor,
 	blockStore sm.BlockStore,
@@ -225,8 +220,6 @@ func NewState(
 		eventBus:         eventBus,
 		logger:           logger,
 		config:           cfg,
-		dbsyncConfig:     dbsyncConfig,
-		baseConfig:       baseConfig,
 		blockExec:        blockExec,
 		blockStore:       blockStore,
 		stateStore:       store,
@@ -2209,12 +2202,6 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// Private validator might have changed it's key pair => refetch pubkey.
 	if err := cs.updatePrivValidatorPubKey(ctx); err != nil {
 		logger.Error("failed to get private validator pubkey", "err", err)
-	}
-
-	if cs.dbsyncConfig.SnapshotInterval != 0 && height%int64(cs.dbsyncConfig.SnapshotInterval) == 0 {
-		if err := dbsync.Snapshot(uint64(height), *cs.dbsyncConfig, cs.baseConfig); err != nil {
-			logger.Error(fmt.Sprintf("snapshotting DB failed due to %s", err))
-		}
 	}
 
 	// cs.StartTime is already set.
