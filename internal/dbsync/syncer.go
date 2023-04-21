@@ -106,6 +106,7 @@ func (s *Syncer) SetMetadata(ctx context.Context, sender types.NodeID, metadata 
 		if s.fileWorkerCancelFn != nil {
 			s.fileWorkerCancelFn()
 		}
+
 		state, commit, err := s.commitStateFn(ctx, metadata.Height)
 		if err != nil {
 			return
@@ -228,7 +229,7 @@ func (s *Syncer) isCurrentMetadataTimedOut() (bool, time.Time) {
 	if s.metadataSetAt.IsZero() {
 		return true, now
 	}
-	return now.After(s.metadataSetAt.Add(time.Second * s.timeoutInSeconds)), now
+	return now.After(s.metadataSetAt.Add(s.timeoutInSeconds)), now
 }
 
 func (s *Syncer) requestFiles(ctx context.Context, metadataSetAt time.Time) {
