@@ -1264,6 +1264,7 @@ type DBSyncConfig struct {
 	Enable               bool          `mapstructure:"db-sync-enable"`
 	SnapshotInterval     int           `mapstructure:"snapshot-interval"`
 	SnapshotDirectory    string        `mapstructure:"snapshot-directory"`
+	SnapshotWorkerCount  int           `mapstructure:"snapshot-worker-count"`
 	TimeoutInSeconds     int           `mapstructure:"timeout-in-seconds"`
 	NoFileSleepInSeconds int           `mapstructure:"no-file-sleep-in-seconds"`
 	FileWorkerCount      int           `mapstructure:"file-worker-count"`
@@ -1278,6 +1279,7 @@ func DefaultDBSyncConfig() *DBSyncConfig {
 		Enable:               false,
 		SnapshotInterval:     0,
 		SnapshotDirectory:    "",
+		SnapshotWorkerCount:  16,
 		TimeoutInSeconds:     600,
 		NoFileSleepInSeconds: 5,
 		FileWorkerCount:      8,

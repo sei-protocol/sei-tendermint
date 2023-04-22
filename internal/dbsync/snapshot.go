@@ -3,17 +3,15 @@ package dbsync
 import (
 	"crypto/md5"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"sync"
 
 	"github.com/tendermint/tendermint/config"
 	dstypes "github.com/tendermint/tendermint/proto/tendermint/dbsync"
 )
-
-const WORKER_COUNT = 32
 
 func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config.BaseConfig) error {
 	src := path.Join(baseConfig.DBDir(), ApplicationDBSubdirectory)
@@ -36,10 +34,10 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 		}
 	}
 
-	assignments := make([][]os.FileInfo, WORKER_COUNT)
+	assignments := make([][]os.FileInfo, dbsyncConfig.SnapshotWorkerCount)
 
 	for i, fd := range fds {
-		assignments[i%WORKER_COUNT] = append(assignments[i%WORKER_COUNT], fd)
+		assignments[i%dbsyncConfig.SnapshotWorkerCount] = append(assignments[i%dbsyncConfig.SnapshotWorkerCount], fd)
 	}
 
 	metadata := dstypes.MetadataResponse{
@@ -50,7 +48,7 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 	metadataMtx := &sync.Mutex{}
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < WORKER_COUNT; i++ {
+	for i := 0; i < dbsyncConfig.SnapshotWorkerCount; i++ {
 		wg.Add(1)
 		assignment := assignments[i]
 		go func() {
@@ -64,25 +62,20 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 					dstfp = path.Join(dst, fd.Name())
 				}
 
-				// var srcfd *os.File
-				// var dstfd *os.File
-				// if srcfd, err = os.Open(srcfp); err != nil {
-				// 	panic(err)
-				// }
+				var srcfd *os.File
+				var dstfd *os.File
+				if srcfd, err = os.Open(srcfp); err != nil {
+					panic(err)
+				}
 
-				// if dstfd, err = os.Create(dstfp); err != nil {
-				// 	srcfd.Close()
-				// 	panic(err)
-				// }
+				if dstfd, err = os.Create(dstfp); err != nil {
+					srcfd.Close()
+					panic(err)
+				}
 
-				// if _, err = io.Copy(dstfd, srcfd); err != nil {
-				// 	srcfd.Close()
-				// 	dstfd.Close()
-				// 	panic(err)
-				// }
-				cmd := exec.Command("cp", srcfp, dstfp)
-				_, err := cmd.Output()
-				if err != nil {
+				if _, err = io.Copy(dstfd, srcfd); err != nil {
+					srcfd.Close()
+					dstfd.Close()
 					panic(err)
 				}
 
@@ -102,8 +95,8 @@ func Snapshot(height uint64, dbsyncConfig config.DBSyncConfig, baseConfig config
 				metadata.Md5Checksum = append(metadata.Md5Checksum, sum[:])
 
 				metadataMtx.Unlock()
-				// srcfd.Close()
-				// dstfd.Close()
+				srcfd.Close()
+				dstfd.Close()
 			}
 			wg.Done()
 		}()

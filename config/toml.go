@@ -588,6 +588,7 @@ restart-cooldown-seconds = {{ .SelfRemediation.RestartCooldownSeconds }}
 db-sync-enable = "{{ .DBSync.Enable }}"
 snapshot-interval = "{{ .DBSync.SnapshotInterval }}"
 snapshot-directory = "{{ .DBSync.SnapshotDirectory }}"
+snapshot-worker-count = "{{ .DBSync.SnapshotWorkerCount }}"
 timeout-in-seconds = "{{ .DBSync.TimeoutInSeconds }}"
 no-file-sleep-in-seconds = "{{ .DBSync.NoFileSleepInSeconds }}"
 file-worker-count = "{{ .DBSync.FileWorkerCount }}"
