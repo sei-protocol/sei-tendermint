@@ -180,6 +180,15 @@ func (s *Syncer) Process(ctx context.Context) {
 	}
 }
 
+func (s *Syncer) Stop() {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	if s.active {
+		s.resetDirFn(s)
+		s.active = false
+	}
+}
+
 func (s *Syncer) processFile(ctx context.Context, file *dstypes.FileResponse) error {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()

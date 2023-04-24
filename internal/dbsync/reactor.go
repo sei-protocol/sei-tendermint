@@ -223,6 +223,8 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 func (r *Reactor) OnStop() {
 	// tell the dispatcher to stop sending any more requests
 	r.dispatcher.Close()
+	// clear up half-populated directories
+	r.syncer.Stop()
 }
 
 func (r *Reactor) handleMetadataRequest(ctx context.Context, req *dstypes.MetadataRequest, from types.NodeID) (err error) {
