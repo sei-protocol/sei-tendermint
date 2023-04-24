@@ -81,7 +81,10 @@ func TestFileProcessHappyPath(t *testing.T) {
 		Md5Checksum: [][]byte{sum[:]},
 	})
 	for {
-		if _, ok := syncer.pendingFiles["f1"]; ok {
+		syncer.mtx.RLock()
+		_, ok := syncer.pendingFiles["f1"]
+		syncer.mtx.RUnlock()
+		if ok {
 			break
 		}
 	}
@@ -105,7 +108,10 @@ func TestFileProcessTimeoutReprocess(t *testing.T) {
 		Md5Checksum: [][]byte{sum[:]},
 	})
 	for {
-		if _, ok := syncer.pendingFiles["f1"]; ok {
+		syncer.mtx.RLock()
+		_, ok := syncer.pendingFiles["f1"]
+		syncer.mtx.RUnlock()
+		if ok {
 			break
 		}
 	}
