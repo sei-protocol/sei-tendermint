@@ -166,7 +166,11 @@ func (s *Syncer) Process(ctx context.Context) {
 		}
 		file := s.popFile()
 		if file == nil {
-			s.logger.Info(fmt.Sprintf("no file to sync; sleeping for %f seconds", s.sleepInSeconds.Seconds()))
+			s.mtx.RLock()
+			numSynced := len(s.syncedFiles)
+			numTotal := len(s.expectedChecksums)
+			s.mtx.RUnlock()
+			s.logger.Info(fmt.Sprintf("no file to sync; sync'ed %d out of %d so far; sleeping for %f seconds", numSynced, numTotal, s.sleepInSeconds.Seconds()))
 			time.Sleep(s.sleepInSeconds)
 			continue
 		}
