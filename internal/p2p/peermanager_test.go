@@ -167,6 +167,7 @@ func TestNewPeerManager_Persistence(t *testing.T) {
 	require.ElementsMatch(t, aAddresses, peerManager.Addresses(aID))
 	require.ElementsMatch(t, bAddresses, peerManager.Addresses(bID))
 	require.ElementsMatch(t, cAddresses, peerManager.Addresses(cID))
+
 	require.Equal(t, map[types.NodeID]p2p.PeerScore{
 		aID: p2p.PeerScorePersistent,
 		bID: 1,
