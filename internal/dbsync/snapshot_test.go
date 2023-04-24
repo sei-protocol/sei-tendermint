@@ -24,7 +24,8 @@ func TestSnapshot(t *testing.T) {
 	wasmDir := path.Join(baseConfig.RootDir, WasmDirectory)
 	os.MkdirAll(wasmDir, os.ModePerm)
 	dbsyncConfig := config.DBSyncConfig{
-		SnapshotDirectory: t.TempDir(),
+		SnapshotDirectory:   t.TempDir(),
+		SnapshotWorkerCount: 1,
 	}
 	os.MkdirAll(dbsyncConfig.SnapshotDirectory, os.ModePerm)
 

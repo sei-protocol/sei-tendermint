@@ -153,7 +153,7 @@ func NewReactor(
 		config:        config,
 		postSyncHook:  postSyncHook,
 	}
-	syncer := NewSyncer(logger, config, baseConfig, reactor.requestMetadata, reactor.requestFile, reactor.commitState, reactor.postSync)
+	syncer := NewSyncer(logger, config, baseConfig, reactor.requestMetadata, reactor.requestFile, reactor.commitState, reactor.postSync, defaultResetDirFn)
 	reactor.syncer = syncer
 
 	reactor.BaseService = *service.NewBaseService(logger, "DBSync", reactor)

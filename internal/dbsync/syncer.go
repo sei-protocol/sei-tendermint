@@ -53,9 +53,17 @@ type Syncer struct {
 	fileRequestFn     func(context.Context, types.NodeID, uint64, string) error
 	commitStateFn     func(context.Context, uint64) (sm.State, *types.Commit, error)
 	postSyncFn        func(context.Context, sm.State, *types.Commit) error
+	resetDirFn        func(*Syncer)
 
 	state  sm.State
 	commit *types.Commit
+}
+
+func defaultResetDirFn(s *Syncer) {
+	os.RemoveAll(s.applicationDBDirectory)
+	os.MkdirAll(s.applicationDBDirectory, fs.ModeDir)
+	os.RemoveAll(s.wasmStateDirectory)
+	os.MkdirAll(s.wasmStateDirectory, fs.ModeDir)
 }
 
 func NewSyncer(
@@ -66,6 +74,7 @@ func NewSyncer(
 	fileRequestFn func(context.Context, types.NodeID, uint64, string) error,
 	commitStateFn func(context.Context, uint64) (sm.State, *types.Commit, error),
 	postSyncFn func(context.Context, sm.State, *types.Commit) error,
+	resetDirFn func(*Syncer),
 ) *Syncer {
 	return &Syncer{
 		logger:                 logger,
@@ -81,6 +90,7 @@ func NewSyncer(
 		fileRequestFn:          fileRequestFn,
 		commitStateFn:          commitStateFn,
 		postSyncFn:             postSyncFn,
+		resetDirFn:             resetDirFn,
 		mtx:                    &sync.RWMutex{},
 	}
 }
@@ -128,10 +138,7 @@ func (s *Syncer) SetMetadata(ctx context.Context, sender types.NodeID, metadata 
 		}
 		s.fileQueue = []*dstypes.FileResponse{}
 		s.peersToSync = []types.NodeID{sender}
-		os.RemoveAll(s.applicationDBDirectory)
-		os.MkdirAll(s.applicationDBDirectory, fs.ModeDir)
-		os.RemoveAll(s.wasmStateDirectory)
-		os.MkdirAll(s.wasmStateDirectory, fs.ModeDir)
+		s.resetDirFn(s)
 
 		cancellableCtx, cancel := context.WithCancel(ctx)
 		s.fileWorkerCancelFn = cancel
@@ -258,7 +265,7 @@ func (s *Syncer) requestFiles(ctx context.Context, metadataSetAt time.Time) {
 				break
 			}
 			s.pendingFiles[picked] = struct{}{}
-			completionSignal := make(chan struct{})
+			completionSignal := make(chan struct{}, 1)
 			s.completionSignals[picked] = completionSignal
 			s.fileRequestFn(ctx, s.peersToSync[0], s.heightToSync, picked)
 			s.mtx.Unlock()
