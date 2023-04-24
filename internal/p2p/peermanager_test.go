@@ -191,6 +191,15 @@ func TestNewPeerManager_Persistence(t *testing.T) {
 		bID: p2p.PeerScorePersistent,
 		cID: 1,
 	}, peerManager.Scores())
+
+	// Introduce a dial failure and persistent peer score should be reduced by one
+	ctx, _ := context.WithCancel(context.Background())
+	peerManager.DialFailed(ctx, bAddresses[0])
+	require.Equal(t, map[types.NodeID]p2p.PeerScore{
+		aID: 0,
+		bID: p2p.PeerScorePersistent - 1,
+		cID: 1,
+	}, peerManager.Scores())
 }
 
 func TestNewPeerManager_Unconditional(t *testing.T) {
