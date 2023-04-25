@@ -69,3 +69,15 @@ func (bz HexBytes) Format(s fmt.State, verb rune) {
 		s.Write([]byte(fmt.Sprintf("%X", []byte(bz))))
 	}
 }
+
+type LegacyHexBytes struct {
+	HexBytes
+}
+
+func (bz LegacyHexBytes) MarshalJSON() ([]byte, error) {
+	return bz.MarshalText()
+}
+
+func (bz *LegacyHexBytes) UnmarshalJSON(data []byte) error {
+	return bz.UnmarshalText(data)
+}
