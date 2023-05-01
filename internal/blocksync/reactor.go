@@ -285,7 +285,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 			r.pool.SetPeerRange(envelope.From, msg.Base, msg.Height)
 
 		case *bcproto.NoBlockResponse:
-			r.logger.Debug("peer does not have the requested block",
+			r.logger.Info("[TM-DEBUG] peer does not have the requested block",
 				"peer", envelope.From,
 				"height", msg.Height)
 
