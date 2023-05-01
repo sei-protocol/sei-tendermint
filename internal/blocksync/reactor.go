@@ -92,8 +92,8 @@ type Reactor struct {
 
 	syncStartTime time.Time
 
-	restartCh chan struct{}
-	blocksBehindThreshold uint64
+	restartCh                 chan struct{}
+	blocksBehindThreshold     uint64
 	blocksBehindCheckInterval time.Duration
 }
 
@@ -112,17 +112,17 @@ func NewReactor(
 	selfRemediationConfig *config.SelfRemediationConfig,
 ) *Reactor {
 	r := &Reactor{
-		logger:      logger,
-		stateStore:  stateStore,
-		blockExec:   blockExec,
-		store:       store,
-		consReactor: consReactor,
-		blockSync:   newAtomicBool(blockSync),
-		peerEvents:  peerEvents,
-		metrics:     metrics,
-		eventBus:    eventBus,
-		restartCh: restartCh,
-		blocksBehindThreshold: selfRemediationConfig.BlocksBehindThreshold,
+		logger:                    logger,
+		stateStore:                stateStore,
+		blockExec:                 blockExec,
+		store:                     store,
+		consReactor:               consReactor,
+		blockSync:                 newAtomicBool(blockSync),
+		peerEvents:                peerEvents,
+		metrics:                   metrics,
+		eventBus:                  eventBus,
+		restartCh:                 restartCh,
+		blocksBehindThreshold:     selfRemediationConfig.BlocksBehindThreshold,
 		blocksBehindCheckInterval: time.Duration(selfRemediationConfig.BlocksBehindCheckIntervalSeconds) * time.Second,
 	}
 
@@ -187,7 +187,6 @@ func (r *Reactor) OnStop() {
 		r.pool.Stop()
 	}
 }
-
 
 // respondToPeer loads a block and sends it to the requesting peer, if we have it.
 // Otherwise, we'll respond saying we do not have it.
@@ -506,8 +505,8 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				lastAdvance                       = r.pool.LastAdvance()
 			)
 
-			r.logger.Debug(
-				"consensus ticker",
+			r.logger.Info(
+				"[TM-DEBUG] consensus ticker",
 				"num_pending", numPending,
 				"total", lenRequesters,
 				"height", height,
@@ -551,7 +550,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			default:
 				r.logger.Info(
-					"not caught up yet",
+					"[TM-DEBUG] not caught up yet",
 					"height", height,
 					"max_peer_height", r.pool.MaxPeerHeight(),
 					"timeout_in", syncTimeout-time.Since(lastAdvance),
@@ -559,6 +558,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				continue
 			}
 
+			r.logger.Info("[TM-DEBUG] Stopping pool and switching to consensus now")
 			r.pool.Stop()
 
 			r.blockSync.UnSet()
@@ -661,6 +661,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				return
 			}
 
+			r.logger.Info("[TM-DEBUG] Popping request from pool")
 			r.pool.PopRequest()
 
 			// TODO: batch saves so we do not persist to disk every block
@@ -676,6 +677,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
+			r.logger.Info(fmt.Sprintf("[TM-DEBUG] Applying block %d after pop request from pool\n", first.Height))
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
 			if err != nil {
 				panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
@@ -685,10 +687,10 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			blocksSynced++
 
-			if blocksSynced%100 == 0 {
-				lastRate = 0.9*lastRate + 0.1*(100/time.Since(lastHundred).Seconds())
+			if blocksSynced%10 == 0 {
+				lastRate = 0.9*lastRate + 0.1*(10/time.Since(lastHundred).Seconds())
 				r.logger.Info(
-					"block sync rate",
+					"[TM-DEBUG] block sync rate",
 					"height", r.pool.height,
 					"max_peer_height", r.pool.MaxPeerHeight(),
 					"blocks/s", lastRate,

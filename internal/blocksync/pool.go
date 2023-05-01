@@ -192,6 +192,7 @@ func (pool *BlockPool) IsCaughtUp() bool {
 
 	// Need at least 1 peer to be considered caught up.
 	if len(pool.peers) == 0 {
+		pool.logger.Info("[TM-DEBUG] No available peers found yet, so we can't catch up")
 		return false
 	}
 
@@ -459,6 +460,7 @@ func (pool *BlockPool) sendError(err error, peerID types.NodeID) {
 }
 
 // for debugging purposes
+//
 //nolint:unused
 func (pool *BlockPool) debug() string {
 	pool.mtx.Lock()
