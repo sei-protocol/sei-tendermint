@@ -242,7 +242,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 		}
 	}()
 
-	r.logger.Debug("received message", "message", envelope.Message, "peer", envelope.From)
+	r.logger.Info("[TM-DEBUG] received block sync message", "message", envelope.Message, "peer", envelope.From)
 
 	switch envelope.ChannelID {
 	case BlockSyncChannel:
@@ -252,7 +252,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 		case *bcproto.BlockResponse:
 			block, err := types.BlockFromProto(msg.Block)
 			if err != nil {
-				r.logger.Error("failed to convert block from proto",
+				r.logger.Error("[TM-DEBUG] failed to convert block from proto",
 					"peer", envelope.From,
 					"err", err)
 				return err
