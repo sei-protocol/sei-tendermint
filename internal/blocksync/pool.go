@@ -680,10 +680,12 @@ OUTER_LOOP:
 			break PICK_PEER_LOOP
 		}
 		bpr.mtx.Lock()
+		bpr.logger.Info(fmt.Sprintf("[TM-DEBUG] Picked peer %s for sending block sync request\n", peer.id))
 		bpr.peerID = peer.id
 		bpr.mtx.Unlock()
 
 		// Send request and wait.
+		bpr.logger.Info(fmt.Sprintf("[TM-DEBUG] Sending new block sync request to peer %s\n", peer.id))
 		bpr.pool.sendRequest(bpr.height, peer.id)
 	WAIT_LOOP:
 		for {
@@ -692,6 +694,7 @@ OUTER_LOOP:
 				return
 			case peerID := <-bpr.redoCh:
 				if peerID == bpr.peerID {
+					bpr.logger.Info(fmt.Sprintf("[TM-DEBUG] Current peer is %s, but we should reset brp to pick another peer\n", peer.id))
 					bpr.reset()
 					continue OUTER_LOOP
 				} else {
