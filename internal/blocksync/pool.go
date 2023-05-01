@@ -294,7 +294,8 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		if diff > maxDiffBetweenCurrentAndReceivedBlockHeight {
 			pool.sendError(errors.New("peer sent us a block we didn't expect with a height too far ahead/behind"), peerID)
 		}
-		return fmt.Errorf("peer sent us a block we didn't expect (peer: %s, current height: %d, block height: %d)", peerID, pool.height, block.Height)
+		return fmt.Errorf(
+			"peer sent us a block we didn't expect (peer: %s, current height: %d, block height: %d)", peerID, pool.height, block.Height)
 	}
 
 	if requester.setBlock(block, extCommit, peerID) {
@@ -685,8 +686,8 @@ OUTER_LOOP:
 		bpr.mtx.Unlock()
 
 		// Send request and wait.
-		bpr.logger.Info(fmt.Sprintf("[TM-DEBUG] Sending new block sync request to peer %s\n", peer.id))
 		bpr.pool.sendRequest(bpr.height, peer.id)
+
 	WAIT_LOOP:
 		for {
 			select {

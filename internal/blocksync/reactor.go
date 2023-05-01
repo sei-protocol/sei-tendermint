@@ -441,6 +441,7 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 		case <-ctx.Done():
 			return
 		case request := <-r.requestsCh:
+			r.logger.Info(fmt.Sprintf("[TM-DEBUG] Sending the request via blockSyncCh to peer %s\n", request.PeerID))
 			if err := blockSyncCh.Send(ctx, p2p.Envelope{
 				To:      request.PeerID,
 				Message: &bcproto.BlockRequest{Height: request.Height},
@@ -449,6 +450,7 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 					NodeID: request.PeerID,
 					Err:    err,
 				}); err != nil {
+					r.logger.Error(fmt.Sprintf("[TM-DEBUG] Failed to send the request via blockSyncCh to peer %s\n", request.PeerID), err)
 					return
 				}
 			}
