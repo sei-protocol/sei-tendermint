@@ -242,7 +242,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 		}
 	}()
 
-	r.logger.Info("[TM-DEBUG] received block sync message", "message", envelope.Message, "peer", envelope.From)
+	r.logger.Info("[TM-DEBUG] received block sync message", "channelId", envelope.ChannelID, "peer", envelope.From)
 
 	switch envelope.ChannelID {
 	case BlockSyncChannel:
@@ -269,6 +269,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 				}
 			}
 
+			r.logger.Info(fmt.Sprintf("[TM-DEBUG] Adding new block after getting response from %s", envelope.From))
 			if err := r.pool.AddBlock(envelope.From, block, extCommit, block.Size()); err != nil {
 				r.logger.Error("failed to add block", "err", err)
 			}
@@ -600,6 +601,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			}
 
 			// try again quickly next loop
+			r.logger.Info("[TM-DEBUG] didProcessCh channel try again quickly next loop")
 			didProcessCh <- struct{}{}
 
 			firstParts, err := first.MakePartSet(types.BlockPartSizeBytes)
