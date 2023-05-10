@@ -332,6 +332,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 		return
 	}
 
+	r.logger.Info("checking if node is behind threshold, auto restarting if its behind", "threshold", r.blocksBehindThreshold, "interval", r.blocksBehindCheckInterval)
 	for {
 		select {
 		case <-time.After(r.blocksBehindCheckInterval):
