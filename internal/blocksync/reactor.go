@@ -172,8 +172,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		go r.poolRoutine(ctx, false, r.channel)
 	}
 
-	go r.autoRestartIfBehind(ctx)
-
 	go r.processBlockSyncCh(ctx, r.channel)
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx), r.channel)
 
@@ -566,6 +564,9 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			if r.consReactor != nil {
 				r.logger.Info("switching to consensus reactor", "height", height, "blocks_synced", blocksSynced, "state_synced", stateSynced, "max_peer_height", r.pool.MaxPeerHeight())
 				r.consReactor.SwitchToConsensus(ctx, state, blocksSynced > 0 || stateSynced)
+
+				// Auto restart should only be checked after switching to consensus mode
+				go r.autoRestartIfBehind(ctx)
 			}
 
 			return
