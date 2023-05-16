@@ -147,7 +147,7 @@ func writeHTTPResponse(w http.ResponseWriter, log log.Logger, rsp rpctypes.RPCRe
 	}
 	statusCode := http.StatusOK
 	// If there's any error for lag is high, override the status code
-	if rsp.Error.Code == int(rpctypes.CodeLagIsHighError) {
+	if rsp.Error != nil && rsp.Error.Code == int(rpctypes.CodeLagIsHighError) {
 		statusCode = http.StatusExpectationFailed
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -176,7 +176,7 @@ func writeRPCResponse(w http.ResponseWriter, log log.Logger, rsps ...rpctypes.RP
 	statusCode := http.StatusOK
 	for _, res := range rsps {
 		// If there's any error for lag is high, override the status code
-		if res.Error.Code == int(rpctypes.CodeLagIsHighError) {
+		if res.Error != nil && res.Error.Code == int(rpctypes.CodeLagIsHighError) {
 			statusCode = http.StatusExpectationFailed
 			break
 		}
