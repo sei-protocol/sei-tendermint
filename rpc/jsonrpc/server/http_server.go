@@ -140,7 +140,7 @@ func writeHTTPResponse(w http.ResponseWriter, log log.Logger, rsp rpctypes.RPCRe
 	} else {
 		body = rsp.Result
 	}
-	if err != nil && len(body) <= 0 {
+	if err != nil {
 		log.Error("Error encoding RPC response: %w", err)
 		writeError(w, http.StatusInternalServerError, err)
 		return
