@@ -2,8 +2,8 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"github.com/tendermint/tendermint/rpc/coretypes"
-	"github.com/tendermint/tendermint/rpc/jsonrpc/types"
 )
 
 // LagStatus returns Tendermint lag status, if lag is over a certain threshold
@@ -23,10 +23,11 @@ func (env *Environment) LagStatus(ctx context.Context) (*coretypes.ResultLagStat
 		Lag:           lag,
 	}
 
+	fmt.Printf("[Tendermint-Debug] Lag is %d and threshold is %d\n", lag, env.Config.LagThreshold)
+
 	// Return a response with error code to differentiate the lagging status by http response code
 	if lag > env.Config.LagThreshold {
-		err := types.LagIsTooHighError
-		return result, err
+		return result, coretypes.ErrLagIsTooHigh
 	}
 
 	return result, nil

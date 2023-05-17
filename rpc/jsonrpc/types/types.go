@@ -44,8 +44,6 @@ var errorCodeString = map[ErrorCode]string{
 	CodeLagIsHighError: "Lag is too high",
 }
 
-var LagIsTooHighError = errors.New(errorCodeString[CodeLagIsHighError])
-
 //----------------------------------------
 // REQUEST
 
