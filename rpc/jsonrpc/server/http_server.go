@@ -152,7 +152,6 @@ func writeHTTPResponse(w http.ResponseWriter, log log.Logger, rsp rpctypes.RPCRe
 		statusCode = http.StatusExpectationFailed
 	}
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Printf("[Tendermint-Debug] Setting status code to %d\n", statusCode)
 	w.WriteHeader(statusCode)
 	_, _ = w.Write(body)
 }

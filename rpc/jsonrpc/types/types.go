@@ -147,6 +147,7 @@ func (req RPCRequest) MakeError(result interface{}, err error) RPCResponse {
 
 	// Handle lag is high error specifically to avoid changing the logic for existing endpoints
 	if errors.Is(err, coretypes.ErrLagIsTooHigh) && result != nil {
+		fmt.Printf("[Tendermint-Debug] Creating an error response with code %d\n", CodeLagIsHighError)
 		data, _ := tmjson.Marshal(result)
 		return RPCResponse{id: req.id, Result: data, Error: &RPCError{
 			Code:    int(CodeLagIsHighError),
