@@ -151,7 +151,7 @@ func (req RPCRequest) MakeError(result interface{}, err error) RPCResponse {
 		return RPCResponse{id: req.id, Result: data, Error: &RPCError{
 			Code:    int(CodeLagIsHighError),
 			Message: CodeLagIsHighError.String(),
-			Data:    err.Error(),
+			Data:    string(data),
 		}}
 	}
 
