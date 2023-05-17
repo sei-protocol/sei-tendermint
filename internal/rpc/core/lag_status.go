@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"github.com/tendermint/tendermint/rpc/coretypes"
 )
 
@@ -22,8 +21,6 @@ func (env *Environment) LagStatus(ctx context.Context) (*coretypes.ResultLagStat
 		MaxPeerHeight: maxPeerBlockHeight,
 		Lag:           lag,
 	}
-
-	fmt.Printf("[Tendermint-Debug] Lag is %d and threshold is %d\n", lag, env.Config.LagThreshold)
 
 	// Return a response with error code to differentiate the lagging status by http response code
 	if lag > env.Config.LagThreshold {

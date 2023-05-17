@@ -148,7 +148,6 @@ func writeHTTPResponse(w http.ResponseWriter, log log.Logger, rsp rpctypes.RPCRe
 	statusCode := http.StatusOK
 	// If there's any error for lag is high, override the status code
 	if rsp.Error != nil && rsp.Error.Code == int(rpctypes.CodeLagIsHighError) {
-		fmt.Printf("[Tendermint-Debug] rsp.Error.Code is %d\n", rsp.Error.Code)
 		statusCode = http.StatusExpectationFailed
 	}
 	w.Header().Set("Content-Type", "application/json")
