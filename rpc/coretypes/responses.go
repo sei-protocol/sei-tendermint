@@ -169,7 +169,7 @@ type ResultStatus struct {
 
 // Node lag status
 type ResultLagStatus struct {
-	LatestHeight  int64 `json:"current_height"`
+	CurrentHeight int64 `json:"current_height"`
 	MaxPeerHeight int64 `json:"max_peer_height"`
 	Lag           int64 `json:"lag"`
 }
