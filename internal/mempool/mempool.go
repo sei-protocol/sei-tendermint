@@ -593,7 +593,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 			)
 			txmp.metrics.RejectedTxs.Add(1)
 			for _, wtx := range txmp.txStore.GetAllTxs() {
-				txmp.logger.Info(fmt.Sprintf("Bad tx: %d, gas wanted: %d, sender: %s", len(wtx.tx), wtx.gasWanted, wtx.sender))
+				txmp.logger.Info(fmt.Sprintf("[TM-DEBUG] Bad tx: %d, gas wanted: %d, sender: %s", len(wtx.tx), wtx.gasWanted, wtx.sender))
 			}
 			return nil
 		}
