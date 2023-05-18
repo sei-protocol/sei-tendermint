@@ -592,6 +592,9 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 				"err", err.Error(),
 			)
 			txmp.metrics.RejectedTxs.Add(1)
+			for _, tx := range txmp.txStore.GetAllTxs() {
+				txmp.logger.Info(fmt.Sprintf("Bad tx hash: %s, gas wanted: %d, sender: %s", tx.hash, tx.gasWanted, tx.sender))
+			}
 			return nil
 		}
 
