@@ -554,6 +554,7 @@ func TestRPCConfig() *RPCConfig {
 	cfg := DefaultRPCConfig()
 	cfg.ListenAddress = "tcp://127.0.0.1:36657"
 	cfg.Unsafe = true
+	cfg.LagThreshold = 300
 	return cfg
 }
 
