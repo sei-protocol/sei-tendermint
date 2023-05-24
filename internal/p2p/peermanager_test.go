@@ -339,7 +339,7 @@ func TestPeerManager_Add(t *testing.T) {
 
 	// Adding self be fine
 	added, err = peerManager.Add(p2p.NodeAddress{Protocol: "memory", NodeID: selfID})
-	require.Error(t, nil)
+	require.Nil(t, err)
 	require.False(t, added)
 }
 
