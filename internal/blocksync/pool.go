@@ -459,6 +459,7 @@ func (pool *BlockPool) sendError(err error, peerID types.NodeID) {
 }
 
 // for debugging purposes
+//
 //nolint:unused
 func (pool *BlockPool) debug() string {
 	pool.mtx.Lock()
@@ -519,6 +520,9 @@ func (peer *bpPeer) resetTimeout() {
 	if peer.timeout == nil {
 		peer.timeout = time.AfterFunc(peerTimeout, peer.onTimeout)
 	} else {
+		if !peer.timeout.Stop() {
+			<-peer.timeout.C
+		}
 		peer.timeout.Reset(peerTimeout)
 	}
 }
