@@ -520,9 +520,7 @@ func (peer *bpPeer) resetTimeout() {
 	if peer.timeout == nil {
 		peer.timeout = time.AfterFunc(peerTimeout, peer.onTimeout)
 	} else {
-		if !peer.timeout.Stop() {
-			<-peer.timeout.C
-		}
+		peer.timeout.Stop()
 		peer.timeout.Reset(peerTimeout)
 	}
 }
