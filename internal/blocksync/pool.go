@@ -91,8 +91,7 @@ type BlockPool struct {
 	startHeight               int64
 	lastHundredBlockTimeStamp time.Time
 	lastSyncRate              float64
-
-	cancels []context.CancelFunc
+	cancels                   []context.CancelFunc
 }
 
 // NewBlockPool returns a new BlockPool with the height equal to start. Block
