@@ -182,7 +182,7 @@ type Reactor struct {
 	lastNoAvailablePeers time.Time
 
 	// Used to signal a restart the node on the application level
-	restartCh chan struct{}
+	restartCh                     chan struct{}
 	restartNoAvailablePeersWindow time.Duration
 }
 
@@ -208,23 +208,23 @@ func NewReactor(
 	selfRemediationConfig *config.SelfRemediationConfig,
 ) *Reactor {
 	r := &Reactor{
-		logger:               logger,
-		chainID:              chainID,
-		initialHeight:        initialHeight,
-		cfg:                  cfg,
-		conn:                 conn,
-		peerEvents:           peerEvents,
-		tempDir:              tempDir,
-		stateStore:           stateStore,
-		blockStore:           blockStore,
-		peers:                light.NewPeerList(),
-		providers:            make(map[types.NodeID]*light.BlockProvider),
-		metrics:              ssMetrics,
-		eventBus:             eventBus,
-		postSyncHook:         postSyncHook,
-		needsStateSync:       needsStateSync,
-		lastNoAvailablePeers: time.Time{},
-		restartCh:            restartCh,
+		logger:                        logger,
+		chainID:                       chainID,
+		initialHeight:                 initialHeight,
+		cfg:                           cfg,
+		conn:                          conn,
+		peerEvents:                    peerEvents,
+		tempDir:                       tempDir,
+		stateStore:                    stateStore,
+		blockStore:                    blockStore,
+		peers:                         light.NewPeerList(),
+		providers:                     make(map[types.NodeID]*light.BlockProvider),
+		metrics:                       ssMetrics,
+		eventBus:                      eventBus,
+		postSyncHook:                  postSyncHook,
+		needsStateSync:                needsStateSync,
+		lastNoAvailablePeers:          time.Time{},
+		restartCh:                     restartCh,
 		restartNoAvailablePeersWindow: time.Duration(selfRemediationConfig.StatesyncNoPeersRestartWindowSeconds) * time.Second,
 	}
 
@@ -307,7 +307,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 				providers[idx] = light.NewBlockProvider(p, chainID, r.dispatcher)
 			}
 
-			stateProvider, err := light.NewP2PStateProvider(ctx, chainID, initialHeight, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"), func(height uint64) proto.Message {
+			stateProvider, err := light.NewP2PStateProvider(ctx, chainID, initialHeight, r.cfg.VerifyLightBlockTimeout, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"), func(height uint64) proto.Message {
 				return &ssproto.ParamsRequest{
 					Height: height,
 				}
