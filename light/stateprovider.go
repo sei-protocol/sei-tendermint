@@ -43,11 +43,12 @@ type StateProvider interface {
 }
 
 type stateProviderRPC struct {
-	sync.Mutex    // light.Client is not concurrency-safe
-	lc            *Client
-	initialHeight int64
-	providers     map[lightprovider.Provider]string
-	logger        log.Logger
+	sync.Mutex              // light.Client is not concurrency-safe
+	lc                      *Client
+	initialHeight           int64
+	providers               map[lightprovider.Provider]string
+	verifyLightBlockTimeout time.Duration
+	logger                  log.Logger
 }
 
 // NewRPCStateProvider creates a new StateProvider using a light client and RPC clients.
@@ -55,6 +56,7 @@ func NewRPCStateProvider(
 	ctx context.Context,
 	chainID string,
 	initialHeight int64,
+	verifyLightBlockTimeout time.Duration,
 	servers []string,
 	trustOptions TrustOptions,
 	logger log.Logger,
@@ -83,15 +85,16 @@ func NewRPCStateProvider(
 		return nil, err
 	}
 	return &stateProviderRPC{
-		logger:        logger,
-		lc:            lc,
-		initialHeight: initialHeight,
-		providers:     providerRemotes,
+		logger:                  logger,
+		lc:                      lc,
+		initialHeight:           initialHeight,
+		providers:               providerRemotes,
+		verifyLightBlockTimeout: verifyLightBlockTimeout,
 	}, nil
 }
 
 func (s *stateProviderRPC) verifyLightBlockAtHeight(ctx context.Context, height uint64, ts time.Time) (*types.LightBlock, error) {
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, s.verifyLightBlockTimeout)
 	defer cancel()
 	return s.lc.VerifyLightBlockAtHeight(ctx, int64(height), ts)
 }
@@ -214,7 +217,7 @@ type StateProviderP2P struct {
 	paramsSendCh            *p2p.Channel
 	paramsRecvCh            chan types.ConsensusParams
 	paramsReqCreator        func(uint64) proto.Message
-	verifyLightBlockTimeout int
+	verifyLightBlockTimeout time.Duration
 }
 
 // NewP2PStateProvider creates a light client state
@@ -223,7 +226,7 @@ func NewP2PStateProvider(
 	ctx context.Context,
 	chainID string,
 	initialHeight int64,
-	verifyLightBlockTimeout int,
+	verifyLightBlockTimeout time.Duration,
 	providers []lightprovider.Provider,
 	trustOptions TrustOptions,
 	paramsSendCh *p2p.Channel,
@@ -251,7 +254,7 @@ func NewP2PStateProvider(
 }
 
 func (s *StateProviderP2P) verifyLightBlockAtHeight(ctx context.Context, height uint64, ts time.Time) (*types.LightBlock, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.verifyLightBlockTimeout*int(time.Second)))
+	ctx, cancel := context.WithTimeout(ctx, s.verifyLightBlockTimeout)
 	defer cancel()
 	return s.lc.VerifyLightBlockAtHeight(ctx, int64(height), ts)
 }

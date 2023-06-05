@@ -449,7 +449,7 @@ chunk-request-timeout = "{{ .StateSync.ChunkRequestTimeout }}"
 # The number of concurrent chunk and block fetchers to run (default: 4).
 fetchers = "{{ .StateSync.Fetchers }}"
 
-verify-light-block-timeout = "{{ .DBSync.VerifyLightBlockTimeout }}"
+verify-light-block-timeout = "{{ .StateSync.VerifyLightBlockTimeout }}"
 
 #######################################################
 ###         Consensus Configuration Options         ###

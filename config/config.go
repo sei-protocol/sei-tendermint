@@ -910,8 +910,8 @@ type StateSyncConfig struct {
 	// The number of concurrent chunk and block fetchers to run (default: 4).
 	Fetchers int32 `mapstructure:"fetchers"`
 
-	// Only meaningful if using P2P
-	VerifyLightBlockTimeout int `mapstructure:"verify-light-block-timeout"`
+	// Timeout before considering light block verification failed
+	VerifyLightBlockTimeout time.Duration `mapstructure:"verify-light-block-timeout"`
 }
 
 func (cfg *StateSyncConfig) TrustHashBytes() []byte {
@@ -932,7 +932,7 @@ func DefaultStateSyncConfig() *StateSyncConfig {
 		Fetchers:                4,
 		BackfillBlocks:          0,
 		BackfillDuration:        0 * time.Second,
-		VerifyLightBlockTimeout: 60,
+		VerifyLightBlockTimeout: 60 * time.Second,
 	}
 }
 
@@ -1291,7 +1291,7 @@ type DBSyncConfig struct {
 	TrustHeight             int64         `mapstructure:"trust-height"`
 	TrustHash               string        `mapstructure:"trust-hash"`
 	TrustPeriod             time.Duration `mapstructure:"trust-period"`
-	VerifyLightBlockTimeout int           `mapstructure:"verify-light-block-timeout"`
+	VerifyLightBlockTimeout time.Duration `mapstructure:"verify-light-block-timeout"`
 }
 
 func DefaultDBSyncConfig() *DBSyncConfig {
@@ -1306,8 +1306,8 @@ func DefaultDBSyncConfig() *DBSyncConfig {
 		FileWorkerTimeout:       30,
 		TrustHeight:             0,
 		TrustHash:               "",
-		TrustPeriod:             time.Duration(86400) * time.Second,
-		VerifyLightBlockTimeout: 60,
+		TrustPeriod:             86400 * time.Second,
+		VerifyLightBlockTimeout: 60 * time.Second,
 	}
 }
 

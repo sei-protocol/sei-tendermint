@@ -319,7 +319,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			return nil
 		}
 
-		stateProvider, err := light.NewRPCStateProvider(ctx, chainID, initialHeight, r.cfg.RPCServers, to, spLogger)
+		stateProvider, err := light.NewRPCStateProvider(ctx, chainID, initialHeight, r.cfg.VerifyLightBlockTimeout, r.cfg.RPCServers, to, spLogger)
 		if err != nil {
 			return fmt.Errorf("failed to initialize RPC state provider: %w", err)
 		}
