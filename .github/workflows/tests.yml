@@ -41,14 +41,12 @@ jobs:
         run: |
           NUM_SPLIT=20
           make test-group-${{matrix.part}} NUM_SPLIT=20
-        if: env.GIT_DIFF
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v3
         with:
           name: "${{ github.sha }}-${{ matrix.part }}-coverage"
           path: ./path/to/your/coverage/${{ matrix.part }}.out
-        if: env.GIT_DIFF
 
   upload-coverage-report:
     needs: tests
