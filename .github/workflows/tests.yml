@@ -50,8 +50,9 @@ jobs:
 
       - name: Download coverage artifacts
         uses: actions/download-artifact@v3
-        with:
-          name: "${{ github.sha }}-*"
+
+      - name: Install gocovmerge
+        run: go get -u github.com/wadey/gocovmerge
 
       - name: Merge coverage reports
         run: |
