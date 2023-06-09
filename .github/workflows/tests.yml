@@ -52,7 +52,9 @@ jobs:
         uses: actions/download-artifact@v3
 
       - name: Install gocovmerge
-        run: go get -u github.com/wadey/gocovmerge
+        run: |
+          go get -u github.com/wadey/gocovmerge
+          echo "$GOPATH/bin" >> $GITHUB_PATH
 
       - name: Merge coverage reports
         run: |
