@@ -61,7 +61,7 @@ jobs:
 
       - name: Merge coverage reports
         run: |
-          ~/go/bin/gocovmerge ./*-coverage > coverage.txt
+          $GOPATH/bin/gocovmerge ./*-coverage > coverage.txt
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
