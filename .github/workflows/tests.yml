@@ -35,5 +35,29 @@ jobs:
           make test-group-${{matrix.part}} NUM_SPLIT=20
         if: env.GIT_DIFF
 
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: "${{ github.sha }}-${{ matrix.part }}-coverage"
+          path: ./path/to/your/coverage/${{ matrix.part }}.out
+        if: env.GIT_DIFF
+
+  coverage:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: "${{ github.sha }}-*"
+
+      - name: Merge coverage reports
+        run: |
+          gocovmerge ./*-coverage > coverage.txt
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.txt
