@@ -1,23 +1,26 @@
-name: Test Coverage Report
+name: Unit Test Coverage
 
 on:
   pull_request:
-permissions:
-  contents: read
-  pull-requests: write
-  discussions: write
+  push:
+    branches:
+      - master
+      - release/**
+
 
 defaults:
  run:
   shell: bash
 
+permissions:
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions: write-all
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
     - uses: actions/setup-python@v3
 
     - name: Set up Go
@@ -25,34 +28,8 @@ jobs:
       with:
         go-version: 1.18
 
-    - name: Cache Go modules
-      uses: actions/cache@v2
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+    - name: Run coverage
+      run: go test -v ./... -coverprofile=coverage.txt -covermode=atomic -parallel 4
 
-    - run: go install github.com/axw/gocov/gocov@latest
-    - run: go install github.com/AlekSi/gocov-xml@latest
-
-    - name: Test coverage report
-      run: go test ./...  -coverprofile=cover.out
-    - run: gocov convert cover.out | gocov-xml > coverage.xml
-
-    - name: Code Coverage Summary Report
-      uses: irongut/CodeCoverageSummary@v1.3.0
-      with:
-        filename: coverage.xml
-        badge: true
-        format: 'markdown'
-        output: 'both'
-
-    - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@v2.6.2
-      with:
-        recreate: true
-        path: code-coverage-results.md
-
-    - name: Write to Job Summary
-      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
