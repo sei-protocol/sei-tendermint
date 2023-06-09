@@ -46,7 +46,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: "${{ github.sha }}-${{ matrix.part }}-coverage"
-          path: ./path/to/your/coverage/${{ matrix.part }}.out
+          path: ./${{ matrix.part }}.profile.out
 
   upload-coverage-report:
     needs: tests
