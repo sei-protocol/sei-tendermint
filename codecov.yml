@@ -5,3 +5,5 @@ coverage:
         target: 50%
 ignore:
   - "**/*pb*go"         # Auto-generated files
+comment:
+  layout: "reach,diff,flags,tree,betaprofiling"
