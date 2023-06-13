@@ -16,7 +16,7 @@ June 13 2023
 - Increase block part size and delay fsync
 - Increase WAL message size
 - Add tracing
-- [Backport](https://github.com/cometbft/cometbft/pull/241/files) add peer gossip sleep
+- [#148](https://github.com/sei-protocol/sei-tendermint/pull/148) [Backport](https://github.com/cometbft/cometbft/pull/241/files) add peer gossip sleep
 
 ### BUG FIXES
 
