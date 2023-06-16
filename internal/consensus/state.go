@@ -1049,7 +1049,7 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		// once proposal is set, we can receive block parts
 		err = cs.setProposal(msg.Proposal, mi.ReceiveTime)
 		// See if we can try creating the proposal block if keys exist
-		if err != nil && cs.config.GossipTransactionKeyOnly && cs.privValidatorPubKey != nil {
+		if err == nil && cs.config.GossipTransactionKeyOnly && cs.privValidatorPubKey != nil {
 			isProposer := cs.isProposer(cs.privValidatorPubKey.Address())
 			if !isProposer && cs.roundState.ProposalBlock() == nil {
 				created := cs.tryCreateProposalBlock(spanCtx, msg.Proposal.Height, msg.Proposal.Round, msg.Proposal.Header, msg.Proposal.LastCommit, msg.Proposal.Evidence, msg.Proposal.ProposerAddress)
