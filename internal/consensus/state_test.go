@@ -2924,6 +2924,35 @@ func TestStateOutputsBlockPartsStats(t *testing.T) {
 
 }
 
+func TestGossipTransactionKeyOnlyConfig(t *testing.T) {
+	config := configSetup(t)
+	config.Consensus.GossipTransactionKeyOnly = true
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cs, _ := makeState(ctx, t, makeStateArgs{config: config, validators: 1})
+	propBlock, err := cs.createProposalBlock(ctx)
+	require.NoError(t, err)
+	propBlockParts, err := propBlock.MakePartSet(types.BlockPartSizeBytes)
+	require.NoError(t, err)
+	blockID := types.BlockID{Hash: propBlock.Hash(), PartSetHeader: propBlockParts.Header()}
+	proposal := types.NewProposal(cs.roundState.Height(), cs.roundState.Round(), -1, blockID, propBlock.Time, propBlock.GetTxKeys(), propBlock.Header, propBlock.LastCommit, propBlock.Evidence, propBlock.ProposerAddress)
+	peerID, err := types.NewNodeID("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+
+	proposalMsg := ProposalMessage{proposal}
+	cs.handleMsg(ctx, msgInfo{&proposalMsg, peerID, time.Now()}, false)
+	rs := cs.GetRoundState()
+	if rs.Proposal == nil {
+		t.Error("rs.Proposal should be set")
+	}
+	if rs.ProposalBlock == nil {
+		t.Error("rs.ProposalBlock should be set")
+	}
+	if rs.ProposalBlockParts.Total() == 0 {
+		t.Error("rs.ProposalBlockParts should be set")
+	}
+}
+
 func TestStateOutputVoteStats(t *testing.T) {
 	config := configSetup(t)
 	ctx, cancel := context.WithCancel(context.Background())
