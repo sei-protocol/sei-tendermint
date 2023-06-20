@@ -29,6 +29,7 @@ eg, L = latency = 0.1s
 
 const (
 	requestInterval           = 2 * time.Millisecond
+	inactiveSleepInterval     = 1 * time.Second
 	maxTotalRequesters        = 600
 	maxPeerErrBuffer          = 1000
 	maxPendingRequests        = maxTotalRequesters
@@ -90,6 +91,7 @@ type BlockPool struct {
 	startHeight               int64
 	lastHundredBlockTimeStamp time.Time
 	lastSyncRate              float64
+	cancels                   []context.CancelFunc
 }
 
 // NewBlockPool returns a new BlockPool with the height equal to start. Block
@@ -126,7 +128,16 @@ func (pool *BlockPool) OnStart(ctx context.Context) error {
 	return nil
 }
 
-func (*BlockPool) OnStop() {}
+func (pool *BlockPool) OnStop() {
+	pool.mtx.Lock()
+	defer pool.mtx.Unlock()
+
+	// cancel all running requesters if any
+	for _, cancel := range pool.cancels {
+		cancel()
+	}
+	pool.cancels = []context.CancelFunc{}
+}
 
 // spawns requesters as needed
 func (pool *BlockPool) makeRequestersRoutine(ctx context.Context) {
@@ -434,6 +445,8 @@ func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	pool.requesters[nextHeight] = request
 	atomic.AddInt32(&pool.numPending, 1)
 
+	ctx, cancel := context.WithCancel(ctx)
+	pool.cancels = append(pool.cancels, cancel)
 	err := request.Start(ctx)
 	if err != nil {
 		request.logger.Error("error starting request", "err", err)
@@ -459,6 +472,7 @@ func (pool *BlockPool) sendError(err error, peerID types.NodeID) {
 }
 
 // for debugging purposes
+//
 //nolint:unused
 func (pool *BlockPool) debug() string {
 	pool.mtx.Lock()
@@ -519,6 +533,7 @@ func (peer *bpPeer) resetTimeout() {
 	if peer.timeout == nil {
 		peer.timeout = time.AfterFunc(peerTimeout, peer.onTimeout)
 	} else {
+		peer.timeout.Stop()
 		peer.timeout.Reset(peerTimeout)
 	}
 }
