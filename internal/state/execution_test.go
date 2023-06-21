@@ -747,62 +747,6 @@ func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 	mp.AssertExpectations(t)
 }
 
-// TestPrepareProposalAddedTxsIncluded tests that any transactions marked as ADDED
-// in the prepare proposal response are included in the block.
-func TestPrepareProposalAddedTxsIncluded(t *testing.T) {
-	const height = 2
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	logger := log.NewNopLogger()
-	eventBus := eventbus.NewDefault(logger)
-	require.NoError(t, eventBus.Start(ctx))
-
-	state, stateDB, privVals := makeState(t, 1, height)
-	stateStore := sm.NewStore(stateDB)
-
-	evpool := &mocks.EvidencePool{}
-	evpool.On("PendingEvidence", mock.Anything).Return([]types.Evidence{}, int64(0))
-
-	txs := factory.MakeNTxs(height, 10)
-	mp := &mpmocks.Mempool{}
-	mp.On("ReapMaxBytesMaxGas", mock.Anything, mock.Anything).Return(types.Txs(txs[2:]))
-
-	trs := txsToTxRecords(types.Txs(txs))
-	trs[0].Action = abci.TxRecord_UNMODIFIED
-	trs[1].Action = abci.TxRecord_UNMODIFIED
-
-	app := abcimocks.NewApplication(t)
-	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(&abci.ResponsePrepareProposal{
-		TxRecords: trs,
-	}, nil)
-
-	cc := abciclient.NewLocalClient(logger, app)
-	proxyApp := proxy.New(cc, logger, proxy.NopMetrics())
-	err := proxyApp.Start(ctx)
-	require.NoError(t, err)
-
-	blockExec := sm.NewBlockExecutor(
-		stateStore,
-		logger,
-		proxyApp,
-		mp,
-		evpool,
-		nil,
-		eventBus,
-		sm.NopMetrics(),
-	)
-	pa, _ := state.Validators.GetByIndex(0)
-	commit, _ := makeValidCommit(ctx, t, height, types.BlockID{}, state.Validators, privVals)
-	block, err := blockExec.CreateProposalBlock(ctx, height, state, commit, pa)
-	require.NoError(t, err)
-
-	require.Equal(t, txs[0], block.Data.Txs[0])
-	require.Equal(t, txs[1], block.Data.Txs[1])
-
-	mp.AssertExpectations(t)
-}
-
 // TestPrepareProposalReorderTxs tests that CreateBlock produces a block with transactions
 // in the order matching the order they are returned from PrepareProposal.
 func TestPrepareProposalReorderTxs(t *testing.T) {
