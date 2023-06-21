@@ -716,7 +716,7 @@ func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 	rpp := &abci.ResponsePrepareProposal{
 		TxRecords: []*abci.TxRecord{
 			{
-				Action: abci.TxRecord_REMOVED,
+				Action: abci.TxRecord_UNMODIFIED,
 				Tx:     []byte("new tx"),
 			},
 		},
@@ -770,8 +770,8 @@ func TestPrepareProposalRemoveTxs(t *testing.T) {
 	mp.On("ReapMaxBytesMaxGas", mock.Anything, mock.Anything).Return(types.Txs(txs))
 
 	trs := txsToTxRecords(types.Txs(txs))
-	trs[0].Action = abci.TxRecord_REMOVED
-	trs[1].Action = abci.TxRecord_REMOVED
+	trs[0].Action = abci.TxRecord_UNMODIFIED
+	trs[1].Action = abci.TxRecord_UNMODIFIED
 	mp.On("RemoveTxByKey", mock.Anything).Return(nil).Twice()
 
 	app := abcimocks.NewApplication(t)
@@ -830,8 +830,8 @@ func TestPrepareProposalAddedTxsIncluded(t *testing.T) {
 	mp.On("ReapMaxBytesMaxGas", mock.Anything, mock.Anything).Return(types.Txs(txs[2:]))
 
 	trs := txsToTxRecords(types.Txs(txs))
-	trs[0].Action = abci.TxRecord_ADDED
-	trs[1].Action = abci.TxRecord_ADDED
+	trs[0].Action = abci.TxRecord_UNMODIFIED
+	trs[1].Action = abci.TxRecord_UNMODIFIED
 
 	app := abcimocks.NewApplication(t)
 	app.On("PrepareProposal", mock.Anything, mock.Anything).Return(&abci.ResponsePrepareProposal{
