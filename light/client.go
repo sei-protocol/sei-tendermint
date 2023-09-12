@@ -937,14 +937,14 @@ func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*type
 	case provider.ErrNoResponse, provider.ErrLightBlockNotFound, provider.ErrHeightTooHigh:
 		// we find a new witness to replace the primary
 		c.logger.Info("error from light block request from primary, replacing...",
-			"error", err, "height", height, "primary", c.primary)
+			"error", err, "height", height, "primary", c.primary.ID())
 		return c.findNewPrimary(ctx, height, false)
 
 	default:
 		// The light client has most likely received either provider.ErrUnreliableProvider or provider.ErrBadLightBlock
 		// These errors mean that the light client should drop the primary and try with another provider instead
 		c.logger.Info("error from light block request from primary, removing...",
-			"error", err, "height", height, "primary", c.primary)
+			"error", err, "height", height, "primary", c.primary.ID())
 		return c.findNewPrimary(ctx, height, true)
 	}
 }
@@ -952,6 +952,7 @@ func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*type
 func (c *Client) getLightBlock(ctx context.Context, p provider.Provider, height int64) (*types.LightBlock, error) {
 	l, err := p.LightBlock(ctx, height)
 	if ctx.Err() != nil {
+		c.logger.Error("light block request failed", "err", ctx.Err())
 		return nil, provider.ErrNoResponse
 	}
 	return l, err
@@ -987,7 +988,7 @@ type witnessResponse struct {
 func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) (*types.LightBlock, error) {
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
-	c.logger.Info("[TM-DEBUG] finding new primary", "height", height, "remove", remove, "witnesses", c.witnesses)
+	c.logger.Info("[TM-DEBUG] finding new primary", "height", height, "remove", remove, "witnesses", len(c.witnesses))
 
 	if len(c.witnesses) < 1 {
 		return nil, ErrNoWitnesses
@@ -1050,6 +1051,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 
 		// catch canceled contexts or deadlines
 		case context.Canceled, context.DeadlineExceeded:
+			c.logger.Info("context.Canceled or DeadlineExceeded on light block request from witness")
 			return nil, response.err
 
 		// process benign errors by logging them only
@@ -1063,11 +1065,12 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		default:
 			lastError = response.err
 			c.logger.Error("error on light block request from witness, removing...",
-				"error", response.err, "primary", c.witnesses[response.witnessIndex])
+				"error", response.err, "primary", c.witnesses[response.witnessIndex].ID())
 			witnessesToRemove = append(witnessesToRemove, response.witnessIndex)
 		}
 	}
 
+	c.logger.Info("no new primary found", "last_error", lastError)
 	return nil, lastError
 }
 

@@ -34,7 +34,7 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 		lastVerifiedHeader = primaryTrace[len(primaryTrace)-1].SignedHeader
 		witnessesToRemove  = make([]int, 0)
 	)
-	c.logger.Debug("running detector against trace", "finalizeBlockHeight", lastVerifiedHeader.Height,
+	c.logger.Info("running detector against trace", "finalizeBlockHeight", lastVerifiedHeader.Height,
 		"finalizeBlockHash", lastVerifiedHeader.Hash, "length", len(primaryTrace))
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
