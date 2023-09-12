@@ -1025,7 +1025,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		// success! We have found a new primary
 		case nil:
 			cancel() // cancel all remaining requests to other witnesses
-
+			c.logger.Info("waiting for all goroutines to finish", "primary", c.witnesses[response.witnessIndex].ID())
 			wg.Wait() // wait for all goroutines to finish
 
 			// if we are not intending on removing the primary then append the old primary to the end of the witness slice
@@ -1034,7 +1034,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 			}
 
 			// promote respondent as the new primary
-			c.logger.Info("found new primary", "primary", c.witnesses[response.witnessIndex])
+			c.logger.Info("found new primary", "primary", c.witnesses[response.witnessIndex].ID())
 			c.primary = c.witnesses[response.witnessIndex]
 
 			// add promoted witness to the list of witnesses to be removed
