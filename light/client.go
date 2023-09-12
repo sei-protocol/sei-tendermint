@@ -1008,15 +1008,10 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		wg.Add(1)
 		go func(witnessIndex int, witnessResponsesC chan witnessResponse) {
 			defer wg.Done()
-
 			c.logger.Info("[TM-DEBUG] requesting light block from witness", "witness", c.witnesses[witnessIndex].ID())
 			lb, err := c.witnesses[witnessIndex].LightBlock(ctx, height)
 			c.logger.Info("[TM-DEBUG] Got response from witness", "witness", c.witnesses[witnessIndex].ID())
-			select {
-			case witnessResponsesC <- witnessResponse{lb, witnessIndex, err}:
-			case <-ctx.Done():
-			}
-
+			witnessResponsesC <- witnessResponse{lb, witnessIndex, err}
 		}(index, witnessResponsesC)
 	}
 
