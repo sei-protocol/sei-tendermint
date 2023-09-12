@@ -1009,7 +1009,9 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		go func(witnessIndex int, witnessResponsesC chan witnessResponse) {
 			defer wg.Done()
 
+			c.logger.Info("[TM-DEBUG] requesting light block from witness", "witness", c.witnesses[witnessIndex].ID())
 			lb, err := c.witnesses[witnessIndex].LightBlock(ctx, height)
+			c.logger.Info("[TM-DEBUG] Got response from witness", "witness", c.witnesses[witnessIndex].ID())
 			select {
 			case witnessResponsesC <- witnessResponse{lb, witnessIndex, err}:
 			case <-ctx.Done():
@@ -1020,6 +1022,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 
 	// process all the responses as they come in
 	for i := 0; i < cap(witnessResponsesC); i++ {
+		c.logger.Info("[TM-DEBUG] waiting for response from witness", "index", i)
 		response := <-witnessResponsesC
 		switch response.err {
 		// success! We have found a new primary
