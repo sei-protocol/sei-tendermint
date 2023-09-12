@@ -987,6 +987,7 @@ type witnessResponse struct {
 func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) (*types.LightBlock, error) {
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
+	c.logger.Info("[TM-DEBUG] finding new primary", "height", height, "remove", remove, "witnesses", c.witnesses)
 
 	if len(c.witnesses) < 1 {
 		return nil, ErrNoWitnesses
@@ -1032,7 +1033,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 			}
 
 			// promote respondent as the new primary
-			c.logger.Debug("found new primary", "primary", c.witnesses[response.witnessIndex])
+			c.logger.Info("found new primary", "primary", c.witnesses[response.witnessIndex])
 			c.primary = c.witnesses[response.witnessIndex]
 
 			// add promoted witness to the list of witnesses to be removed
