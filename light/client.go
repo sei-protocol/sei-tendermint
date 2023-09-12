@@ -920,6 +920,7 @@ func (c *Client) backwards(
 //  3. If the provider provides an invalid light block, is deemed unreliable or returns
 //     any other error, the primary is permanently dropped and is replaced by a witness.
 func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*types.LightBlock, error) {
+	c.logger.Info("[TM-DEBUG] getting light block from primary", "height", height, "primary", c.primary)
 	c.providerMutex.Lock()
 	l, err := c.getLightBlock(ctx, c.primary, height)
 	c.providerMutex.Unlock()
