@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+	"encoding/hex"
 
 	abciclient "github.com/tendermint/tendermint/abci/client"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -523,6 +524,12 @@ func (s *syncer) verifyApp(ctx context.Context, snapshot *snapshot, appVersion u
 	if err != nil {
 		return fmt.Errorf("failed to query ABCI app for appHash: %w", err)
 	}
+
+	fmt.Printf("DEBUG - resp requestInfo %+v\n", resp)
+	fmt.Printf("DEBUG - snapshot %+v\n", *snapshot)
+	fmt.Printf("DEBUG - string trustedAppHash %s, lastBlockApphash %s\n", string(snapshot.trustedAppHash), string(resp.LastBlockAppHash))
+	fmt.Printf("DEBUG - hex trustedApphash %x, lastBlockAppHash %x\n", snapshot.trustedAppHash, resp.LastBlockAppHash)
+	fmt.Printf("DEBUG - hexEncode trustedappHash %s, lastBlockApphash %s\n", hex.EncodeToString(snapshot.trustedAppHash), hex.EncodeToString(resp.LastBlockAppHash))
 
 	// sanity check that the app version in the block matches the application's own record
 	// of its version
