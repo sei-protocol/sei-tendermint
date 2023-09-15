@@ -968,8 +968,11 @@ func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*type
 func (c *Client) getLightBlock(ctx context.Context, p provider.Provider, height int64) (*types.LightBlock, error) {
 	l, err := p.LightBlock(ctx, height)
 	if ctx.Err() != nil {
-		c.logger.Error("light block request failed", "err", ctx.Err(), "height", height, "primary", p.ID())
+		c.logger.Error("light block request context failed", "err", ctx.Err(), "height", height, "primary", p.ID())
 		return nil, provider.ErrNoResponse
+	}
+	if err != nil {
+		c.logger.Error("light block request failed with err", "err", err, "height", height, "primary", p.ID())
 	}
 	return l, err
 }
