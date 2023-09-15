@@ -78,7 +78,7 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
 				return e
 			}
-			c.logger.Info("error in light block request to witness", "err", err)
+			c.logger.Info("detectDivergence error in light block request to witness", "err", err, "witness", c.witnesses[i].ID())
 		}
 	}
 
