@@ -383,6 +383,7 @@ func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Env
 					LightBlock: nil,
 				},
 			}); err != nil {
+				r.logger.Error("[TM-DEBUG] failed to send empty block response back", "err", err, "height", msg.Height, "from", envelope.From)
 				return err
 			}
 			return nil

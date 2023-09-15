@@ -800,19 +800,21 @@ func (r *Reactor) handleChunkMessage(ctx context.Context, envelope *p2p.Envelope
 func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Envelope, blockCh *p2p.Channel) error {
 	switch msg := envelope.Message.(type) {
 	case *ssproto.LightBlockRequest:
-		r.logger.Info("received light block request", "height", msg.Height)
+		r.logger.Info("[TM-DEBUG] received light block request", "height", msg.Height, "from", envelope.From)
 		lb, err := r.fetchLightBlock(msg.Height)
 		if err != nil {
-			r.logger.Error("failed to retrieve light block", "err", err, "height", msg.Height)
+			r.logger.Error("[TM-DEBUG] failed to retrieve light block", "err", err, "height", msg.Height)
 			return err
 		}
 		if lb == nil {
+			r.logger.Info("[TM-DEBUG] light block is nil, sending empty response back", "height", msg.Height, "from", envelope.From)
 			if err := blockCh.Send(ctx, p2p.Envelope{
 				To: envelope.From,
 				Message: &ssproto.LightBlockResponse{
 					LightBlock: nil,
 				},
 			}); err != nil {
+				r.logger.Error("[TM-DEBUG] failed to send empty block response back", "err", err, "height", msg.Height, "from", envelope.From)
 				return err
 			}
 			return nil
@@ -820,7 +822,7 @@ func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Env
 
 		lbproto, err := lb.ToProto()
 		if err != nil {
-			r.logger.Error("marshaling light block to proto", "err", err)
+			r.logger.Error("[TM-DEBUG] failed to marshaling light block to proto", "err", err, "height", msg.Height)
 			return nil
 		}
 
@@ -832,8 +834,10 @@ func (r *Reactor) handleLightBlockMessage(ctx context.Context, envelope *p2p.Env
 				LightBlock: lbproto,
 			},
 		}); err != nil {
+			r.logger.Error("[TM-DEBUG] failed to send light block response", "err", err, "height", msg.Height, "from", envelope.From)
 			return err
 		}
+		r.logger.Info("[TM-DEBUG] successfully sent light block response", "height", msg.Height, "from", envelope.From)
 	case *ssproto.LightBlockResponse:
 		var height int64
 		if msg.LightBlock != nil {
