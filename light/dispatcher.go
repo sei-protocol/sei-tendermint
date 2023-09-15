@@ -88,16 +88,19 @@ func (d *Dispatcher) dispatch(ctx context.Context, peer types.NodeID, height int
 
 	// check if a request for the same peer has already been made
 	if _, ok := d.calls[peer]; ok {
+		fmt.Printf("[TM-DEBUG] Stop sending light block request to peer %s, height %d, ErrPeerAlreadyBusy \n", peer, height)
 		close(ch)
 		return ch, ErrPeerAlreadyBusy
 	}
 	d.calls[peer] = ch
 
 	// send request
+	fmt.Printf("[TM-DEBUG] sending light block request to channel peer %s, height %d \n", peer, height)
 	if err := d.requestCh.Send(ctx, p2p.Envelope{
 		To:      peer,
 		Message: d.lightBlockMsgCreator(uint64(height)),
 	}); err != nil {
+		fmt.Printf("[TM-DEBUG] Failed to send light block request to channel peer %s, height %d, error:%s \n", peer, height, err.Error())
 		close(ch)
 		return ch, err
 	}

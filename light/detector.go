@@ -75,10 +75,10 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 				"witness", c.witnesses[e.WitnessIndex], "err", err)
 			witnessesToRemove = append(witnessesToRemove, e.WitnessIndex)
 		default:
+			c.logger.Info("detectDivergence error in light block request to witness", "err", err, "witness", c.witnesses[i].ID())
 			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
 				return e
 			}
-			c.logger.Info("detectDivergence error in light block request to witness", "err", err, "witness", c.witnesses[i].ID())
 		}
 	}
 
