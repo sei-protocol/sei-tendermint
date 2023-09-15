@@ -827,7 +827,22 @@ func (c *Client) Witnesses() []provider.Provider {
 func (c *Client) AddProvider(p provider.Provider) {
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
+	c.logger.Info("adding new provider to witnesses", "provider", p, "witnesses", len(c.witnesses))
 	c.witnesses = append(c.witnesses, p)
+}
+
+func (c *Client) RemoveProvider(p provider.Provider) {
+	c.providerMutex.Lock()
+	defer c.providerMutex.Unlock()
+	c.logger.Info("removing provider from witnesses", "provider", p, "witnesses", len(c.witnesses))
+	var witnessesUpdated []provider.Provider
+	for _, witness := range c.witnesses {
+		if witness.ID() == p.ID() {
+			continue
+		}
+		witnessesUpdated = append(witnessesUpdated, witness)
+	}
+	c.witnesses = witnessesUpdated
 }
 
 // Cleanup removes all the data (headers and validator sets) stored. Note: the

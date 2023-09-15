@@ -264,16 +264,20 @@ func (s *StateProviderP2P) AppHash(ctx context.Context, height uint64) ([]byte, 
 	s.Lock()
 	defer s.Unlock()
 
+	hctx1, hcancel1 := context.WithTimeout(ctx, 30*time.Second)
+	defer hcancel1()
 	// We have to fetch the next height, which contains the app hash for the previous height.
-	header, err := s.verifyLightBlockAtHeight(ctx, height+1, time.Now())
+	header, err := s.verifyLightBlockAtHeight(hctx1, height+1, time.Now())
 	if err != nil {
 		return nil, err
 	}
 
+	hctx2, hcancel2 := context.WithTimeout(ctx, 30*time.Second)
+	defer hcancel2()
 	// We also try to fetch the blocks at H+2, since we need these
 	// when building the state while restoring the snapshot. This avoids the race
 	// condition where we try to restore a snapshot before H+2 exists.
-	_, err = s.verifyLightBlockAtHeight(ctx, height+2, time.Now())
+	_, err = s.verifyLightBlockAtHeight(hctx2, height+2, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -360,6 +364,13 @@ func (s *StateProviderP2P) State(ctx context.Context, height uint64) (sm.State, 
 func (s *StateProviderP2P) AddProvider(p lightprovider.Provider) {
 	if len(s.lc.Witnesses()) < 6 {
 		s.lc.AddProvider(p)
+	}
+}
+
+// RemoveProvider dynamically removes a peer from the witness list, but at least keep one witness
+func (s *StateProviderP2P) RemoveProvider(p lightprovider.Provider) {
+	if len(s.lc.Witnesses()) > 1 {
+		s.lc.RemoveProvider(p)
 	}
 }
 

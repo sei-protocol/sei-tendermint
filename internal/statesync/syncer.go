@@ -246,12 +246,9 @@ func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueu
 		s.mtx.Unlock()
 	}()
 
-	hctx, hcancel := context.WithTimeout(ctx, 30*time.Second)
-	defer hcancel()
-
 	// Fetch the app hash corresponding to the snapshot
 	s.logger.Info("[TM-DEBUG] Fetching app hash", "height", snapshot.Height)
-	appHash, err := s.stateProvider.AppHash(hctx, snapshot.Height)
+	appHash, err := s.stateProvider.AppHash(ctx, snapshot.Height)
 	if err != nil {
 		// check if the main context was triggered
 		if ctx.Err() != nil {
