@@ -728,6 +728,7 @@ func (c *Client) verifySkippingAgainstPrimary(
 	// all errors from verify skipping should be `ErrVerificationFailed`
 	// if it's not we just return the error directly
 	if !errors.As(err, e) {
+		c.logger.Info("[TM-DEBUG] verifySkippingAgainstPrimary returned early", "err", err)
 		return err
 	}
 
@@ -763,7 +764,7 @@ func (c *Client) verifySkippingAgainstPrimary(
 
 	// if we've reached here we're attempting to retry verification with a
 	// different provider
-	c.logger.Info("primary returned error", "err", e, "primary", c.primary, "replace", replace)
+	c.logger.Info("[TM-DEBUG] primary returned error", "err", e, "primary", c.primary, "replace", replace)
 
 	replacementBlock, removeErr := c.findNewPrimary(ctx, newLightBlock.Height, replace)
 	if removeErr != nil {

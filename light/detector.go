@@ -75,8 +75,11 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 				"witness", c.witnesses[e.WitnessIndex], "err", err)
 			witnessesToRemove = append(witnessesToRemove, e.WitnessIndex)
 		default:
-			c.logger.Info("detectDivergence error in light block request to witness", "err", err, "witness", c.witnesses[i].ID())
+			if errors.Is(e, provider.ErrLightBlockNotFound) || errors.Is(e, provider.ErrNoResponse) {
+				c.logger.Info("detectDivergence error in light block request to witness", "err", err, "witness", c.witnesses[i].ID())
+			}
 			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
+				c.logger.Error("detectDivergence return default error on light block request from witness", "err", err, "witness", c.witnesses[i].ID())
 				return e
 			}
 		}
@@ -90,6 +93,7 @@ func (c *Client) detectDivergence(ctx context.Context, primaryTrace []*types.Lig
 	// 1. If we had at least one witness that returned the same header then we
 	// conclude that we can trust the header
 	if headerMatched {
+		c.logger.Info("detectDivergence header matches at least one witness, return nil", "header", lastVerifiedHeader.Hash())
 		return nil
 	}
 
