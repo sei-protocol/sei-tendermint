@@ -307,6 +307,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 				providers[idx] = light.NewBlockProvider(p, chainID, r.dispatcher)
 			}
 
+			spLogger.Info(fmt.Sprintf("Creating P2P state provider with primary %s and %d witnesses", peers[0], len(peers)-1))
 			stateProvider, err := light.NewP2PStateProvider(ctx, chainID, initialHeight, r.cfg.VerifyLightBlockTimeout, providers, to, r.paramsChannel, r.logger.With("module", "stateprovider"), func(height uint64) proto.Message {
 				return &ssproto.ParamsRequest{
 					Height: height,
@@ -385,8 +386,10 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		r.mtx.Unlock()
 		return sm.State{}, err
 	}
+	r.logger.Info("Completed state provider initialization")
 
 	r.syncer = r.initSyncer()
+
 	r.mtx.Unlock()
 
 	defer func() {
