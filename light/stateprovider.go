@@ -380,24 +380,19 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 
 	out := make(chan types.ConsensusParams)
 
-	retryAll := func() (<-chan struct{}, error) {
-		wg := &sync.WaitGroup{}
-
+	retryAll := func() (error) {
 		for _, provider := range s.lc.Witnesses() {
 			p, ok := provider.(*BlockProvider)
 			if !ok {
-				return nil, fmt.Errorf("witness is not BlockProvider [%T]", provider)
+				return fmt.Errorf("witness is not BlockProvider [%T]", provider)
 			}
 
 			peer, err := types.NewNodeID(p.String())
 			if err != nil {
-				return nil, fmt.Errorf("invalid provider (%s) node id: %w", p.String(), err)
+				return fmt.Errorf("invalid provider (%s) node id: %w", p.String(), err)
 			}
 
-			wg.Add(1)
 			go func(peer types.NodeID) {
-				defer wg.Done()
-
 				timer := time.NewTimer(0)
 				defer timer.Stop()
 				var iterCount int64
@@ -410,9 +405,7 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 					}); err != nil {
 						// this only errors if
 						// the context is
-						// canceled which we
-						// don't need to
-						// propagate here
+						// canceled
 						return
 					}
 
@@ -440,9 +433,7 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 
 			}(peer)
 		}
-		sig := make(chan struct{})
-		go func() { wg.Wait(); close(sig) }()
-		return sig, nil
+		return nil
 	}
 
 	timer := time.NewTimer(0)
@@ -451,26 +442,16 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 	var iterCount int64
 	for {
 		iterCount++
-		sig, err := retryAll()
+		err := retryAll()
 		if err != nil {
 			return types.ConsensusParams{}, err
 		}
 		select {
-		case <-sig:
-			// jitter+backoff the retry loop
-			timer.Reset(time.Duration(iterCount)*consensusParamsResponseTimeout +
-				time.Duration(100*rand.Int63n(iterCount))*time.Millisecond) // nolint:gosec
-			select {
-			case param := <-out:
-				return param, nil
-			case <-ctx.Done():
-				return types.ConsensusParams{}, ctx.Err()
-			case <-timer.C:
-			}
-		case <-ctx.Done():
-			return types.ConsensusParams{}, ctx.Err()
 		case param := <-out:
 			return param, nil
+		case <-ctx.Done():
+			return types.ConsensusParams{}, ctx.Err()
+		case <-timer.C:
 		}
 	}
 

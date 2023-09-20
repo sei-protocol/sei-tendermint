@@ -119,7 +119,7 @@ func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan erro
 
 	// the witness hasn't been helpful in comparing headers, we mark the response and continue
 	// comparing with the rest of the witnesses
-	case provider.ErrNoResponse, provider.ErrLightBlockNotFound, context.DeadlineExceeded, context.Canceled:
+	case context.DeadlineExceeded, context.Canceled:
 		errc <- err
 		return
 
@@ -189,7 +189,7 @@ func (c *Client) compareNewHeaderWithWitness(ctx context.Context, errc chan erro
 		return
 
 	default:
-		// all other errors (i.e. invalid block, closed connection or unreliable provider) we mark the
+		// all other errors (i.e. no response, invalid block, closed connection or unreliable provider) we mark the
 		// witness as bad and remove it
 		errc <- errBadWitness{Reason: err, WitnessIndex: witnessIndex}
 		return
