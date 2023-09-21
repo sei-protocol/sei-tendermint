@@ -112,6 +112,9 @@ func (s *stateProviderRPC) AppHash(ctx context.Context, height uint64) ([]byte, 
 		return nil, err
 	}
 
+	// TODO: remove this - used for testing to force primary switch
+	s.lc.findNewPrimary(ctx, int64(height+1), true)
+
 	// We also try to fetch the blocks at H+2, since we need these
 	// when building the state while restoring the snapshot. This avoids the race
 	// condition where we try to restore a snapshot before H+2 exists.
