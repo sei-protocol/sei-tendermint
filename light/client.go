@@ -56,7 +56,7 @@ const (
 	// 30s for minimum time a witness must remain in blacklist before
 	// it can be added back as a provider.
 	// TODO: Make configurable
-	defaultBlackListTTL = 30 * time.Second
+	defaultBlacklistTTL = 30 * time.Second
 )
 
 // Option sets a parameter for the light client.
@@ -128,6 +128,7 @@ type Client struct {
 	trustLevel       tmmath.Fraction
 	maxClockDrift    time.Duration
 	maxBlockLag      time.Duration
+	blacklistTTL     time.Duration
 
 	// Mutex for locking during changes of the light clients providers
 	providerMutex sync.Mutex
@@ -213,6 +214,7 @@ func NewClient(
 		trustLevel:       DefaultTrustLevel,
 		maxClockDrift:    defaultMaxClockDrift,
 		maxBlockLag:      defaultMaxBlockLag,
+		blacklistTTL:     defaultBlacklistTTL,
 		pruningSize:      defaultPruningSize,
 		logger:           log.NewNopLogger(),
 	}
@@ -252,6 +254,7 @@ func NewClientFromTrustedStore(
 		trustLevel:       DefaultTrustLevel,
 		maxClockDrift:    defaultMaxClockDrift,
 		maxBlockLag:      defaultMaxBlockLag,
+		blacklistTTL:     defaultBlacklistTTL,
 		primary:          primary,
 		witnesses:        witnesses,
 		trustedStore:     trustedStore,
@@ -283,7 +286,7 @@ func (c *Client) isBlacklisted(p provider.Provider) bool {
     }
 
     // If the provider is found, check the TTL
-    if time.Since(timestamp) > 30*time.Second {
+    if time.Since(timestamp) > c.blacklistTTL {
         // Remove from blacklist if TTL expired
         delete(c.blacklist, p.ID())
         return false
