@@ -52,6 +52,11 @@ const (
 
 	// 10s is sufficient for most networks.
 	defaultMaxBlockLag = 10 * time.Second
+
+	// 30s for minimum time a witness must remain in blacklist before
+	// it can be added back as a provider.
+	// TODO: Make configurable
+	defaultBlackListTTL = 30 * time.Second
 )
 
 // Option sets a parameter for the light client.
@@ -131,6 +136,11 @@ type Client struct {
 	// Providers used to "witness" new headers.
 	witnesses []provider.Provider
 
+	// Map of witnesses, who have been removed
+	// and not allowed to be added back as a provider,
+	// to the time they were added to the blacklist
+	blacklist map[string]time.Time
+
 	// Where trusted light blocks are stored.
 	trustedStore store.Store
 	// Highest trusted light block from the store (height=H).
@@ -140,6 +150,13 @@ type Client struct {
 	pruningSize uint16
 
 	logger log.Logger
+}
+
+// blacklistedWitness represents a witness who has been removed
+// and temporarily prevents them being added back for a configurable time.
+type blacklistedWitness struct {
+    witness   provider.Provider
+    timestamp time.Time
 }
 
 // NewClient returns a new light client. It returns an error if it fails to
@@ -191,6 +208,7 @@ func NewClient(
 		verificationMode: skipping,
 		primary:          primary,
 		witnesses:        witnesses,
+		blacklist:        make(map[string]time.Time),
 		trustedStore:     trustedStore,
 		trustLevel:       DefaultTrustLevel,
 		maxClockDrift:    defaultMaxClockDrift,
@@ -256,6 +274,22 @@ func NewClientFromTrustedStore(
 	}
 
 	return c, nil
+}
+
+func (c *Client) isBlacklisted(p provider.Provider) bool {
+    timestamp, exists := c.blacklist[p.ID()]
+    if !exists {
+        return false
+    }
+
+    // If the provider is found, check the TTL
+    if time.Since(timestamp) > 30*time.Second {
+        // Remove from blacklist if TTL expired
+        delete(c.blacklist, p.ID())
+        return false
+    }
+
+    return true
 }
 
 // restoreTrustedLightBlock loads the latest trusted light block from the store
@@ -821,12 +855,35 @@ func (c *Client) Witnesses() []provider.Provider {
 	return c.witnesses
 }
 
+// BlacklistedWitnessIDS returns the blacklisted witness IDs.
+//
+// NOTE: providers may be not safe for concurrent access.
+func (c *Client) BlacklistedWitnessIDs() []string {
+	c.providerMutex.Lock()
+	defer c.providerMutex.Unlock()
+
+	witnessIds := []string{}
+	for w := range c.blacklist {
+		witnessIds = append(witnessIds, w)
+	}
+
+	sort.Strings(witnessIds)
+
+	return witnessIds
+}
+
 // AddProvider adds a providers to the light clients set
 //
 // NOTE: The light client does not check for uniqueness
 func (c *Client) AddProvider(p provider.Provider) {
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
+
+	// If the provider is blacklisted, don't add it
+	if c.isBlacklisted(p) {
+        return
+    }
+
 	c.witnesses = append(c.witnesses, p)
 }
 
@@ -966,6 +1023,10 @@ func (c *Client) removeWitnesses(indexes []int) error {
 	// order so as to not affect the indexes themselves
 	sort.Ints(indexes)
 	for i := len(indexes) - 1; i >= 0; i-- {
+		// Add witness to blacklist
+		removedWitness := c.witnesses[indexes[i]]
+		c.blacklist[removedWitness.ID()] = time.Now()
+
 		c.witnesses[indexes[i]] = c.witnesses[len(c.witnesses)-1]
 		c.witnesses = c.witnesses[:len(c.witnesses)-1]
 	}

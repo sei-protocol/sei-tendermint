@@ -429,6 +429,7 @@ func TestClientDivergentTraces2(t *testing.T) {
 	mockPrimaryNode := mockNodeFromHeadersAndVals(headers, vals)
 	mockDeadNode := &provider_mocks.Provider{}
 	mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
+	mockDeadNode.On("ID", mock.Anything, mock.Anything).Return("id1", nil)
 	firstBlock, err := mockPrimaryNode.LightBlock(ctx, 1)
 	require.NoError(t, err)
 	c, err := light.NewClient(

@@ -74,6 +74,8 @@ func TestClient(t *testing.T) {
 		l1 = &types.LightBlock{SignedHeader: h1, ValidatorSet: vals}
 		l2 = &types.LightBlock{SignedHeader: h2, ValidatorSet: vals}
 		l3 = &types.LightBlock{SignedHeader: h3, ValidatorSet: vals}
+		id1 = "id1"
+		id2 = "id2"
 	)
 	t.Run("ValidateTrustOptions", func(t *testing.T) {
 		testCases := []struct {
@@ -658,6 +660,7 @@ func TestClient(t *testing.T) {
 			1: h1,
 			2: h2,
 		}, valSet)
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 		logger := log.NewNopLogger()
 
 		c, err := light.NewClient(
@@ -694,8 +697,10 @@ func TestClient(t *testing.T) {
 
 		mockFullNode := &provider_mocks.Provider{}
 		mockFullNode.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 		mockDeadNode := &provider_mocks.Provider{}
 		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
 
 		logger := log.NewNopLogger()
 
@@ -728,10 +733,12 @@ func TestClient(t *testing.T) {
 
 		mockFullNode := &provider_mocks.Provider{}
 		mockFullNode.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 
 		logger := log.NewNopLogger()
 		mockDeadNode := &provider_mocks.Provider{}
 		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
+		mockDeadNode.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
 
 		c, err := light.NewClient(
 			ctx,
@@ -882,6 +889,7 @@ func TestClient(t *testing.T) {
 		}
 		mockBadNode1 := mockNodeFromHeadersAndVals(headers1, vals1)
 		mockBadNode1.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
+		mockBadNode1.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 
 		// header is empty
 		headers2 := map[int64]*types.SignedHeader{
@@ -894,6 +902,7 @@ func TestClient(t *testing.T) {
 		}
 		mockBadNode2 := mockNodeFromHeadersAndVals(headers2, vals2)
 		mockBadNode2.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
+		mockBadNode2.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
 
 		mockFullNode := mockNodeFromHeadersAndVals(headerSet, valSet)
 
@@ -953,6 +962,7 @@ func TestClient(t *testing.T) {
 				1: vals,
 				2: differentVals,
 			})
+		mockBadValSetNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 
 		mockFullNode := mockNodeFromHeadersAndVals(
 			map[int64]*types.SignedHeader{
@@ -963,6 +973,7 @@ func TestClient(t *testing.T) {
 				1: vals,
 				2: vals,
 			})
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 
 		c, err := light.NewClient(
 			ctx,

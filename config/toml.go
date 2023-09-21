@@ -345,7 +345,6 @@ recv-rate = {{ .P2P.RecvRate }}
 # List of node IDs, to which a connection will be (re)established ignoring any existing limits
 unconditional-peer-ids = "{{ .P2P.UnconditionalPeerIDs }}"
 
-
 #######################################################
 ###          Mempool Configuration Option          ###
 #######################################################
@@ -459,6 +458,10 @@ chunk-request-timeout = "{{ .StateSync.ChunkRequestTimeout }}"
 fetchers = "{{ .StateSync.Fetchers }}"
 
 verify-light-block-timeout = "{{ .StateSync.VerifyLightBlockTimeout }}"
+
+# Minimum time bad witnesses must spend in blacklist before potentially being
+# added back as a provider again.
+black-list-ttl = "{{ .P2P.BlackListTTL }}"
 
 #######################################################
 ###         Consensus Configuration Options         ###
