@@ -162,6 +162,8 @@ func (s *syncer) SyncAny(
 			if discoveryTime == 0 {
 				return sm.State{}, nil, errNoSnapshots
 			}
+			// TODO: remove
+			s.logger.Debug("STATESYNC_TEST discovering snapshots again")
 			s.logger.Info(fmt.Sprintf("No snapshots discovered sleeping for %v", discoveryTime))
 			time.Sleep(discoveryTime)
 			continue
