@@ -141,7 +141,8 @@ func (s *syncer) SyncAny(
 		if err := requestSnapshots(); err != nil {
 			return sm.State{}, nil, err
 		}
-		s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
+		// TODO: remove
+		s.logger.Info(fmt.Sprintf("STATESYNC_TEST Discovering snapshots for %v", discoveryTime))
 		time.Sleep(discoveryTime)
 	}
 
@@ -163,8 +164,7 @@ func (s *syncer) SyncAny(
 				return sm.State{}, nil, errNoSnapshots
 			}
 			// TODO: remove
-			s.logger.Debug("STATESYNC_TEST discovering snapshots again")
-			s.logger.Info(fmt.Sprintf("No snapshots discovered sleeping for %v", discoveryTime))
+			s.logger.Info(fmt.Sprintf("STATESYNC_TEST No snapshots discovered sleeping for %v", discoveryTime))
 			time.Sleep(discoveryTime)
 			continue
 		}
