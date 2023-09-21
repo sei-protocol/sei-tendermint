@@ -97,7 +97,7 @@ func (s *stateProviderRPC) verifyLightBlockAtHeight(ctx context.Context, height 
 	ctx, cancel := context.WithTimeout(ctx, s.verifyLightBlockTimeout)
 	// TODO: remove - force timeout
 	s.logger.Info("STATESYNC_TEST forcing timeout")
-	time.Sleep(time.Duration(59))
+	time.Sleep(time.Duration(59 * time.Second))
 	defer cancel()
 	return s.lc.VerifyLightBlockAtHeight(ctx, int64(height), ts)
 }
