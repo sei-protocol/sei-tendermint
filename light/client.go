@@ -987,7 +987,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
 	// TODO: remove
-	c.logger.Debug("looking for new primary")
+	c.logger.Debug("STATESYNC_TEST looking for new primary")
 	if len(c.witnesses) < 1 {
 		return nil, ErrNoWitnesses
 	}
@@ -1012,7 +1012,7 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 			case witnessResponsesC <- witnessResponse{lb, witnessIndex, err}:
 			case <-ctx.Done():
 				// TODO: remove log
-				c.logger.Debug("witness timed out")
+				c.logger.Debug("STATESYNC_TEST witness timed out")
 
 				witnessResponsesC <- witnessResponse{
 					nil,

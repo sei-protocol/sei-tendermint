@@ -113,6 +113,7 @@ func (s *stateProviderRPC) AppHash(ctx context.Context, height uint64) ([]byte, 
 	}
 
 	// TODO: remove this - used for testing to force primary switch
+	s.logger.Debug("STATESYNC_TEST forcing find new primary")
 	s.lc.findNewPrimary(ctx, int64(height+1), true)
 
 	// We also try to fetch the blocks at H+2, since we need these
