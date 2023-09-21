@@ -95,6 +95,8 @@ func NewRPCStateProvider(
 
 func (s *stateProviderRPC) verifyLightBlockAtHeight(ctx context.Context, height uint64, ts time.Time) (*types.LightBlock, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.verifyLightBlockTimeout)
+	// TODO: remove - force timeout
+	time.Sleep(59)
 	defer cancel()
 	return s.lc.VerifyLightBlockAtHeight(ctx, int64(height), ts)
 }
