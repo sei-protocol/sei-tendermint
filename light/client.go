@@ -886,8 +886,8 @@ func (c *Client) AddProvider(p provider.Provider) {
 
 	// If the provider is blacklisted, don't add it
 	if c.isBlacklisted(p) {
-        return
-    }
+		return
+	}
 
 	c.witnesses = append(c.witnesses, p)
 }
