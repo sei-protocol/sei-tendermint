@@ -279,6 +279,8 @@ func NewClientFromTrustedStore(
 	return c, nil
 }
 
+// isBlacklisted checks whether provider is black listed
+// NOTE: requires a providerMutex lock
 func (c *Client) isBlacklisted(p provider.Provider) bool {
     timestamp, exists := c.blacklist[p.ID()]
     if !exists {
