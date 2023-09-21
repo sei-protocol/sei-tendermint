@@ -446,6 +446,10 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 		if err != nil {
 			return types.ConsensusParams{}, err
 		}
+		// jitter+backoff the retry loop
+		timer.Reset(time.Duration(iterCount)*consensusParamsResponseTimeout +
+			time.Duration(100*rand.Int63n(iterCount))*time.Millisecond) // nolint:gosec
+
 		select {
 		case param := <-out:
 			return param, nil
