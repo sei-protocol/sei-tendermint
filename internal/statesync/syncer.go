@@ -328,7 +328,8 @@ func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueu
 	}
 
 	// Done! 🎉
-	s.logger.Info("Snapshot restored", "height", snapshot.Height, "format", snapshot.Format,
+	// TODO: modify
+	s.logger.Info("STATESYNC_TEST Snapshot restored", "height", snapshot.Height, "format", snapshot.Format,
 		"hash", snapshot.Hash)
 
 	return state, commit, nil
