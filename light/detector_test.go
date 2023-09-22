@@ -283,6 +283,7 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 	lastBlock, _ = mockWitness.LightBlock(ctx, latestHeight)
 	mockWitness.On("LightBlock", mock.Anything, int64(0)).Return(lastBlock, nil).Once()
 	mockWitness.On("LightBlock", mock.Anything, int64(12)).Return(nil, provider.ErrHeightTooHigh)
+	mockWitness.On("ID", mock.Anything, mock.Anything).Return("mockWitness", nil)
 
 	mockWitness.On("ReportEvidence", mock.Anything, mock.MatchedBy(func(evidence types.Evidence) bool {
 		// Check evidence was sent to the witness against the full node
@@ -358,6 +359,7 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 	// in enough time
 	mockLaggingWitness := mockNodeFromHeadersAndVals(witnessHeaders, witnessValidators)
 	mockLaggingWitness.On("LightBlock", mock.Anything, int64(12)).Return(nil, provider.ErrHeightTooHigh)
+	mockLaggingWitness.On("ID", mock.Anything, mock.Anything).Return("mockLaggingWitness", nil)
 	lastBlock, _ = mockLaggingWitness.LightBlock(ctx, latestHeight)
 	mockLaggingWitness.On("LightBlock", mock.Anything, int64(0)).Return(lastBlock, nil)
 	c, err = light.NewClient(
@@ -449,7 +451,7 @@ func TestClientDivergentTraces2(t *testing.T) {
 
 	_, err = c.VerifyLightBlockAtHeight(ctx, 2, bTime.Add(1*time.Hour))
 	assert.NoError(t, err)
-	assert.Equal(t, 3, len(c.Witnesses()))
+	assert.Equal(t, 1, len(c.Witnesses()))
 	mockDeadNode.AssertExpectations(t)
 	mockPrimaryNode.AssertExpectations(t)
 }

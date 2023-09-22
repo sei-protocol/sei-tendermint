@@ -76,6 +76,7 @@ func TestClient(t *testing.T) {
 		l3 = &types.LightBlock{SignedHeader: h3, ValidatorSet: vals}
 		id1 = "id1"
 		id2 = "id2"
+		id3 = "id3"
 	)
 	t.Run("ValidateTrustOptions", func(t *testing.T) {
 		testCases := []struct {
@@ -697,19 +698,22 @@ func TestClient(t *testing.T) {
 
 		mockFullNode := &provider_mocks.Provider{}
 		mockFullNode.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
-		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
+
+		mockFullNode1 := &provider_mocks.Provider{}
+		mockFullNode1.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
+		mockFullNode1.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
+
 		mockDeadNode := &provider_mocks.Provider{}
 		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
-		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
+		mockDeadNode.On("ID", mock.Anything, mock.Anything).Return(id3, nil)
 
 		logger := log.NewNopLogger()
-
 		c, err := light.NewClient(
 			ctx,
 			chainID,
 			trustOptions,
 			mockDeadNode,
-			[]provider.Provider{mockDeadNode, mockFullNode},
+			[]provider.Provider{mockDeadNode, mockFullNode, mockFullNode1},
 			dbs.New(dbm.NewMemDB()),
 			light.Logger(logger),
 		)
@@ -721,10 +725,9 @@ func TestClient(t *testing.T) {
 		// the primary should no longer be the deadNode
 		assert.NotEqual(t, c.Primary(), mockDeadNode)
 
-		// we should still have the dead node as a witness because it
-		// hasn't repeatedly been unresponsive yet
-		assert.Equal(t, 2, len(c.Witnesses()))
+		assert.Equal(t, 1, len(c.Witnesses()))
 		mockDeadNode.AssertExpectations(t)
+		mockFullNode1.AssertExpectations(t)
 		mockFullNode.AssertExpectations(t)
 	})
 	t.Run("ReplacesPrimaryWithWitnessIfPrimaryDoesntHaveBlock", func(t *testing.T) {
@@ -753,9 +756,7 @@ func TestClient(t *testing.T) {
 		_, err = c.Update(ctx, bTime.Add(2*time.Hour))
 		require.NoError(t, err)
 
-		// we should still have the dead node as a witness because it
-		// hasn't repeatedly been unresponsive yet
-		assert.Equal(t, 2, len(c.Witnesses()))
+		assert.Equal(t, 1, len(c.Witnesses()))
 		mockFullNode.AssertExpectations(t)
 	})
 	t.Run("BackwardsVerification", func(t *testing.T) {
@@ -902,9 +903,9 @@ func TestClient(t *testing.T) {
 		}
 		mockBadNode2 := mockNodeFromHeadersAndVals(headers2, vals2)
 		mockBadNode2.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
-		mockBadNode2.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
 
 		mockFullNode := mockNodeFromHeadersAndVals(headerSet, valSet)
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id3, nil)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -935,7 +936,7 @@ func TestClient(t *testing.T) {
 		// remaining witnesses don't have light block -> error
 		_, err = c.VerifyLightBlockAtHeight(ctx, 3, bTime.Add(2*time.Hour))
 		if assert.Error(t, err) {
-			assert.Equal(t, light.ErrFailedHeaderCrossReferencing, err)
+			assert.Equal(t, light.ErrNoWitnesses, err)
 		}
 		// witness does not have a light block -> left in the list
 		assert.EqualValues(t, 1, len(c.Witnesses()))
@@ -973,7 +974,6 @@ func TestClient(t *testing.T) {
 				1: vals,
 				2: vals,
 			})
-		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 
 		c, err := light.NewClient(
 			ctx,

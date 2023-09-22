@@ -685,7 +685,6 @@ type P2PConfig struct { //nolint: maligned
 
 	// List of node IDs, to which a connection will be (re)established ignoring any existing limits
 	UnconditionalPeerIDs string `mapstructure:"unconditional-peer-ids"`
-
 }
 
 // DefaultP2PConfig returns a default configuration for the peer-to-peer layer
@@ -913,10 +912,6 @@ type StateSyncConfig struct {
 
 	// Timeout before considering light block verification failed
 	VerifyLightBlockTimeout time.Duration `mapstructure:"verify-light-block-timeout"`
-
-	// Minimum time bad witnesses must spend in blacklist before potentially being
-	// added back as a provider again.
-	BlackListTTL time.Duration `mapstructure:"black-list-ttl"`
 }
 
 func (cfg *StateSyncConfig) TrustHashBytes() []byte {
@@ -938,7 +933,6 @@ func DefaultStateSyncConfig() *StateSyncConfig {
 		BackfillBlocks:          0,
 		BackfillDuration:        0 * time.Second,
 		VerifyLightBlockTimeout: 60 * time.Second,
-		BlackListTTL:            30000 * time.Millisecond,
 	}
 }
 
@@ -1002,10 +996,6 @@ func (cfg *StateSyncConfig) ValidateBasic() error {
 
 	if cfg.Fetchers <= 0 {
 		return errors.New("fetchers is required")
-	}
-
-	if cfg.BlackListTTL < 0 {
-		return errors.New("black-list-ttl must not be negative")
 	}
 
 	return nil
