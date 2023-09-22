@@ -723,14 +723,14 @@ func TestClient(t *testing.T) {
 		mockFullNode.AssertExpectations(t)
 	})
 	t.Run("TerminatesWitnessSearchAfterContextDeadlineExpires", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		mockDeadNode := &provider_mocks.Provider{}
 		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
 		mockSlowNode := &provider_mocks.Provider{}
 		mockSlowNode.On("LightBlock", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 		}).Return(l1, nil)
 
 		logger := log.NewNopLogger()
@@ -746,7 +746,11 @@ func TestClient(t *testing.T) {
 		)
 
 		require.NoError(t, err)
-		_, err = c.Update(ctx, bTime.Add(2*time.Hour))
+
+		timeoutCtx, cancel2 := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+		defer cancel2()
+		_, err = c.Update(timeoutCtx, bTime.Add(2*time.Hour))
+		require.Error(t, err)
 		require.ErrorIs(t, err, context.DeadlineExceeded)
 
 		// the primary should no longer be the deadNode
