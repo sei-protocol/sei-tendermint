@@ -722,6 +722,42 @@ func TestClient(t *testing.T) {
 		mockDeadNode.AssertExpectations(t)
 		mockFullNode.AssertExpectations(t)
 	})
+	t.Run("TerminatesWitnessSearchAfterContextDeadlineExpires", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+		defer cancel()
+
+		mockDeadNode := &provider_mocks.Provider{}
+		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
+		mockSlowNode := &provider_mocks.Provider{}
+		mockSlowNode.On("LightBlock", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			time.Sleep(1 * time.Second)
+		}).Return(l1, nil)
+
+		logger := log.NewNopLogger()
+
+		c, err := light.NewClient(
+			ctx,
+			chainID,
+			trustOptions,
+			mockDeadNode,
+			[]provider.Provider{mockDeadNode, mockSlowNode},
+			dbs.New(dbm.NewMemDB()),
+			light.Logger(logger),
+		)
+
+		require.NoError(t, err)
+		_, err = c.Update(ctx, bTime.Add(2*time.Hour))
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+
+		// the primary should no longer be the deadNode
+		assert.NotEqual(t, c.Primary(), mockDeadNode)
+
+		// we should still have the dead node as a witness because it
+		// hasn't repeatedly been unresponsive yet
+		assert.Equal(t, 2, len(c.Witnesses()))
+		mockDeadNode.AssertExpectations(t)
+		mockSlowNode.AssertExpectations(t)
+	})
 	t.Run("ReplacesPrimaryWithWitnessIfPrimaryDoesntHaveBlock", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()

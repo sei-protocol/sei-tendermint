@@ -986,8 +986,6 @@ type witnessResponse struct {
 func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) (*types.LightBlock, error) {
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
-	// TODO: remove
-	c.logger.Info("STATESYNC_TEST looking for new primary")
 	if len(c.witnesses) < 1 {
 		return nil, ErrNoWitnesses
 	}
@@ -1011,9 +1009,6 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 			select {
 			case witnessResponsesC <- witnessResponse{lb, witnessIndex, err}:
 			case <-ctx.Done():
-				// TODO: remove log
-				c.logger.Info("STATESYNC_TEST witness timed out")
-
 				witnessResponsesC <- witnessResponse{
 					nil,
 					witnessIndex,

@@ -141,8 +141,7 @@ func (s *syncer) SyncAny(
 		if err := requestSnapshots(); err != nil {
 			return sm.State{}, nil, err
 		}
-		// TODO: remove
-		s.logger.Info(fmt.Sprintf("STATESYNC_TEST Discovering snapshots for %v", discoveryTime))
+		s.logger.Info(fmt.Sprintf("Discovering snapshots for %v", discoveryTime))
 		time.Sleep(discoveryTime)
 	}
 
@@ -163,8 +162,7 @@ func (s *syncer) SyncAny(
 			if discoveryTime == 0 {
 				return sm.State{}, nil, errNoSnapshots
 			}
-			// TODO: remove
-			s.logger.Info(fmt.Sprintf("STATESYNC_TEST No snapshots discovered sleeping for %v", discoveryTime))
+			s.logger.Info(fmt.Sprintf("No snapshots discovered sleeping for %v", discoveryTime))
 			time.Sleep(discoveryTime)
 			continue
 		}
@@ -328,8 +326,7 @@ func (s *syncer) Sync(ctx context.Context, snapshot *snapshot, chunks *chunkQueu
 	}
 
 	// Done! 🎉
-	// TODO: modify
-	s.logger.Info("STATESYNC_TEST Snapshot restored", "height", snapshot.Height, "format", snapshot.Format,
+	s.logger.Info("Snapshot restored", "height", snapshot.Height, "format", snapshot.Format,
 		"hash", snapshot.Hash)
 
 	return state, commit, nil

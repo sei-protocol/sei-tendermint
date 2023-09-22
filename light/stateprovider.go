@@ -95,9 +95,6 @@ func NewRPCStateProvider(
 
 func (s *stateProviderRPC) verifyLightBlockAtHeight(ctx context.Context, height uint64, ts time.Time) (*types.LightBlock, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.verifyLightBlockTimeout)
-	// TODO: remove - force timeout
-	s.logger.Info("STATESYNC_TEST forcing timeout")
-	time.Sleep(time.Duration(59 * time.Second))
 	defer cancel()
 	return s.lc.VerifyLightBlockAtHeight(ctx, int64(height), ts)
 }
@@ -114,10 +111,6 @@ func (s *stateProviderRPC) AppHash(ctx context.Context, height uint64) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: remove this - used for testing to force primary switch
-	s.logger.Info("STATESYNC_TEST forcing find new primary")
-	s.lc.findNewPrimary(ctx, int64(height+1), true)
 
 	// We also try to fetch the blocks at H+2, since we need these
 	// when building the state while restoring the snapshot. This avoids the race
