@@ -990,8 +990,6 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 	if len(c.witnesses) < 1 {
 		return nil, ErrNoWitnesses
 	}
-	fmt.Println("primary", c.primary)
-	fmt.Println("witnesses", c.witnesses)
 
 	var (
 		witnessResponsesC = make(chan witnessResponse, len(c.witnesses))
