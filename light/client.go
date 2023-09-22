@@ -937,7 +937,6 @@ func (c *Client) lightBlockFromPrimary(ctx context.Context, height int64) (*type
 		// we find a new witness to replace the primary
 		c.logger.Info("error from light block request from primary, replacing...",
 			"error", err, "height", height, "primary", c.primary)
-		fmt.Println("finding new primary")
 		return c.findNewPrimary(ctx, height, false)
 
 	default:
@@ -991,6 +990,8 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 	if len(c.witnesses) < 1 {
 		return nil, ErrNoWitnesses
 	}
+	fmt.Println("primary", c.primary)
+	fmt.Println("witnesses", c.witnesses)
 
 	var (
 		witnessResponsesC = make(chan witnessResponse, len(c.witnesses))
@@ -1006,24 +1007,8 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 		wg.Add(1)
 		go func(witnessIndex int, witnessResponsesC chan witnessResponse) {
 			defer wg.Done()
-
-			response := make(chan witnessResponse, 1)
-			// process the light block fetch in another thread and wait for it in select below
-			// if it takes too long OR another witness finishes first, we'll return via ctx.Done()
-			go func() {
-				lb, err := c.witnesses[witnessIndex].LightBlock(ctx, height)
-				response <- witnessResponse{lb, witnessIndex, err}
-			}()
-			select {
-			case res := <-response:
-				witnessResponsesC <- res
-			case <-ctx.Done():
-				witnessResponsesC <- witnessResponse{
-					nil,
-					witnessIndex,
-					ctx.Err(),
-				}
-			}
+			lb, err := c.witnesses[witnessIndex].LightBlock(ctx, height)
+			witnessResponsesC <- witnessResponse{lb, witnessIndex, err}
 
 		}(index, witnessResponsesC)
 	}
@@ -1061,7 +1046,6 @@ func (c *Client) findNewPrimary(ctx context.Context, height int64, remove bool) 
 
 		// catch canceled contexts or deadlines
 		case context.Canceled, context.DeadlineExceeded:
-			fmt.Println("deadline exceeded")
 			return nil, response.err
 
 		// process benign errors by logging them only
