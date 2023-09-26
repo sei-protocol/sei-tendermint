@@ -86,7 +86,7 @@ func BenchmarkSequence(b *testing.B) {
 		benchmarkFullNode,
 		[]provider.Provider{benchmarkFullNode},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 		light.SequentialVerification(),
 	)
@@ -124,7 +124,7 @@ func BenchmarkBisection(b *testing.B) {
 		benchmarkFullNode,
 		[]provider.Provider{benchmarkFullNode},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	if err != nil {
@@ -161,7 +161,7 @@ func BenchmarkBackwards(b *testing.B) {
 		benchmarkFullNode,
 		[]provider.Provider{benchmarkFullNode},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	if err != nil {

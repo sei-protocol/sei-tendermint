@@ -93,7 +93,7 @@ func TestLightClientAttackEvidence_Lunatic(t *testing.T) {
 		mockPrimary,
 		[]provider.Provider{mockWitness},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestLightClientAttackEvidence_Equivocation(t *testing.T) {
 				mockPrimary,
 				[]provider.Provider{mockWitness},
 				dbs.New(dbm.NewMemDB()),
-				5 * time.Minute,
+				5*time.Minute,
 				light.Logger(logger),
 				testCase.lightOption,
 			)
@@ -314,7 +314,7 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 		mockPrimary,
 		[]provider.Provider{mockWitness, accomplice},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 		light.MaxClockDrift(1*time.Second),
 		light.MaxBlockLag(1*time.Second),
@@ -376,7 +376,7 @@ func TestLightClientAttackEvidence_ForwardLunatic(t *testing.T) {
 		mockPrimary,
 		[]provider.Provider{mockLaggingWitness, accomplice},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 		light.MaxClockDrift(1*time.Second),
 		light.MaxBlockLag(1*time.Second),
@@ -416,7 +416,7 @@ func TestClientDivergentTraces1(t *testing.T) {
 		mockPrimary,
 		[]provider.Provider{mockWitness},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.Error(t, err)
@@ -426,7 +426,7 @@ func TestClientDivergentTraces1(t *testing.T) {
 }
 
 // 2. Two out of three nodes don't respond but the third has a header that matches
-// => verification should be successful and all the witnesses should remain
+// => verification should be successful but two unresponsive witnesses should be blacklisted
 func TestClientDivergentTraces2(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -450,13 +450,14 @@ func TestClientDivergentTraces2(t *testing.T) {
 		mockPrimaryNode,
 		[]provider.Provider{mockDeadNode, mockDeadNode, mockPrimaryNode},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.NoError(t, err)
 
 	_, err = c.VerifyLightBlockAtHeight(ctx, 2, bTime.Add(1*time.Hour))
 	assert.NoError(t, err)
+	// The unreponsive witnesses have been removed and blacklisted
 	assert.Equal(t, 1, len(c.Witnesses()))
 	mockDeadNode.AssertExpectations(t)
 	mockPrimaryNode.AssertExpectations(t)
@@ -494,7 +495,7 @@ func TestClientDivergentTraces3(t *testing.T) {
 		mockPrimary,
 		[]provider.Provider{mockWitness},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.NoError(t, err)
@@ -538,7 +539,7 @@ func TestClientDivergentTraces4(t *testing.T) {
 		mockPrimary,
 		[]provider.Provider{mockWitness},
 		dbs.New(dbm.NewMemDB()),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.NoError(t, err)

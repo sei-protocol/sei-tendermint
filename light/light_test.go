@@ -69,7 +69,7 @@ func TestClientIntegration_Update(t *testing.T) {
 		primary,
 		[]provider.Provider{primary},
 		dbs.New(db),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.NoError(t, err)
@@ -127,7 +127,7 @@ func TestClientIntegration_VerifyLightBlockAtHeight(t *testing.T) {
 		primary,
 		[]provider.Provider{primary},
 		dbs.New(db),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(logger),
 	)
 	require.NoError(t, err)
@@ -207,7 +207,7 @@ func TestClientStatusRPC(t *testing.T) {
 		primary,
 		witnesses,
 		dbs.New(db),
-		5 * time.Minute,
+		5*time.Minute,
 		light.Logger(log.NewNopLogger()),
 	)
 	require.NoError(t, err)
