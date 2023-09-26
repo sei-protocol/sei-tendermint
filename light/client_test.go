@@ -742,6 +742,52 @@ func TestClient(t *testing.T) {
 		mockFullNode1.AssertExpectations(t)
 		mockFullNode.AssertExpectations(t)
 	})
+	t.Run("UnresponsiveWitnessesAreBlacklisted", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		mockFullNode := &provider_mocks.Provider{}
+		mockFullNode.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
+
+		mockFullNode1 := &provider_mocks.Provider{}
+		mockFullNode1.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
+
+		mockDeadNode := &provider_mocks.Provider{}
+		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
+		mockDeadNode.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
+
+		mockDeadNode1 := &provider_mocks.Provider{}
+		mockDeadNode1.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
+		mockDeadNode1.On("ID", mock.Anything, mock.Anything).Return(id3, nil)
+
+		logger := log.NewNopLogger()
+		c, err := light.NewClient(
+			ctx,
+			chainID,
+			trustOptions,
+			mockFullNode,
+			[]provider.Provider{mockDeadNode, mockDeadNode1, mockFullNode1},
+			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
+			light.Logger(logger),
+		)
+
+		require.NoError(t, err)
+		_, err = c.Update(ctx, bTime.Add(2*time.Hour))
+		require.NoError(t, err)
+
+		// 2 Witnesses should be removed and blacklisted
+		assert.Equal(t, 2, len(c.BlacklistedWitnessIDs()))
+		assert.Equal(t, []string{id2, id3}, c.BlacklistedWitnessIDs())
+
+		assert.Equal(t, 1, len(c.Witnesses()))
+		assert.Equal(t, []provider.Provider{mockFullNode1}, c.Witnesses())
+	
+		mockFullNode.AssertExpectations(t)
+		mockFullNode1.AssertExpectations(t)
+		mockDeadNode.AssertExpectations(t)
+		mockDeadNode1.AssertExpectations(t)
+	})
 	t.Run("ReplacesPrimaryWithWitnessIfPrimaryDoesntHaveBlock", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
