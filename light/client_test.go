@@ -71,13 +71,14 @@ func TestClient(t *testing.T) {
 			// last header (3/3 signed)
 			3: h3,
 		}
-		l1 = &types.LightBlock{SignedHeader: h1, ValidatorSet: vals}
-		l2 = &types.LightBlock{SignedHeader: h2, ValidatorSet: vals}
-		l3 = &types.LightBlock{SignedHeader: h3, ValidatorSet: vals}
+		l1  = &types.LightBlock{SignedHeader: h1, ValidatorSet: vals}
+		l2  = &types.LightBlock{SignedHeader: h2, ValidatorSet: vals}
+		l3  = &types.LightBlock{SignedHeader: h3, ValidatorSet: vals}
 		id1 = "id1"
 		id2 = "id2"
 		id3 = "id3"
-		blacklistTTL = 5 * time.Minute
+		// Set duration to 5 seconds for testing
+		blacklistTTL = 10 * time.Second
 	)
 	t.Run("ValidateTrustOptions", func(t *testing.T) {
 		testCases := []struct {
@@ -742,7 +743,7 @@ func TestClient(t *testing.T) {
 		mockFullNode1.AssertExpectations(t)
 		mockFullNode.AssertExpectations(t)
 	})
-	t.Run("UnresponsiveWitnessesAreBlacklisted", func(t *testing.T) {
+	t.Run("BadWitnessesAreBlacklisted", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -777,12 +778,23 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		// 2 Witnesses should be removed and blacklisted
-		assert.Equal(t, 2, len(c.BlacklistedWitnessIDs()))
 		assert.Equal(t, []string{id2, id3}, c.BlacklistedWitnessIDs())
-
-		assert.Equal(t, 1, len(c.Witnesses()))
 		assert.Equal(t, []provider.Provider{mockFullNode1}, c.Witnesses())
-	
+
+		// Can't add back provider if blacklisted and not past blacklist duration
+		c.AddProvider(mockDeadNode)
+		c.AddProvider(mockDeadNode1)
+		assert.Equal(t, []string{id2, id3}, c.BlacklistedWitnessIDs())
+		assert.Equal(t, []provider.Provider{mockFullNode1}, c.Witnesses())
+
+		// Sleep past TTL and add successfully
+		time.Sleep(10 * time.Second)
+		c.AddProvider(mockDeadNode)
+		c.AddProvider(mockDeadNode1)
+		// Bad nodes will be added back temporarily (later will be blacklisted again)
+		assert.Equal(t, []string{}, c.BlacklistedWitnessIDs())
+		assert.Equal(t, []provider.Provider{mockFullNode1, mockDeadNode, mockDeadNode1}, c.Witnesses())
+
 		mockFullNode.AssertExpectations(t)
 		mockFullNode1.AssertExpectations(t)
 		mockDeadNode.AssertExpectations(t)
