@@ -60,6 +60,7 @@ func NewRPCStateProvider(
 	servers []string,
 	trustOptions TrustOptions,
 	logger log.Logger,
+	blacklistTTL time.Duration,
 ) (StateProvider, error) {
 	if len(servers) < 2 {
 		return nil, fmt.Errorf("at least 2 RPC servers are required, got %d", len(servers))
@@ -80,7 +81,7 @@ func NewRPCStateProvider(
 	}
 
 	lc, err := NewClient(ctx, chainID, trustOptions, providers[0], providers[1:],
-		lightdb.New(dbm.NewMemDB()), Logger(logger))
+		lightdb.New(dbm.NewMemDB()), blacklistTTL, Logger(logger))
 	if err != nil {
 		return nil, err
 	}
@@ -231,6 +232,7 @@ func NewP2PStateProvider(
 	trustOptions TrustOptions,
 	paramsSendCh *p2p.Channel,
 	logger log.Logger,
+	blacklistTTL time.Duration,
 	paramsReqCreator func(uint64) proto.Message,
 ) (StateProvider, error) {
 	if len(providers) < 2 {
@@ -238,7 +240,7 @@ func NewP2PStateProvider(
 	}
 
 	lc, err := NewClient(ctx, chainID, trustOptions, providers[0], providers[1:],
-		lightdb.New(dbm.NewMemDB()), Logger(logger))
+		lightdb.New(dbm.NewMemDB()), blacklistTTL, Logger(logger))
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +382,7 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 
 	out := make(chan types.ConsensusParams)
 
-	retryAll := func() (error) {
+	retryAll := func() error {
 		for _, provider := range s.lc.Witnesses() {
 			p, ok := provider.(*BlockProvider)
 			if !ok {

@@ -52,11 +52,6 @@ const (
 
 	// 10s is sufficient for most networks.
 	defaultMaxBlockLag = 10 * time.Second
-
-	// 30s for minimum time a witness must remain in blacklist before
-	// it can be added back as a provider.
-	// TODO: Make configurable
-	defaultBlacklistTTL = 30 * time.Second
 )
 
 // Option sets a parameter for the light client.
@@ -156,8 +151,8 @@ type Client struct {
 // blacklistedWitness represents a witness who has been removed
 // and temporarily prevents them being added back for a configurable time.
 type blacklistedWitness struct {
-    witness   provider.Provider
-    timestamp time.Time
+	witness   provider.Provider
+	timestamp time.Time
 }
 
 // NewClient returns a new light client. It returns an error if it fails to
@@ -178,6 +173,7 @@ func NewClient(
 	primary provider.Provider,
 	witnesses []provider.Provider,
 	trustedStore store.Store,
+	blacklistTTL time.Duration,
 	options ...Option,
 ) (*Client, error) {
 
@@ -189,7 +185,7 @@ func NewClient(
 	}
 	if lastHeight > 0 {
 		return NewClientFromTrustedStore(
-			chainID, trustOptions.Period, primary, witnesses, trustedStore, options...,
+			chainID, trustOptions.Period, primary, witnesses, trustedStore, blacklistTTL, options...,
 		)
 	}
 
@@ -214,7 +210,7 @@ func NewClient(
 		trustLevel:       DefaultTrustLevel,
 		maxClockDrift:    defaultMaxClockDrift,
 		maxBlockLag:      defaultMaxBlockLag,
-		blacklistTTL:     defaultBlacklistTTL,
+		blacklistTTL:     blacklistTTL,
 		pruningSize:      defaultPruningSize,
 		logger:           log.NewNopLogger(),
 	}
@@ -245,6 +241,7 @@ func NewClientFromTrustedStore(
 	primary provider.Provider,
 	witnesses []provider.Provider,
 	trustedStore store.Store,
+	blacklistTTL time.Duration,
 	options ...Option) (*Client, error) {
 
 	c := &Client{
@@ -254,7 +251,7 @@ func NewClientFromTrustedStore(
 		trustLevel:       DefaultTrustLevel,
 		maxClockDrift:    defaultMaxClockDrift,
 		maxBlockLag:      defaultMaxBlockLag,
-		blacklistTTL:     defaultBlacklistTTL,
+		blacklistTTL:     blacklistTTL,
 		primary:          primary,
 		witnesses:        witnesses,
 		trustedStore:     trustedStore,
@@ -282,19 +279,19 @@ func NewClientFromTrustedStore(
 // isBlacklisted checks whether provider is black listed
 // NOTE: requires a providerMutex lock
 func (c *Client) isBlacklisted(p provider.Provider) bool {
-    timestamp, exists := c.blacklist[p.ID()]
-    if !exists {
-        return false
-    }
+	timestamp, exists := c.blacklist[p.ID()]
+	if !exists {
+		return false
+	}
 
-    // If the provider is found, check the TTL
-    if time.Since(timestamp) > c.blacklistTTL {
-        // Remove from blacklist if TTL expired
-        delete(c.blacklist, p.ID())
-        return false
-    }
+	// If the provider is found, check the TTL
+	if time.Since(timestamp) > c.blacklistTTL {
+		// Remove from blacklist if TTL expired
+		delete(c.blacklist, p.ID())
+		return false
+	}
 
-    return true
+	return true
 }
 
 // restoreTrustedLightBlock loads the latest trusted light block from the store
