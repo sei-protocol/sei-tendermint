@@ -148,13 +148,6 @@ type Client struct {
 	logger log.Logger
 }
 
-// blacklistedWitness represents a witness who has been removed
-// and temporarily prevents them being added back for a configurable time.
-type blacklistedWitness struct {
-	witness   provider.Provider
-	timestamp time.Time
-}
-
 // NewClient returns a new light client. It returns an error if it fails to
 // obtain the light block from the primary, or they are invalid (e.g. trust
 // hash does not match with the one from the headers).
