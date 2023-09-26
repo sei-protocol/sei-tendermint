@@ -77,6 +77,7 @@ func TestClient(t *testing.T) {
 		id1 = "id1"
 		id2 = "id2"
 		id3 = "id3"
+		blacklistTTL = 5 * time.Minute
 	)
 	t.Run("ValidateTrustOptions", func(t *testing.T) {
 		testCases := []struct {
@@ -238,6 +239,7 @@ func TestClient(t *testing.T) {
 					mockNode,
 					[]provider.Provider{mockNode},
 					dbs.New(dbm.NewMemDB()),
+					blacklistTTL,
 					light.SequentialVerification(),
 					light.Logger(logger),
 				)
@@ -365,6 +367,7 @@ func TestClient(t *testing.T) {
 					mockNode,
 					[]provider.Provider{mockNode},
 					dbs.New(dbm.NewMemDB()),
+					blacklistTTL,
 					light.SkippingVerification(light.DefaultTrustLevel),
 					light.Logger(logger),
 				)
@@ -421,6 +424,7 @@ func TestClient(t *testing.T) {
 			mockNode,
 			[]provider.Provider{mockNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.SkippingVerification(light.DefaultTrustLevel),
 		)
 		require.NoError(t, err)
@@ -450,6 +454,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.SkippingVerification(light.DefaultTrustLevel),
 		)
 		require.NoError(t, err)
@@ -480,6 +485,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		require.NoError(t, err)
@@ -520,6 +526,7 @@ func TestClient(t *testing.T) {
 				mockNode,
 				[]provider.Provider{mockNode},
 				trustedStore,
+				blacklistTTL,
 				light.Logger(logger),
 			)
 			require.NoError(t, err)
@@ -559,6 +566,7 @@ func TestClient(t *testing.T) {
 				mockNode,
 				[]provider.Provider{mockNode},
 				trustedStore,
+				blacklistTTL,
 				light.Logger(logger),
 			)
 			require.NoError(t, err)
@@ -591,6 +599,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		require.NoError(t, err)
@@ -620,6 +629,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		require.NoError(t, err)
@@ -671,6 +681,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		require.NoError(t, err)
@@ -715,6 +726,7 @@ func TestClient(t *testing.T) {
 			mockDeadNode,
 			[]provider.Provider{mockDeadNode, mockFullNode, mockFullNode1},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 
@@ -750,6 +762,7 @@ func TestClient(t *testing.T) {
 			mockDeadNode,
 			[]provider.Provider{mockFullNode, mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		require.NoError(t, err)
@@ -784,6 +797,7 @@ func TestClient(t *testing.T) {
 				mockLargeFullNode,
 				[]provider.Provider{mockLargeFullNode},
 				dbs.New(dbm.NewMemDB()),
+				blacklistTTL,
 				light.Logger(logger),
 			)
 			require.NoError(t, err)
@@ -843,6 +857,7 @@ func TestClient(t *testing.T) {
 				mockNode,
 				[]provider.Provider{mockNode},
 				dbs.New(dbm.NewMemDB()),
+				blacklistTTL,
 				light.Logger(logger),
 			)
 			require.NoError(t, err)
@@ -865,6 +880,7 @@ func TestClient(t *testing.T) {
 			mockNode,
 			[]provider.Provider{mockNode},
 			db,
+			blacklistTTL,
 		)
 		require.NoError(t, err)
 
@@ -920,6 +936,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockBadNode1, mockBadNode2},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		// witness should have behaved properly -> no error
@@ -982,6 +999,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockBadValSetNode, mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 		)
 		require.NoError(t, err)
@@ -1017,6 +1035,7 @@ func TestClient(t *testing.T) {
 			mockFullNode,
 			[]provider.Provider{mockFullNode},
 			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
 			light.Logger(logger),
 			light.PruningSize(1),
 		)
@@ -1109,6 +1128,7 @@ func TestClient(t *testing.T) {
 					mockBadNode,
 					[]provider.Provider{mockBadNode, mockBadNode},
 					dbs.New(dbm.NewMemDB()),
+					blacklistTTL,
 				)
 				require.NoError(t, err)
 
