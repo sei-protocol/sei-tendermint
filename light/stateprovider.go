@@ -442,10 +442,13 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 
 		select {
 		case param := <-out:
+			childCancel()
 			return param, nil
 		case <-ctx.Done():
+			childCancel()
 			return types.ConsensusParams{}, ctx.Err()
 		case <-timer.C:
+			childCancel()
 		}
 	}
 }
