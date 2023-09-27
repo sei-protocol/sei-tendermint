@@ -77,7 +77,7 @@ func TestClient(t *testing.T) {
 		id1 = "id1"
 		id2 = "id2"
 		id3 = "id3"
-		// Set duration to 5 seconds for testing
+		// Set duration to 10 seconds for testing
 		blacklistTTL = 10 * time.Second
 	)
 	t.Run("ValidateTrustOptions", func(t *testing.T) {
