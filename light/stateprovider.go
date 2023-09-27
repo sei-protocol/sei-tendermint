@@ -382,7 +382,7 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 
 	out := make(chan types.ConsensusParams)
 
-	retryAll := func() error {
+	retryAll := func(childCtx context.Context) error {
 		for _, provider := range s.lc.Witnesses() {
 			p, ok := provider.(*BlockProvider)
 			if !ok {
@@ -395,45 +395,27 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 			}
 
 			go func(peer types.NodeID) {
-				timer := time.NewTimer(0)
-				defer timer.Stop()
-				var iterCount int64
-
-				for {
-					iterCount++
-					if err := s.paramsSendCh.Send(ctx, p2p.Envelope{
-						To:      peer,
-						Message: s.paramsReqCreator(uint64(height)),
-					}); err != nil {
-						// this only errors if
-						// the context is
-						// canceled
-						return
-					}
-
-					// jitter+backoff the retry loop
-					timer.Reset(time.Duration(iterCount)*consensusParamsResponseTimeout +
-						time.Duration(100*rand.Int63n(iterCount))*time.Millisecond) // nolint:gosec
-
-					select {
-					case <-timer.C:
-						continue
-					case <-ctx.Done():
-						return
-					case params, ok := <-s.paramsRecvCh:
-						if !ok {
-							return
-						}
-						select {
-						case <-ctx.Done():
-							return
-						case out <- params:
-							cancel()
-							return
-						}
-					}
+				if err := s.paramsSendCh.Send(childCtx, p2p.Envelope{
+					To:      peer,
+					Message: s.paramsReqCreator(uint64(height)),
+				}); err != nil {
+					return
 				}
 
+				select {
+				case <-childCtx.Done():
+					return
+				case params, ok := <-s.paramsRecvCh:
+					if !ok {
+						return
+					}
+					select {
+					case <-childCtx.Done():
+						return
+					case out <- params:
+						return
+					}
+				}
 			}(peer)
 		}
 		return nil
@@ -445,21 +427,28 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 	var iterCount int64
 	for {
 		iterCount++
-		err := retryAll()
+
+		childCtx, childCancel := context.WithCancel(ctx)
+		err := retryAll(childCtx)
 		if err != nil {
+			childCancel()
 			return types.ConsensusParams{}, err
 		}
+
 		// jitter+backoff the retry loop
 		timer.Reset(time.Duration(iterCount)*consensusParamsResponseTimeout +
 			time.Duration(100*rand.Int63n(iterCount))*time.Millisecond) // nolint:gosec
 
 		select {
 		case param := <-out:
+			childCancel()
 			return param, nil
 		case <-ctx.Done():
+			childCancel()
 			return types.ConsensusParams{}, ctx.Err()
 		case <-timer.C:
+			childCancel()
 		}
 	}
-
 }
+
