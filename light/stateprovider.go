@@ -428,6 +428,7 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 						case <-ctx.Done():
 							return
 						case out <- params:
+							cancel()
 							return
 						}
 					}
