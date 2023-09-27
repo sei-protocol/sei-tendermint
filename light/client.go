@@ -857,7 +857,7 @@ func (c *Client) BlacklistedWitnessIDs() []string {
 	c.providerMutex.Lock()
 	defer c.providerMutex.Unlock()
 
-	witnessIds := []string{}
+	witnessIds := make([]string, 0, len(c.blacklist))
 	for w := range c.blacklist {
 		witnessIds = append(witnessIds, w)
 	}
