@@ -429,10 +429,10 @@ func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (t
 		iterCount++
 
 		childCtx, childCancel := context.WithCancel(ctx)
-		defer childCancel()
 
 		err := retryAll(childCtx)
 		if err != nil {
+			childCancel()
 			return types.ConsensusParams{}, err
 		}
 
