@@ -1032,6 +1032,11 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	case p2p.PeerStatusDown:
 		delete(r.providers, peerUpdate.NodeID)
 		r.syncer.RemovePeer(peerUpdate.NodeID)
+		if sp, ok := r.stateProvider.(*light.StateProviderP2P); ok {
+			if err := sp.RemoveProviderByID(peerUpdate.NodeID); err != nil {
+				r.logger.Error("failed to remove provider", "error", err)
+			}
+		}
 	}
 	r.logger.Debug("processed peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
 }

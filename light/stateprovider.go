@@ -357,12 +357,17 @@ func (s *StateProviderP2P) State(ctx context.Context, height uint64) (sm.State, 
 	return state, nil
 }
 
-// addProvider dynamically adds a peer as a new witness. A limit of 6 providers is kept as a
+// AddProvider dynamically adds a peer as a new witness. A limit of 6 providers is kept as a
 // heuristic. Too many overburdens the network and too little compromises the second layer of security.
 func (s *StateProviderP2P) AddProvider(p lightprovider.Provider) {
 	if len(s.lc.Witnesses()) < 6 {
 		s.lc.AddProvider(p)
 	}
+}
+
+// RemoveProviderByID removes a peer from the light client's witness list.
+func (s *StateProviderP2P) RemoveProviderByID(ID types.NodeID) error {
+	return s.lc.RemoveProviderByID(ID)
 }
 
 func (s *StateProviderP2P) ParamsRecvCh() chan types.ConsensusParams {
