@@ -370,6 +370,11 @@ func (s *StateProviderP2P) RemoveProviderByID(ID types.NodeID) error {
 	return s.lc.RemoveProviderByID(ID)
 }
 
+// Providers returns the list of providers (useful for tests)
+func (s *StateProviderP2P) Providers() []lightprovider.Provider {
+	return s.lc.Witnesses()
+}
+
 func (s *StateProviderP2P) ParamsRecvCh() chan types.ConsensusParams {
 	return s.paramsRecvCh
 }
