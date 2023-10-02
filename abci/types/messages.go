@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	maxMsgSize = 104857600 // 100MB
+	maxMsgSize = 2048576000 // 100MB
 )
 
 // WriteMessage writes a varint length-delimited protobuf message.
