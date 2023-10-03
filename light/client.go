@@ -134,7 +134,7 @@ type Client struct {
 
 	// Map of witnesses, who have been removed
 	// and not allowed to be added back as a provider,
-	// to the time they were added to the blacklist
+	// to the timadd they were added to the blacklist
 	blacklist map[string]time.Time
 
 	// Where trusted light blocks are stored.
@@ -1008,6 +1008,18 @@ func (c *Client) getLightBlock(ctx context.Context, p provider.Provider, height 
 	return l, err
 }
 
+// addWitnessToBlacklist adds a witness to the blacklist
+// NOTE: requires a providerMutex lock
+func (c *Client) addWitnessToBlacklist(providers []provider.Provider) {
+	if len(providers) == 0 {
+		return
+	}
+
+	for _, provider := range providers {
+		c.blacklist[provider.ID()] = time.Now()
+	}
+}
+
 // NOTE: requires a providerMutex lock
 func (c *Client) removeWitnesses(indexes []int) error {
 	if len(c.witnesses) <= len(indexes) {
@@ -1017,14 +1029,17 @@ func (c *Client) removeWitnesses(indexes []int) error {
 	// we need to make sure that we remove witnesses by index in the reverse
 	// order so as to not affect the indexes themselves
 	sort.Ints(indexes)
+	blacklistWitnesses := []provider.Provider{}
 	for i := len(indexes) - 1; i >= 0; i-- {
 		// Add witness to blacklist
 		removedWitness := c.witnesses[indexes[i]]
-		c.blacklist[removedWitness.ID()] = time.Now()
+		blacklistWitnesses = append(blacklistWitnesses, removedWitness)
 
 		c.witnesses[indexes[i]] = c.witnesses[len(c.witnesses)-1]
 		c.witnesses = c.witnesses[:len(c.witnesses)-1]
 	}
+
+	c.addWitnessToBlacklist(blacklistWitnesses)
 
 	return nil
 }

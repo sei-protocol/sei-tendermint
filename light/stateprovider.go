@@ -369,13 +369,13 @@ func (s *StateProviderP2P) ParamsRecvCh() chan types.ConsensusParams {
 	return s.paramsRecvCh
 }
 
-// consensusParams sends out a request for consensus params blocking
-// until one is returned.
+// consensusParams sends requests for consensus parameters to all witnesses
+// in parallel, retrying with increasing backoff until a response is
+// received or the context is canceled.
 //
-// It attempts to send requests to all witnesses in parallel, but if
-// none responds it will retry them all sometime later until it
-// receives some response. This operation will block until it receives
-// a response or the context is canceled.
+// For each witness, a goroutine sends a parameter request, retrying periodically
+// if no response is obtained, with increasing intervals. It returns the
+// consensus parameters upon receiving a response, or an error if the context is canceled.
 func (s *StateProviderP2P) consensusParams(ctx context.Context, height int64) (types.ConsensusParams, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
