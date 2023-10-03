@@ -1019,6 +1019,25 @@ func (c *Client) addWitnessToBlacklist(providers []provider.Provider) {
 		c.blacklist[provider.ID()] = time.Now()
 	}
 }
+func (c *Client) findIndexForWitness(ID types.NodeID) (int, bool) {
+	for i, w := range c.witnesses {
+		if w.ID() == string(ID) {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// RemoveProviderByID removes a witness from the light client.
+func (c *Client) RemoveProviderByID(ID types.NodeID) error {
+	c.providerMutex.Lock()
+	defer c.providerMutex.Unlock()
+
+	if idx, ok := c.findIndexForWitness(ID); ok {
+		return c.removeWitnesses([]int{idx})
+	}
+	return nil
+}
 
 // NOTE: requires a providerMutex lock
 func (c *Client) removeWitnesses(indexes []int) error {
