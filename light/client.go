@@ -1019,6 +1019,7 @@ func (c *Client) addWitnessToBlacklist(providers []provider.Provider) {
 		c.blacklist[provider.ID()] = time.Now()
 	}
 }
+
 func (c *Client) findIndexForWitness(ID types.NodeID) (int, bool) {
 	for i, w := range c.witnesses {
 		if w.ID() == string(ID) {
