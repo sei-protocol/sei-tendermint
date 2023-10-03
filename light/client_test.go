@@ -713,11 +713,9 @@ func TestClient(t *testing.T) {
 
 		mockFullNode1 := &provider_mocks.Provider{}
 		mockFullNode1.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
-		mockFullNode1.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
 
 		mockDeadNode := &provider_mocks.Provider{}
 		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
-		mockDeadNode.On("ID", mock.Anything, mock.Anything).Return(id3, nil)
 
 		logger := log.NewNopLogger()
 		c, err := light.NewClient(
@@ -742,63 +740,6 @@ func TestClient(t *testing.T) {
 		mockDeadNode.AssertExpectations(t)
 		mockFullNode1.AssertExpectations(t)
 		mockFullNode.AssertExpectations(t)
-	})
-	t.Run("BadWitnessesAreBlacklisted", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		mockFullNode := &provider_mocks.Provider{}
-		mockFullNode.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
-
-		mockFullNode1 := &provider_mocks.Provider{}
-		mockFullNode1.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
-
-		mockDeadNode := &provider_mocks.Provider{}
-		mockDeadNode.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
-		mockDeadNode.On("ID", mock.Anything, mock.Anything).Return(id2, nil)
-
-		mockDeadNode1 := &provider_mocks.Provider{}
-		mockDeadNode1.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrNoResponse)
-		mockDeadNode1.On("ID", mock.Anything, mock.Anything).Return(id3, nil)
-
-		logger := log.NewNopLogger()
-		c, err := light.NewClient(
-			ctx,
-			chainID,
-			trustOptions,
-			mockFullNode,
-			[]provider.Provider{mockDeadNode, mockDeadNode1, mockFullNode1},
-			dbs.New(dbm.NewMemDB()),
-			blacklistTTL,
-			light.Logger(logger),
-		)
-
-		require.NoError(t, err)
-		_, err = c.Update(ctx, bTime.Add(2*time.Hour))
-		require.NoError(t, err)
-
-		// 2 Witnesses should be removed and blacklisted
-		assert.Equal(t, []string{id2, id3}, c.BlacklistedWitnessIDs())
-		assert.Equal(t, []provider.Provider{mockFullNode1}, c.Witnesses())
-
-		// Can't add back provider if blacklisted and not past blacklist duration
-		c.AddProvider(mockDeadNode)
-		c.AddProvider(mockDeadNode1)
-		assert.Equal(t, []string{id2, id3}, c.BlacklistedWitnessIDs())
-		assert.Equal(t, []provider.Provider{mockFullNode1}, c.Witnesses())
-
-		// Sleep past TTL and add successfully
-		time.Sleep(10 * time.Second)
-		c.AddProvider(mockDeadNode)
-		c.AddProvider(mockDeadNode1)
-		// Bad nodes will be added back temporarily (later will be blacklisted again)
-		assert.Equal(t, []string{}, c.BlacklistedWitnessIDs())
-		assert.Equal(t, []provider.Provider{mockFullNode1, mockDeadNode, mockDeadNode1}, c.Witnesses())
-
-		mockFullNode.AssertExpectations(t)
-		mockFullNode1.AssertExpectations(t)
-		mockDeadNode.AssertExpectations(t)
-		mockDeadNode1.AssertExpectations(t)
 	})
 	t.Run("TerminatesWitnessSearchAfterContextDeadlineExpires", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
@@ -833,7 +774,6 @@ func TestClient(t *testing.T) {
 
 		mockFullNode := &provider_mocks.Provider{}
 		mockFullNode.On("LightBlock", mock.Anything, mock.Anything).Return(l1, nil)
-		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
 
 		logger := log.NewNopLogger()
 		mockDeadNode := &provider_mocks.Provider{}
@@ -1041,6 +981,76 @@ func TestClient(t *testing.T) {
 			assert.Equal(t, light.ErrNoWitnesses, err)
 		}
 		// witness does not have a light block -> left in the list
+		assert.EqualValues(t, 1, len(c.Witnesses()))
+		mockBadNode1.AssertExpectations(t)
+		mockBadNode2.AssertExpectations(t)
+	})
+	t.Run("BadWitnessesAreBlacklisted", func(t *testing.T) {
+		logger := log.NewNopLogger()
+
+		// different headers hash then primary plus less than 1/3 signed (no fork)
+		headers1 := map[int64]*types.SignedHeader{
+			1: h1,
+			2: keys.GenSignedHeaderLastBlockID(t, chainID, 2, bTime.Add(30*time.Minute), nil, vals, vals,
+				hash("app_hash2"), hash("cons_hash"), hash("results_hash"),
+				len(keys), len(keys), types.BlockID{Hash: h1.Hash()}),
+		}
+		vals1 := map[int64]*types.ValidatorSet{
+			1: vals,
+			2: vals,
+		}
+		mockBadNode1 := mockNodeFromHeadersAndVals(headers1, vals1)
+		mockBadNode1.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
+		mockBadNode1.On("ID", mock.Anything, mock.Anything).Return(id1, nil)
+
+		// header is empty
+		headers2 := map[int64]*types.SignedHeader{
+			1: h1,
+			2: h2,
+		}
+		vals2 := map[int64]*types.ValidatorSet{
+			1: vals,
+			2: vals,
+		}
+		mockBadNode2 := mockNodeFromHeadersAndVals(headers2, vals2)
+		mockBadNode2.On("LightBlock", mock.Anything, mock.Anything).Return(nil, provider.ErrLightBlockNotFound)
+
+		mockFullNode := mockNodeFromHeadersAndVals(headerSet, valSet)
+		mockFullNode.On("ID", mock.Anything, mock.Anything).Return(id3, nil)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		lb1, _ := mockBadNode1.LightBlock(ctx, 2)
+		require.NotEqual(t, lb1.Hash(), l1.Hash())
+
+		c, err := light.NewClient(
+			ctx,
+			chainID,
+			trustOptions,
+			mockFullNode,
+			[]provider.Provider{mockBadNode1, mockBadNode2},
+			dbs.New(dbm.NewMemDB()),
+			blacklistTTL,
+			light.Logger(logger),
+		)
+
+		// witness should have behaved properly -> no error
+		require.NoError(t, err)
+		assert.EqualValues(t, 2, len(c.Witnesses()))
+
+		// witness behaves incorrectly -> removed and blacklisted
+		c.VerifyLightBlockAtHeight(ctx, 2, bTime.Add(2*time.Hour))
+		assert.EqualValues(t, 1, len(c.Witnesses()))
+		assert.EqualValues(t, 1, len(c.BlacklistedWitnessIDs()))
+
+		// remaining witnesses don't have light block -> error
+		_, err = c.VerifyLightBlockAtHeight(ctx, 3, bTime.Add(2*time.Hour))
+		if assert.Error(t, err) {
+			assert.Equal(t, light.ErrNoWitnesses, err)
+		}
+		// witness does not have a light block -> left in the list
+		assert.EqualValues(t, 1, len(c.Witnesses()))
 		assert.EqualValues(t, 1, len(c.Witnesses()))
 		mockBadNode1.AssertExpectations(t)
 		mockBadNode2.AssertExpectations(t)
