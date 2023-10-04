@@ -301,6 +301,7 @@ func (r *Reactor) handlePexMessage(ctx context.Context, envelope *p2p.Envelope, 
 		var numAdded int
 		for _, pexAddress := range msg.Addresses {
 			peerAddress, err := p2p.ParseNodeAddress(pexAddress.URL)
+			fmt.Printf("PSUDEBUG reactor trying to add peer %s from %v\n", peerAddress.NodeID, envelope.From)
 			if err != nil {
 				r.logger.Error(fmt.Sprintf("PEX parse node address error %s", err))
 				continue
