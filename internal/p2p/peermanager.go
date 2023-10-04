@@ -524,10 +524,10 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 		}
 
 		for _, addressInfo := range peer.AddressInfo {
-			//if time.Since(addressInfo.LastDialFailure) < m.retryDelay(addressInfo.DialFailures, peer.Persistent) {
-			//	fmt.Printf("PSUDEBUG trydialnext, skipping peer %v\n", peer.ID)
-			//	continue
-			//}
+			if time.Since(addressInfo.LastDialFailure) < m.retryDelay(addressInfo.DialFailures, peer.Persistent) {
+				fmt.Printf("PSUDEBUG trydialnext, skipping peer %v\n", peer.ID)
+				continue
+			}
 
 			// We now have an eligible address to dial. If we're full but have
 			// upgrade capacity (as checked above), we find a lower-scored peer
