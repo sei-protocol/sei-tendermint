@@ -583,9 +583,9 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	// timeout has elapsed, so that we can consider dialing it again. We
 	// calculate the retry delay outside the goroutine, since it must hold
 	// the mutex lock.
-	fmt.Printf("PSUDEBUG - min and max retry, dial failures: %v, %v, %d\n", m.options.MinRetryTime, m.options.MaxRetryTime, addressInfo.DialFailures)
+	fmt.Printf("PSUDEBUG - min and max retry, dial failures: %v, %v\n", m.options.MinRetryTime, m.options.MaxRetryTime)
 	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
-		fmt.Printf("PSUDEBUG - entering if with delay %v, store: %v\n", d, m.store)
+		fmt.Printf("PSUDEBUG - entering if with delay %v, dial failures: %d, max dial failures: %d, store: %v\n", d, m.options.MaxDialFailures, addressInfo.DialFailures, m.store)
 		if addressInfo.DialFailures == m.options.MaxDialFailures {
 			fmt.Printf("PSUDEBUG - d == maxretrytime\n")
 			if err := m.store.Delete(address.NodeID); err != nil {
