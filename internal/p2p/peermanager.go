@@ -131,6 +131,8 @@ type PeerManagerOptions struct {
 	// no maximum, in which case the retry time will keep doubling.
 	MaxRetryTime time.Duration
 
+	MaxDialFailures uint32
+
 	// MaxRetryTimePersistent is the maximum time to wait between retries for
 	// peers listed in PersistentPeers. 0 uses MaxRetryTime instead.
 	MaxRetryTimePersistent time.Duration
@@ -581,8 +583,11 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	// timeout has elapsed, so that we can consider dialing it again. We
 	// calculate the retry delay outside the goroutine, since it must hold
 	// the mutex lock.
+	fmt.Printf("PSUDEBUG - min and max retry, dial failures: %v, %v, %d\n", m.options.MinRetryTime, m.options.MaxRetryTime, addressInfo.DialFailures)
 	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
-		if d == m.options.MaxRetryTime {
+		fmt.Printf("PSUDEBUG - entering if with delay %v, store: %v\n", d, m.store)
+		if addressInfo.DialFailures == m.options.MaxDialFailures {
+			fmt.Printf("PSUDEBUG - d == maxretrytime\n")
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
 			}
@@ -595,13 +600,17 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 			defer timer.Stop()
 			select {
 			case <-timer.C:
+				fmt.Printf("PSUDEBUG - timer done\n")
 				m.dialWaker.Wake()
 			case <-ctx.Done():
+				fmt.Printf("PSUDEBUG - ctx done\n")
+
 			}
 		}()
 	} else {
 		m.dialWaker.Wake()
 	}
+	fmt.Printf("PSUDEBUG - d fin dialFailed\n")
 
 	return nil
 }
