@@ -508,6 +508,7 @@ func (m *PeerManager) DialNext(ctx context.Context) (NodeAddress, error) {
 func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	fmt.Printf("PSUDEBUG trydialnext\n")
 
 	// We allow dialing MaxConnected+MaxConnectedUpgrade peers. Including
 	// MaxConnectedUpgrade allows us to probe additional peers that have a
@@ -554,6 +555,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	fmt.Printf("PSUDEBUG dialfailed\n")
 
 	delete(m.dialing, address.NodeID)
 	for from, to := range m.upgrading {
