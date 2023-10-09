@@ -415,6 +415,7 @@ func (pool *BlockPool) updateMaxPeerHeight() {
 func (pool *BlockPool) getSortedPeers(peers map[types.NodeID]*bpPeer) []types.NodeID {
 	// Generate a sorted list
 	sortedPeers := make([]types.NodeID, 0, len(peers))
+
 	for peer := range peers {
 		sortedPeers = append(sortedPeers, peer)
 	}
@@ -432,6 +433,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 
 	// Generate a sorted list
 	sortedPeers := pool.getSortedPeers(pool.peers)
+	fmt.Printf("PSUDEBUG - block sync with sorted peers: %v\n", sortedPeers)
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
 		pool.peerManager.Score(peer.id)
