@@ -2003,7 +2003,7 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 	logger := cs.logger.With("height", height, "commit_round", commitRound)
 
 	if cs.roundState.Height() != height || cstypes.RoundStepCommit <= cs.roundState.Step() {
-		logger.Info(
+		logger.Debug(
 			"entering commit step with invalid args",
 			"current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()),
 			"time", time.Now().UnixMilli(),
