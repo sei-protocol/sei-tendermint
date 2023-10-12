@@ -202,6 +202,7 @@ func startLightNode(ctx context.Context, logger log.Logger, cfg *Config) error {
 		providers[0],
 		providers[1:],
 		dbs.New(lightDB),
+		5*time.Minute,
 		light.Logger(nodeLogger),
 	)
 	if err != nil {
