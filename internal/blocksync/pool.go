@@ -641,6 +641,7 @@ func (*bpRequester) OnStop() {}
 func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) bool {
 	bpr.mtx.Lock()
 	if bpr.block != nil || bpr.peerID != peerID {
+		fmt.Printf("\nPSUDEBUG no match, existing block %v, want to set block %v peerId doesn't equal bprPeer %v, peer %v", bpr.block, block, bpr.peerID, peerID)
 		bpr.mtx.Unlock()
 		return false
 	}
