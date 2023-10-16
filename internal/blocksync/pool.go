@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"math"
+	"math/rand"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -419,6 +420,7 @@ func (pool *BlockPool) getSortedPeers(peers map[types.NodeID]*bpPeer) []types.No
 	for peer := range peers {
 		sortedPeers = append(sortedPeers, peer)
 	}
+	// Sort from high to low score
 	sort.Slice(sortedPeers, func(i, j int) bool {
 		return pool.peerManager.Score(sortedPeers[i]) > pool.peerManager.Score(sortedPeers[j])
 	})
@@ -433,10 +435,19 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 
 	// Generate a sorted list
 	sortedPeers := pool.getSortedPeers(pool.peers)
-	fmt.Printf("PSUDEBUG - block sync with sorted peers: %v\n", sortedPeers)
+	var goodPeers []types.NodeID
+	// Remove peers with 0 score and shuffle list
+	for _, peer := range sortedPeers {
+		if pool.peerManager.Score(peer) == 0 {
+			break
+		}
+		goodPeers = append(goodPeers, peer)
+	}
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(goodPeers), func(i, j int) { goodPeers[i], goodPeers[j] = goodPeers[j], goodPeers[i] })
+
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
-		pool.peerManager.Score(peer.id)
 		if peer.didTimeout {
 			pool.removePeer(peer.id)
 			continue
