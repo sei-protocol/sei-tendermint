@@ -438,10 +438,12 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	var goodPeers []types.NodeID
 	// Remove peers with 0 score and shuffle list
 	for _, peer := range sortedPeers {
+		if pool.peerManager.State(peer) == "ready,connected" {
+			goodPeers = append(goodPeers, peer)
+		}
 		if pool.peerManager.Score(peer) == 0 {
 			break
 		}
-		goodPeers = append(goodPeers, peer)
 	}
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(goodPeers), func(i, j int) { goodPeers[i], goodPeers[j] = goodPeers[j], goodPeers[i] })
@@ -641,7 +643,6 @@ func (*bpRequester) OnStop() {}
 func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) bool {
 	bpr.mtx.Lock()
 	if bpr.block != nil || bpr.peerID != peerID {
-		fmt.Printf("\nPSUDEBUG no match, existing block %v, want to set block %v peerId doesn't equal bprPeer %v, peer %v", bpr.block, block, bpr.peerID, peerID)
 		bpr.mtx.Unlock()
 		return false
 	}
