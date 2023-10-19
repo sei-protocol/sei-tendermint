@@ -33,7 +33,7 @@ eg, L = latency = 0.1s
 const (
 	requestInterval           = 2 * time.Millisecond
 	inactiveSleepInterval     = 1 * time.Second
-	maxTotalRequesters        = 600
+	maxTotalRequesters        = 50
 	maxPeerErrBuffer          = 1000
 	maxPendingRequests        = maxTotalRequesters
 	maxPendingRequestsPerPeer = 20
