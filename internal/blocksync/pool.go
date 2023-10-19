@@ -320,7 +320,7 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		}
 	} else {
 		err := errors.New("requester is different or block already exists")
-		pool.sendError(err, peerID)
+		//pool.sendError(err, peerID)
 		return fmt.Errorf("%w (peer: %s, requester: %s, block height: %d)", err, peerID, requester.getPeerID(), block.Height)
 	}
 
