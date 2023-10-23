@@ -320,7 +320,9 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		}
 	} else {
 		err := errors.New("requester is different or block already exists")
-		pool.sendError(err, peerID)
+		// Original behavior is to error out when there is a mismatch, which shuts down the entire reactor.
+		// Instead, make the reactor more robust and just log error
+		//pool.sendError(err, peerID)
 		return fmt.Errorf("%w (peer: %s, requester: %s, block height: %d)", err, peerID, requester.getPeerID(), block.Height)
 	}
 
@@ -438,6 +440,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	var goodPeers []types.NodeID
 	// Remove peers with 0 score and shuffle list
 	for _, peer := range sortedPeers {
+		// We only want to work with peers that are ready & connected (not dialing)
 		if pool.peerManager.State(peer) == "ready,connected" {
 			goodPeers = append(goodPeers, peer)
 		}
