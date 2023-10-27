@@ -50,7 +50,7 @@ const (
 	maxDiffBetweenCurrentAndReceivedBlockHeight = 100
 )
 
-var peerTimeout = 3 * time.Second // not const so we can override with tests
+var peerTimeout = 15 * time.Second // not const so we can override with tests
 
 /*
 	Peers self report their heights when we join the block pool.
@@ -320,8 +320,6 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		}
 	} else {
 		err := errors.New("requester is different or block already exists")
-		// Original behavior is to error out when there is a mismatch, which shuts down the entire reactor.
-		// Instead, make the reactor more robust and just log error
 		pool.sendError(err, peerID)
 		return fmt.Errorf("%w (peer: %s, requester: %s, block height: %d)", err, peerID, requester.getPeerID(), block.Height)
 	}
