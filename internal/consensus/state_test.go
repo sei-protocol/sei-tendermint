@@ -2452,45 +2452,44 @@ func TestWaitingTimeoutOnNilPolka(t *testing.T) {
 	ensureNewRound(t, newRoundCh, height, round+1)
 }
 
-// TODO (psu): This test seems to be flaky, disable for now
 // 4 vals, 3 Prevotes for nil from the higher round.
 // What we want:
 // P0 waits for timeoutPropose in the next round before entering prevote
-//func TestWaitingTimeoutProposeOnNewRound(t *testing.T) {
-//	config := configSetup(t)
-//	ctx, cancel := context.WithCancel(context.Background())
-//	defer cancel()
-//
-//	cs1, vss := makeState(ctx, t, makeStateArgs{config: config})
-//	vs2, vs3, vs4 := vss[1], vss[2], vss[3]
-//	height, round := cs1.roundState.Height(), cs1.roundState.Round()
-//
-//	timeoutWaitCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryTimeoutPropose)
-//	newRoundCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryNewRound)
-//	pv1, err := cs1.privValidator.GetPubKey(ctx)
-//	require.NoError(t, err)
-//	addr := pv1.Address()
-//	voteCh := subscribeToVoter(ctx, t, cs1, addr)
-//
-//	// start round
-//	startTestRound(ctx, cs1, height, round)
-//	ensureNewRound(t, newRoundCh, height, round)
-//
-//	ensurePrevote(t, voteCh, height, round)
-//
-//	incrementRound(vss[1:]...)
-//	signAddVotes(ctx, t, cs1, tmproto.PrevoteType, config.ChainID(), types.BlockID{}, vs2, vs3, vs4)
-//
-//	round++ // moving to the next round
-//	ensureNewRound(t, newRoundCh, height, round)
-//
-//	rs := cs1.GetRoundState()
-//	assert.Equal(t, rs.Step, cstypes.RoundStepPropose) // P0 does not prevote before timeoutPropose expires
-//
-//	ensureNewTimeout(t, timeoutWaitCh, height, round, cs1.proposeTimeout(round).Milliseconds())
-//
-//	ensurePrevoteMatch(t, voteCh, height, round, nil)
-//}
+func TestWaitingTimeoutProposeOnNewRound(t *testing.T) {
+	config := configSetup(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cs1, vss := makeState(ctx, t, makeStateArgs{config: config})
+	vs2, vs3, vs4 := vss[1], vss[2], vss[3]
+	height, round := cs1.roundState.Height(), cs1.roundState.Round()
+
+	timeoutWaitCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryTimeoutPropose)
+	newRoundCh := subscribe(ctx, t, cs1.eventBus, types.EventQueryNewRound)
+	pv1, err := cs1.privValidator.GetPubKey(ctx)
+	require.NoError(t, err)
+	addr := pv1.Address()
+	voteCh := subscribeToVoter(ctx, t, cs1, addr)
+
+	// start round
+	startTestRound(ctx, cs1, height, round)
+	ensureNewRound(t, newRoundCh, height, round)
+
+	ensurePrevote(t, voteCh, height, round)
+
+	incrementRound(vss[1:]...)
+	signAddVotes(ctx, t, cs1, tmproto.PrevoteType, config.ChainID(), types.BlockID{}, vs2, vs3, vs4)
+
+	round++ // moving to the next round
+	ensureNewRound(t, newRoundCh, height, round)
+
+	rs := cs1.GetRoundState()
+	assert.Equal(t, rs.Step, cstypes.RoundStepPropose) // P0 does not prevote before timeoutPropose expires
+
+	ensureNewTimeout(t, timeoutWaitCh, height, round, cs1.proposeTimeout(round).Milliseconds())
+
+	ensurePrevoteMatch(t, voteCh, height, round, nil)
+}
 
 // 4 vals, 3 Precommits for nil from the higher round.
 // What we want:

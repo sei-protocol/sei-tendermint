@@ -233,14 +233,19 @@ func TestBlockPoolRemovePeer(t *testing.T) {
 
 	peers := make(testPeers, 10)
 	for i := 0; i < 10; i++ {
-		peerID := types.NodeID(fmt.Sprintf("%d", i+1))
+		var peerID types.NodeID
+		if i+1 == 10 {
+			peerID = types.NodeID(strings.Repeat(fmt.Sprintf("%d", i+1), 20))
+		} else {
+			peerID = types.NodeID(strings.Repeat(fmt.Sprintf("%d", i+1), 40))
+		}
 		height := int64(i + 1)
 		peers[peerID] = testPeer{peerID, 0, height, make(chan inputData), 1}
 	}
 	requestsCh := make(chan BlockRequest)
 	errorsCh := make(chan peerError)
 
-	pool := NewBlockPool(log.NewNopLogger(), 1, requestsCh, errorsCh, nil)
+	pool := NewBlockPool(log.NewNopLogger(), 1, requestsCh, errorsCh, makePeerManager(peers))
 	err := pool.Start(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() { cancel(); pool.Wait() })
@@ -255,7 +260,7 @@ func TestBlockPoolRemovePeer(t *testing.T) {
 	assert.NotPanics(t, func() { pool.RemovePeer(types.NodeID("Superman")) })
 
 	// remove peer with biggest height
-	pool.RemovePeer(types.NodeID("10"))
+	pool.RemovePeer(types.NodeID(strings.Repeat("10", 20)))
 	assert.EqualValues(t, 9, pool.MaxPeerHeight())
 
 	// remove all peers
