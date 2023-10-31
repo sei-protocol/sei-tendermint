@@ -430,11 +430,11 @@ func (pool *BlockPool) getSortedPeers(peers map[types.NodeID]*bpPeer) []types.No
 // Pick an available peer with the given height available.
 // If no peers are available, returns nil.
 func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
+	pool.mtx.Lock()
+	defer pool.mtx.Unlock()
 
 	// Generate a sorted list
-	pool.mtx.Lock()
 	sortedPeers := pool.getSortedPeers(pool.peers)
-	pool.mtx.Unlock()
 	var goodPeers []types.NodeID
 	// Remove peers with 0 score and shuffle list
 	for _, peer := range sortedPeers {
@@ -449,8 +449,6 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(goodPeers), func(i, j int) { goodPeers[i], goodPeers[j] = goodPeers[j], goodPeers[i] })
 
-	pool.mtx.Lock()
-	defer pool.mtx.Unlock()
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
 		if peer.didTimeout {
