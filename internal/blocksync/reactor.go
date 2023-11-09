@@ -487,7 +487,6 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 		state   = r.initialState
 
 		lastHundred = time.Now()
-		lastRate    = 0.0
 
 		didProcessCh = make(chan struct{}, 1)
 
@@ -690,12 +689,12 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			blocksSynced++
 
 			if blocksSynced%100 == 0 {
-				lastRate = 0.9*lastRate + 0.1*(100/time.Since(lastHundred).Seconds())
+				syncRate := 100 / time.Since(lastHundred).Seconds()
 				r.logger.Info(
 					"block sync rate",
 					"height", r.pool.height,
 					"max_peer_height", r.pool.MaxPeerHeight(),
-					"blocks/s", lastRate,
+					"blocks/s", syncRate,
 				)
 
 				lastHundred = time.Now()
