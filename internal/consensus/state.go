@@ -46,6 +46,8 @@ var (
 	ErrSignatureFoundInPastBlocks = errors.New("found signature from the same key")
 
 	errPubKeyIsNotSet = errors.New("pubkey is not set. Look for \"Can't get private validator pubkey\" errors")
+	ROUND_START_TIME  = time.Now()
+	ROUND_END_TIME    = time.Now()
 )
 
 var msgQueueSize = 1000
@@ -2127,6 +2129,10 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		panic(fmt.Errorf("+2/3 committed an invalid block: %w", err))
 	}
 
+	ROUND_END_TIME = time.Now()
+	consensusLatency := ROUND_END_TIME.Sub(ROUND_START_TIME).Microseconds()
+	logger.Info(fmt.Sprintf("Consensus for block %d took: %d us", block.Height, consensusLatency))
+
 	logger.Info(
 		"finalizing commit of block",
 		"hash", block.Hash(),
@@ -2213,6 +2219,9 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
+	ROUND_START_TIME = time.Now()
+	finalizeBlockLatency := time.Since(ROUND_END_TIME).Microseconds()
+	fmt.Printf("[TM-DEBUG] Finalize block took: %d us\n", finalizeBlockLatency)
 
 	// By here,
 	// * cs.Height has been increment to height+1
