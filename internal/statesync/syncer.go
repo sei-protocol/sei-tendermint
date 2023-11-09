@@ -84,7 +84,7 @@ func (s *syncer) AddChunk(chunk *chunk) (bool, error) {
 		return false, err
 	}
 	if added {
-		s.logger.Debug("Added chunk to queue", "height", chunk.Height, "format", chunk.Format,
+		s.logger.Info("Added chunk to queue", "height", chunk.Height,
 			"chunk", chunk.Index)
 	} else {
 		s.logger.Debug("Ignoring duplicate chunk in queue", "height", chunk.Height, "format", chunk.Format,
