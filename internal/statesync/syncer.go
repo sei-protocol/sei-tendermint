@@ -379,16 +379,21 @@ func (s *syncer) applyChunks(ctx context.Context, chunks *chunkQueue, start time
 			return fmt.Errorf("failed to fetch chunk: %w", err)
 		}
 
+		s.logger.Info("Applying snapshot chunk to ABCI app",
+			"chunk", chunk.Index, "total", chunks.Size())
+		startTime := time.Now()
 		resp, err := s.conn.ApplySnapshotChunk(ctx, &abci.RequestApplySnapshotChunk{
 			Index:  chunk.Index,
 			Chunk:  chunk.Chunk,
 			Sender: string(chunk.Sender),
 		})
+		latency := time.Since(startTime).Microseconds()
+
 		if err != nil {
 			return fmt.Errorf("failed to apply chunk %v: %w", chunk.Index, err)
 		}
-		s.logger.Info("Applied snapshot chunk to ABCI app", "height", chunk.Height,
-			"format", chunk.Format, "chunk", chunk.Index, "total", chunks.Size())
+		s.logger.Info("Applied snapshot chunk",
+			"chunk", chunk.Index, "latency micro", latency)
 
 		// Discard and refetch any chunks as requested by the app
 		for _, index := range resp.RefetchChunks {
