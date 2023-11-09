@@ -285,6 +285,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
 
+	blockStoreStartTime := time.Now()
 	// Save the results before we commit.
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
 	if err != nil && !errors.Is(err, ErrNoFinalizeBlockResponsesForHeight{block.Height}) {
@@ -292,6 +293,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		// but not for saving it to the state store
 		return state, err
 	}
+	blockStoreLatency := time.Since(blockStoreStartTime).Microseconds()
+	blockExec.logger.Info("saved finalize block responses", "height", block.Height, "latency_us", blockStoreLatency)
 
 	// validate the validator updates and convert to tendermint types
 	err = validateValidatorUpdates(fBlockRes.ValidatorUpdates, state.ConsensusParams.Validator)
@@ -322,6 +325,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
 
+	commitStartTime := time.Now()
+
 	var commitSpan otrace.Span = nil
 	if tracer != nil {
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
@@ -335,7 +340,10 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if commitSpan != nil {
 		commitSpan.End()
 	}
+	commitLatency := time.Since(commitStartTime).Microseconds()
+	blockExec.logger.Info("committed state", "height", block.Height, "latency_us", commitLatency)
 
+	postCommitStart := time.Now()
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
 
@@ -361,6 +369,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
+	postCommitLatency := time.Since(postCommitStart).Microseconds()
+	blockExec.logger.Info("save + prune + fireevents", "height", block.Height, "latency_us", postCommitLatency)
 
 	return state, nil
 }
