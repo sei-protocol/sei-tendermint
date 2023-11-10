@@ -274,6 +274,7 @@ func (c *Local) eventsRoutine(ctx context.Context, sub eventbus.Subscription, su
 			SubscriptionID: msg.SubscriptionID(),
 			Query:          qstr,
 			Data:           msg.LegacyData(),
+			EventData:      msg.Data(),
 			Events:         msg.Events(),
 		}:
 		case <-ctx.Done():

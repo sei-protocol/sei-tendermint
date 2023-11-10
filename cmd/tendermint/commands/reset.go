@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -182,6 +183,7 @@ func ResetPeerStore(dbDir string) error {
 }
 
 func MakeUnsafeResetAllCommand(conf *config.Config, logger log.Logger) *cobra.Command {
+	fmt.Println("MakeUnsafeResetAllCommand")
 	var keyType string
 
 	resetAllCmd := &cobra.Command{
