@@ -327,9 +327,8 @@ type (
 type ResultEvent struct {
 	SubscriptionID string
 	Query          string
-	Data           types.LegacyEventData
+	Data           types.EventData
 	Events         []abci.Event
-	EventData      types.EventData
 }
 
 type resultEventJSON struct {
@@ -337,7 +336,6 @@ type resultEventJSON struct {
 	Query          string              `json:"query"`
 	Data           json.RawMessage     `json:"data"`
 	Events         map[string][]string `json:"events"`
-	EventData      types.EventData     `json:"event_data"`
 }
 
 func (r ResultEvent) MarshalJSON() ([]byte, error) {
@@ -350,7 +348,6 @@ func (r ResultEvent) MarshalJSON() ([]byte, error) {
 		Query:          r.Query,
 		Data:           evt,
 		Events:         compactEvents(r.Events),
-		EventData:      r.EventData,
 	})
 }
 
@@ -365,7 +362,6 @@ func (r *ResultEvent) UnmarshalJSON(data []byte) error {
 	r.SubscriptionID = res.SubscriptionID
 	r.Query = res.Query
 	r.Events = decompactEvents(res.Events)
-	r.EventData = res.EventData
 	return nil
 }
 

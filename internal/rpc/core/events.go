@@ -83,10 +83,9 @@ func (env *Environment) Subscribe(ctx context.Context, req *coretypes.RequestSub
 
 			// We have a message to deliver to the client.
 			resp := callInfo.RPCRequest.MakeResponse(&coretypes.ResultEvent{
-				Query:     req.Query,
-				Data:      msg.LegacyData(),
-				Events:    msg.Events(),
-				EventData: msg.Data(),
+				Query:  req.Query,
+				Data:   msg.Data(),
+				Events: msg.Events(),
 			})
 			wctx, cancel := context.WithTimeout(opctx, 10*time.Second)
 			err = callInfo.WSConn.WriteRPCResponse(wctx, resp)
