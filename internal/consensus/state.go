@@ -2191,6 +2191,9 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash won't reflect these txs until the next block.
 
+	fmt.Printf("[TM-DEBUG] Persist block %d to blocksstore took: %s\n", block.Height, time.Since(ROUND_END_TIME))
+
+	applyBlockStart := time.Now()
 	stateCopy, err := cs.blockExec.ApplyBlock(spanCtx,
 		stateCopy,
 		types.BlockID{
@@ -2204,6 +2207,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to apply block", "err", err)
 		return
 	}
+	applyBlockEnd := time.Now()
+	fmt.Printf("[TM-DEBUG] Applying block height %d took: %s\n", block.Height, time.Since(applyBlockStart))
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
@@ -2220,8 +2225,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// Schedule Round0 to start soon.
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
 	ROUND_START_TIME = time.Now()
-	finalizeBlockLatency := time.Since(ROUND_END_TIME).Microseconds()
-	fmt.Printf("[TM-DEBUG] Finalize block took: %d us\n", finalizeBlockLatency)
+	fmt.Printf("[TM-DEBUG] Post apply block height %d took: %s\n", block.Height, time.Since(applyBlockEnd))
 
 	// By here,
 	// * cs.Height has been increment to height+1
