@@ -2211,9 +2211,12 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
+	fmt.Printf("[TM-DEBUG] Record metrics for block height %d took: %s\n", block.Height, time.Since(applyBlockEnd))
 
+	recordMetricEndTime := time.Now()
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
+	fmt.Printf("[TM-DEBUG] UpdateToState for block height %d took: %s\n", block.Height, time.Since(recordMetricEndTime))
 
 	// Private validator might have changed it's key pair => refetch pubkey.
 	if err := cs.updatePrivValidatorPubKey(ctx); err != nil {
