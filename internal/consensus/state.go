@@ -2130,8 +2130,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	}
 
 	ROUND_END_TIME = time.Now()
-	consensusLatency := ROUND_END_TIME.Sub(ROUND_START_TIME).Microseconds()
-	logger.Info(fmt.Sprintf("[TM-DEBUG] Consensus for block %d took: %d us", block.Height, consensusLatency))
+	logger.Info(fmt.Sprintf("[TM-DEBUG] Consensus for block height %d took: %s", block.Height, time.Since(ROUND_START_TIME)))
 
 	logger.Info(
 		"finalizing commit of block",
