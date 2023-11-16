@@ -883,16 +883,12 @@ func (cs *State) newStep() {
 
 	// newStep is called by updateToState in NewState before the eventBus is set!
 	if cs.eventBus != nil {
-		publishStartTime := time.Now()
 		if err := cs.eventBus.PublishEventNewRoundStep(rs); err != nil {
 			cs.logger.Error("failed publishing new round step", "err", err)
 		}
-		fmt.Printf("[TM-DEBUG] Publish event took: %s\n", time.Since(publishStartTime))
 
-		publishEndTime := time.Now()
 		roundState := cs.roundState.CopyInternal()
 		cs.evsw.FireEvent(types.EventNewRoundStepValue, roundState)
-		fmt.Printf("[TM-DEBUG] Fire event took: %s\n", time.Since(publishEndTime))
 
 	}
 
@@ -2218,10 +2214,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
 
-	recordMetricEndTime := time.Now()
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
-	fmt.Printf("[TM-DEBUG] UpdateToState for block height %d took: %s\n", block.Height, time.Since(recordMetricEndTime))
 
 	// Private validator might have changed it's key pair => refetch pubkey.
 	if err := cs.updatePrivValidatorPubKey(ctx); err != nil {
