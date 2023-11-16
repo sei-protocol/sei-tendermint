@@ -10,28 +10,27 @@
 //
 // Example:
 //
-//     q, err := query.New(`account.name='John'`)
-//     if err != nil {
-//         return err
-//     }
-//     sub, err := pubsub.SubscribeWithArgs(ctx, pubsub.SubscribeArgs{
-//         ClientID: "johns-transactions",
-//         Query:    q,
-//     })
-//     if err != nil {
-//         return err
-//     }
+//	q, err := query.New(`account.name='John'`)
+//	if err != nil {
+//	    return err
+//	}
+//	sub, err := pubsub.SubscribeWithArgs(ctx, pubsub.SubscribeArgs{
+//	    ClientID: "johns-transactions",
+//	    Query:    q,
+//	})
+//	if err != nil {
+//	    return err
+//	}
 //
-//     for {
-//         next, err := sub.Next(ctx)
-//         if err == pubsub.ErrTerminated {
-//            return err // terminated by publisher
-//         } else if err != nil {
-//            return err // timed out, client unsubscribed, etc.
-//         }
-//         process(next)
-//     }
-//
+//	for {
+//	    next, err := sub.Next(ctx)
+//	    if err == pubsub.ErrTerminated {
+//	       return err // terminated by publisher
+//	    } else if err != nil {
+//	       return err // timed out, client unsubscribed, etc.
+//	    }
+//	    process(next)
+//	}
 package pubsub
 
 import (
@@ -59,6 +58,8 @@ var (
 	// ErrServerStopped is returned when attempting to publish or subscribe to a
 	// server that has been stopped.
 	ErrServerStopped = errors.New("pubsub server is stopped")
+
+	DefaultBufferCapacity = 1000
 )
 
 // SubscribeArgs are the parameters to create a new subscription.
