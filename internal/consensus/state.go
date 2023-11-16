@@ -874,26 +874,27 @@ func (cs *State) updateToState(state sm.State) {
 }
 
 func (cs *State) newStep() {
-	startTime := time.Now()
 	rs := cs.roundState.RoundStateEvent()
 	if err := cs.wal.Write(rs); err != nil {
 		cs.logger.Error("failed writing to WAL", "err", err)
 	}
-	fmt.Printf("[TM-DEBUG] wal write took: %s\n", time.Since(startTime))
 
 	cs.nSteps++
 
-	walEndTIme := time.Now()
 	// newStep is called by updateToState in NewState before the eventBus is set!
 	if cs.eventBus != nil {
+		publishStartTime := time.Now()
 		if err := cs.eventBus.PublishEventNewRoundStep(rs); err != nil {
 			cs.logger.Error("failed publishing new round step", "err", err)
 		}
+		fmt.Printf("[TM-DEBUG] Publish event took: %s\n", time.Since(publishStartTime))
 
+		publishEndTime := time.Now()
 		roundState := cs.roundState.CopyInternal()
 		cs.evsw.FireEvent(types.EventNewRoundStepValue, roundState)
+		fmt.Printf("[TM-DEBUG] Fire event took: %s\n", time.Since(publishEndTime))
+
 	}
-	fmt.Printf("[TM-DEBUG] publish event took: %s\n", time.Since(walEndTIme))
 
 }
 
