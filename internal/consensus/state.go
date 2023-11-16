@@ -870,7 +870,9 @@ func (cs *State) updateToState(state sm.State) {
 	cs.state = state
 
 	// Finally, broadcast RoundState
+	startTime := time.Now()
 	cs.newStep()
+	fmt.Printf("[TM-DEBUG] newStep took: %s\n", time.Since(startTime))
 }
 
 func (cs *State) newStep() {
@@ -2211,7 +2213,6 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
-	fmt.Printf("[TM-DEBUG] Record metrics for block height %d took: %s\n", block.Height, time.Since(applyBlockEnd))
 
 	recordMetricEndTime := time.Now()
 	// NewHeightStep!
