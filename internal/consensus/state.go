@@ -870,19 +870,20 @@ func (cs *State) updateToState(state sm.State) {
 	cs.state = state
 
 	// Finally, broadcast RoundState
-	startTime := time.Now()
 	cs.newStep()
-	fmt.Printf("[TM-DEBUG] newStep took: %s\n", time.Since(startTime))
 }
 
 func (cs *State) newStep() {
+	startTime := time.Now()
 	rs := cs.roundState.RoundStateEvent()
 	if err := cs.wal.Write(rs); err != nil {
 		cs.logger.Error("failed writing to WAL", "err", err)
 	}
+	fmt.Printf("[TM-DEBUG] wal write took: %s\n", time.Since(startTime))
 
 	cs.nSteps++
 
+	walEndTIme := time.Now()
 	// newStep is called by updateToState in NewState before the eventBus is set!
 	if cs.eventBus != nil {
 		if err := cs.eventBus.PublishEventNewRoundStep(rs); err != nil {
@@ -892,6 +893,8 @@ func (cs *State) newStep() {
 		roundState := cs.roundState.CopyInternal()
 		cs.evsw.FireEvent(types.EventNewRoundStepValue, roundState)
 	}
+	fmt.Printf("[TM-DEBUG] publish event took: %s\n", time.Since(walEndTIme))
+
 }
 
 func (cs *State) heartbeater(ctx context.Context) {
