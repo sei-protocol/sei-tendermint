@@ -102,6 +102,7 @@ type TimeoutParams struct {
 type ABCIParams struct {
 	VoteExtensionsEnableHeight int64 `json:"vote_extensions_enable_height"`
 	RecheckTx                  bool  `json:"recheck_tx"`
+	DisableSeqnoCheck          bool  `json:"disable_seqno_check"`
 }
 
 // VoteExtensionsEnabled returns true if vote extensions are enabled at height h
