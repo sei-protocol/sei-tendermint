@@ -38,7 +38,8 @@ jobs:
       - name: Run Go Tests
         run: |
           NUM_SPLIT=20
-          make test-group-${{matrix.part}} NUM_SPLIT=20
+          make split-test-packages
+          make test-group-${{matrix.part}}
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v3
