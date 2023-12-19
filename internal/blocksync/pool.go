@@ -449,13 +449,13 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 			goodPeers = append(goodPeers, peer)
 		}
 		if pool.peerManager.Score(peer) == 0 {
-			break
+			continue
 		}
 	}
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(goodPeers), func(i, j int) { goodPeers[i], goodPeers[j] = goodPeers[j], goodPeers[i] })
 
-	for _, nodeId := range sortedPeers {
+	for _, nodeId := range goodPeers {
 		peer := pool.peers[nodeId]
 		if _, ok := pool.blacklistPeers.Get(peer.id); ok {
 			continue
@@ -473,7 +473,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		peer.incrPending()
 		return peer
 	}
-	pool.logger.Info(fmt.Sprintf("Can not find any peer for block sync from total of %d peers", len(pool.peers)))
+	pool.logger.Info(fmt.Sprintf("Can not find any peer for block sync from total of %d peers", len(sortedPeers)))
 	return nil
 }
 
