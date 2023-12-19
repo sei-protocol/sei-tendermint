@@ -604,7 +604,7 @@ func (peer *bpPeer) onTimeout() {
 
 	err := errors.New("SendTimeout: peer did not send us anything")
 	peer.pool.sendError(err, peer.id)
-	peer.logger.Info(fmt.Sprintf("[p2p-debug] Timeout waiting for peer %s response for block %d", peer.id, peer.height))
+	peer.logger.Info(fmt.Sprintf("[p2p-debug] Timeout waiting for peer block response for block %d", peer.height))
 	peer.didTimeout = true
 }
 
