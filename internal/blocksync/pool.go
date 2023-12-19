@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/tendermint/tendermint/internal/p2p"
 	"math"
 	"math/rand"
 	"sort"
@@ -12,7 +11,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/tendermint/tendermint/internal/libs/flowrate"
+	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
@@ -82,7 +83,9 @@ type BlockPool struct {
 	requesters map[int64]*bpRequester
 	height     int64 // the lowest key in requesters.
 	// peers
-	peers         map[types.NodeID]*bpPeer
+	peers map[types.NodeID]*bpPeer
+	// blacklisted peers
+	badPeers      *expirable.LRU[types.NodeID, bool]
 	peerManager   *p2p.PeerManager
 	maxPeerHeight int64 // the biggest reported height
 
@@ -110,6 +113,7 @@ func NewBlockPool(
 	bp := &BlockPool{
 		logger:       logger,
 		peers:        make(map[types.NodeID]*bpPeer),
+		badPeers:     expirable.NewLRU[types.NodeID, bool](maxPeerErrBuffer, nil, time.Second*300),
 		requesters:   make(map[int64]*bpRequester),
 		height:       start,
 		startHeight:  start,
@@ -308,7 +312,9 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		}
 		if diff > maxDiffBetweenCurrentAndReceivedBlockHeight {
 			pool.sendError(errors.New("peer sent us a block we didn't expect with a height too far ahead/behind"), peerID)
+			pool.badPeers.Add(peerID, true)
 		}
+
 		return fmt.Errorf("peer sent us a block we didn't expect (peer: %s, current height: %d, block height: %d)", peerID, pool.height, block.Height)
 	}
 
@@ -320,6 +326,7 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		}
 	} else {
 		err := errors.New("requester is different or block already exists")
+		pool.badPeers.Add(peerID, true)
 		pool.sendError(err, peerID)
 		return fmt.Errorf("%w (peer: %s, requester: %s, block height: %d)", err, peerID, requester.getPeerID(), block.Height)
 	}
@@ -451,6 +458,9 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
+		if _, ok := pool.badPeers.Get(peer.id); ok {
+			continue
+		}
 		if peer.didTimeout {
 			pool.removePeer(peer.id)
 			continue
@@ -597,6 +607,7 @@ func (peer *bpPeer) onTimeout() {
 	defer peer.pool.mtx.Unlock()
 
 	err := errors.New("peer did not send us anything")
+	peer.pool.badPeers.Add(peer.id, true)
 	peer.pool.sendError(err, peer.id)
 	peer.logger.Error("SendTimeout", "reason", err, "timeout", peerTimeout)
 	peer.didTimeout = true
