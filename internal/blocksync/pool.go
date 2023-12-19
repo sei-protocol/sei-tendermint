@@ -463,7 +463,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 			continue
 		}
 		if height < peer.base || height > peer.height {
-			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to peer height %d and base %d not valid", peer.id, peer.height, peer.base))
+			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to target height %d > peer height %d", peer.id, height, peer.height))
 			continue
 		}
 		peer.incrPending()
