@@ -363,7 +363,7 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 			startAt:    time.Now(),
 		}
 
-		pool.logger.Info(fmt.Sprintf("Adding peer %s to block sync pool", peer.id))
+		pool.logger.Info(fmt.Sprintf("Adding peer %s to block sync pool, max height %d", peer.id, height))
 		pool.peers[peerID] = peer
 	}
 
