@@ -269,7 +269,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 					return err
 				}
 			}
-
+			r.logger.Info(fmt.Sprintf("[p2p-debug] Got block %d response from peer %s", block.Height, envelope.From))
 			if err := r.pool.AddBlock(envelope.From, block, extCommit, block.Size()); err != nil {
 				r.logger.Error("failed to add block", "err", err)
 			}
