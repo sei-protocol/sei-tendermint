@@ -369,6 +369,7 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 			startAt:    time.Now(),
 		}
 
+		pool.logger.Info(fmt.Sprintf("Adding peer %s to block sync pool", peer.id))
 		pool.peers[peerID] = peer
 	}
 
@@ -475,6 +476,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		peer.incrPending()
 		return peer
 	}
+	pool.logger.Info(fmt.Sprintf("Can not find any peer for block sync from total of %d peers", len(pool.peers)))
 	return nil
 }
 
