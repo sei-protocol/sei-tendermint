@@ -489,7 +489,7 @@ func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	pool.cancels = append(pool.cancels, cancel)
 	err := request.Start(ctx)
-	pool.logger.Info(fmt.Sprintf("[p2p-debug] Started a new requester for height %d ", pool.height))
+	pool.logger.Info(fmt.Sprintf("[p2p-debug] Started a new requester for height %d ", nextHeight))
 	if err != nil {
 		request.logger.Error("error starting request", "err", err)
 	}
