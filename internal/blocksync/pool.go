@@ -740,6 +740,7 @@ OUTER_LOOP:
 		bpr.mtx.Unlock()
 
 		// Send request and wait.
+		bpr.logger.Info(fmt.Sprintf("[p2p-debug] Requester for height %d sent a block request for peer %s", bpr.height, peer.id))
 		bpr.pool.sendRequest(bpr.height, peer.id)
 	WAIT_LOOP:
 		for {
