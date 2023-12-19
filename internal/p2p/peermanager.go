@@ -876,6 +876,15 @@ func (m *PeerManager) Advertise(peerID types.NodeID, limit uint16) []NodeAddress
 	}
 
 	for _, peer := range m.store.Ranked() {
+		// if the peer is unconditional, log whether theres a discrepancy
+		if m.options.isUnconditional(peer.ID) {
+			advertisementScore := peer.AdvertisementScore()
+			score := peer.Score()
+			if advertisementScore != score {
+				m.logger.Info(fmt.Sprintf("Unconditional Peer %s has an advertisement score of %d, but a score of %d", peer.ID, advertisementScore, score))
+			}
+		}
+
 		if peer.ID == peerID {
 			continue
 		}
@@ -1402,6 +1411,38 @@ func (p *peerInfo) Score() PeerScore {
 	score -= p.NumOfDisconnections / 3
 
 	if !p.Persistent && score > int64(MaxPeerScoreNotPersistent) {
+		score = int64(MaxPeerScoreNotPersistent)
+	}
+
+	if score <= 0 {
+		return 0
+	}
+
+	return PeerScore(score)
+}
+
+func (p *peerInfo) AdvertisementScore() PeerScore {
+	if p.FixedScore > 0 {
+		return p.FixedScore
+	}
+
+	score := p.MutableScore
+	if p.Persistent {
+		score = int64(PeerScorePersistent)
+	} else if p.Unconditional {
+		score = int64(PeerScoreUnconditional)
+	}
+
+	for _, addr := range p.AddressInfo {
+		// DialFailures is reset when dials succeed, so this
+		// is either the number of dial failures or 0.
+		score -= int64(addr.DialFailures)
+	}
+
+	// We consider lowering the score for every 3 disconnection events
+	score -= p.NumOfDisconnections / 3
+
+	if (!p.Persistent && !p.Unconditional) && score > int64(MaxPeerScoreNotPersistent) {
 		score = int64(MaxPeerScoreNotPersistent)
 	}
 
