@@ -33,7 +33,7 @@ eg, L = latency = 0.1s
 const (
 	requestInterval           = 10 * time.Millisecond
 	inactiveSleepInterval     = 1 * time.Second
-	maxTotalRequesters        = 100
+	maxTotalRequesters        = 500
 	maxPeerErrBuffer          = 1000
 	maxPendingRequests        = maxTotalRequesters
 	maxPendingRequestsPerPeer = 20
@@ -246,6 +246,7 @@ func (pool *BlockPool) PopRequest() {
 
 	if r := pool.requesters[pool.height]; r != nil {
 		r.Stop()
+		pool.logger.Info(fmt.Sprintf("[p2p-debug] Requester for height %d finished", pool.height))
 		delete(pool.requesters, pool.height)
 		pool.height++
 		pool.lastAdvance = time.Now()
@@ -307,6 +308,7 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 			diff *= -1
 		}
 		if diff > maxDiffBetweenCurrentAndReceivedBlockHeight {
+			pool.logger.Info(fmt.Sprintf("[p2p-debug] Failed to AddBlock, peer %s send us block height %d, but pool height is %d ", peerID, block.Height, pool.height))
 			pool.sendError(errors.New("peer sent us a block we didn't expect with a height too far ahead/behind"), peerID)
 		}
 
@@ -487,6 +489,7 @@ func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	pool.cancels = append(pool.cancels, cancel)
 	err := request.Start(ctx)
+	pool.logger.Info(fmt.Sprintf("[p2p-debug] Started a new requester for height %d ", pool.height))
 	if err != nil {
 		request.logger.Error("error starting request", "err", err)
 	}
@@ -740,6 +743,9 @@ OUTER_LOOP:
 		bpr.pool.sendRequest(bpr.height, peer.id)
 	WAIT_LOOP:
 		for {
+			if !bpr.IsRunning() || !bpr.pool.IsRunning() {
+				return
+			}
 			select {
 			case <-ctx.Done():
 				return
@@ -747,9 +753,8 @@ OUTER_LOOP:
 				if peerID == bpr.peerID {
 					bpr.reset()
 					continue OUTER_LOOP
-				} else {
-					continue WAIT_LOOP
 				}
+				continue WAIT_LOOP
 			case <-bpr.gotBlockCh:
 				// We got a block!
 				// Continue the for-loop and wait til Quit.
