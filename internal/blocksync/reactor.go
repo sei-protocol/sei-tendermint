@@ -598,12 +598,14 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
+				r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find first %d or second %d blocks from the pool", first.Height, second.Height))
 				continue
 			}
 
 			// try again quickly next loop
 			didProcessCh <- struct{}{}
 
+			r.logger.Info(fmt.Sprintf("[p2p-debug] Found first %d and second %d blocks from the pool", first.Height, second.Height))
 			firstParts, err := first.MakePartSet(types.BlockPartSizeBytes)
 			if err != nil {
 				r.logger.Error("failed to make ",
