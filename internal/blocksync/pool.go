@@ -766,10 +766,12 @@ OUTER_LOOP:
 	WAIT_LOOP:
 		for {
 			if !bpr.IsRunning() || !bpr.pool.IsRunning() {
+				bpr.timeoutTicker.Stop()
 				return
 			}
 			select {
 			case <-ctx.Done():
+				bpr.timeoutTicker.Stop()
 				return
 			case redoOp := <-bpr.redoCh:
 				if bpr.block == nil || redoOp.Reason == BadBlock {
