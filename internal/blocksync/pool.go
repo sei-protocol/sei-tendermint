@@ -50,7 +50,7 @@ const (
 	maxDiffBetweenCurrentAndReceivedBlockHeight = 100
 )
 
-var peerTimeout = 10 * time.Second // not const so we can override with tests
+var peerTimeout = 5 * time.Second // not const so we can override with tests
 
 /*
 	Peers self report their heights when we join the block pool.
@@ -439,34 +439,34 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	sortedPeers := pool.getSortedPeers(pool.peers)
 	var goodPeers []types.NodeID
 	// Remove peers with 0 score and shuffle list
-	for _, peer := range sortedPeers {
-		// We only want to work with peers that are ready & connected (not dialing)
-		if pool.peerManager.State(peer) == "ready,connected" {
-			goodPeers = append(goodPeers, peer)
-		}
-	}
-	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(goodPeers), func(i, j int) { goodPeers[i], goodPeers[j] = goodPeers[j], goodPeers[i] })
-
-	for _, nodeId := range goodPeers {
+	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
 		if peer.didTimeout {
-			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to time out", peer.id))
 			pool.removePeer(peer.id)
 			continue
 		}
 		if peer.numPending >= maxPendingRequestsPerPeer {
-			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to too many pending requests: %d", peer.id, peer.numPending))
 			continue
 		}
 		if height < peer.base || height > peer.height {
-			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to target height %d > peer height %d", peer.id, height, peer.height))
 			continue
 		}
+		// We only want to work with peers that are ready & connected (not dialing)
+		if pool.peerManager.State(nodeId) == "ready,connected" {
+			goodPeers = append(goodPeers, nodeId)
+		}
+	}
+	// randomly pick one
+	if len(goodPeers) > 0 {
+		rand.Seed(time.Now().UnixNano())
+		index := rand.Intn(len(goodPeers))
+		if index >= len(goodPeers) {
+			index = len(goodPeers) - 1
+		}
+		peer := pool.peers[goodPeers[index]]
 		peer.incrPending()
 		return peer
 	}
-	pool.logger.Info(fmt.Sprintf("Could not find any usable peer for block sync from total of %d good peers", len(goodPeers)))
 	return nil
 }
 
