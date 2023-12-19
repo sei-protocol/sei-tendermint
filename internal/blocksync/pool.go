@@ -602,10 +602,9 @@ func (peer *bpPeer) onTimeout() {
 	peer.pool.mtx.Lock()
 	defer peer.pool.mtx.Unlock()
 
-	err := errors.New("peer did not send us anything")
-	peer.logger.Info(fmt.Sprintf("Adding peer %s to blacklist", peer.id))
+	err := errors.New("SendTimeout: peer did not send us anything")
 	peer.pool.sendError(err, peer.id)
-	peer.logger.Error("SendTimeout", "reason", err, "timeout", peerTimeout)
+	peer.logger.Info(fmt.Sprintf("[p2p-debug] Timeout waiting for peer %s response for block %d", peer.id, peer.height))
 	peer.didTimeout = true
 }
 
