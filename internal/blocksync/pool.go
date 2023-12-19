@@ -191,7 +191,7 @@ func (pool *BlockPool) removeTimedoutPeers() {
 		}
 
 		if peer.didTimeout {
-			pool.removePeer(peer.id)
+			pool.removePeer(peer.id, true)
 		}
 	}
 }
@@ -281,7 +281,7 @@ func (pool *BlockPool) RedoRequest(height int64) types.NodeID {
 	request := pool.requesters[height]
 	peerID := request.getPeerID()
 	if peerID != types.NodeID("") {
-		pool.removePeer(peerID)
+		pool.removePeer(peerID, false)
 	}
 	// Redo all requesters associated with this peer.
 	for _, requester := range pool.requesters {
@@ -385,13 +385,15 @@ func (pool *BlockPool) RemovePeer(peerID types.NodeID) {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
-	pool.removePeer(peerID)
+	pool.removePeer(peerID, true)
 }
 
-func (pool *BlockPool) removePeer(peerID types.NodeID) {
-	for _, requester := range pool.requesters {
-		if requester.getPeerID() == peerID {
-			requester.redo(peerID, PeerRemoved)
+func (pool *BlockPool) removePeer(peerID types.NodeID, redo bool) {
+	if redo {
+		for _, requester := range pool.requesters {
+			if requester.getPeerID() == peerID {
+				requester.redo(peerID, PeerRemoved)
+			}
 		}
 	}
 
@@ -449,7 +451,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
 		if peer.didTimeout {
-			pool.removePeer(peer.id)
+			pool.removePeer(peer.id, true)
 			continue
 		}
 		if peer.numPending >= maxPendingRequestsPerPeer {
