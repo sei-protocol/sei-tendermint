@@ -31,7 +31,7 @@ eg, L = latency = 0.1s
 */
 
 const (
-	requestInterval           = 2 * time.Millisecond
+	requestInterval           = 10 * time.Millisecond
 	inactiveSleepInterval     = 1 * time.Second
 	maxTotalRequesters        = 600
 	maxPeerErrBuffer          = 1000
@@ -454,19 +454,22 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	for _, nodeId := range goodPeers {
 		peer := pool.peers[nodeId]
 		if peer.didTimeout {
+			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to time out", peer.id))
 			pool.removePeer(peer.id)
 			continue
 		}
 		if peer.numPending >= maxPendingRequestsPerPeer {
+			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to too many pending requests: %d", peer.id, peer.numPending))
 			continue
 		}
 		if height < peer.base || height > peer.height {
+			pool.logger.Info(fmt.Sprintf("[Debug] Skip peer %s due to peer height %d and base %d not valid", peer.id, peer.height, peer.base))
 			continue
 		}
 		peer.incrPending()
 		return peer
 	}
-	pool.logger.Info(fmt.Sprintf("Can not find any peer for block sync from total of %d good peers", len(goodPeers)))
+	pool.logger.Info(fmt.Sprintf("Could not find any usable peer for block sync from total of %d good peers", len(goodPeers)))
 	return nil
 }
 
