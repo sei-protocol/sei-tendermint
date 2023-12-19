@@ -737,16 +737,13 @@ func (bpr *bpRequester) redo(peerID types.NodeID, retryReason RetryReason) {
 // Returns only when a block is found (e.g. AddBlock() is called)
 func (bpr *bpRequester) requestRoutine(ctx context.Context) {
 OUTER_LOOP:
-	defer bpr.timeoutTicker.Stop()
 	for {
 		// Pick a peer to send request to.
 		var peer *bpPeer
 	PICK_PEER_LOOP:
 		for {
-			if !bpr.IsRunning() || !bpr.pool.IsRunning() {
-				return
-			}
-			if ctx.Err() != nil {
+			if !bpr.IsRunning() || !bpr.pool.IsRunning() || ctx.Err() != nil {
+				bpr.timeoutTicker.Stop()
 				return
 			}
 
@@ -772,6 +769,7 @@ OUTER_LOOP:
 		for {
 			select {
 			case <-ctx.Done():
+				bpr.timeoutTicker.Stop()
 				return
 			case redoOp := <-bpr.redoCh:
 				if bpr.block == nil || redoOp.Reason == BadBlock {
