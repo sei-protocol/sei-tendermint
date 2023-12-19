@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/tendermint/tendermint/internal/libs/flowrate"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/log"
@@ -37,10 +36,10 @@ const (
 	maxTotalRequesters        = 600
 	maxPeerErrBuffer          = 1000
 	maxPendingRequests        = maxTotalRequesters
-	maxPendingRequestsPerPeer = 20
+	maxPendingRequestsPerPeer = 100
 
 	// Minimum recv rate to ensure we're receiving blocks from a peer fast
-	// enough. If a peer is not sending us data at at least that rate, we
+	// enough. If a peer is not sending us data at least that rate, we
 	// consider them to have timedout and we disconnect.
 	//
 	// Assuming a DSL connection (not a good choice) 128 Kbps (upload) ~ 15 KB/s,
@@ -83,11 +82,9 @@ type BlockPool struct {
 	requesters map[int64]*bpRequester
 	height     int64 // the lowest key in requesters.
 	// peers
-	peers map[types.NodeID]*bpPeer
-	// blacklisted peers
-	blacklistPeers *expirable.LRU[types.NodeID, bool]
-	peerManager    *p2p.PeerManager
-	maxPeerHeight  int64 // the biggest reported height
+	peers         map[types.NodeID]*bpPeer
+	peerManager   *p2p.PeerManager
+	maxPeerHeight int64 // the biggest reported height
 
 	// atomic
 	numPending int32 // number of requests pending assignment or block response
@@ -111,17 +108,16 @@ func NewBlockPool(
 	peerManager *p2p.PeerManager,
 ) *BlockPool {
 	bp := &BlockPool{
-		logger:         logger,
-		peers:          make(map[types.NodeID]*bpPeer),
-		blacklistPeers: expirable.NewLRU[types.NodeID, bool](maxPeerErrBuffer, nil, 120*time.Second),
-		requesters:     make(map[int64]*bpRequester),
-		height:         start,
-		startHeight:    start,
-		numPending:     0,
-		requestsCh:     requestsCh,
-		errorsCh:       errorsCh,
-		lastSyncRate:   0,
-		peerManager:    peerManager,
+		logger:       logger,
+		peers:        make(map[types.NodeID]*bpPeer),
+		requesters:   make(map[int64]*bpRequester),
+		height:       start,
+		startHeight:  start,
+		numPending:   0,
+		requestsCh:   requestsCh,
+		errorsCh:     errorsCh,
+		lastSyncRate: 0,
+		peerManager:  peerManager,
 	}
 	bp.BaseService = *service.NewBaseService(logger, "BlockPool", bp)
 	return bp
@@ -449,7 +445,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 			goodPeers = append(goodPeers, peer)
 		}
 		if pool.peerManager.Score(peer) == 0 {
-			continue
+			break
 		}
 	}
 	rand.Seed(time.Now().UnixNano())
@@ -457,9 +453,6 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 
 	for _, nodeId := range goodPeers {
 		peer := pool.peers[nodeId]
-		if _, ok := pool.blacklistPeers.Get(peer.id); ok {
-			continue
-		}
 		if peer.didTimeout {
 			pool.removePeer(peer.id)
 			continue
@@ -473,7 +466,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		peer.incrPending()
 		return peer
 	}
-	pool.logger.Info(fmt.Sprintf("Can not find any peer for block sync from total of %d peers", len(sortedPeers)))
+	pool.logger.Info(fmt.Sprintf("Can not find any peer for block sync from total of %d good peers", len(goodPeers)))
 	return nil
 }
 
@@ -608,7 +601,6 @@ func (peer *bpPeer) onTimeout() {
 
 	err := errors.New("peer did not send us anything")
 	peer.logger.Info(fmt.Sprintf("Adding peer %s to blacklist", peer.id))
-	peer.pool.blacklistPeers.Add(peer.id, true)
 	peer.pool.sendError(err, peer.id)
 	peer.logger.Error("SendTimeout", "reason", err, "timeout", peerTimeout)
 	peer.didTimeout = true
