@@ -48,6 +48,9 @@ const (
 
 	// Maximum difference between current and new block's height.
 	maxDiffBetweenCurrentAndReceivedBlockHeight = 100
+
+	PeerRemoved RetryReason = "PeerRemoved"
+	BadBlock    RetryReason = "BadBlock"
 )
 
 var peerTimeout = 10 * time.Second // not const so we can override with tests
@@ -278,8 +281,13 @@ func (pool *BlockPool) RedoRequest(height int64) types.NodeID {
 	request := pool.requesters[height]
 	peerID := request.getPeerID()
 	if peerID != types.NodeID("") {
-		// RemovePeer will redo all requesters associated with this peer.
 		pool.removePeer(peerID)
+	}
+	// Redo all requesters associated with this peer.
+	for _, requester := range pool.requesters {
+		if requester.getPeerID() == peerID {
+			requester.redo(peerID, BadBlock)
+		}
 	}
 	return peerID
 }
@@ -387,7 +395,7 @@ func (pool *BlockPool) RemovePeer(peerID types.NodeID) {
 func (pool *BlockPool) removePeer(peerID types.NodeID) {
 	for _, requester := range pool.requesters {
 		if requester.getPeerID() == peerID {
-			requester.redo(peerID)
+			requester.redo(peerID, PeerRemoved)
 		}
 	}
 
@@ -617,12 +625,19 @@ type bpRequester struct {
 	pool       *BlockPool
 	height     int64
 	gotBlockCh chan struct{}
-	redoCh     chan types.NodeID // redo may send multitime, add peerId to identify repeat
+	redoCh     chan RedoOp // redo may send multitime, add peerId to identify repeat
 
 	mtx       sync.Mutex
 	peerID    types.NodeID
 	block     *types.Block
 	extCommit *types.ExtendedCommit
+}
+
+type RetryReason string
+
+type RedoOp struct {
+	PeerId types.NodeID
+	Reason RetryReason
 }
 
 func newBPRequester(logger log.Logger, pool *BlockPool, height int64) *bpRequester {
@@ -631,7 +646,7 @@ func newBPRequester(logger log.Logger, pool *BlockPool, height int64) *bpRequest
 		pool:       pool,
 		height:     height,
 		gotBlockCh: make(chan struct{}, 1),
-		redoCh:     make(chan types.NodeID, 1),
+		redoCh:     make(chan RedoOp, 1),
 
 		peerID: "",
 		block:  nil,
@@ -702,9 +717,12 @@ func (bpr *bpRequester) reset() {
 // Tells bpRequester to pick another peer and try again.
 // NOTE: Nonblocking, and does nothing if another redo
 // was already requested.
-func (bpr *bpRequester) redo(peerID types.NodeID) {
+func (bpr *bpRequester) redo(peerID types.NodeID, retryReason RetryReason) {
 	select {
-	case bpr.redoCh <- peerID:
+	case bpr.redoCh <- RedoOp{
+		PeerId: peerID,
+		Reason: retryReason,
+	}:
 	default:
 	}
 }
@@ -744,16 +762,18 @@ OUTER_LOOP:
 		bpr.pool.sendRequest(bpr.height, peer.id)
 	WAIT_LOOP:
 		for {
-			if !bpr.IsRunning() || !bpr.pool.IsRunning() {
-				return
-			}
 			select {
 			case <-ctx.Done():
 				return
-			case peerID := <-bpr.redoCh:
-				if peerID == bpr.peerID {
-					bpr.reset()
-					continue OUTER_LOOP
+			case redoOp := <-bpr.redoCh:
+				if redoOp.PeerId == bpr.peerID {
+					if bpr.block == nil || redoOp.Reason == BadBlock {
+						// we don't have an existing block or this is a bad block
+						// we should reset the previous downloaded block
+						bpr.reset()
+						continue OUTER_LOOP
+					}
+
 				}
 				continue WAIT_LOOP
 			case <-bpr.gotBlockCh:
