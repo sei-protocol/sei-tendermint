@@ -466,6 +466,11 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		if pool.peerManager.State(nodeId) == "ready,connected" {
 			goodPeers = append(goodPeers, nodeId)
 		}
+
+		// Skip the ones with zero score to avoid connecting to bad peers
+		if pool.peerManager.Score(nodeId) <= 0 {
+			break
+		}
 	}
 	// randomly pick one
 	if len(goodPeers) > 0 {
