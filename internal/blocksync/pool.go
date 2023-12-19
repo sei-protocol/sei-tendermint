@@ -444,9 +444,6 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		if pool.peerManager.State(peer) == "ready,connected" {
 			goodPeers = append(goodPeers, peer)
 		}
-		if pool.peerManager.Score(peer) == 0 {
-			break
-		}
 	}
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(goodPeers), func(i, j int) { goodPeers[i], goodPeers[j] = goodPeers[j], goodPeers[i] })
