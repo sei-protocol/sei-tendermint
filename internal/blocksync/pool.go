@@ -459,6 +459,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
 		if _, ok := pool.badPeers.Get(peer.id); ok {
+			pool.logger.Info(fmt.Sprintf("%s is a bad peer, not going to pick it", peer.id))
 			continue
 		}
 		if peer.didTimeout {
