@@ -599,9 +599,9 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
 				if first == nil {
-					r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find first blocks from the pool"))
+					r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find first block %d from the pool", r.pool.height))
 				} else if second == nil {
-					r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find second blocks from the pool"))
+					r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find second block %d from the pool", first.Height+1))
 				}
 				continue
 			}
