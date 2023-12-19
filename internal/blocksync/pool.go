@@ -626,11 +626,12 @@ func (peer *bpPeer) onTimeout() {
 
 type bpRequester struct {
 	service.BaseService
-	logger     log.Logger
-	pool       *BlockPool
-	height     int64
-	gotBlockCh chan struct{}
-	redoCh     chan RedoOp // redo may send multitime, add peerId to identify repeat
+	logger        log.Logger
+	pool          *BlockPool
+	height        int64
+	gotBlockCh    chan struct{}
+	redoCh        chan RedoOp // redo may send multitime, add peerId to identify repeat
+	timeoutTicker *time.Ticker
 
 	mtx       sync.Mutex
 	peerID    types.NodeID
@@ -647,14 +648,14 @@ type RedoOp struct {
 
 func newBPRequester(logger log.Logger, pool *BlockPool, height int64) *bpRequester {
 	bpr := &bpRequester{
-		logger:     pool.logger,
-		pool:       pool,
-		height:     height,
-		gotBlockCh: make(chan struct{}, 1),
-		redoCh:     make(chan RedoOp, 1),
-
-		peerID: "",
-		block:  nil,
+		logger:        pool.logger,
+		pool:          pool,
+		height:        height,
+		gotBlockCh:    make(chan struct{}, 1),
+		redoCh:        make(chan RedoOp, 1),
+		timeoutTicker: time.NewTicker(peerTimeout),
+		peerID:        "",
+		block:         nil,
 	}
 	bpr.BaseService = *service.NewBaseService(logger, "bpRequester", bpr)
 	return bpr
@@ -736,6 +737,7 @@ func (bpr *bpRequester) redo(peerID types.NodeID, retryReason RetryReason) {
 // Returns only when a block is found (e.g. AddBlock() is called)
 func (bpr *bpRequester) requestRoutine(ctx context.Context) {
 OUTER_LOOP:
+	defer bpr.timeoutTicker.Stop()
 	for {
 		// Pick a peer to send request to.
 		var peer *bpPeer
@@ -765,22 +767,25 @@ OUTER_LOOP:
 		// Send request and wait.
 		bpr.logger.Info(fmt.Sprintf("[p2p-debug] Requester for height %d sent a block request for peer %s", bpr.height, peer.id))
 		bpr.pool.sendRequest(bpr.height, peer.id)
+		bpr.timeoutTicker.Reset(peerTimeout)
 	WAIT_LOOP:
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case redoOp := <-bpr.redoCh:
-				if redoOp.PeerId == bpr.peerID {
-					if bpr.block == nil || redoOp.Reason == BadBlock {
-						// we don't have an existing block or this is a bad block
-						// we should reset the previous downloaded block
-						bpr.reset()
-						continue OUTER_LOOP
-					}
-
+				if bpr.block == nil || redoOp.Reason == BadBlock {
+					// we don't have an existing block or this is a bad block
+					// we should reset the previous downloaded block
+					bpr.reset()
+					continue OUTER_LOOP
 				}
 				continue WAIT_LOOP
+			case <-bpr.timeoutTicker.C:
+				if bpr.block == nil {
+					bpr.reset()
+					continue OUTER_LOOP
+				}
 			case <-bpr.gotBlockCh:
 				// We got a block!
 				// Continue the for-loop and wait til Quit.
