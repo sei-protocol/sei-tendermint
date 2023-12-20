@@ -346,6 +346,7 @@ func NewPeerManager(
 		ready:         map[types.NodeID]bool{},
 		evict:         map[types.NodeID]bool{},
 		evicting:      map[types.NodeID]bool{},
+		blacklisted:   map[types.NodeID]time.Time{},
 		subscriptions: map[*PeerUpdates]*PeerUpdates{},
 		metrics:       metrics,
 	}
@@ -816,13 +817,14 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 	return "", nil
 }
 
-func (m *PeerManager) isBlacklisted(peerID types.NodeID) bool {
+func (m *PeerManager) IsBlacklisted(peerID types.NodeID) bool {
 	timestamp, exists := m.blacklisted[peerID]
 	if !exists {
 		return false
 	}
 
-	// If the provider is found, check the TTL
+	// If the peerId is found, check the TTL
+	// TODO (psu): we may want to clean up expired blacklists periodically otherwise it could grow infinitely
 	if time.Since(timestamp) > m.options.BlacklistTTL {
 		// Remove from blacklist if TTL expired
 		delete(m.blacklisted, peerID)

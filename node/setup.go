@@ -226,6 +226,7 @@ func createPeerManager(
 
 	options := p2p.PeerManagerOptions{
 		SelfAddress:            selfAddr,
+		BlacklistTTL:           cfg.P2P.BlacklistTTL,
 		MaxConnected:           maxConns,
 		MaxConnectedUpgrade:    maxUpgradeConns,
 		MaxPeers:               maxUpgradeConns + 2*maxConns,
