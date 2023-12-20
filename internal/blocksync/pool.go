@@ -771,18 +771,24 @@ OUTER_LOOP:
 				bpr.timeoutTicker.Stop()
 				return
 			case redoOp := <-bpr.redoCh:
+				bpr.mtx.Lock()
 				if bpr.block == nil || redoOp.Reason == BadBlock {
 					// if we don't have an existing block or this is a bad block
 					// we should reset the previous block
+					bpr.mtx.Unlock()
 					bpr.reset()
 					continue OUTER_LOOP
 				}
+				bpr.mtx.Unlock()
 				continue WAIT_LOOP
 			case <-bpr.timeoutTicker.C:
+				bpr.mtx.Lock()
 				if bpr.block == nil {
+					bpr.mtx.Lock()
 					bpr.reset()
 					continue OUTER_LOOP
 				}
+				bpr.mtx.Lock()
 			case <-bpr.gotBlockCh:
 				// We got a block!
 				// Continue the for-loop and wait til Quit
