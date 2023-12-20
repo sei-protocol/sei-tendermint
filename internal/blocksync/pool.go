@@ -704,9 +704,14 @@ func (bpr *bpRequester) getPeerID() types.NodeID {
 }
 
 // This is called from the requestRoutine, upon redo().
-func (bpr *bpRequester) reset() {
+func (bpr *bpRequester) reset(force bool) bool {
 	bpr.mtx.Lock()
 	defer bpr.mtx.Unlock()
+
+	if bpr.block != nil && !force {
+		// Do not reset if we already have a block
+		return false
+	}
 
 	if bpr.block != nil {
 		atomic.AddInt32(&bpr.pool.numPending, 1)
@@ -715,6 +720,7 @@ func (bpr *bpRequester) reset() {
 	bpr.peerID = ""
 	bpr.block = nil
 	bpr.extCommit = nil
+	return true
 }
 
 // Tells bpRequester to pick another peer and try again.
@@ -771,24 +777,15 @@ OUTER_LOOP:
 				bpr.timeoutTicker.Stop()
 				return
 			case redoOp := <-bpr.redoCh:
-				bpr.mtx.Lock()
-				if bpr.block == nil || redoOp.Reason == BadBlock {
-					// if we don't have an existing block or this is a bad block
-					// we should reset the previous block
-					bpr.mtx.Unlock()
-					bpr.reset()
+				// if we don't have an existing block or this is a bad block
+				// we should reset the previous block
+				if bpr.reset(redoOp.Reason == BadBlock) {
 					continue OUTER_LOOP
 				}
-				bpr.mtx.Unlock()
 				continue WAIT_LOOP
 			case <-bpr.timeoutTicker.C:
-				bpr.mtx.Lock()
-				if bpr.block == nil {
-					bpr.mtx.Unlock()
-					bpr.reset()
-					continue OUTER_LOOP
-				}
-				bpr.mtx.Unlock()
+				bpr.reset(false)
+				continue OUTER_LOOP
 			case <-bpr.gotBlockCh:
 				// We got a block!
 				// Continue the for-loop and wait til Quit
