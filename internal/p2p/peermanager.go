@@ -151,6 +151,11 @@ type PeerManagerOptions struct {
 	// If Hostname and Port are unset, Advertise() will include no self-announcement
 	SelfAddress NodeAddress
 
+	// BlacklistTTL is used by the router to block disconnected
+	// peers for a period of time to prevent overwhelming the
+	// router
+	BlacklistTTL time.Duration
+
 	// persistentPeers provides fast PersistentPeers lookups. It is built
 	// by optimize().
 	persistentPeers map[types.NodeID]bool
@@ -300,6 +305,7 @@ type PeerManager struct {
 	ready         map[types.NodeID]bool         // ready peers (Ready → Disconnected)
 	evict         map[types.NodeID]bool         // peers scheduled for eviction (Connected → EvictNext)
 	evicting      map[types.NodeID]bool         // peers being evicted (EvictNext → Disconnected)
+	blacklisted   map[types.NodeID]time.Time    // peers blacklisted for a time being
 	metrics       *Metrics
 }
 
@@ -810,6 +816,22 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 	return "", nil
 }
 
+func (m *PeerManager) isBlacklisted(peerID types.NodeID) bool {
+	timestamp, exists := m.blacklisted[peerID]
+	if !exists {
+		return false
+	}
+
+	// If the provider is found, check the TTL
+	if time.Since(timestamp) > m.options.BlacklistTTL {
+		// Remove from blacklist if TTL expired
+		delete(m.blacklisted, peerID)
+		return false
+	}
+
+	return true
+}
+
 // Disconnected unmarks a peer as connected, allowing it to be dialed or
 // accepted again as appropriate.
 func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
@@ -837,6 +859,7 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 		})
 	}
 
+	m.blacklisted[peerID] = time.Now()
 	m.dialWaker.Wake()
 }
 
