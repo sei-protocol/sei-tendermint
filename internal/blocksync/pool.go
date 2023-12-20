@@ -470,6 +470,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 			break
 		}
 	}
+
 	// randomly pick one
 	if len(goodPeers) > 0 {
 		rand.Seed(time.Now().UnixNano())
@@ -765,10 +766,6 @@ OUTER_LOOP:
 		bpr.timeoutTicker.Reset(peerTimeout)
 	WAIT_LOOP:
 		for {
-			if !bpr.IsRunning() || !bpr.pool.IsRunning() {
-				bpr.timeoutTicker.Stop()
-				return
-			}
 			select {
 			case <-ctx.Done():
 				bpr.timeoutTicker.Stop()
