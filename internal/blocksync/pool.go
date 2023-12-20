@@ -784,11 +784,11 @@ OUTER_LOOP:
 			case <-bpr.timeoutTicker.C:
 				bpr.mtx.Lock()
 				if bpr.block == nil {
-					bpr.mtx.Lock()
+					bpr.mtx.Unlock()
 					bpr.reset()
 					continue OUTER_LOOP
 				}
-				bpr.mtx.Lock()
+				bpr.mtx.Unlock()
 			case <-bpr.gotBlockCh:
 				// We got a block!
 				// Continue the for-loop and wait til Quit
