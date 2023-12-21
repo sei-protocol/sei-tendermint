@@ -2397,7 +2397,7 @@ func (cs *State) addProposalBlockPart(
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.roundState.Height() != height {
-		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
+		cs.logger.Info("received block part from wrong height", "height", height, "round-height", cs.roundState.Height(), "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false, nil
 	}
@@ -2478,7 +2478,7 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.roundState.Height() != height {
-		cs.logger.Info("received proposal message from wrong height", "height", height, "round", round)
+		cs.logger.Info("received proposal message from wrong height", "height", height, "round-height", cs.roundState.Height(), "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false
 	}
