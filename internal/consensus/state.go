@@ -50,6 +50,7 @@ var (
 
 var msgQueueSize = 1000
 var heartbeatIntervalInSecs = 10
+var ROUND_START_TIME = time.Now()
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -697,7 +698,7 @@ func (cs *State) sendInternalMessage(ctx context.Context, mi msgInfo) {
 		// be processed out of order.
 		// TODO: use CList here for strict determinism and
 		// attempt push to internalMsgQueue in receiveRoutine
-		cs.logger.Debug("internal msg queue is full; using a go-routine")
+		cs.logger.Info("internal msg queue is full; using a go-routine")
 		go func() {
 			select {
 			case <-ctx.Done():
@@ -2201,6 +2202,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
+	logger.Info(fmt.Sprintf("[TM-Debug] Block %d took %s", height, time.Since(ROUND_START_TIME)))
 
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
@@ -2212,6 +2214,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
+	ROUND_START_TIME = time.Now()
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
 
 	// By here,
@@ -2394,7 +2397,7 @@ func (cs *State) addProposalBlockPart(
 
 	// Blocks might be reused, so round mismatch is OK
 	if cs.roundState.Height() != height {
-		cs.logger.Debug("received block part from wrong height", "height", height, "round", round)
+		cs.logger.Info("received block part from wrong height", "height", height, "round", round)
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		return false, nil
 	}
@@ -2404,7 +2407,7 @@ func (cs *State) addProposalBlockPart(
 		cs.metrics.BlockGossipPartsReceived.With("matches_current", "false").Add(1)
 		// NOTE: this can happen when we've gone to a higher round and
 		// then receive parts from the previous round - not necessarily a bad peer.
-		cs.logger.Debug(
+		cs.logger.Info(
 			"received a block part when we are not expecting any",
 			"height", height,
 			"round", round,
