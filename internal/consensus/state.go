@@ -2623,7 +2623,7 @@ func (cs *State) addVote(
 	if vote.Height < cs.roundState.Height() || (vote.Height == cs.roundState.Height() && vote.Round < cs.roundState.Round()) {
 		validatorAddress := vote.ValidatorAddress.String()
 		if validatorAddress == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
-			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late vote for height %d from sei0, current height is %d ", vote.Height, cs.roundState.Height()))
+			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late vote for height %d from sei0 for round %d, current height is %d for round %d", vote.Height, vote.Round, cs.roundState.Height(), cs.roundState.Round()))
 		}
 		cs.metrics.MarkLateVote(vote)
 	}
