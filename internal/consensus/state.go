@@ -15,10 +15,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/sdk/trace"
-	otrace "go.opentelemetry.io/otel/trace"
-
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto"
 	cstypes "github.com/tendermint/tendermint/internal/consensus/types"
@@ -36,6 +33,9 @@ import (
 	tmgrpc "github.com/tendermint/tendermint/privval/grpc"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/trace"
+	otrace "go.opentelemetry.io/otel/trace"
 )
 
 // Consensus sentinel errors
@@ -51,6 +51,11 @@ var (
 var msgQueueSize = 1000
 var heartbeatIntervalInSecs = 10
 var ROUND_START_TIME = time.Now()
+var prevoteCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
+var preCommitCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
+var roundStartCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
+var prevoteVotedCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
+var preCommitVotedCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -2216,6 +2221,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// Schedule Round0 to start soon.
 	ROUND_START_TIME = time.Now()
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
+	newHeight := cs.roundState.Height()
+	roundStartCache.Add(newHeight, time.Now())
 
 	// By here,
 	// * cs.Height has been increment to height+1
@@ -2623,7 +2630,27 @@ func (cs *State) addVote(
 	if vote.Height < cs.roundState.Height() || (vote.Height == cs.roundState.Height() && vote.Round < cs.roundState.Round()) {
 		validatorAddress := vote.ValidatorAddress.String()
 		if validatorAddress == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
-			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late vote for height %d from sei0 for round %d, current height is %d for round %d", vote.Height, vote.Round, cs.roundState.Height(), cs.roundState.Round()))
+			switch vote.Type {
+			case tmproto.PrevoteType:
+				_, ok := prevoteVotedCache.Get(vote.Height)
+				if !ok {
+					lastPrevoteTime, found := prevoteCache.Get(vote.Height)
+					if found {
+						delay := time.Since(lastPrevoteTime)
+						cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+					}
+				}
+			case tmproto.PrecommitType:
+				_, ok := preCommitVotedCache.Get(vote.Height)
+				if !ok {
+					lastPrecommitTime, found := preCommitCache.Get(vote.Height)
+					if found {
+						delay := time.Since(lastPrecommitTime)
+						cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+					}
+				}
+			default:
+			}
 		}
 		cs.metrics.MarkLateVote(vote)
 	}
@@ -2729,12 +2756,17 @@ func (cs *State) addVote(
 	switch vote.Type {
 	case tmproto.PrevoteType:
 		prevotes := cs.roundState.Votes().Prevotes(vote.Round)
+
+		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+			prevoteVotedCache.Add(height, time.Now())
+		}
 		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
 
 		// Check to see if >2/3 of the voting power on the network voted for any non-nil block.
 		if blockID, ok := prevotes.TwoThirdsMajority(); ok && !blockID.IsNil() {
 			// Greater than 2/3 of the voting power on the network voted for some
 			// non-nil block
+			prevoteCache.Add(height, time.Now())
 
 			// Update Valid* if we can.
 			if cs.roundState.ValidRound() < vote.Round && vote.Round == cs.roundState.Round() {
@@ -2798,9 +2830,13 @@ func (cs *State) addVote(
 			"vote_timestamp", vote.Timestamp,
 			"data", precommits.LogString())
 
+		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+			preCommitVotedCache.Add(height, time.Now())
+		}
 		blockID, ok := precommits.TwoThirdsMajority()
 		handleVoteMsgSpan.End()
 		if ok {
+			preCommitCache.Add(height, time.Now())
 			// Executed as TwoThirdsMajority could be from a higher round
 			cs.enterNewRound(ctx, height, vote.Round, "precommit-two-thirds")
 			cs.enterPrecommit(ctx, height, vote.Round, "precommit-two-thirds")
