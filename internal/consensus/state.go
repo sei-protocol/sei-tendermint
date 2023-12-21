@@ -2649,7 +2649,7 @@ func (cs *State) addVote(
 								proposer = ""
 							}
 							delay := time.Since(lastPrevoteTime)
-							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d, proposer %s", vote.Height, delay, cs.roundState.Height(), proposer))
+							cs.logger.Debug(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d, proposer %s", vote.Height, delay, cs.roundState.Height(), proposer))
 						}
 					}
 				case tmproto.PrecommitType:
@@ -2662,7 +2662,7 @@ func (cs *State) addVote(
 								proposer = ""
 							}
 							delay := time.Since(lastPrecommitTime)
-							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d, proposer %s", vote.Height, delay, cs.roundState.Height(), proposer))
+							cs.logger.Debug(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d, proposer %s", vote.Height, delay, cs.roundState.Height(), proposer))
 						}
 					}
 				default:
@@ -2682,7 +2682,6 @@ func (cs *State) addVote(
 		}
 
 		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
-			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Validator has precommit during RoundStepNewHeight for height %d", vote.Height))
 			preCommitVotedCache.Add(vote.Height, time.Now())
 		}
 
@@ -2780,7 +2779,6 @@ func (cs *State) addVote(
 		prevotes := cs.roundState.Votes().Prevotes(vote.Round)
 
 		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
-			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Validator has prevote for height %d", vote.Height))
 			prevoteVotedCache.Add(height, time.Now())
 		}
 		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
@@ -2854,7 +2852,6 @@ func (cs *State) addVote(
 			"data", precommits.LogString())
 
 		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
-			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Validator has precommit for height %d", vote.Height))
 			preCommitVotedCache.Add(height, time.Now())
 		}
 		blockID, ok := precommits.TwoThirdsMajority()
