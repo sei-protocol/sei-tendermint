@@ -2628,31 +2628,33 @@ func (cs *State) addVote(
 		"cs_height", cs.roundState.Height(),
 	)
 	if vote.Height < cs.roundState.Height() || (vote.Height == cs.roundState.Height() && vote.Round < cs.roundState.Round()) {
-		validatorAddress := vote.ValidatorAddress.String()
-		if validatorAddress == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
-			switch vote.Type {
-			case tmproto.PrevoteType:
-				_, ok := prevoteVotedCache.Get(vote.Height)
-				if !ok {
-					lastPrevoteTime, found := prevoteCache.Get(vote.Height)
-					if found {
-						delay := time.Since(lastPrevoteTime)
-						cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+		if vote.Height < cs.roundState.Height()-1 || cs.roundState.Step() != cstypes.RoundStepNewHeight {
+			validatorAddress := vote.ValidatorAddress.String()
+			if validatorAddress == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+				switch vote.Type {
+				case tmproto.PrevoteType:
+					_, ok := prevoteVotedCache.Get(vote.Height)
+					if !ok {
+						lastPrevoteTime, found := prevoteCache.Get(vote.Height)
+						if found {
+							delay := time.Since(lastPrevoteTime)
+							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+						}
 					}
-				}
-			case tmproto.PrecommitType:
-				_, ok := preCommitVotedCache.Get(vote.Height)
-				if !ok {
-					lastPrecommitTime, found := preCommitCache.Get(vote.Height)
-					if found {
-						delay := time.Since(lastPrecommitTime)
-						cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+				case tmproto.PrecommitType:
+					_, ok := preCommitVotedCache.Get(vote.Height)
+					if !ok {
+						lastPrecommitTime, found := preCommitCache.Get(vote.Height)
+						if found {
+							delay := time.Since(lastPrecommitTime)
+							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+						}
 					}
+				default:
 				}
-			default:
 			}
+			cs.metrics.MarkLateVote(vote)
 		}
-		cs.metrics.MarkLateVote(vote)
 	}
 
 	// A precommit for the previous height?
@@ -2662,6 +2664,11 @@ func (cs *State) addVote(
 			// Late precommit at prior height is ignored
 			cs.logger.Debug("precommit vote came in after commit timeout and has been ignored", "vote", vote)
 			return
+		}
+
+		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Validator has precommit during RoundStepNewHeight for height %d", vote.Height))
+			preCommitVotedCache.Add(vote.Height, time.Now())
 		}
 
 		added, err = cs.roundState.LastCommit().AddVote(vote)
