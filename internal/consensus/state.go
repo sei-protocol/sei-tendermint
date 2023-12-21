@@ -2758,6 +2758,7 @@ func (cs *State) addVote(
 		prevotes := cs.roundState.Votes().Prevotes(vote.Round)
 
 		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Validator has prevote for height %d", vote.Height))
 			prevoteVotedCache.Add(height, time.Now())
 		}
 		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
@@ -2831,6 +2832,7 @@ func (cs *State) addVote(
 			"data", precommits.LogString())
 
 		if vote.ValidatorAddress.String() == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Validator has precommit for height %d", vote.Height))
 			preCommitVotedCache.Add(height, time.Now())
 		}
 		blockID, ok := precommits.TwoThirdsMajority()
