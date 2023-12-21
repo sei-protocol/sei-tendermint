@@ -2109,7 +2109,9 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
 	defer span.End()
 	logger := cs.logger.With("height", height)
-	proposorCache.Add(height, cs.roundState.Proposal().ProposerAddress.String())
+	if cs.roundState.Proposal() != nil && cs.roundState.Proposal().ProposerAddress != nil {
+		proposorCache.Add(height, cs.roundState.Proposal().ProposerAddress.String())
+	}
 	if cs.roundState.Height() != height || cs.roundState.Step() != cstypes.RoundStepCommit {
 		logger.Debug(
 			"entering finalize commit step",
