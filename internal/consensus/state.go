@@ -2202,7 +2202,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
-	logger.Info(fmt.Sprintf("[TM-Debug] Block %d took %s", height, time.Since(ROUND_START_TIME)))
+	logger.Info(fmt.Sprintf("[TM-DEBUG] Block %d took %s", height, time.Since(ROUND_START_TIME)))
 
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
@@ -2621,6 +2621,10 @@ func (cs *State) addVote(
 		"cs_height", cs.roundState.Height(),
 	)
 	if vote.Height < cs.roundState.Height() || (vote.Height == cs.roundState.Height() && vote.Round < cs.roundState.Round()) {
+		validatorAddress := vote.ValidatorAddress.String()
+		if validatorAddress == "AA5241DBD04ED2D969216D30C14D408CE3356919" {
+			cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late vote for height %d from sei0, current height is %d ", vote.Height, cs.roundState.Height()))
+		}
 		cs.metrics.MarkLateVote(vote)
 	}
 
