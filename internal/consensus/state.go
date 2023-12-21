@@ -56,6 +56,7 @@ var preCommitCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Seco
 var roundStartCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
 var prevoteVotedCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
 var preCommitVotedCache = expirable.NewLRU[int64, time.Time](5000, nil, 120*time.Second)
+var proposorCache = expirable.NewLRU[int64, string](5000, nil, 120*time.Second)
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -2213,6 +2214,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	cs.RecordMetrics(height, block)
 	logger.Info(fmt.Sprintf("[TM-DEBUG] Block %d took %s", height, time.Since(ROUND_START_TIME)))
 
+	proposorCache.Add(height, cs.roundState.Proposal().ProposerAddress.String())
+
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
 
@@ -2640,18 +2643,26 @@ func (cs *State) addVote(
 					_, ok := prevoteVotedCache.Get(vote.Height)
 					if !ok {
 						lastPrevoteTime, found := prevoteCache.Get(vote.Height)
-						if found && cs.isProposerStr("CC60893A39B4E2DB10EC336489C71F2B537A7C65") {
+						if found {
+							proposer, exist := proposorCache.Get(vote.Height)
+							if !exist {
+								proposer = ""
+							}
 							delay := time.Since(lastPrevoteTime)
-							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d, proposer %s", vote.Height, delay, cs.roundState.Height(), proposer))
 						}
 					}
 				case tmproto.PrecommitType:
 					_, ok := preCommitVotedCache.Get(vote.Height)
 					if !ok {
 						lastPrecommitTime, found := preCommitCache.Get(vote.Height)
-						if found && cs.isProposerStr("CC60893A39B4E2DB10EC336489C71F2B537A7C65") {
+						if found {
+							proposer, exist := proposorCache.Get(vote.Height)
+							if !exist {
+								proposer = ""
+							}
 							delay := time.Since(lastPrecommitTime)
-							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
+							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d, proposer %s", vote.Height, delay, cs.roundState.Height(), proposer))
 						}
 					}
 				default:
