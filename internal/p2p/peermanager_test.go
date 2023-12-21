@@ -1944,3 +1944,24 @@ func TestPeerManager_Advertise_Self(t *testing.T) {
 		self,
 	}, peerManager.Advertise(dID, 100))
 }
+
+func TestPeerManager_Blacklist(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	self := p2p.NodeAddress{Protocol: "tcp", NodeID: selfID, Hostname: "2001:db8::1", Port: 26657}
+	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
+
+	// Create a peer manager with SelfAddress defined.
+	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
+		SelfAddress:  self,
+		BlacklistTTL: 10 * time.Millisecond,
+	}, p2p.NopMetrics())
+	require.NoError(t, err)
+	added, err := peerManager.Add(a)
+	require.NoError(t, err)
+	require.True(t, added)
+	peerManager.Disconnected(ctx, a.NodeID)
+	require.True(t, peerManager.IsBlacklisted(a.NodeID))
+	time.Sleep(20 * time.Millisecond)
+	require.False(t, peerManager.IsBlacklisted(a.NodeID))
+}

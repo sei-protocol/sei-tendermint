@@ -685,6 +685,8 @@ type P2PConfig struct { //nolint: maligned
 
 	// List of node IDs, to which a connection will be (re)established ignoring any existing limits
 	UnconditionalPeerIDs string `mapstructure:"unconditional-peer-ids"`
+
+	BlacklistTTL time.Duration `mapstructure:"blacklist-ttl"`
 }
 
 // DefaultP2PConfig returns a default configuration for the peer-to-peer layer
@@ -710,6 +712,7 @@ func DefaultP2PConfig() *P2PConfig {
 		DialTimeout:             3 * time.Second,
 		TestDialFail:            false,
 		QueueType:               "simple-priority",
+		BlacklistTTL:            5 * time.Minute,
 	}
 }
 

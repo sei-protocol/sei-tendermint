@@ -566,6 +566,10 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 		r.logger.Debug("peer filtered by node ID", "node", peerInfo.NodeID, "err", err)
 		return
 	}
+	if r.peerManager.IsBlacklisted(peerInfo.NodeID) {
+		r.logger.Info("peer is blacklisted, not connecting", "node", peerInfo.NodeID)
+		return
+	}
 
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
 		// If peer is trying to reconnect, error and let it reconnect
