@@ -1467,6 +1467,10 @@ func (cs *State) isProposer(address []byte) bool {
 	return bytes.Equal(cs.roundState.Validators().GetProposer().Address, address)
 }
 
+func (cs *State) isProposerStr(address string) bool {
+	return cs.roundState.Validators().GetProposer().Address.String() == address
+}
+
 func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round int32) {
 	_, span := cs.tracer.Start(ctx, "cs.state.decideProposal")
 	span.SetAttributes(attribute.Int("round", int(round)))
@@ -2636,7 +2640,7 @@ func (cs *State) addVote(
 					_, ok := prevoteVotedCache.Get(vote.Height)
 					if !ok {
 						lastPrevoteTime, found := prevoteCache.Get(vote.Height)
-						if found {
+						if found && cs.isProposerStr("CC60893A39B4E2DB10EC336489C71F2B537A7C65") {
 							delay := time.Since(lastPrevoteTime)
 							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late prevote vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
 						}
@@ -2645,7 +2649,7 @@ func (cs *State) addVote(
 					_, ok := preCommitVotedCache.Get(vote.Height)
 					if !ok {
 						lastPrecommitTime, found := preCommitCache.Get(vote.Height)
-						if found {
+						if found && cs.isProposerStr("CC60893A39B4E2DB10EC336489C71F2B537A7C65") {
 							delay := time.Since(lastPrecommitTime)
 							cs.logger.Info(fmt.Sprintf("[TM-DEBUG] Received late precommit vote for height %d with a delay of %s, current height %d", vote.Height, delay, cs.roundState.Height()))
 						}
