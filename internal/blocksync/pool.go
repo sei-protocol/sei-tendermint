@@ -780,6 +780,7 @@ OUTER_LOOP:
 				}
 				continue WAIT_LOOP
 			case <-bpr.timeoutTicker.C:
+				bpr.logger.Info(fmt.Sprintf("[p2p-debug] Requester for height %d and peer %s timedout", bpr.height, bpr.peerID))
 				if bpr.block == nil {
 					bpr.reset()
 					continue OUTER_LOOP

@@ -363,7 +363,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 
 // processPeerUpdate processes a PeerUpdate.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate, blockSyncCh *p2p.Channel) {
-	r.logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
+	r.logger.Info("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status, "numPeers", len(r.pool.peers))
 
 	// XXX: Pool#RedoRequest can sometimes give us an empty peer.
 	if len(peerUpdate.NodeID) == 0 {
