@@ -500,6 +500,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 	for {
 		select {
 		case <-ctx.Done():
+			r.logger.Info("[p2p-debug] Consensus Reactor exit")
 			return
 		case <-switchToConsensusTicker.C:
 			var (
@@ -507,7 +508,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				lastAdvance                       = r.pool.LastAdvance()
 			)
 
-			r.logger.Debug(
+			r.logger.Info(
 				"consensus ticker",
 				"num_pending", numPending,
 				"total", lenRequesters,
@@ -605,6 +606,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				}
 				continue
 			}
+			r.logger.Info(fmt.Sprintf("[p2p-debug] Verifying and applying block %d", first.Height))
 
 			// try again quickly next loop
 			didProcessCh <- struct{}{}
