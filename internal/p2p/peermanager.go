@@ -28,7 +28,6 @@ const (
 	retryNever time.Duration = math.MaxInt64
 	// DefaultScore is the default score for a peer during initialization
 	DefaultMutableScore int64 = 10
-	BlacklistTreshold         = 5
 )
 
 // PeerStatus is a peer status.
@@ -157,6 +156,9 @@ type PeerManagerOptions struct {
 	// peers for a period of time to prevent overwhelming the
 	// router
 	BlacklistTTL time.Duration
+
+	// Number of disconnects before peer is blacklisted
+	BlacklistThreshold uint16
 
 	// persistentPeers provides fast PersistentPeers lookups. It is built
 	// by optimize().
@@ -298,17 +300,18 @@ type PeerManager struct {
 	dialWaker  *tmsync.Waker // wakes up DialNext() on relevant peer changes
 	evictWaker *tmsync.Waker // wakes up EvictNext() on relevant peer changes
 
-	mtx           sync.Mutex
-	store         *peerStore
-	subscriptions map[*PeerUpdates]*PeerUpdates        // keyed by struct identity (address)
-	dialing       map[types.NodeID]bool                // peers being dialed (DialNext → Dialed/DialFail)
-	upgrading     map[types.NodeID]types.NodeID        // peers claimed for upgrade (DialNext → Dialed/DialFail)
-	connected     map[types.NodeID]bool                // connected peers (Dialed/Accepted → Disconnected)
-	ready         map[types.NodeID]bool                // ready peers (Ready → Disconnected)
-	evict         map[types.NodeID]bool                // peers scheduled for eviction (Connected → EvictNext)
-	evicting      map[types.NodeID]bool                // peers being evicted (EvictNext → Disconnected)
-	blacklisted   *expirable.LRU[types.NodeID, uint16] // peers blacklisted for a time being
-	metrics       *Metrics
+	mtx                sync.Mutex
+	store              *peerStore
+	subscriptions      map[*PeerUpdates]*PeerUpdates        // keyed by struct identity (address)
+	dialing            map[types.NodeID]bool                // peers being dialed (DialNext → Dialed/DialFail)
+	upgrading          map[types.NodeID]types.NodeID        // peers claimed for upgrade (DialNext → Dialed/DialFail)
+	connected          map[types.NodeID]bool                // connected peers (Dialed/Accepted → Disconnected)
+	ready              map[types.NodeID]bool                // ready peers (Ready → Disconnected)
+	evict              map[types.NodeID]bool                // peers scheduled for eviction (Connected → EvictNext)
+	evicting           map[types.NodeID]bool                // peers being evicted (EvictNext → Disconnected)
+	blacklisted        *expirable.LRU[types.NodeID, uint16] // peers blacklisted for a time being
+	blacklistThreshold uint16
+	metrics            *Metrics
 }
 
 // NewPeerManager creates a new peer manager.
@@ -341,16 +344,17 @@ func NewPeerManager(
 		dialWaker:  tmsync.NewWaker(),
 		evictWaker: tmsync.NewWaker(),
 
-		store:         store,
-		dialing:       map[types.NodeID]bool{},
-		upgrading:     map[types.NodeID]types.NodeID{},
-		connected:     map[types.NodeID]bool{},
-		ready:         map[types.NodeID]bool{},
-		evict:         map[types.NodeID]bool{},
-		evicting:      map[types.NodeID]bool{},
-		blacklisted:   expirable.NewLRU[types.NodeID, uint16](0, nil, 5*time.Minute),
-		subscriptions: map[*PeerUpdates]*PeerUpdates{},
-		metrics:       metrics,
+		store:              store,
+		dialing:            map[types.NodeID]bool{},
+		upgrading:          map[types.NodeID]types.NodeID{},
+		connected:          map[types.NodeID]bool{},
+		ready:              map[types.NodeID]bool{},
+		evict:              map[types.NodeID]bool{},
+		evicting:           map[types.NodeID]bool{},
+		blacklisted:        expirable.NewLRU[types.NodeID, uint16](0, nil, options.BlacklistTTL),
+		blacklistThreshold: 5,
+		subscriptions:      map[*PeerUpdates]*PeerUpdates{},
+		metrics:            metrics,
 	}
 	if err = peerManager.configurePeers(); err != nil {
 		return nil, err
@@ -821,7 +825,7 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 
 func (m *PeerManager) IsBlacklisted(peerID types.NodeID) bool {
 	count, exists := m.blacklisted.Get(peerID)
-	if !exists || count+1 < BlacklistTreshold {
+	if !exists || count < m.options.BlacklistThreshold {
 		return false
 	}
 	return true

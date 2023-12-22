@@ -1953,13 +1953,19 @@ func TestPeerManager_Blacklist(t *testing.T) {
 
 	// Create a peer manager with SelfAddress defined.
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
-		SelfAddress:  self,
-		BlacklistTTL: 10 * time.Millisecond,
+		SelfAddress:        self,
+		BlacklistTTL:       10 * time.Millisecond,
+		BlacklistThreshold: 3,
 	}, p2p.NopMetrics())
 	require.NoError(t, err)
 	added, err := peerManager.Add(a)
 	require.NoError(t, err)
 	require.True(t, added)
+	// require BlacklistThreshold disconnects before blacklisting
+	peerManager.Disconnected(ctx, a.NodeID)
+	require.False(t, peerManager.IsBlacklisted(a.NodeID))
+	peerManager.Disconnected(ctx, a.NodeID)
+	require.False(t, peerManager.IsBlacklisted(a.NodeID))
 	peerManager.Disconnected(ctx, a.NodeID)
 	require.True(t, peerManager.IsBlacklisted(a.NodeID))
 	time.Sleep(20 * time.Millisecond)
