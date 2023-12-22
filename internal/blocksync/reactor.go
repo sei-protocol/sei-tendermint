@@ -270,6 +270,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 				}
 			}
 
+			r.logger.Info(fmt.Sprintf("[p2p-debug] Got block response for height %d from peer %s", block.Height, envelope.From))
 			if err := r.pool.AddBlock(envelope.From, block, extCommit, block.Size()); err != nil {
 				r.logger.Error("failed to add block", "err", err)
 			}
@@ -363,8 +364,7 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 
 // processPeerUpdate processes a PeerUpdate.
 func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpdate, blockSyncCh *p2p.Channel) {
-	r.logger.Debug("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status)
-
+	r.logger.Info("received peer update", "peer", peerUpdate.NodeID, "status", peerUpdate.Status, "numPeers", len(r.pool.peers))
 	// XXX: Pool#RedoRequest can sometimes give us an empty peer.
 	if len(peerUpdate.NodeID) == 0 {
 		return
@@ -598,6 +598,11 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
+				if first == nil {
+					r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find first block %d from the pool", r.pool.height))
+				} else if second == nil {
+					r.logger.Info(fmt.Sprintf("[p2p-debug] Could not find second block %d from the pool", first.Height+1))
+				}
 				continue
 			}
 

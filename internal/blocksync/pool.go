@@ -250,6 +250,7 @@ func (pool *BlockPool) PopRequest() {
 
 	if r := pool.requesters[pool.height]; r != nil {
 		r.Stop()
+		pool.logger.Info(fmt.Sprintf("[p2p-debug] Requester for height %d finished", pool.height))
 		delete(pool.requesters, pool.height)
 		pool.height++
 		pool.lastAdvance = time.Now()
@@ -316,12 +317,14 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 			diff *= -1
 		}
 		if diff > maxDiffBetweenCurrentAndReceivedBlockHeight {
+			pool.logger.Info(fmt.Sprintf("[p2p-debug] Failed to AddBlock, peer %s send us block height %d, but pool height is %d ", peerID, block.Height, pool.height))
 			pool.sendError(errors.New("peer sent us a block we didn't expect with a height too far ahead/behind"), peerID)
 		}
 		return fmt.Errorf("peer sent us a block we didn't expect (peer: %s, current height: %d, block height: %d)", peerID, pool.height, block.Height)
 	}
 
 	if requester.setBlock(block, extCommit, peerID) {
+		pool.logger.Info(fmt.Sprintf("[p2p-debug] Successfully set block response %d from peer %s", block.Height, peerID))
 		atomic.AddInt32(&pool.numPending, -1)
 		peer := pool.peers[peerID]
 		if peer != nil {
@@ -502,6 +505,7 @@ func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	pool.cancels = append(pool.cancels, cancel)
 	err := request.Start(ctx)
+	pool.logger.Info(fmt.Sprintf("[p2p-debug] Started a new bp requester for height %d ", nextHeight))
 	if err != nil {
 		request.logger.Error("error starting request", "err", err)
 	}
@@ -616,7 +620,7 @@ func (peer *bpPeer) onTimeout() {
 
 	err := errors.New("peer did not send us anything")
 	peer.pool.sendError(err, peer.id)
-	peer.logger.Error("SendTimeout", "reason", err, "timeout", peerTimeout)
+	peer.logger.Info(fmt.Sprintf("[p2p-debug] Peer Timeout for block %d", peer.height))
 	peer.didTimeout = true
 }
 
@@ -768,6 +772,7 @@ OUTER_LOOP:
 		bpr.mtx.Unlock()
 
 		// Send request and wait.
+		bpr.logger.Info(fmt.Sprintf("[p2p-debug] Requester for height %d sent a block request for peer %s", bpr.height, peer.id))
 		bpr.pool.sendRequest(bpr.height, peer.id)
 		bpr.timeoutTicker.Reset(peerTimeout)
 	WAIT_LOOP:
@@ -784,6 +789,7 @@ OUTER_LOOP:
 				}
 				continue WAIT_LOOP
 			case <-bpr.timeoutTicker.C:
+				bpr.logger.Info(fmt.Sprintf("[p2p-debug] BPRequester for height %d and peer %s timedout", bpr.height, bpr.peerID))
 				if bpr.reset(false) {
 					continue OUTER_LOOP
 				}
