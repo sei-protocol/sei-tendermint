@@ -694,6 +694,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
+			r.logger.Info(fmt.Sprintf("[p2p-debug] Finished to apply block %d", first.Height))
 			if err != nil {
 				panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 			}
@@ -713,7 +714,6 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 				lastHundred = time.Now()
 			}
-			r.logger.Info(fmt.Sprintf("[p2p-debug] Finished to apply block %d", first.Height))
 		}
 	}
 }

@@ -292,7 +292,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		// but not for saving it to the state store
 		return state, err
 	}
-
+	blockExec.logger.Info(fmt.Sprintf("Completed SaveFinalizeBlockResponses for block %d", block.Height))
 	// validate the validator updates and convert to tendermint types
 	err = validateValidatorUpdates(fBlockRes.ValidatorUpdates, state.ConsensusParams.Validator)
 	if err != nil {
@@ -303,6 +303,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err != nil {
 		return state, err
 	}
+	blockExec.logger.Info(fmt.Sprintf("Completed ValidatorUpdates for block %d", block.Height))
 	if len(validatorUpdates) > 0 {
 		blockExec.logger.Debug("updates to validators", "updates", types.ValidatorListString(validatorUpdates))
 		blockExec.metrics.ValidatorSetUpdates.Add(1)
@@ -321,6 +322,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
+	blockExec.logger.Info(fmt.Sprintf("Completed state.Update for block %d", block.Height))
 
 	var commitSpan otrace.Span = nil
 	if tracer != nil {
@@ -335,6 +337,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if commitSpan != nil {
 		commitSpan.End()
 	}
+	blockExec.logger.Info(fmt.Sprintf("Completed blockExec.Commit for block %d", block.Height))
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
@@ -344,6 +347,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
+	blockExec.logger.Info(fmt.Sprintf("Completed blockExec.store.Save(state) for block %d", block.Height))
 
 	// Prune old heights, if requested by ABCI app.
 	if retainHeight > 0 {
@@ -354,6 +358,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			blockExec.logger.Debug("pruned blocks", "pruned", pruned, "retain_height", retainHeight)
 		}
 	}
+	blockExec.logger.Info(fmt.Sprintf("Completed pruneBlocks for block %d", block.Height))
 
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
@@ -361,6 +366,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
+	blockExec.logger.Info(fmt.Sprintf("Completed fireEvents for block %d", block.Height))
 
 	return state, nil
 }
