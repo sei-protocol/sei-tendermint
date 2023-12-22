@@ -1,6 +1,6 @@
 module github.com/tendermint/tendermint
 
-go 1.17
+go 1.18
 
 require (
 	github.com/BurntSushi/toml v1.1.0
@@ -242,6 +242,7 @@ require (
 
 require (
 	github.com/creachadair/tomledit v0.0.22
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.34.0

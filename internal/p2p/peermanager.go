@@ -17,6 +17,7 @@ import (
 	"github.com/google/orderedcode"
 	dbm "github.com/tendermint/tm-db"
 
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	tmsync "github.com/tendermint/tendermint/internal/libs/sync"
 	p2pproto "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
@@ -27,6 +28,7 @@ const (
 	retryNever time.Duration = math.MaxInt64
 	// DefaultScore is the default score for a peer during initialization
 	DefaultMutableScore int64 = 10
+	BlacklistTreshold         = 5
 )
 
 // PeerStatus is a peer status.
@@ -298,14 +300,14 @@ type PeerManager struct {
 
 	mtx           sync.Mutex
 	store         *peerStore
-	subscriptions map[*PeerUpdates]*PeerUpdates // keyed by struct identity (address)
-	dialing       map[types.NodeID]bool         // peers being dialed (DialNext → Dialed/DialFail)
-	upgrading     map[types.NodeID]types.NodeID // peers claimed for upgrade (DialNext → Dialed/DialFail)
-	connected     map[types.NodeID]bool         // connected peers (Dialed/Accepted → Disconnected)
-	ready         map[types.NodeID]bool         // ready peers (Ready → Disconnected)
-	evict         map[types.NodeID]bool         // peers scheduled for eviction (Connected → EvictNext)
-	evicting      map[types.NodeID]bool         // peers being evicted (EvictNext → Disconnected)
-	blacklisted   map[types.NodeID]time.Time    // peers blacklisted for a time being
+	subscriptions map[*PeerUpdates]*PeerUpdates        // keyed by struct identity (address)
+	dialing       map[types.NodeID]bool                // peers being dialed (DialNext → Dialed/DialFail)
+	upgrading     map[types.NodeID]types.NodeID        // peers claimed for upgrade (DialNext → Dialed/DialFail)
+	connected     map[types.NodeID]bool                // connected peers (Dialed/Accepted → Disconnected)
+	ready         map[types.NodeID]bool                // ready peers (Ready → Disconnected)
+	evict         map[types.NodeID]bool                // peers scheduled for eviction (Connected → EvictNext)
+	evicting      map[types.NodeID]bool                // peers being evicted (EvictNext → Disconnected)
+	blacklisted   *expirable.LRU[types.NodeID, uint16] // peers blacklisted for a time being
 	metrics       *Metrics
 }
 
@@ -346,7 +348,7 @@ func NewPeerManager(
 		ready:         map[types.NodeID]bool{},
 		evict:         map[types.NodeID]bool{},
 		evicting:      map[types.NodeID]bool{},
-		blacklisted:   map[types.NodeID]time.Time{},
+		blacklisted:   expirable.NewLRU[types.NodeID, uint16](0, nil, 5*time.Minute),
 		subscriptions: map[*PeerUpdates]*PeerUpdates{},
 		metrics:       metrics,
 	}
@@ -818,19 +820,10 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 }
 
 func (m *PeerManager) IsBlacklisted(peerID types.NodeID) bool {
-	timestamp, exists := m.blacklisted[peerID]
-	if !exists {
+	count, exists := m.blacklisted.Get(peerID)
+	if !exists || count+1 < BlacklistTreshold {
 		return false
 	}
-
-	// If the peerId is found, check the TTL
-	// TODO (psu): we may want to clean up expired blacklists periodically otherwise it could grow infinitely
-	if time.Since(timestamp) > m.options.BlacklistTTL {
-		// Remove from blacklist if TTL expired
-		delete(m.blacklisted, peerID)
-		return false
-	}
-
 	return true
 }
 
@@ -861,7 +854,14 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 		})
 	}
 
-	m.blacklisted[peerID] = time.Now()
+	blacklistCount := uint16(1)
+	if m.blacklisted.Contains(peerID) {
+		count, ok := m.blacklisted.Get(peerID)
+		if ok {
+			blacklistCount = count + 1
+		}
+	}
+	m.blacklisted.Add(peerID, blacklistCount)
 	m.dialWaker.Wake()
 }
 
