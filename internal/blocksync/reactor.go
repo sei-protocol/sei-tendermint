@@ -437,6 +437,9 @@ func (r *Reactor) SwitchToBlockSync(ctx context.Context, state sm.State) error {
 func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) {
 	statusUpdateTicker := time.NewTicker(statusUpdateIntervalSeconds * time.Second)
 	defer statusUpdateTicker.Stop()
+	defer func() {
+		r.logger.Info(fmt.Sprintf("[p2p-debug] Reactor request routine stopped"))
+	}()
 
 	for {
 		select {
@@ -496,6 +499,9 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 	defer trySyncTicker.Stop()
 	defer switchToConsensusTicker.Stop()
+	defer func() {
+		r.logger.Info("[p2p-debug] Consensus Reactor pool routine is stopped")
+	}()
 
 	for {
 		select {
@@ -707,6 +713,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 				lastHundred = time.Now()
 			}
+			r.logger.Info(fmt.Sprintf("[p2p-debug] Finished to apply block %d", first.Height))
 		}
 	}
 }
