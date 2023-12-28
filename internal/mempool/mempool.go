@@ -296,7 +296,7 @@ func (txmp *TxMempool) CheckTx(
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
-			err = txmp.addNewTransaction(wtx, res, txInfo)
+			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
 
 			if err != nil {
 				return err
@@ -535,8 +535,7 @@ func (txmp *TxMempool) Update(
 //
 // NOTE:
 // - An explicit lock is NOT required.
-func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, resV2 *abci.ResponseCheckTxV2, txInfo TxInfo) error {
-	res := resV2.ResponseCheckTx
+func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheckTx, txInfo TxInfo) error {
 	var err error
 	if txmp.postCheck != nil {
 		err = txmp.postCheck(wtx.tx, res)
@@ -941,7 +940,7 @@ func (txmp *TxMempool) AppendCheckTxErr(existingLogs string, log string) string 
 func (txmp *TxMempool) handlePendingTransactions() {
 	accepted, rejected := txmp.pendingTxs.EvaluatePendingTransactions()
 	for _, tx := range accepted {
-		if err := txmp.addNewTransaction(tx.tx, tx.checkTxResponse, tx.txInfo); err != nil {
+		if err := txmp.addNewTransaction(tx.tx, tx.checkTxResponse.ResponseCheckTx, tx.txInfo); err != nil {
 			txmp.logger.Error(fmt.Sprintf("error adding pending transaction: %s", err))
 		}
 	}
