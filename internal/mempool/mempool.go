@@ -296,7 +296,7 @@ func (txmp *TxMempool) CheckTx(
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
-			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
+			err = txmp.addNewTransaction(wtx, res, txInfo)
 
 			if err != nil {
 				return err
@@ -535,7 +535,8 @@ func (txmp *TxMempool) Update(
 //
 // NOTE:
 // - An explicit lock is NOT required.
-func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheckTx, txInfo TxInfo) error {
+func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, resV2 *abci.ResponseCheckTxV2, txInfo TxInfo) error {
+	res := resV2.ResponseCheckTx
 	var err error
 	if txmp.postCheck != nil {
 		err = txmp.postCheck(wtx.tx, res)
@@ -572,15 +573,23 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	sender := res.Sender
 	priority := res.Priority
 
+	// if sender is set, then priority must be higher on the new tx to replace
+	// otherwise this rejects that transaction.  At this time, only EVM transactions
+	// set the sender
 	if len(sender) > 0 {
-		if wtx := txmp.txStore.GetTxBySender(sender); wtx != nil {
-			txmp.logger.Error(
-				"rejected incoming good transaction; tx already exists for sender",
-				"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
-				"sender", sender,
-			)
-			txmp.metrics.RejectedTxs.Add(1)
-			return nil
+		if existingTx := txmp.txStore.GetTxBySender(sender); existingTx != nil {
+			if existingTx.priority >= priority {
+				txmp.logger.Error(
+					"rejected duplicate nonce transaction, priority must be higher to replace",
+					"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
+					"sender", sender,
+				)
+				txmp.metrics.RejectedTxs.Add(1)
+				return nil
+			}
+
+			// remove existing transaction and fall-through for replacement
+			txmp.removeTx(existingTx, true)
 		}
 	}
 
@@ -932,7 +941,7 @@ func (txmp *TxMempool) AppendCheckTxErr(existingLogs string, log string) string 
 func (txmp *TxMempool) handlePendingTransactions() {
 	accepted, rejected := txmp.pendingTxs.EvaluatePendingTransactions()
 	for _, tx := range accepted {
-		if err := txmp.addNewTransaction(tx.tx, tx.checkTxResponse.ResponseCheckTx, tx.txInfo); err != nil {
+		if err := txmp.addNewTransaction(tx.tx, tx.checkTxResponse, tx.txInfo); err != nil {
 			txmp.logger.Error(fmt.Sprintf("error adding pending transaction: %s", err))
 		}
 	}

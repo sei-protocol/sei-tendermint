@@ -139,6 +139,30 @@ func (e *TestPeerEvictor) Errored(peerID types.NodeID, err error) {
 	e.evicting[peerID] = struct{}{}
 }
 
+func TestTxMempool_CheckTxReplacement(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+
+	// Create a transaction with a certain priority
+	tx1 := []byte("sender=key=1")
+	require.NoError(t, txmp.CheckTx(ctx, tx1, nil, TxInfo{SenderID: 0}))
+
+	// Create another transaction with the same sender but a higher priority
+	tx2 := []byte("sender=key=2")
+	require.NoError(t, txmp.CheckTx(ctx, tx2, nil, TxInfo{SenderID: 0}))
+
+	// Check that the new transaction replaced the old one
+	require.Equal(t, 1, txmp.Size())
+}
+
 func TestTxMempool_TxsAvailable(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
