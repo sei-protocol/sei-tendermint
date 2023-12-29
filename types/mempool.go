@@ -11,7 +11,7 @@ import (
 var ErrTxInCache = errors.New("tx already exists in cache")
 
 // ErrEvmTxNotReplaced is returned if the same evm nonce is used
-var ErrEvmTxNotReplaced = errors.New("cannot replace tx, priority is not higher than existing pending tx")
+var ErrEvmTxNotReplaced = errors.New("cannot replace tx with same nonce, priority is not higher")
 
 // TxKey is the fixed length array key used as an index.
 type TxKey [sha256.Size]byte
