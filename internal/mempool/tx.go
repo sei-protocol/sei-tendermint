@@ -311,6 +311,26 @@ func NewPendingTxs() *PendingTxs {
 	}
 }
 
+func (p *PendingTxs) RemoveSameEvmTxIfLowerPriority(resp *abci.ResponseCheckTxV2) (bool, error) {
+	// lock needed so that indexes are fixed between search and delete
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	for idx, tx := range p.txs {
+		// find the tx with the same nonce/address
+		if tx.checkTxResponse.IsSameAddressAndNonce(resp) {
+			// only if it's lower priority than the new tx, replace it
+			if tx.checkTxResponse.IsLowerPriority(resp) {
+				p.popTxsAtIndices([]int{idx})
+				return true, nil
+			}
+			// otherwise we must reject this transaction
+			return false, types.ErrEvmTxNotReplaced
+		}
+	}
+	// no replaceable pending txs found
+	return false, nil
+}
+
 func (p *PendingTxs) EvaluatePendingTransactions() (
 	acceptedTxs []PendingTxInfo,
 	rejectedTxs []PendingTxInfo,

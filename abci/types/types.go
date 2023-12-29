@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/tendermint/tendermint/crypto"
@@ -248,10 +249,43 @@ const (
 
 type PendingTxChecker func() PendingTxCheckerResponse
 
-// V2 response type contains non-protobuf fields, so non-local ABCI clients will not be able
+type EVMTxProperties struct {
+	FromAddressHex string
+	Nonce          uint64
+}
+
+// ResponseCheckTxV2 response type contains non-protobuf fields, so non-local ABCI clients will not be able
 // to utilize the new fields in V2 type (but still be backwards-compatible)
 type ResponseCheckTxV2 struct {
 	*ResponseCheckTx
 	IsPendingTransaction bool
 	Checker              PendingTxChecker // must not be nil if IsPendingTransaction is true
+	EVMTxProperties      *EVMTxProperties
+}
+
+// IsSameAddressAndNonce returns true if the transaction is an evm transaction and the
+// sender address and nonce are the same
+func (r *ResponseCheckTxV2) IsSameAddressAndNonce(resp *ResponseCheckTxV2) bool {
+	if !r.IsEVM() || !resp.IsEVM() {
+		return false
+	}
+	return r.EvmKey() == resp.EvmKey()
+}
+
+// IsLowerPriority returns true if the transaction has a lower priority
+func (r *ResponseCheckTxV2) IsLowerPriority(resp *ResponseCheckTxV2) bool {
+	return r.Priority < resp.Priority
+}
+
+// IsEVM returns true if the transaction is an evm transaction
+func (r *ResponseCheckTxV2) IsEVM() bool {
+	return r.EVMTxProperties != nil
+}
+
+// EvmKey returns a string that uniquely identifies a evm sender's transaction
+func (r *ResponseCheckTxV2) EvmKey() string {
+	if r.EVMTxProperties == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s|%d", r.EVMTxProperties.FromAddressHex, r.EVMTxProperties.Nonce)
 }

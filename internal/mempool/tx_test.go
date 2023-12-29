@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"fmt"
+	abci "github.com/tendermint/tendermint/abci/types"
 	"math/rand"
 	"sort"
 	"testing"
@@ -228,4 +229,99 @@ func TestWrappedTxList_Remove(t *testing.T) {
 
 	sort.Ints(expected)
 	require.Equal(t, expected, got)
+}
+
+func TestPendingTxs_RemoveSameEvmTxIfLowerPriority(t *testing.T) {
+	scenarios := []struct {
+		Name     string
+		Priority int64
+		Nonce    uint64
+		Address  string
+		Error    bool
+		Removed  bool
+	}{
+		{
+			Name:     "High priority transaction replaces low priority transaction",
+			Priority: 3,
+			Nonce:    1,
+			Address:  "0x123",
+			Error:    false,
+			Removed:  true,
+		},
+		{
+			Name:     "Same priority transaction cannot replace high priority transaction (error)",
+			Priority: 2,
+			Nonce:    1,
+			Address:  "0x123",
+			Error:    true,
+			Removed:  false,
+		},
+		{
+			Name:     "Low priority transaction cannot replace high priority transaction (error)",
+			Priority: 1,
+			Nonce:    1,
+			Address:  "0x123",
+			Error:    true,
+			Removed:  false,
+		},
+		{
+			Name:     "Different nonce not replaced",
+			Priority: 3,
+			Nonce:    2,
+			Address:  "0x123",
+			Error:    false,
+			Removed:  false,
+		},
+		{
+			Name:     "Different address not replaced",
+			Priority: 3,
+			Nonce:    1,
+			Address:  "0x1234",
+			Error:    false,
+			Removed:  false,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.Name, func(t *testing.T) {
+			pendingTxs := NewPendingTxs()
+
+			initialTx := &abci.ResponseCheckTxV2{
+				EVMTxProperties: &abci.EVMTxProperties{
+					FromAddressHex: "0x123",
+					Nonce:          1,
+				},
+				ResponseCheckTx: &abci.ResponseCheckTx{
+					Priority: 2,
+				},
+			}
+			initialTx.Sender = initialTx.EvmKey()
+
+			newTx := &abci.ResponseCheckTxV2{
+				EVMTxProperties: &abci.EVMTxProperties{
+					FromAddressHex: scenario.Address,
+					Nonce:          scenario.Nonce,
+				},
+				ResponseCheckTx: &abci.ResponseCheckTx{
+					Priority: scenario.Priority,
+				},
+			}
+			newTx.Sender = newTx.EvmKey()
+
+			wrappedTx := &WrappedTx{}
+			txInfo := TxInfo{}
+
+			// Insert the initial transaction
+			pendingTxs.Insert(wrappedTx, initialTx, txInfo)
+
+			// Try to remove the initial transaction with the new transaction
+			removed, err := pendingTxs.RemoveSameEvmTxIfLowerPriority(newTx)
+			if scenario.Error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, scenario.Removed, removed)
+		})
+	}
 }
