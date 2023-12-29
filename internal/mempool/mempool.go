@@ -325,30 +325,29 @@ func (txmp *TxMempool) CheckTx(
 				"sender", res.Sender,
 			)
 			txmp.metrics.RejectedTxs.Add(1)
-			return types.ErrEvmTxNotReplaced
-		}
-
-		// log if the transaction was replaced
-		if removed {
-			txmp.logger.Info("replaced existing transaction",
-				"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
-				"sender", res.Sender,
-			)
-			//TODO: might be good to add a ReplacedTxs metric
-		}
-
-		// only add new transaction if checkTx passes and is not pending
-		if !res.IsPendingTransaction {
-			err = txmp.addNewTransaction(wtx, res, txInfo)
-			if err != nil {
-				return err
-			}
+			// not treated as an error, fallthrough to callback
 		} else {
-			// otherwise add to pending txs store
-			if res.Checker == nil {
-				return errors.New("no checker available for pending transaction")
+			// log the replacement
+			if removed {
+				txmp.logger.Info("replaced existing transaction",
+					"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
+					"sender", res.Sender,
+				)
 			}
-			txmp.pendingTxs.Insert(wtx, res, txInfo)
+
+			// only add new transaction if checkTx passes and is not pending
+			if !res.IsPendingTransaction {
+				err = txmp.addNewTransaction(wtx, res, txInfo)
+				if err != nil {
+					return err
+				}
+			} else {
+				// otherwise add to pending txs store
+				if res.Checker == nil {
+					return errors.New("no checker available for pending transaction")
+				}
+				txmp.pendingTxs.Insert(wtx, res, txInfo)
+			}
 		}
 	}
 
