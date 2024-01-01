@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -311,18 +312,19 @@ func NewPendingTxs() *PendingTxs {
 	}
 }
 
-func (p *PendingTxs) RemoveSameEvmTxIfLowerPriority(resp *abci.ResponseCheckTxV2) (bool, error) {
+func (p *PendingTxs) RemoveSameEvmTxIfLowerPriority(res *abci.ResponseCheckTxV2) (bool, error) {
 	// lock needed so that indexes are fixed between search and delete
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
-	for idx, tx := range p.txs {
+	for idx, existingTx := range p.txs {
 		// find the tx with the same nonce/address
-		if tx.checkTxResponse.IsSameAddressAndNonce(resp) {
+		if existingTx.checkTxResponse.IsSameAddressAndNonce(res) {
 			// only if it's lower priority than the new tx, replace it
-			if tx.checkTxResponse.IsLowerPriority(resp) {
+			if existingTx.checkTxResponse.IsLowerPriority(res) {
 				p.popTxsAtIndices([]int{idx})
 				return true, nil
 			}
+			fmt.Printf("pending: priority=%d, new priority=%d\n", existingTx.checkTxResponse.Priority, res.Priority)
 			// otherwise we must reject this transaction
 			return false, types.ErrEvmTxNotReplaced
 		}

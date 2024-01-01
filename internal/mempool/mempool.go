@@ -231,6 +231,7 @@ func (txmp *TxMempool) removeExistingTx(res *abci.ResponseCheckTxV2) (bool, erro
 
 	// try to replace existing transaction in mempool
 	if existingTx := txmp.txStore.GetTxBySender(res.Sender); existingTx != nil {
+		fmt.Printf("mempool: priority=%d, new priority=%d\n", existingTx.priority, res.Priority)
 		if existingTx.priority >= res.Priority {
 			return false, types.ErrEvmTxNotReplaced
 		}
@@ -322,9 +323,11 @@ func (txmp *TxMempool) CheckTx(
 			txmp.logger.Error(
 				err.Error(),
 				"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
+				"priority", res.Priority,
 				"sender", res.Sender,
 			)
 			txmp.metrics.RejectedTxs.Add(1)
+			return types.ErrEvmTxNotReplaced
 			// not treated as an error, fallthrough to callback
 		} else {
 			// log the replacement
