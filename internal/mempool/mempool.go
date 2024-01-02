@@ -611,7 +611,6 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		//   reCheckTx callback is being executed for the same transaction.
 		for _, toEvict := range evictTxs {
 			txmp.removeTx(toEvict, true)
-			toEvict.expiredCallback()
 			txmp.logger.Debug(
 				"evicted existing good transaction; mempool full",
 				"old_tx", fmt.Sprintf("%X", toEvict.tx.Hash()),
@@ -840,6 +839,9 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 
 	if removeFromCache {
 		txmp.cache.Remove(wtx.tx)
+		if wtx.expiredCallback != nil {
+			wtx.expiredCallback()
+		}
 	}
 }
 
@@ -890,7 +892,6 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 
 	for _, wtx := range expiredTxs {
 		txmp.removeTx(wtx, true)
-		wtx.expiredCallback()
 	}
 
 	txmp.pendingTxs.PurgeExpired(txmp.config.TTLNumBlocks, blockHeight, txmp.config.TTLDuration, now, func(wtx *WrappedTx) {
