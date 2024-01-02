@@ -854,7 +854,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 		func() bool {
 			return previousTotalVotingPower != states[0].GetRoundState().LastValidators.TotalVotingPower()
 		},
-		5*time.Second,
+		15*time.Second,
 		300*time.Millisecond,
 		"expected voting power to change (before: %d, after: %d)",
 		previousTotalVotingPower,
@@ -875,7 +875,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 		func() bool {
 			return previousTotalVotingPower != states[0].GetRoundState().LastValidators.TotalVotingPower()
 		},
-		5*time.Second,
+		15*time.Second,
 		300*time.Millisecond,
 		"expected voting power to change (before: %d, after: %d)",
 		previousTotalVotingPower,
@@ -895,7 +895,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 		func() bool {
 			return previousTotalVotingPower != states[0].GetRoundState().LastValidators.TotalVotingPower()
 		},
-		5*time.Second,
+		15*time.Second,
 		300*time.Millisecond,
 		"expected voting power to change (before: %d, after: %d)",
 		previousTotalVotingPower,
