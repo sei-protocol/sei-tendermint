@@ -287,17 +287,17 @@ func (txmp *TxMempool) CheckTx(
 	}
 
 	wtx := &WrappedTx{
-		tx:        tx,
-		hash:      txHash,
-		timestamp: time.Now().UTC(),
-		height:    txmp.height,
+		tx:              tx,
+		hash:            txHash,
+		timestamp:       time.Now().UTC(),
+		height:          txmp.height,
+		expiredCallback: res.ExpireTxHandler,
 	}
 
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
 			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
-
 			if err != nil {
 				return err
 			}
@@ -611,6 +611,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		//   reCheckTx callback is being executed for the same transaction.
 		for _, toEvict := range evictTxs {
 			txmp.removeTx(toEvict, true)
+			toEvict.expiredCallback()
 			txmp.logger.Debug(
 				"evicted existing good transaction; mempool full",
 				"old_tx", fmt.Sprintf("%X", toEvict.tx.Hash()),
@@ -888,10 +889,14 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 	}
 
 	for _, wtx := range expiredTxs {
-		txmp.removeTx(wtx, false)
+		txmp.removeTx(wtx, true)
+		wtx.expiredCallback()
 	}
 
-	txmp.pendingTxs.PurgeExpired(txmp.config.TTLNumBlocks, blockHeight, txmp.config.TTLDuration, now, txmp.cache.Remove)
+	txmp.pendingTxs.PurgeExpired(txmp.config.TTLNumBlocks, blockHeight, txmp.config.TTLDuration, now, func(wtx *WrappedTx) {
+		txmp.cache.Remove(wtx.tx)
+		wtx.expiredCallback()
+	})
 }
 
 func (txmp *TxMempool) notifyTxsAvailable() {
