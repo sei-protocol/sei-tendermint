@@ -1501,9 +1501,3 @@ func keyPeerInfoRange() ([]byte, []byte) {
 	}
 	return start, end
 }
-
-// Added for unit test
-func (m *PeerManager) MarkReadyConnected(nodeId types.NodeID) {
-	m.ready[nodeId] = true
-	m.connected[nodeId] = true
-}

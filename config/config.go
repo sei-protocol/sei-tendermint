@@ -1383,9 +1383,9 @@ func DefaultSelfRemediationConfig() *SelfRemediationConfig {
 		P2pNoPeersRestarWindowSeconds:        0,
 		StatesyncNoPeersRestartWindowSeconds: 0,
 		BlocksBehindThreshold:                0,
-		BlocksBehindCheckIntervalSeconds:     60,
+		BlocksBehindCheckIntervalSeconds:     30,
 		// 30 minutes
-		RestartCooldownSeconds: 600,
+		RestartCooldownSeconds: 1800,
 	}
 }
 
