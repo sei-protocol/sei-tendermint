@@ -779,7 +779,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 }
 
 func TestReactorVotingPowerChange(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -795,7 +795,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 
 	t.Cleanup(cleanup)
 
-	rts := setup(ctx, t, n, states, 2*1048576) // buffer must be large enough to not deadlock
+	rts := setup(ctx, t, n, states, 1048576) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
 		state := reactor.state.GetState()
@@ -854,7 +854,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 		func() bool {
 			return previousTotalVotingPower != states[0].GetRoundState().LastValidators.TotalVotingPower()
 		},
-		1*time.Minute,
+		5*time.Second,
 		300*time.Millisecond,
 		"expected voting power to change (before: %d, after: %d)",
 		previousTotalVotingPower,
@@ -875,7 +875,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 		func() bool {
 			return previousTotalVotingPower != states[0].GetRoundState().LastValidators.TotalVotingPower()
 		},
-		1*time.Minute,
+		5*time.Second,
 		300*time.Millisecond,
 		"expected voting power to change (before: %d, after: %d)",
 		previousTotalVotingPower,
@@ -895,7 +895,7 @@ func TestReactorVotingPowerChange(t *testing.T) {
 		func() bool {
 			return previousTotalVotingPower != states[0].GetRoundState().LastValidators.TotalVotingPower()
 		},
-		1*time.Minute,
+		5*time.Second,
 		300*time.Millisecond,
 		"expected voting power to change (before: %d, after: %d)",
 		previousTotalVotingPower,
