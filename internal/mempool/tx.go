@@ -66,7 +66,7 @@ type WrappedTx struct {
 	removed bool
 
 	// this is the callback that can be called when a transaction expires
-	expiredCallback abci.ExpireTxHandler
+	expiredCallback func(removeFromCache bool)
 }
 
 func (wtx *WrappedTx) Size() int {

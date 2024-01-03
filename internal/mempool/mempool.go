@@ -287,11 +287,18 @@ func (txmp *TxMempool) CheckTx(
 	}
 
 	wtx := &WrappedTx{
-		tx:              tx,
-		hash:            txHash,
-		timestamp:       time.Now().UTC(),
-		height:          txmp.height,
-		expiredCallback: res.ExpireTxHandler,
+		tx:        tx,
+		hash:      txHash,
+		timestamp: time.Now().UTC(),
+		height:    txmp.height,
+		expiredCallback: func(removeFromCache bool) {
+			if removeFromCache {
+				txmp.cache.Remove(tx)
+			}
+			if res.ExpireTxHandler != nil {
+				res.ExpireTxHandler()
+			}
+		},
 	}
 
 	if err == nil {
@@ -837,12 +844,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 
 	atomic.AddInt64(&txmp.sizeBytes, int64(-wtx.Size()))
 
-	if removeFromCache {
-		txmp.cache.Remove(wtx.tx)
-		if wtx.expiredCallback != nil {
-			wtx.expiredCallback()
-		}
-	}
+	wtx.expiredCallback(removeFromCache)
 }
 
 // purgeExpiredTxs removes all transactions that have exceeded their respective
@@ -891,12 +893,12 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 	}
 
 	for _, wtx := range expiredTxs {
-		txmp.removeTx(wtx, true)
+		txmp.removeTx(wtx, !txmp.config.KeepInvalidTxsInCache)
 	}
 
+	// remove pending txs that have expired
 	txmp.pendingTxs.PurgeExpired(txmp.config.TTLNumBlocks, blockHeight, txmp.config.TTLDuration, now, func(wtx *WrappedTx) {
-		txmp.cache.Remove(wtx.tx)
-		wtx.expiredCallback()
+		wtx.expiredCallback(!txmp.config.KeepInvalidTxsInCache)
 	})
 }
 
