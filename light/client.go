@@ -921,10 +921,12 @@ func (c *Client) backwards(
 	var (
 		verifiedHeader = trustedHeader
 		interimHeader  *types.Header
+		verifiedCount  = 0
 	)
 
 	c.logger.Info(fmt.Sprintf("starting the backward verification process from %d to %d", newHeader.Height, verifiedHeader.Height))
-	for verifiedHeader.Height > newHeader.Height {
+
+	for verifiedHeader.Height > newHeader.Height && verifiedCount < 100 {
 		interimBlock, err := c.lightBlockFromPrimary(ctx, verifiedHeader.Height-1)
 		if err != nil {
 			return fmt.Errorf("failed to obtain the header at height #%d: %w", verifiedHeader.Height-1, err)
@@ -956,6 +958,7 @@ func (c *Client) backwards(
 			// try again with the new primary
 			return c.backwards(ctx, verifiedHeader, newPrimarysBlock.Header)
 		}
+		verifiedCount++
 		verifiedHeader = interimHeader
 	}
 
