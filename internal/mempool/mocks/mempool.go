@@ -124,6 +124,21 @@ func (_m *Mempool) ReapMaxTxs(max int) types.Txs {
 	return r0
 }
 
+func (_m *Mempool) GetPendingTxs() types.Txs {
+	ret := _m.Called()
+
+	var r0 types.Txs
+	if rf, ok := ret.Get(0).(func() types.Txs); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.Txs)
+		}
+	}
+
+	return r0
+}
+
 // RemoveTxByKey provides a mock function with given fields: txKey
 func (_m *Mempool) RemoveTxByKey(txKey types.TxKey) error {
 	ret := _m.Called(txKey)
