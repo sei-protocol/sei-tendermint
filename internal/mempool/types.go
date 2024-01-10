@@ -55,6 +55,10 @@ type Mempool interface {
 	// (~ all available transactions).
 	ReapMaxTxs(max int) types.Txs
 
+	// GetPendingTxs returns transactions that are not valid yet but might become valid
+	// if its checker returns Accepted
+	GetPendingTxs() types.Txs
+
 	// Lock locks the mempool. The consensus must be able to hold lock to safely
 	// update.
 	Lock()

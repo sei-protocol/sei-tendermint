@@ -456,6 +456,22 @@ func (txmp *TxMempool) ReapMaxTxs(max int) types.Txs {
 	return txs
 }
 
+// GetPendingTxs returns a list of all pending transactions.
+func (txmp *TxMempool) GetPendingTxs() types.Txs {
+	txmp.mtx.RLock()
+	defer txmp.mtx.RUnlock()
+
+	size := txmp.pendingTxs.Size()
+	txResponses := txmp.pendingTxs.Peek(size)
+
+	txs := make([]types.Tx, 0, size)
+	for _, txResponse := range txResponses {
+		txs = append(txs, txResponse.tx.tx)
+	}
+
+	return txs
+}
+
 // Update iterates over all the transactions provided by the block producer,
 // removes them from the cache (if applicable), and removes
 // the transactions from the main transaction store and associated indexes.

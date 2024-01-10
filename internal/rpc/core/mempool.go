@@ -159,6 +159,12 @@ func (env *Environment) UnconfirmedTxs(ctx context.Context, req *coretypes.Reque
 	txs := env.Mempool.ReapMaxTxs(skipCount + tmmath.MinInt(perPage, totalCount-skipCount))
 	result := txs[skipCount:]
 
+	// add pending txs as well
+	pendingTxs := env.Mempool.GetPendingTxs()
+	for _, tx := range pendingTxs {
+		result = append(result, tx)
+	}
+
 	return &coretypes.ResultUnconfirmedTxs{
 		Count:      len(result),
 		Total:      totalCount,
