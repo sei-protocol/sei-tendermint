@@ -67,6 +67,15 @@ type WrappedTx struct {
 
 	// this is the callback that can be called when a transaction expires
 	expiredCallback func(removeFromCache bool)
+
+	// evm properties that aid in prioritization
+	evmAddress string
+	evmNonce   uint64
+	isEVM      bool
+}
+
+func (wtx *WrappedTx) HasSameEVMAddress(other *WrappedTx) bool {
+	return wtx.isEVM && other.isEVM && wtx.evmAddress == other.evmAddress
 }
 
 func (wtx *WrappedTx) Size() int {

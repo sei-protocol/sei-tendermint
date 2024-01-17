@@ -167,6 +167,12 @@ func (pq *TxPriorityQueue) Len() int {
 // Less implements the Heap interface. It returns true if the transaction at
 // position i in the queue is of less priority than the transaction at position j.
 func (pq *TxPriorityQueue) Less(i, j int) bool {
+	// If the txs have the same evm address, then only consider nonce for sorting
+	if pq.txs[i].HasSameEVMAddress(pq.txs[j]) {
+		// The transaction with the lower nonce must always come first
+		return pq.txs[i].evmNonce < pq.txs[j].evmNonce
+	}
+
 	// If there exists two transactions with the same priority, consider the one
 	// that we saw the earliest as the higher priority transaction.
 	if pq.txs[i].priority == pq.txs[j].priority {
