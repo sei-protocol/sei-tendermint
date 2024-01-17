@@ -41,6 +41,12 @@ type Metrics struct {
 	//metrics:Number of evicted transactions.
 	EvictedTxs metrics.Counter
 
+	// ExpiredTxs defines the number of expired transactions. These are valid
+	// transactions that passed CheckTx and existed in the mempool but were not
+	// get picked up in time and eventually got expired and removed from mempool
+	//metrics:Number of expired transactions.
+	ExpiredTxs metrics.Counter
+
 	// Number of times transactions are rechecked in the mempool.
 	RecheckTimes metrics.Counter
 }

@@ -24,7 +24,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
 			Name:      "pending_size",
-			Help:      "Number of pending transactions in the mempool.",
+			Help:      "Number of pending transactions in mempool",
 		}, labels).With(labelsAndValues...),
 		TxSizeBytes: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
@@ -52,6 +52,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "evicted_txs",
 			Help:      "Number of evicted transactions.",
 		}, labels).With(labelsAndValues...),
+		ExpiredTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "expired_txs",
+			Help:      "Number of expired transactions.",
+		}, labels).With(labelsAndValues...),
 		RecheckTimes: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -69,6 +75,7 @@ func NopMetrics() *Metrics {
 		FailedTxs:    discard.NewCounter(),
 		RejectedTxs:  discard.NewCounter(),
 		EvictedTxs:   discard.NewCounter(),
+		ExpiredTxs:   discard.NewCounter(),
 		RecheckTimes: discard.NewCounter(),
 	}
 }

@@ -297,6 +297,7 @@ func (txmp *TxMempool) CheckTx(
 		timestamp: time.Now().UTC(),
 		height:    txmp.height,
 		expiredCallback: func(removeFromCache bool) {
+			txmp.metrics.ExpiredTxs.Add(1)
 			if removeFromCache {
 				txmp.cache.Remove(tx)
 			}
