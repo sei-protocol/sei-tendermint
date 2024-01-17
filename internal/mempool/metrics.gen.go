@@ -20,6 +20,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "size",
 			Help:      "Number of uncommitted transactions in the mempool.",
 		}, labels).With(labelsAndValues...),
+		PendingSize: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "pending_size",
+			Help:      "Number of pending transactions in the mempool.",
+		}, labels).With(labelsAndValues...),
 		TxSizeBytes: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -58,6 +64,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 func NopMetrics() *Metrics {
 	return &Metrics{
 		Size:         discard.NewGauge(),
+		PendingSize:  discard.NewGauge(),
 		TxSizeBytes:  discard.NewHistogram(),
 		FailedTxs:    discard.NewCounter(),
 		RejectedTxs:  discard.NewCounter(),
