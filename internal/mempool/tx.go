@@ -74,10 +74,6 @@ type WrappedTx struct {
 	isEVM      bool
 }
 
-func (wtx *WrappedTx) HasSameEVMAddress(other *WrappedTx) bool {
-	return wtx.isEVM && other.isEVM && wtx.evmAddress == other.evmAddress
-}
-
 func (wtx *WrappedTx) Size() int {
 	return len(wtx.tx)
 }

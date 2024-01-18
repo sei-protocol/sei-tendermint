@@ -12,13 +12,15 @@ var _ heap.Interface = (*TxPriorityQueue)(nil)
 
 // TxPriorityQueue defines a thread-safe priority queue for valid transactions.
 type TxPriorityQueue struct {
-	mtx sync.RWMutex
-	txs []*WrappedTx
+	mtx         sync.RWMutex
+	txs         []*WrappedTx
+	evmTxQueues map[string][]*WrappedTx // map[EVM address][]*WrappedTx
 }
 
 func NewTxPriorityQueue() *TxPriorityQueue {
 	pq := &TxPriorityQueue{
-		txs: make([]*WrappedTx, 0),
+		txs:         make([]*WrappedTx, 0),
+		evmTxQueues: make(map[string][]*WrappedTx),
 	}
 
 	heap.Init(pq)
@@ -91,20 +93,73 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 func (pq *TxPriorityQueue) PushTx(tx *WrappedTx) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
+	pq.pushTxUnsafe(tx)
+}
 
-	heap.Push(pq, tx)
+func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
+	if !tx.isEVM {
+		heap.Push(pq, tx)
+		return
+	}
+
+	queue, exists := pq.evmTxQueues[tx.evmAddress]
+	if !exists || len(queue) == 0 {
+		pq.evmTxQueues[tx.evmAddress] = []*WrappedTx{tx}
+		heap.Push(pq, tx)
+		return
+	}
+
+	var pushToHeap bool
+	if tx.evmNonce < queue[0].evmNonce {
+		// Remove the current lowest nonce transaction from the heap
+		heap.Remove(pq, queue[0].heapIndex)
+		pushToHeap = true
+	}
+
+	queue = append(queue, tx)
+	sort.Slice(queue, func(i, j int) bool {
+		return queue[i].evmNonce < queue[j].evmNonce
+	})
+	pq.evmTxQueues[tx.evmAddress] = queue
+
+	if pushToHeap {
+		heap.Push(pq, queue[0])
+	}
+
 }
 
 // PopTx removes the top priority transaction from the queue. It is thread safe.
 func (pq *TxPriorityQueue) PopTx() *WrappedTx {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
+	return pq.popTxUnsafe()
+}
 
+// popTxUnsafe this assumes a lock has been acquired
+func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	x := heap.Pop(pq)
 	if x != nil {
-		return x.(*WrappedTx)
-	}
+		wtx := x.(*WrappedTx)
 
+		// if not evm, return (no need to consider nonce)
+		if !wtx.isEVM {
+			return wtx
+		}
+
+		// if evm, then we need to queue the next nonce if there is one
+		// this nonce will land in priority order
+		queue := pq.evmTxQueues[wtx.evmAddress]
+		if len(queue) > 0 {
+			queue = queue[1:]
+			if len(queue) > 0 {
+				heap.Push(pq, queue[0])
+				pq.evmTxQueues[wtx.evmAddress] = queue
+			} else {
+				delete(pq.evmTxQueues, wtx.evmAddress)
+			}
+		}
+		return wtx
+	}
 	return nil
 }
 
@@ -114,22 +169,27 @@ func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 	defer pq.mtx.Unlock()
 
 	numTxs := len(pq.txs)
-	if max < 0 {
-		max = numTxs
+	numQueued := 0
+	for _, queue := range pq.evmTxQueues {
+		numQueued += len(queue)
 	}
 
-	cap := tmmath.MinInt(numTxs, max)
+	if max < 0 {
+		max = numTxs + numQueued
+	}
+
+	cap := tmmath.MinInt(numTxs+numQueued, max)
 	res := make([]*WrappedTx, 0, cap)
 	for i := 0; i < cap; i++ {
-		popped := heap.Pop(pq)
+		popped := pq.popTxUnsafe()
 		if popped == nil {
 			break
 		}
-		res = append(res, popped.(*WrappedTx))
+		res = append(res, popped)
 	}
 
 	for _, tx := range res {
-		heap.Push(pq, tx)
+		pq.pushTxUnsafe(tx)
 	}
 	return res
 }
@@ -167,12 +227,6 @@ func (pq *TxPriorityQueue) Len() int {
 // Less implements the Heap interface. It returns true if the transaction at
 // position i in the queue is of less priority than the transaction at position j.
 func (pq *TxPriorityQueue) Less(i, j int) bool {
-	// If the txs have the same evm address, then only consider nonce for sorting
-	if pq.txs[i].HasSameEVMAddress(pq.txs[j]) {
-		// The transaction with the lower nonce must always come first
-		return pq.txs[i].evmNonce < pq.txs[j].evmNonce
-	}
-
 	// If there exists two transactions with the same priority, consider the one
 	// that we saw the earliest as the higher priority transaction.
 	if pq.txs[i].priority == pq.txs[j].priority {
