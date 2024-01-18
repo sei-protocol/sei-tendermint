@@ -2,7 +2,6 @@ package mempool
 
 import (
 	"container/heap"
-	"slices"
 	"sort"
 	"sync"
 
@@ -20,21 +19,27 @@ type TxPriorityQueue struct {
 
 func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx) []*WrappedTx {
 	// Using BinarySearch to find the appropriate index to insert tx
-	i, _ := slices.BinarySearchFunc(queue, tx, func(a, b *WrappedTx) int {
-		if a.evmNonce < b.evmNonce {
-			return -1
-		}
-		if a.evmNonce > b.evmNonce {
-			return 1
-		}
-		return 0
-	})
+	i := binarySearch(queue, tx)
 
 	// Make room for new value and add it
 	queue = append(queue, nil)
 	copy(queue[i+1:], queue[i:])
 	queue[i] = tx
 	return queue
+}
+
+// binarySearch finds the index at which tx should be inserted in queue
+func binarySearch(queue []*WrappedTx, tx *WrappedTx) int {
+	low, high := 0, len(queue)
+	for low < high {
+		mid := low + (high-low)/2
+		if queue[mid].evmNonce < tx.evmNonce {
+			low = mid + 1
+		} else {
+			high = mid
+		}
+	}
+	return low
 }
 
 func NewTxPriorityQueue() *TxPriorityQueue {
