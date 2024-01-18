@@ -12,15 +12,15 @@ var _ heap.Interface = (*TxPriorityQueue)(nil)
 
 // TxPriorityQueue defines a thread-safe priority queue for valid transactions.
 type TxPriorityQueue struct {
-	mtx         sync.RWMutex
-	txs         []*WrappedTx
-	evmTxQueues map[string][]*WrappedTx // map[EVM address][]*WrappedTx
+	mtx      sync.RWMutex
+	txs      []*WrappedTx
+	evmQueue map[string][]*WrappedTx
 }
 
 func NewTxPriorityQueue() *TxPriorityQueue {
 	pq := &TxPriorityQueue{
-		txs:         make([]*WrappedTx, 0),
-		evmTxQueues: make(map[string][]*WrappedTx),
+		txs:      make([]*WrappedTx, 0),
+		evmQueue: make(map[string][]*WrappedTx),
 	}
 
 	heap.Init(pq)
@@ -70,13 +70,46 @@ func (pq *TxPriorityQueue) GetEvictableTxs(priority, txSize, totalSize, cap int6
 	return nil
 }
 
+// requires read lock
+func (pq *TxPriorityQueue) numQueuedUnsafe() int {
+	var result int
+	for _, queue := range pq.evmQueue {
+		result += len(queue)
+	}
+	// first items in queue are also in heap, subtract one
+	return result - len(pq.evmQueue)
+}
+
 // NumTxs returns the number of transactions in the priority queue. It is
 // thread safe.
 func (pq *TxPriorityQueue) NumTxs() int {
 	pq.mtx.RLock()
 	defer pq.mtx.RUnlock()
 
-	return len(pq.txs)
+	return len(pq.txs) + pq.numQueuedUnsafe()
+}
+
+func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
+	if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
+		for i, t := range queue {
+			if t == tx {
+				pq.evmQueue[tx.evmAddress] = append(queue[:i], queue[i+1:]...)
+				if len(pq.evmQueue[tx.evmAddress]) == 0 {
+					delete(pq.evmQueue, tx.evmAddress)
+				}
+				break
+			}
+		}
+	}
+}
+
+func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
+	for i, t := range pq.txs {
+		if t == tx {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 // RemoveTx removes a specific transaction from the priority queue.
@@ -84,9 +117,40 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
 
-	if tx.heapIndex < len(pq.txs) {
-		heap.Remove(pq, tx.heapIndex)
+	if idx, ok := pq.findTxIndexUnsafe(tx); ok {
+		heap.Remove(pq, idx)
 	}
+
+	if tx.isEVM {
+		pq.removeQueuedEvmTxUnsafe(tx)
+	}
+}
+
+func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
+	if !tx.isEVM {
+		heap.Push(pq, tx)
+		return
+	}
+
+	queue, exists := pq.evmQueue[tx.evmAddress]
+	if !exists {
+		pq.evmQueue[tx.evmAddress] = []*WrappedTx{tx}
+		heap.Push(pq, tx)
+		return
+	}
+
+	first := queue[0]
+	if tx.evmNonce < first.evmNonce {
+		if idx, ok := pq.findTxIndexUnsafe(first); ok {
+			heap.Remove(pq, idx)
+		}
+		heap.Push(pq, tx)
+	}
+	queue = append(queue, tx)
+	sort.Slice(queue, func(i, j int) bool {
+		return queue[i].evmNonce < queue[j].evmNonce
+	})
+	pq.evmQueue[tx.evmAddress] = queue
 }
 
 // PushTx adds a valid transaction to the priority queue. It is thread safe.
@@ -96,36 +160,24 @@ func (pq *TxPriorityQueue) PushTx(tx *WrappedTx) {
 	pq.pushTxUnsafe(tx)
 }
 
-func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
+func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
+	x := heap.Pop(pq)
+	if x == nil {
+		return nil
+	}
+
+	tx := x.(*WrappedTx)
+
 	if !tx.isEVM {
-		heap.Push(pq, tx)
-		return
+		return tx
 	}
 
-	queue, exists := pq.evmTxQueues[tx.evmAddress]
-	if !exists || len(queue) == 0 {
-		pq.evmTxQueues[tx.evmAddress] = []*WrappedTx{tx}
-		heap.Push(pq, tx)
-		return
+	pq.removeQueuedEvmTxUnsafe(tx)
+	if len(pq.evmQueue[tx.evmAddress]) > 0 {
+		heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
 	}
 
-	var pushToHeap bool
-	if tx.evmNonce < queue[0].evmNonce {
-		// Remove the current lowest nonce transaction from the heap
-		heap.Remove(pq, queue[0].heapIndex)
-		pushToHeap = true
-	}
-
-	queue = append(queue, tx)
-	sort.Slice(queue, func(i, j int) bool {
-		return queue[i].evmNonce < queue[j].evmNonce
-	})
-	pq.evmTxQueues[tx.evmAddress] = queue
-
-	if pushToHeap {
-		heap.Push(pq, queue[0])
-	}
-
+	return tx
 }
 
 // PopTx removes the top priority transaction from the queue. It is thread safe.
@@ -135,56 +187,24 @@ func (pq *TxPriorityQueue) PopTx() *WrappedTx {
 	return pq.popTxUnsafe()
 }
 
-// popTxUnsafe this assumes a lock has been acquired
-func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
-	x := heap.Pop(pq)
-	if x != nil {
-		wtx := x.(*WrappedTx)
-
-		// if not evm, return (no need to consider nonce)
-		if !wtx.isEVM {
-			return wtx
-		}
-
-		// if evm, then we need to queue the next nonce if there is one
-		// this nonce will land in priority order
-		queue := pq.evmTxQueues[wtx.evmAddress]
-		if len(queue) > 0 {
-			queue = queue[1:]
-			if len(queue) > 0 {
-				heap.Push(pq, queue[0])
-				pq.evmTxQueues[wtx.evmAddress] = queue
-			} else {
-				delete(pq.evmTxQueues, wtx.evmAddress)
-			}
-		}
-		return wtx
-	}
-	return nil
-}
-
 // dequeue up to `max` transactions and reenqueue while locked
 func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
 
-	numTxs := len(pq.txs)
-	numQueued := 0
-	for _, queue := range pq.evmTxQueues {
-		numQueued += len(queue)
-	}
-
+	numTxs := len(pq.txs) + pq.numQueuedUnsafe()
 	if max < 0 {
-		max = numTxs + numQueued
+		max = numTxs
 	}
 
-	cap := tmmath.MinInt(numTxs+numQueued, max)
+	cap := tmmath.MinInt(numTxs, max)
 	res := make([]*WrappedTx, 0, cap)
 	for i := 0; i < cap; i++ {
 		popped := pq.popTxUnsafe()
 		if popped == nil {
 			break
 		}
+
 		res = append(res, popped)
 	}
 
