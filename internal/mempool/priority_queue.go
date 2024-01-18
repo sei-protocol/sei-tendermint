@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"container/heap"
+	"slices"
 	"sort"
 	"sync"
 
@@ -15,6 +16,25 @@ type TxPriorityQueue struct {
 	mtx      sync.RWMutex
 	txs      []*WrappedTx
 	evmQueue map[string][]*WrappedTx
+}
+
+func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx) []*WrappedTx {
+	// Using BinarySearch to find the appropriate index to insert tx
+	i, _ := slices.BinarySearchFunc(queue, tx, func(a, b *WrappedTx) int {
+		if a.evmNonce < b.evmNonce {
+			return -1
+		}
+		if a.evmNonce > b.evmNonce {
+			return 1
+		}
+		return 0
+	})
+
+	// Make room for new value and add it
+	queue = append(queue, nil)
+	copy(queue[i+1:], queue[i:])
+	queue[i] = tx
+	return queue
 }
 
 func NewTxPriorityQueue() *TxPriorityQueue {
@@ -92,7 +112,7 @@ func (pq *TxPriorityQueue) NumTxs() int {
 func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 	if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 		for i, t := range queue {
-			if t == tx {
+			if t.evmNonce == tx.evmNonce {
 				pq.evmQueue[tx.evmAddress] = append(queue[:i], queue[i+1:]...)
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
@@ -146,11 +166,8 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 		}
 		heap.Push(pq, tx)
 	}
-	queue = append(queue, tx)
-	sort.Slice(queue, func(i, j int) bool {
-		return queue[i].evmNonce < queue[j].evmNonce
-	})
-	pq.evmQueue[tx.evmAddress] = queue
+
+	pq.evmQueue[tx.evmAddress] = insertToEVMQueue(queue, tx)
 }
 
 // PushTx adds a valid transaction to the priority queue. It is thread safe.
