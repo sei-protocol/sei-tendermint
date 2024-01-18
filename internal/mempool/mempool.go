@@ -15,7 +15,6 @@ import (
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/libs/clist"
 	"github.com/tendermint/tendermint/libs/log"
-	tmmath "github.com/tendermint/tendermint/libs/math"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -82,6 +81,10 @@ type TxMempool struct {
 	// index. i.e. older transactions are first.
 	timestampIndex *WrappedTxList
 
+	// pendingTxs stores transactions that are not valid yet but might become valid
+	// if its checker returns Accepted
+	pendingTxs *PendingTxs
+
 	// A read/write lock is used to safe guard updates, insertions and deletions
 	// from the mempool. A read-lock is implicitly acquired when executing CheckTx,
 	// however, a caller must explicitly grab a write-lock via Lock when updating
@@ -121,6 +124,7 @@ func NewTxMempool(
 		timestampIndex: NewWrappedTxList(func(wtx1, wtx2 *WrappedTx) bool {
 			return wtx1.timestamp.After(wtx2.timestamp) || wtx1.timestamp.Equal(wtx2.timestamp)
 		}),
+		pendingTxs:          NewPendingTxs(),
 		failedCheckTxCounts: map[types.NodeID]uint64{},
 		peerManager:         peerManager,
 	}
@@ -173,7 +177,9 @@ func (txmp *TxMempool) Unlock() {
 // Size returns the number of valid transactions in the mempool. It is
 // thread-safe.
 func (txmp *TxMempool) Size() int {
-	return txmp.txStore.Size()
+	txSize := txmp.txStore.Size()
+	pendingSize := txmp.pendingTxs.Size()
+	return txSize + pendingSize
 }
 
 // SizeBytes return the total sum in bytes of all the valid transactions in the
@@ -285,19 +291,34 @@ func (txmp *TxMempool) CheckTx(
 		hash:      txHash,
 		timestamp: time.Now().UTC(),
 		height:    txmp.height,
+		expiredCallback: func(removeFromCache bool) {
+			if removeFromCache {
+				txmp.cache.Remove(tx)
+			}
+			if res.ExpireTxHandler != nil {
+				res.ExpireTxHandler()
+			}
+		},
 	}
 
-	// only add new transaction if checkTx passes
 	if err == nil {
-		err = txmp.addNewTransaction(wtx, res, txInfo)
-
-		if err != nil {
-			return err
+		// only add new transaction if checkTx passes and is not pending
+		if !res.IsPendingTransaction {
+			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
+			if err != nil {
+				return err
+			}
+		} else {
+			// otherwise add to pending txs store
+			if res.Checker == nil {
+				return errors.New("no checker available for pending transaction")
+			}
+			txmp.pendingTxs.Insert(wtx, res, txInfo)
 		}
 	}
 
 	if cb != nil {
-		cb(res)
+		cb(res.ResponseCheckTx)
 	}
 
 	return nil
@@ -420,24 +441,17 @@ func (txmp *TxMempool) ReapMaxTxs(max int) types.Txs {
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
-	numTxs := txmp.priorityIndex.NumTxs()
-	if max < 0 {
-		max = numTxs
-	}
-
-	cap := tmmath.MinInt(numTxs, max)
-
-	// wTxs contains a list of *WrappedTx retrieved from the priority queue that
-	// need to be re-enqueued prior to returning.
-	wTxs := make([]*WrappedTx, 0, cap)
-	txs := make([]types.Tx, 0, cap)
-	for txmp.priorityIndex.NumTxs() > 0 && len(txs) < max {
-		wtx := txmp.priorityIndex.PopTx()
-		txs = append(txs, wtx.tx)
-		wTxs = append(wTxs, wtx)
-	}
+	wTxs := txmp.priorityIndex.PeekTxs(max)
+	txs := make([]types.Tx, 0, len(wTxs))
 	for _, wtx := range wTxs {
-		txmp.priorityIndex.PushTx(wtx)
+		txs = append(txs, wtx.tx)
+	}
+	if len(txs) < max {
+		// retrieve more from pending txs
+		pending := txmp.pendingTxs.Peek(max - len(txs))
+		for _, ptx := range pending {
+			txs = append(txs, ptx.tx.tx)
+		}
 	}
 	return txs
 }
@@ -486,6 +500,7 @@ func (txmp *TxMempool) Update(
 	}
 
 	txmp.purgeExpiredTxs(blockHeight)
+	txmp.handlePendingTransactions()
 
 	// If there any uncommitted transactions left in the mempool, we either
 	// initiate re-CheckTx per remaining transaction or notify that remaining
@@ -648,7 +663,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 //
 // This method is NOT executed for the initial CheckTx on a new transaction;
 // that case is handled by addNewTransaction instead.
-func (txmp *TxMempool) handleRecheckResult(tx types.Tx, res *abci.ResponseCheckTx) {
+func (txmp *TxMempool) handleRecheckResult(tx types.Tx, res *abci.ResponseCheckTxV2) {
 	if txmp.recheckCursor == nil {
 		return
 	}
@@ -691,10 +706,11 @@ func (txmp *TxMempool) handleRecheckResult(tx types.Tx, res *abci.ResponseCheckT
 	if !txmp.txStore.IsTxRemoved(wtx.hash) {
 		var err error
 		if txmp.postCheck != nil {
-			err = txmp.postCheck(tx, res)
+			err = txmp.postCheck(tx, res.ResponseCheckTx)
 		}
 
-		if res.Code == abci.CodeTypeOK && err == nil {
+		// we will treat a transaction that turns pending in a recheck as invalid and evict it
+		if res.Code == abci.CodeTypeOK && err == nil && !res.IsPendingTransaction {
 			wtx.priority = res.Priority
 		} else {
 			txmp.logger.Debug(
@@ -828,14 +844,12 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 
 	atomic.AddInt64(&txmp.sizeBytes, int64(-wtx.Size()))
 
-	if removeFromCache {
-		txmp.cache.Remove(wtx.tx)
-	}
+	wtx.expiredCallback(removeFromCache)
 }
 
 // purgeExpiredTxs removes all transactions that have exceeded their respective
 // height- and/or time-based TTLs from their respective indexes. Every expired
-// transaction will be removed from the mempool, but preserved in the cache.
+// transaction will be removed from the mempool, but preserved in the cache (except for pending txs).
 //
 // NOTE: purgeExpiredTxs must only be called during TxMempool#Update in which
 // the caller has a write-lock on the mempool and so we can safely iterate over
@@ -879,8 +893,13 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 	}
 
 	for _, wtx := range expiredTxs {
-		txmp.removeTx(wtx, false)
+		txmp.removeTx(wtx, !txmp.config.KeepInvalidTxsInCache)
 	}
+
+	// remove pending txs that have expired
+	txmp.pendingTxs.PurgeExpired(txmp.config.TTLNumBlocks, blockHeight, txmp.config.TTLDuration, now, func(wtx *WrappedTx) {
+		wtx.expiredCallback(!txmp.config.KeepInvalidTxsInCache)
+	})
 }
 
 func (txmp *TxMempool) notifyTxsAvailable() {
@@ -918,4 +937,18 @@ func (txmp *TxMempool) AppendCheckTxErr(existingLogs string, log string) string 
 	// Marshal the updated slice back into a JSON string
 	jsonData, _ := json.Marshal(logs)
 	return string(jsonData)
+}
+
+func (txmp *TxMempool) handlePendingTransactions() {
+	accepted, rejected := txmp.pendingTxs.EvaluatePendingTransactions()
+	for _, tx := range accepted {
+		if err := txmp.addNewTransaction(tx.tx, tx.checkTxResponse.ResponseCheckTx, tx.txInfo); err != nil {
+			txmp.logger.Error(fmt.Sprintf("error adding pending transaction: %s", err))
+		}
+	}
+	if !txmp.config.KeepInvalidTxsInCache {
+		for _, tx := range rejected {
+			txmp.cache.Remove(tx.tx.tx)
+		}
+	}
 }
