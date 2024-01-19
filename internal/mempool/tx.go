@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/libs/clist"
 	"github.com/tendermint/tendermint/types"
 )
@@ -63,6 +64,9 @@ type WrappedTx struct {
 	// transaction in the mempool can be evicted when it is simultaneously having
 	// a reCheckTx callback executed.
 	removed bool
+
+	// this is the callback that can be called when a transaction expires
+	expiredCallback func(removeFromCache bool)
 }
 
 func (wtx *WrappedTx) Size() int {
@@ -72,9 +76,9 @@ func (wtx *WrappedTx) Size() int {
 // TxStore implements a thread-safe mapping of valid transaction(s).
 //
 // NOTE:
-// - Concurrent read-only access to a *WrappedTx object is OK. However, mutative
-//   access is not allowed. Regardless, it is not expected for the mempool to
-//   need mutative access.
+//   - Concurrent read-only access to a *WrappedTx object is OK. However, mutative
+//     access is not allowed. Regardless, it is not expected for the mempool to
+//     need mutative access.
 type TxStore struct {
 	mtx       sync.RWMutex
 	hashTxs   map[types.TxKey]*WrappedTx // primary index
@@ -289,5 +293,126 @@ func (wtl *WrappedTxList) Remove(wtx *WrappedTx) {
 		}
 
 		i++
+	}
+}
+
+type PendingTxs struct {
+	mtx *sync.RWMutex
+	txs []TxWithResponse
+}
+
+type TxWithResponse struct {
+	tx              *WrappedTx
+	checkTxResponse *abci.ResponseCheckTxV2
+	txInfo          TxInfo
+}
+
+func NewPendingTxs() *PendingTxs {
+	return &PendingTxs{
+		mtx: &sync.RWMutex{},
+		txs: []TxWithResponse{},
+	}
+}
+func (p *PendingTxs) EvaluatePendingTransactions() (
+	acceptedTxs []TxWithResponse,
+	rejectedTxs []TxWithResponse,
+) {
+	poppedIndices := []int{}
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	for i := 0; i < len(p.txs); i++ {
+		switch p.txs[i].checkTxResponse.Checker() {
+		case abci.Accepted:
+			acceptedTxs = append(acceptedTxs, p.txs[i])
+			poppedIndices = append(poppedIndices, i)
+		case abci.Rejected:
+			rejectedTxs = append(rejectedTxs, p.txs[i])
+			poppedIndices = append(poppedIndices, i)
+		}
+	}
+	p.popTxsAtIndices(poppedIndices)
+	return
+}
+
+// assume mtx is already acquired
+func (p *PendingTxs) popTxsAtIndices(indices []int) {
+	if len(indices) == 0 {
+		return
+	}
+	newTxs := []TxWithResponse{}
+	start := 0
+	for _, idx := range indices {
+		newTxs = append(newTxs, p.txs[start:idx]...)
+		start = idx
+	}
+	newTxs = append(newTxs, p.txs[start+1:]...)
+	p.txs = newTxs
+}
+
+func (p *PendingTxs) Insert(tx *WrappedTx, resCheckTx *abci.ResponseCheckTxV2, txInfo TxInfo) {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	p.txs = append(p.txs, TxWithResponse{
+		tx:              tx,
+		checkTxResponse: resCheckTx,
+		txInfo:          txInfo,
+	})
+}
+
+func (p *PendingTxs) Peek(max int) []TxWithResponse {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+	// priority is fifo
+	if max > len(p.txs) {
+		return p.txs
+	}
+	return p.txs[:max]
+}
+
+func (p *PendingTxs) Size() int {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+	return len(p.txs)
+}
+
+func (p *PendingTxs) PurgeExpired(ttlNumBlock int64, blockHeight int64, ttlDuration time.Duration, now time.Time, cb func(wtx *WrappedTx)) {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+
+	if len(p.txs) == 0 {
+		return
+	}
+
+	// txs retains the ordering of insertion
+	if ttlNumBlock > 0 {
+		idxFirstNotExpiredTx := len(p.txs)
+		for i, ptx := range p.txs {
+			// once found, we can break because these are ordered
+			if (blockHeight - ptx.tx.height) <= ttlNumBlock {
+				idxFirstNotExpiredTx = i
+				break
+			} else {
+				cb(ptx.tx)
+			}
+		}
+		p.txs = p.txs[idxFirstNotExpiredTx:]
+	}
+
+	if len(p.txs) == 0 {
+		return
+	}
+
+	if ttlDuration > 0 {
+		idxFirstNotExpiredTx := len(p.txs)
+		for i, ptx := range p.txs {
+			// once found, we can break because these are ordered
+			if now.Sub(ptx.tx.timestamp) <= ttlDuration {
+				idxFirstNotExpiredTx = i
+				break
+			} else {
+				cb(ptx.tx)
+			}
+		}
+		p.txs = p.txs[idxFirstNotExpiredTx:]
 	}
 }
