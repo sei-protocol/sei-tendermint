@@ -171,7 +171,7 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 	}
 
 	first := queue[0]
-	if tx.evmNonce < first.evmNonce {
+	if tx.evmNonce < first.evmNonce || (tx.evmNonce == first.evmNonce && tx.timestamp.Before(first.timestamp)) {
 		if idx, ok := pq.findTxIndexUnsafe(first); ok {
 			heap.Remove(pq, idx)
 		}
