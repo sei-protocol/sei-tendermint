@@ -114,7 +114,7 @@ func (pq *TxPriorityQueue) NumTxs() int {
 func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 	if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 		for i, t := range queue {
-			if t == tx {
+			if t.tx.Key() == tx.tx.Key() {
 				pq.evmQueue[tx.evmAddress] = append(queue[:i], queue[i+1:]...)
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
