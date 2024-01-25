@@ -229,12 +229,25 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
 // for debugging situations where invariant violations occur
 func (pq *TxPriorityQueue) print() {
-	for _, tx := range pq.txs {
+	for idx, tx := range pq.txs {
+		if tx == nil {
+			panic(fmt.Sprintf("DEBUG PRINT: found nil item on heap: idx=%d\n", idx))
+		}
+		if tx.tx == nil {
+			panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on heap: idx=%d\n", idx))
+		}
 		fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, hash=%x\n", tx.evmAddress, tx.evmNonce, tx.tx.Key())
 	}
 
-	for _, queue := range pq.evmQueue {
+	for addr, queue := range pq.evmQueue {
 		for idx, tx := range queue {
+			if tx == nil {
+				panic(fmt.Sprintf("DEBUG PRINT: found nil item on evmQueue(%s): idx=%d\n", addr, idx))
+			}
+			if tx.tx == nil {
+				panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on  evmQueue(%s): idx=%d\n", addr, idx))
+			}
+
 			fmt.Printf("DEBUG PRINT: evmQueue(%s)[%d]: nonce=%d, hash=%x\n", tx.evmAddress, idx, tx.evmNonce, tx.tx.Key())
 		}
 	}
@@ -246,6 +259,13 @@ func (pq *TxPriorityQueue) PushTx(tx *WrappedTx) {
 	pq.checkInvariants("PushTx start")
 	defer pq.checkInvariants("PushTx end")
 	defer pq.mtx.Unlock()
+
+	if tx == nil {
+		panic("PushTx: nil tx")
+	}
+	if tx.tx == nil {
+		panic("PushTx: nil tx.tx")
+	}
 
 	pq.pushTxUnsafe(tx)
 }
