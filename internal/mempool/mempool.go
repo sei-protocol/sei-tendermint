@@ -411,36 +411,28 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		}
 	}()
 
-	txs := make([]types.Tx, 0, txmp.priorityIndex.NumTxs())
+	var txs []types.Tx
 	if uint64(txmp.Size()) < txmp.config.TxNotifyThreshold {
 		// do not reap anything if threshold is not met
 		return txs
 	}
-	for txmp.priorityIndex.NumTxs() > 0 {
-		wtx := txmp.priorityIndex.PopTx()
-		txs = append(txs, wtx.tx)
-		wTxs = append(wTxs, wtx)
-
-		fmt.Printf("DEBUG: priorityIndex.PopTx() hash=%x, nonce=%d, address=%s\n", wtx.tx.Key(), wtx.evmNonce, wtx.evmAddress)
-
+	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
-		// Ensure we have capacity for the transaction with respect to the
-		// transaction size.
 		if maxBytes > -1 && totalSize+size > maxBytes {
-			return txs[:len(txs)-1]
+			return false
 		}
-
 		totalSize += size
-
-		// ensure we have capacity for the transaction with respect to total gas
 		gas := totalGas + wtx.gasWanted
 		if maxGas > -1 && gas > maxGas {
-			return txs[:len(txs)-1]
+			return false
 		}
 
 		totalGas = gas
-	}
+
+		txs = append(txs, wtx.tx)
+		return true
+	})
 
 	return txs
 }

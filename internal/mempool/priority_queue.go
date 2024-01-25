@@ -240,6 +240,30 @@ func (pq *TxPriorityQueue) PopTx() *WrappedTx {
 }
 
 // dequeue up to `max` transactions and reenqueue while locked
+func (pq *TxPriorityQueue) ForEachTx(handler func(wtx *WrappedTx) bool) {
+	pq.mtx.Lock()
+	defer pq.mtx.Unlock()
+
+	numTxs := len(pq.txs) + pq.numQueuedUnsafe()
+
+	txs := make([]*WrappedTx, 0, numTxs)
+
+	defer func() {
+		for _, tx := range txs {
+			pq.pushTxUnsafe(tx)
+		}
+	}()
+
+	for i := 0; i < numTxs; i++ {
+		popped := pq.popTxUnsafe()
+		txs = append(txs, popped)
+		if !handler(popped) {
+			return
+		}
+	}
+}
+
+// dequeue up to `max` transactions and reenqueue while locked
 func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
