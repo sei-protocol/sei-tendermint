@@ -31,7 +31,7 @@ func binarySearch(queue []*WrappedTx, tx *WrappedTx) int {
 	low, high := 0, len(queue)
 	for low < high {
 		mid := low + (high-low)/2
-		if queue[mid].evmNonce <= tx.evmNonce {
+		if queue[mid].evmNonce < tx.evmNonce || (queue[mid].evmNonce == tx.evmNonce && queue[mid].timestamp.Before(tx.timestamp)) {
 			low = mid + 1
 		} else {
 			high = mid
@@ -119,11 +119,6 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 				pq.evmQueue[tx.evmAddress] = append(queue[:i], queue[i+1:]...)
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
-				} else {
-					// only if removing the first item, then push next onto queue
-					if i == 0 {
-						heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
-					}
 				}
 				break
 			}
@@ -151,9 +146,13 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 
 	if idx, ok := pq.findTxIndexUnsafe(tx); ok {
 		heap.Remove(pq, idx)
-	}
-
-	if tx.isEVM {
+		if tx.isEVM {
+			pq.removeQueuedEvmTxUnsafe(tx)
+			if len(pq.evmQueue[tx.evmAddress]) > 0 {
+				heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
+			}
+		}
+	} else if tx.isEVM {
 		pq.removeQueuedEvmTxUnsafe(tx)
 	}
 }
@@ -300,6 +299,9 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	}
 
 	pq.removeQueuedEvmTxUnsafe(tx)
+	if len(pq.evmQueue[tx.evmAddress]) > 0 {
+		heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
+	}
 
 	return tx
 }
