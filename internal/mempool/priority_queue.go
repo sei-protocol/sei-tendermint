@@ -117,7 +117,7 @@ func (pq *TxPriorityQueue) NumTxs() int {
 func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 	if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 		for i, t := range queue {
-			if t.evmNonce == tx.evmNonce {
+			if t == tx {
 				pq.evmQueue[tx.evmAddress] = append(queue[:i], queue[i+1:]...)
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
@@ -148,6 +148,9 @@ func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
+
+	pq.checkInvariants("RemoveTx start")
+	defer pq.checkInvariants("RemoveTx end")
 
 	if idx, ok := pq.findTxIndexUnsafe(tx); ok {
 		heap.Remove(pq, idx)
