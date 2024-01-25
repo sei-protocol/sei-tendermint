@@ -3,9 +3,10 @@ package mempool
 import (
 	"container/heap"
 	"fmt"
-	tmmath "github.com/tendermint/tendermint/libs/math"
 	"sort"
 	"sync"
+
+	tmmath "github.com/tendermint/tendermint/libs/math"
 )
 
 var _ heap.Interface = (*TxPriorityQueue)(nil)
