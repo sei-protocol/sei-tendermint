@@ -197,7 +197,7 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 				}
 			} else {
 				pq.print()
-				panic(fmt.Sprintf("DEBUG INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key())
+				panic(fmt.Sprintf("DEBUG INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
 			}
 		}
 	}
