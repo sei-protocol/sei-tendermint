@@ -2,8 +2,11 @@ package mempool
 
 import (
 	"container/heap"
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
+	"time"
 
 	tmmath "github.com/tendermint/tendermint/libs/math"
 )
@@ -13,8 +16,32 @@ var _ heap.Interface = (*TxPriorityQueue)(nil)
 // TxPriorityQueue defines a thread-safe priority queue for valid transactions.
 type TxPriorityQueue struct {
 	mtx      sync.RWMutex
-	txs      []*WrappedTx
-	evmQueue map[string][]*WrappedTx
+	txs      []*WrappedTx            // priority heap
+	evmQueue map[string][]*WrappedTx // sorted by nonce
+}
+
+func (pq *TxPriorityQueue) printQueue() {
+	tick := time.NewTicker(1 * time.Second)
+	go func() {
+		for {
+			<-tick.C
+			pq.mtx.RLock()
+			for addr, list := range pq.evmQueue {
+				var nonces []string
+				dupes := make(map[uint64]struct{})
+
+				for _, tx := range list {
+					if _, ok := dupes[tx.evmNonce]; ok {
+						panic("DEBUG: FOUND A DUPLICATE NONCE")
+					}
+					dupes[tx.evmNonce] = struct{}{}
+					nonces = append(nonces, fmt.Sprintf("%d", tx.evmNonce))
+				}
+				fmt.Printf("DEBUG: addr: %s, nonces: %s\n", addr, strings.Join(nonces, ","))
+			}
+			pq.mtx.RUnlock()
+		}
+	}()
 }
 
 func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx) []*WrappedTx {
