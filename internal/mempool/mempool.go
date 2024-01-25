@@ -402,15 +402,6 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		totalSize int64
 	)
 
-	// wTxs contains a list of *WrappedTx retrieved from the priority queue that
-	// need to be re-enqueued prior to returning.
-	wTxs := make([]*WrappedTx, 0, txmp.priorityIndex.NumTxs())
-	defer func() {
-		for _, wtx := range wTxs {
-			txmp.priorityIndex.PushTx(wtx)
-		}
-	}()
-
 	var txs []types.Tx
 	if uint64(txmp.Size()) < txmp.config.TxNotifyThreshold {
 		// do not reap anything if threshold is not met
