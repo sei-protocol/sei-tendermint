@@ -65,13 +65,8 @@ type WrappedTx struct {
 	// a reCheckTx callback executed.
 	removed bool
 
-	// this is the callback that can be called when a transaction is removed
-	removeHandler func(removeFromCache bool)
-
-	// evm properties that aid in prioritization
-	evmAddress string
-	evmNonce   uint64
-	isEVM      bool
+	// this is the callback that can be called when a transaction expires
+	expiredCallback func(removeFromCache bool)
 }
 
 func (wtx *WrappedTx) Size() int {
