@@ -3,6 +3,7 @@ package mempool
 import (
 	"container/heap"
 	"fmt"
+	"github.com/tendermint/tendermint/types"
 	"sort"
 	"sync"
 
@@ -14,8 +15,9 @@ var _ heap.Interface = (*TxPriorityQueue)(nil)
 // TxPriorityQueue defines a thread-safe priority queue for valid transactions.
 type TxPriorityQueue struct {
 	mtx      sync.RWMutex
-	txs      []*WrappedTx            // priority heap
-	evmQueue map[string][]*WrappedTx // sorted by nonce
+	txs      []*WrappedTx             // priority heap
+	evmQueue map[string][]*WrappedTx  // sorted by nonce
+	keys     map[types.TxKey]struct{} // unique keys in the queue
 }
 
 func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx, i int) []*WrappedTx {
@@ -44,6 +46,7 @@ func NewTxPriorityQueue() *TxPriorityQueue {
 	pq := &TxPriorityQueue{
 		txs:      make([]*WrappedTx, 0),
 		evmQueue: make(map[string][]*WrappedTx),
+		keys:     make(map[types.TxKey]struct{}),
 	}
 
 	heap.Init(pq)
@@ -140,6 +143,7 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	pq.mtx.Lock()
 	pq.checkInvariants("RemoveTx start")
 	defer func() {
+		delete(pq.keys, tx.tx.Key())
 		pq.checkInvariants("RemoveTx end")
 		pq.mtx.Unlock()
 	}()
@@ -158,6 +162,11 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 }
 
 func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
+	if _, ok := pq.keys[tx.tx.Key()]; ok {
+		return
+	}
+	pq.keys[tx.tx.Key()] = struct{}{}
+
 	if !tx.isEVM {
 		heap.Push(pq, tx)
 		return
@@ -200,6 +209,12 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
 		}
 		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
+
+		if _, ok := pq.keys[tx.tx.Key()]; !ok {
+			pq.print()
+			panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
+		}
+
 		if tx.isEVM {
 			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 				if queue[0].tx.Key() != tx.tx.Key() {
@@ -223,6 +238,10 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 					pq.print()
 					panic(fmt.Sprintf("INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
 				}
+			}
+			if _, ok := pq.keys[tx.tx.Key()]; !ok {
+				pq.print()
+				panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
 			}
 			if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
 				pq.print()
@@ -293,6 +312,8 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	}
 
 	tx := x.(*WrappedTx)
+
+	defer delete(pq.keys, tx.tx.Key())
 
 	if !tx.isEVM {
 		return tx
