@@ -281,7 +281,6 @@ func (txmp *TxMempool) CheckTx(
 	// transaction is already present in the cache, i.e. false is returned, then we
 	// check if we've seen this transaction and error if we have.
 	if !txmp.cache.Push(tx) {
-		fmt.Printf("DEBUG: DUPLICATE hash=%x\n", txHash)
 		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
 		return types.ErrTxInCache
 	}
@@ -291,8 +290,6 @@ func (txmp *TxMempool) CheckTx(
 		txmp.cache.Remove(tx)
 		res.Log = txmp.AppendCheckTxErr(res.Log, err.Error())
 	}
-
-	fmt.Printf("DEBUG: txmp.cache.Push(tx) hash=%x, nonce=%d, address=%s\n", txHash, res.EVMNonce, res.EVMSenderAddress)
 
 	wtx := &WrappedTx{
 		tx:         tx,

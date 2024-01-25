@@ -119,12 +119,8 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
 				} else {
-					if pq.evmQueue[tx.evmAddress][0].tx.Key() == tx.tx.Key() {
-						panic(fmt.Sprintf("DEBUG: DUPLICATE FOUND while pushing next, hash=%x\n", tx.tx.Key()))
-					}
 					// only if removing the first item, then push next onto queue
 					if i == 0 {
-						fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe heap.Push next, hash=%x\n", pq.evmQueue[tx.evmAddress][0].tx.Key())
 						heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
 					}
 				}
@@ -140,7 +136,6 @@ func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 			return i, true
 		}
 	}
-	fmt.Printf("DEBUG: tx not found in heap: %x\n", tx.tx.Key())
 	return 0, false
 }
 
@@ -149,22 +144,16 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	pq.mtx.Lock()
 	defer pq.mtx.Unlock()
 
-	pq.checkInvariants("RemoveTx start")
-	defer pq.checkInvariants("RemoveTx end")
-
 	if idx, ok := pq.findTxIndexUnsafe(tx); ok {
 		heap.Remove(pq, idx)
 	}
 
 	if tx.isEVM {
-		fmt.Printf("DEBUG: RemoveTx removeQueuedEvmTxUnsafe, hash=%x\n", tx.tx.Key())
 		pq.removeQueuedEvmTxUnsafe(tx)
 	}
 }
 
 func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
-	pq.checkInvariants("pushTxUnsafe start")
-	defer pq.checkInvariants("pushTxUnsafe end")
 	if !tx.isEVM {
 		heap.Push(pq, tx)
 		return
@@ -179,9 +168,7 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 
 	first := queue[0]
 	if tx.evmNonce < first.evmNonce {
-		fmt.Printf("DEBUG: swapping %d for %d: hash=%x\n", first.evmNonce, tx.evmNonce, tx.tx.Key())
 		if idx, ok := pq.findTxIndexUnsafe(first); ok {
-			fmt.Printf("DEBUG: swapping (found idx=%d) %d for %d: %x\n", idx, first.evmNonce, tx.evmNonce, tx.tx.Key())
 			heap.Remove(pq, idx)
 		}
 		heap.Push(pq, tx)
@@ -191,24 +178,25 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 
 }
 
+// these can be used to troubleshoot invariant violations
 func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
 	uniqHashes := make(map[string]bool)
 	for _, tx := range pq.txs {
 		if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
 			pq.print()
-			panic(fmt.Sprintf("DEBUG INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
+			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
 		}
 		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
 		if tx.isEVM {
 			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 				if queue[0].tx.Key() != tx.tx.Key() {
 					pq.print()
-					panic(fmt.Sprintf("DEBUG INVARIANT (%s): tx in heap but not at front of evmQueue hash=%x", msg, tx.tx.Key()))
+					panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not at front of evmQueue hash=%x", msg, tx.tx.Key()))
 				}
 			} else {
 				pq.print()
-				panic(fmt.Sprintf("DEBUG INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
+				panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
 			}
 		}
 	}
@@ -221,18 +209,19 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 				_, ok := pq.findTxIndexUnsafe(tx)
 				if !ok {
 					pq.print()
-					panic(fmt.Sprintf("DEBUG INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
+					panic(fmt.Sprintf("INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
 				}
 			}
 			if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
 				pq.print()
-				panic(fmt.Sprintf("DEBUG INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
+				panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
 			}
 			hashes[fmt.Sprintf("%x", tx.tx.Key())] = true
 		}
 	}
 }
 
+// for debugging situations where invariant violations occur
 func (pq *TxPriorityQueue) print() {
 	for _, tx := range pq.txs {
 		fmt.Printf("DEBUG PRINT: heap: nonce=%d, hash=%x\n", tx.evmNonce, tx.tx.Key())
@@ -253,9 +242,6 @@ func (pq *TxPriorityQueue) PushTx(tx *WrappedTx) {
 }
 
 func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
-	pq.checkInvariants("popTxUnsafe start")
-	defer pq.checkInvariants("popTxUnsafe end")
-
 	if len(pq.txs) == 0 {
 		return nil
 	}
@@ -267,11 +253,9 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	tx := x.(*WrappedTx)
 
 	if !tx.isEVM {
-		fmt.Printf("DEBUG: popTxUnsafe NOT EVM, hash=%x\n", tx.tx.Key())
 		return tx
 	}
 
-	fmt.Printf("DEBUG: popTxUnsafe removeQueuedEvmTxUnsafe, hash=%x\n", tx.tx.Key())
 	pq.removeQueuedEvmTxUnsafe(tx)
 
 	return tx
