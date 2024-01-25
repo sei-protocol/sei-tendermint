@@ -122,8 +122,11 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 					if pq.evmQueue[tx.evmAddress][0].tx.Key() == tx.tx.Key() {
 						panic(fmt.Sprintf("DEBUG: DUPLICATE FOUND while pushing next, hash=%x\n", tx.tx.Key()))
 					}
-					fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe heap.Push, hash=%x\n", pq.evmQueue[tx.evmAddress][0].tx.Key())
-					heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
+					// only if removing the first item, then push next onto queue
+					if i == 0 {
+						fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe heap.Push next, hash=%x\n", pq.evmQueue[tx.evmAddress][0].tx.Key())
+						heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
+					}
 				}
 				break
 			}
@@ -190,7 +193,13 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 
 func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
+	uniqHashes := make(map[string]bool)
 	for _, tx := range pq.txs {
+		if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
+			pq.print()
+			panic(fmt.Sprintf("DEBUG INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
+		}
+		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
 		if tx.isEVM {
 			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 				if queue[0].tx.Key() != tx.tx.Key() {

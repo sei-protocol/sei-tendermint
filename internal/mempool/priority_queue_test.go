@@ -178,6 +178,7 @@ func TestTxPriorityQueue(t *testing.T) {
 			pq.PushTx(&WrappedTx{
 				priority:  int64(i),
 				timestamp: time.Now(),
+				tx:        []byte(fmt.Sprintf("%d", i)),
 			})
 
 			wg.Done()
@@ -332,6 +333,7 @@ func TestTxPriorityQueue_RemoveTx(t *testing.T) {
 		x := rng.Intn(100000)
 		pq.PushTx(&WrappedTx{
 			priority: int64(x),
+			tx:       []byte(fmt.Sprintf("%d", i)),
 		})
 
 		values[i] = x
