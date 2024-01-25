@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"container/heap"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -132,7 +133,7 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 
 func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 	for i, t := range pq.txs {
-		if t == tx {
+		if t.tx.Key() == tx.tx.Key() {
 			return i, true
 		}
 	}
@@ -142,6 +143,10 @@ func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 // RemoveTx removes a specific transaction from the priority queue.
 func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	pq.mtx.Lock()
+
+	pq.checkInvariants("RemoveTx start")
+	defer pq.checkInvariants("RemoveTx end")
+
 	defer pq.mtx.Unlock()
 
 	if idx, ok := pq.findTxIndexUnsafe(tx); ok {
@@ -180,65 +185,68 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 
 // These are available if we need to test the invariant checks
 // these can be used to troubleshoot invariant violations
-//func (pq *TxPriorityQueue) checkInvariants(msg string) {
-//
-//	uniqHashes := make(map[string]bool)
-//	for _, tx := range pq.txs {
-//		if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
-//			pq.print()
-//			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
-//		}
-//		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
-//		if tx.isEVM {
-//			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
-//				if queue[0].tx.Key() != tx.tx.Key() {
-//					pq.print()
-//					panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not at front of evmQueue hash=%x", msg, tx.tx.Key()))
-//				}
-//			} else {
-//				pq.print()
-//				panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
-//			}
-//		}
-//	}
-//
-//	// each item in all queues should be unique nonce
-//	for _, queue := range pq.evmQueue {
-//		hashes := make(map[string]bool)
-//		for idx, tx := range queue {
-//			if idx == 0 {
-//				_, ok := pq.findTxIndexUnsafe(tx)
-//				if !ok {
-//					pq.print()
-//					panic(fmt.Sprintf("INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
-//				}
-//			}
-//			if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
-//				pq.print()
-//				panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
-//			}
-//			hashes[fmt.Sprintf("%x", tx.tx.Key())] = true
-//		}
-//	}
-//}
+func (pq *TxPriorityQueue) checkInvariants(msg string) {
+
+	uniqHashes := make(map[string]bool)
+	for _, tx := range pq.txs {
+		if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
+			pq.print()
+			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
+		}
+		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
+		if tx.isEVM {
+			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
+				if queue[0].tx.Key() != tx.tx.Key() {
+					pq.print()
+					panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not at front of evmQueue hash=%x", msg, tx.tx.Key()))
+				}
+			} else {
+				pq.print()
+				panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
+			}
+		}
+	}
+
+	// each item in all queues should be unique nonce
+	for _, queue := range pq.evmQueue {
+		hashes := make(map[string]bool)
+		for idx, tx := range queue {
+			if idx == 0 {
+				_, ok := pq.findTxIndexUnsafe(tx)
+				if !ok {
+					pq.print()
+					panic(fmt.Sprintf("INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
+				}
+			}
+			if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
+				pq.print()
+				panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
+			}
+			hashes[fmt.Sprintf("%x", tx.tx.Key())] = true
+		}
+	}
+}
 
 // for debugging situations where invariant violations occur
-//func (pq *TxPriorityQueue) print() {
-//	for _, tx := range pq.txs {
-//		fmt.Printf("DEBUG PRINT: heap: nonce=%d, hash=%x\n", tx.evmNonce, tx.tx.Key())
-//	}
-//
-//	for _, queue := range pq.evmQueue {
-//		for idx, tx := range queue {
-//			fmt.Printf("DEBUG PRINT: evmQueue[%d]: nonce=%d, hash=%x\n", idx, tx.evmNonce, tx.tx.Key())
-//		}
-//	}
-//}
+func (pq *TxPriorityQueue) print() {
+	for _, tx := range pq.txs {
+		fmt.Printf("DEBUG PRINT: heap: nonce=%d, hash=%x\n", tx.evmNonce, tx.tx.Key())
+	}
+
+	for _, queue := range pq.evmQueue {
+		for idx, tx := range queue {
+			fmt.Printf("DEBUG PRINT: evmQueue[%d]: nonce=%d, hash=%x\n", idx, tx.evmNonce, tx.tx.Key())
+		}
+	}
+}
 
 // PushTx adds a valid transaction to the priority queue. It is thread safe.
 func (pq *TxPriorityQueue) PushTx(tx *WrappedTx) {
 	pq.mtx.Lock()
+	pq.checkInvariants("PushTx start")
+	defer pq.checkInvariants("PushTx end")
 	defer pq.mtx.Unlock()
+
 	pq.pushTxUnsafe(tx)
 }
 
@@ -265,7 +273,11 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 // PopTx removes the top priority transaction from the queue. It is thread safe.
 func (pq *TxPriorityQueue) PopTx() *WrappedTx {
 	pq.mtx.Lock()
+
+	pq.checkInvariants("PopTx start")
+	defer pq.checkInvariants("PopTx end")
 	defer pq.mtx.Unlock()
+
 	return pq.popTxUnsafe()
 }
 
