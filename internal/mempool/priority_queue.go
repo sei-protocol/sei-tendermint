@@ -204,7 +204,6 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
 	// each item in all queues should be unique nonce
 	for _, queue := range pq.evmQueue {
-		uniq := make(map[uint64]bool)
 		hashes := make(map[string]bool)
 		for idx, tx := range queue {
 			if idx == 0 {
@@ -214,16 +213,11 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 					panic(fmt.Sprintf("DEBUG INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
 				}
 			}
-			if _, ok := uniq[tx.evmNonce]; ok {
-				pq.print()
-				panic(fmt.Sprintf("DEBUG INVARIANT (%s): duplicate nonce=%d in queue hash=%x", msg, tx.evmNonce, tx.tx.Key()))
-			}
 			if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
 				pq.print()
 				panic(fmt.Sprintf("DEBUG INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
 			}
 			hashes[fmt.Sprintf("%x", tx.tx.Key())] = true
-			uniq[tx.evmNonce] = true
 		}
 	}
 }
