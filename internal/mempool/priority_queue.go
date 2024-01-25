@@ -142,7 +142,6 @@ func (pq *TxPriorityQueue) NumTxs() int {
 }
 
 func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
-	fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe, hash=%x\n", tx.tx.Key())
 	if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 		for i, t := range queue {
 			if t.evmNonce == tx.evmNonce {
@@ -150,6 +149,9 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
 				} else {
+					if pq.evmQueue[tx.evmAddress][0].tx.Key() == tx.tx.Key() {
+						panic(fmt.Sprintf("DEBUG: DUPLICATE FOUND while pushing next, hash=%x\n", tx.tx.Key()))
+					}
 					fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe heap.Push, hash=%x\n", pq.evmQueue[tx.evmAddress][0].tx.Key())
 					heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
 				}
@@ -181,6 +183,7 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	}
 
 	if tx.isEVM {
+		fmt.Printf("DEBUG: RemoveTx removeQueuedEvmTxUnsafe, hash=%x\n", tx.tx.Key())
 		pq.removeQueuedEvmTxUnsafe(tx)
 	}
 }
@@ -232,6 +235,7 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 		return tx
 	}
 
+	fmt.Printf("DEBUG: popTxUnsafe removeQueuedEvmTxUnsafe, hash=%x\n", tx.tx.Key())
 	pq.removeQueuedEvmTxUnsafe(tx)
 
 	return tx
