@@ -245,7 +245,7 @@ func (pq *TxPriorityQueue) print() {
 			fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, tx.tx is nil \n", tx.evmAddress, tx.evmNonce)
 			continue
 		}
-		fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, hash=%x\n", tx.evmAddress, tx.evmNonce, tx.tx.Key())
+		fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, hash=%x, time=%d\n", tx.evmAddress, tx.evmNonce, tx.tx.Key(), tx.timestamp.UnixNano())
 	}
 
 	for addr, queue := range pq.evmQueue {
@@ -259,7 +259,7 @@ func (pq *TxPriorityQueue) print() {
 				continue
 			}
 
-			fmt.Printf("DEBUG PRINT: evmQueue(%s)[%d]: nonce=%d, hash=%x\n", tx.evmAddress, idx, tx.evmNonce, tx.tx.Key())
+			fmt.Printf("DEBUG PRINT: evmQueue(%s)[%d]: nonce=%d, hash=%x, time=%d\n", tx.evmAddress, idx, tx.evmNonce, tx.tx.Key(), tx.timestamp.UnixNano())
 		}
 	}
 }
