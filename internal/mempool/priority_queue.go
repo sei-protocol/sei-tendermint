@@ -230,12 +230,12 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
 func (pq *TxPriorityQueue) print() {
 	for _, tx := range pq.txs {
-		fmt.Printf("DEBUG PRINT: heap: %x\n", tx.tx.Key())
+		fmt.Printf("DEBUG PRINT: heap: nonce=%d, hash=%x\n", tx.evmNonce, tx.tx.Key())
 	}
 
-	for addr, queue := range pq.evmQueue {
+	for _, queue := range pq.evmQueue {
 		for idx, tx := range queue {
-			fmt.Printf("DEBUG PRINT: evmQueue(%s): %d: %x\n", addr, idx, tx.tx.Key())
+			fmt.Printf("DEBUG PRINT: evmQueue[%d]: nonce=%d, hash=%x\n", idx, tx.evmNonce, tx.tx.Key())
 		}
 	}
 }
