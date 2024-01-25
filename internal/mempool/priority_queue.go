@@ -17,10 +17,7 @@ type TxPriorityQueue struct {
 	evmQueue map[string][]*WrappedTx // sorted by nonce
 }
 
-func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx) []*WrappedTx {
-	// Using BinarySearch to find the appropriate index to insert tx
-	i := binarySearch(queue, tx)
-
+func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx, i int) []*WrappedTx {
 	// Make room for new value and add it
 	queue = append(queue, nil)
 	copy(queue[i+1:], queue[i:])
@@ -33,7 +30,7 @@ func binarySearch(queue []*WrappedTx, tx *WrappedTx) int {
 	low, high := 0, len(queue)
 	for low < high {
 		mid := low + (high-low)/2
-		if queue[mid].evmNonce < tx.evmNonce {
+		if queue[mid].evmNonce <= tx.evmNonce {
 			low = mid + 1
 		} else {
 			high = mid
@@ -186,7 +183,9 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 		}
 		heap.Push(pq, tx)
 	}
-	pq.evmQueue[tx.evmAddress] = insertToEVMQueue(queue, tx)
+
+	pq.evmQueue[tx.evmAddress] = insertToEVMQueue(queue, tx, binarySearch(queue, tx))
+
 }
 
 func (pq *TxPriorityQueue) checkInvariants(msg string) {
