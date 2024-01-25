@@ -142,7 +142,7 @@ func (pq *TxPriorityQueue) NumTxs() int {
 }
 
 func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
-	fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe, hash=%x", tx.tx.Key())
+	fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe, hash=%x\n", tx.tx.Key())
 	if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
 		for i, t := range queue {
 			if t.evmNonce == tx.evmNonce {
@@ -150,14 +150,14 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) {
 				if len(pq.evmQueue[tx.evmAddress]) == 0 {
 					delete(pq.evmQueue, tx.evmAddress)
 				} else {
-					fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe heap.Push, hash=%x", pq.evmQueue[tx.evmAddress][0].tx.Key())
+					fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe heap.Push, hash=%x\n", pq.evmQueue[tx.evmAddress][0].tx.Key())
 					heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
 				}
 				break
 			}
 		}
 	} else {
-		fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe no queue, hash=%x", pq.evmQueue[tx.evmAddress][0].tx.Key())
+		fmt.Printf("DEBUG: removeQueuedEvmTxUnsafe no queue, hash=%x\n", pq.evmQueue[tx.evmAddress][0].tx.Key())
 	}
 }
 
@@ -167,7 +167,7 @@ func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 			return i, true
 		}
 	}
-	fmt.Printf("DEBUG: tx not found in heap: %x", tx.tx.Key())
+	fmt.Printf("DEBUG: tx not found in heap: %x\n", tx.tx.Key())
 	return 0, false
 }
 
@@ -200,12 +200,12 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 
 	first := queue[0]
 	if tx.evmNonce < first.evmNonce {
-		fmt.Printf("DEBUG: swapping %d for %d: hash=%x", first.evmNonce, tx.evmNonce, tx.tx.Key())
+		fmt.Printf("DEBUG: swapping %d for %d: hash=%x\n", first.evmNonce, tx.evmNonce, tx.tx.Key())
 		if idx, ok := pq.findTxIndexUnsafe(first); ok {
-			fmt.Printf("DEBUG: swapping %d for %d: %x", first.evmNonce, tx.evmNonce, tx.tx.Key())
+			fmt.Printf("DEBUG: swapping %d for %d: %x\n", first.evmNonce, tx.evmNonce, tx.tx.Key())
 			heap.Remove(pq, idx)
 		} else {
-			fmt.Printf("DEBUG: DID NOT FIND swapping %d for %d: hash=%x", first.evmNonce, tx.evmNonce, tx.tx.Key())
+			fmt.Printf("DEBUG: DID NOT FIND swapping %d for %d: hash=%x\n", first.evmNonce, tx.evmNonce, tx.tx.Key())
 		}
 		heap.Push(pq, tx)
 	}
@@ -228,7 +228,7 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	tx := x.(*WrappedTx)
 
 	if !tx.isEVM {
-		fmt.Printf("DEBUG: popTxUnsafe NOT EVM, hash=%x", tx.tx.Key())
+		fmt.Printf("DEBUG: popTxUnsafe NOT EVM, hash=%x\n", tx.tx.Key())
 		return tx
 	}
 
