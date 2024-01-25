@@ -143,11 +143,11 @@ func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 // RemoveTx removes a specific transaction from the priority queue.
 func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 	pq.mtx.Lock()
-
 	pq.checkInvariants("RemoveTx start")
-	defer pq.checkInvariants("RemoveTx end")
-
-	defer pq.mtx.Unlock()
+	defer func() {
+		pq.checkInvariants("RemoveTx end")
+		pq.mtx.Unlock()
+	}()
 
 	if idx, ok := pq.findTxIndexUnsafe(tx); ok {
 		heap.Remove(pq, idx)
@@ -236,6 +236,7 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
 // for debugging situations where invariant violations occur
 func (pq *TxPriorityQueue) print() {
+	fmt.Println("PRINT PRIORITY QUEUE ****************** ")
 	for _, tx := range pq.txs {
 		if tx == nil {
 			fmt.Printf("DEBUG PRINT: heap (nil): nonce=?, hash=?\n")
@@ -268,8 +269,10 @@ func (pq *TxPriorityQueue) print() {
 func (pq *TxPriorityQueue) PushTx(tx *WrappedTx) {
 	pq.mtx.Lock()
 	pq.checkInvariants("PushTx start")
-	defer pq.checkInvariants("PushTx end")
-	defer pq.mtx.Unlock()
+	defer func() {
+		pq.checkInvariants("PushTx end")
+		pq.mtx.Unlock()
+	}()
 
 	if tx == nil {
 		panic("PushTx: nil tx")
@@ -306,8 +309,10 @@ func (pq *TxPriorityQueue) PopTx() *WrappedTx {
 	pq.mtx.Lock()
 
 	pq.checkInvariants("PopTx start")
-	defer pq.checkInvariants("PopTx end")
-	defer pq.mtx.Unlock()
+	defer func() {
+		pq.checkInvariants("PopTx end")
+		pq.mtx.Unlock()
+	}()
 
 	return pq.popTxUnsafe()
 }
