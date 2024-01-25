@@ -230,12 +230,12 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 // for debugging situations where invariant violations occur
 func (pq *TxPriorityQueue) print() {
 	for _, tx := range pq.txs {
-		fmt.Printf("DEBUG PRINT: heap: nonce=%d, hash=%x\n", tx.evmNonce, tx.tx.Key())
+		fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, hash=%x\n", tx.evmAddress, tx.evmNonce, tx.tx.Key())
 	}
 
 	for _, queue := range pq.evmQueue {
 		for idx, tx := range queue {
-			fmt.Printf("DEBUG PRINT: evmQueue[%d]: nonce=%d, hash=%x\n", idx, tx.evmNonce, tx.tx.Key())
+			fmt.Printf("DEBUG PRINT: evmQueue(%s)[%d]: nonce=%d, hash=%x\n", tx.evmAddress, idx, tx.evmNonce, tx.tx.Key())
 		}
 	}
 }
