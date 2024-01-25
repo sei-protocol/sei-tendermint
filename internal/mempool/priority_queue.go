@@ -186,9 +186,16 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 // These are available if we need to test the invariant checks
 // these can be used to troubleshoot invariant violations
 func (pq *TxPriorityQueue) checkInvariants(msg string) {
-
 	uniqHashes := make(map[string]bool)
-	for _, tx := range pq.txs {
+	for idx, tx := range pq.txs {
+		if tx == nil {
+			pq.print()
+			panic(fmt.Sprintf("DEBUG PRINT: found nil item on heap: idx=%d\n", idx))
+		}
+		if tx.tx == nil {
+			pq.print()
+			panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on heap: idx=%d\n", idx))
+		}
 		if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
 			pq.print()
 			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
@@ -229,12 +236,14 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 
 // for debugging situations where invariant violations occur
 func (pq *TxPriorityQueue) print() {
-	for idx, tx := range pq.txs {
+	for _, tx := range pq.txs {
 		if tx == nil {
-			panic(fmt.Sprintf("DEBUG PRINT: found nil item on heap: idx=%d\n", idx))
+			fmt.Printf("DEBUG PRINT: heap (nil): nonce=?, hash=?\n")
+			continue
 		}
 		if tx.tx == nil {
-			panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on heap: idx=%d\n", idx))
+			fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, tx.tx is nil \n", tx.evmAddress, tx.evmNonce)
+			continue
 		}
 		fmt.Printf("DEBUG PRINT: heap (%s): nonce=%d, hash=%x\n", tx.evmAddress, tx.evmNonce, tx.tx.Key())
 	}
@@ -242,10 +251,12 @@ func (pq *TxPriorityQueue) print() {
 	for addr, queue := range pq.evmQueue {
 		for idx, tx := range queue {
 			if tx == nil {
-				panic(fmt.Sprintf("DEBUG PRINT: found nil item on evmQueue(%s): idx=%d\n", addr, idx))
+				fmt.Printf("DEBUG PRINT: found nil item on evmQueue(%s): idx=%d\n", addr, idx)
+				continue
 			}
 			if tx.tx == nil {
-				panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on  evmQueue(%s): idx=%d\n", addr, idx))
+				fmt.Printf("DEBUG PRINT: found nil tx.tx on  evmQueue(%s): idx=%d\n", addr, idx)
+				continue
 			}
 
 			fmt.Printf("DEBUG PRINT: evmQueue(%s)[%d]: nonce=%d, hash=%x\n", tx.evmAddress, idx, tx.evmNonce, tx.tx.Key())
