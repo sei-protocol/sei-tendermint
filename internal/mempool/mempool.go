@@ -319,8 +319,24 @@ func (txmp *TxMempool) CheckTx(
 			if err != nil {
 				return err
 			}
+		} else if txmp.isInMempool(wtx.tx) {
+			// if a transaction exists as non-pending and arrives as pending, evict
+			txmp.logger.Debug(
+				"existing transaction no longer valid; arrived as pending in CheckTX",
+				"priority", wtx.priority,
+				"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
+				"err", err,
+				"code", res.Code,
+				"evm", res.IsEVM,
+				"nonce", res.EVMNonce,
+				"address", res.EVMSenderAddress,
+			)
+
+			if wtx.gossipEl != txmp.recheckCursor {
+				panic("corrupted reCheckTx cursor")
+			}
+			txmp.removeTx(wtx, !txmp.config.KeepInvalidTxsInCache)
 		} else {
-			txmp.mustNotExist("existing tx being inserted as pending", wtx)
 			// otherwise add to pending txs store
 			if res.Checker == nil {
 				return errors.New("no checker available for pending transaction")
@@ -334,6 +350,10 @@ func (txmp *TxMempool) CheckTx(
 	}
 
 	return nil
+}
+
+func (txmp *TxMempool) isInMempool(tx types.Tx) bool {
+	return txmp.txStore.GetTxByHash(tx.Key()) != nil && !txmp.txStore.GetTxByHash(tx.Key()).removed
 }
 
 func (txmp *TxMempool) RemoveTxByKey(txKey types.TxKey) error {
