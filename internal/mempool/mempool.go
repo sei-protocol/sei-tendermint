@@ -346,7 +346,8 @@ func (txmp *TxMempool) CheckTx(
 }
 
 func (txmp *TxMempool) isInMempool(tx types.Tx) bool {
-	return txmp.txStore.GetTxByHash(tx.Key()) != nil && !txmp.txStore.GetTxByHash(tx.Key()).removed
+	existingTx := txmp.txStore.GetTxByHash(tx.Key())
+	return existingTx != nil && !existingTx.removed
 }
 
 func (txmp *TxMempool) RemoveTxByKey(txKey types.TxKey) error {
