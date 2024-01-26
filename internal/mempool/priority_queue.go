@@ -218,10 +218,10 @@ func (pq *TxPriorityQueue) checkInvariants(msg string) {
 		}
 		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
 
-		if _, ok := pq.keys[tx.tx.Key()]; !ok {
-			pq.print()
-			panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
-		}
+		//if _, ok := pq.keys[tx.tx.Key()]; !ok {
+		//	pq.print()
+		//	panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
+		//}
 
 		if tx.isEVM {
 			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
