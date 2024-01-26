@@ -139,7 +139,7 @@ func checkTxsRange(ctx context.Context, t *testing.T, cs *State, start, end int)
 		var rCode uint32
 		err := assertMempool(t, cs.txNotifier).CheckTx(ctx, txBytes, func(r *abci.ResponseCheckTx) { rCode = r.Code }, mempool.TxInfo{})
 		require.NoError(t, err, "error after checkTx")
-		require.Equal(t, code.CodeTypeOK, rCode, "checkTx code is error, txBytes %X", txBytes)
+		require.Equal(t, code.CodeTypeOK, rCode, "checkTx code is error, txBytes %X, index=%d", txBytes, i)
 	}
 }
 
@@ -176,7 +176,7 @@ func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 			headerEvent := msg.Data().(types.EventDataNewBlockHeader)
 			n += headerEvent.NumTxs
 			logger.Info("new transactions", "nTxs", headerEvent.NumTxs, "total", n)
-		case <-time.After(60 * time.Second):
+		case <-time.After(3 * time.Second):
 			t.Fatal("Timed out waiting 60s to commit blocks with transactions")
 		}
 	}
@@ -266,6 +266,7 @@ type CounterApplication struct {
 
 	txCount        int
 	mempoolTxCount int
+	lastTx         int
 	mu             sync.Mutex
 }
 
@@ -312,13 +313,14 @@ func (app *CounterApplication) CheckTx(_ context.Context, req *abci.RequestCheck
 	app.mu.Lock()
 	defer app.mu.Unlock()
 
+	// asserts txs are in order
 	txValue := txAsUint64(req.Tx)
-	if txValue != uint64(app.mempoolTxCount) {
+	if txValue != uint64(app.lastTx) {
 		return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
 			Code: code.CodeTypeBadNonce,
 		}}, nil
 	}
-	app.mempoolTxCount++
+	app.lastTx++
 	return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{Code: code.CodeTypeOK}}, nil
 }
 
@@ -331,7 +333,6 @@ func txAsUint64(tx []byte) uint64 {
 func (app *CounterApplication) Commit(context.Context) (*abci.ResponseCommit, error) {
 	app.mu.Lock()
 	defer app.mu.Unlock()
-
 	app.mempoolTxCount = app.txCount
 	return &abci.ResponseCommit{}, nil
 }
