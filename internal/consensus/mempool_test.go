@@ -266,7 +266,6 @@ type CounterApplication struct {
 
 	txCount        int
 	mempoolTxCount int
-	lastTx         int
 	mu             sync.Mutex
 }
 
