@@ -370,6 +370,17 @@ func (p *PendingTxs) Insert(tx *WrappedTx, resCheckTx *abci.ResponseCheckTxV2, t
 	})
 }
 
+func (p *PendingTxs) Exists(tx *WrappedTx) bool {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+	for _, txWithResponse := range p.txs {
+		if txWithResponse.tx.tx.Key() == tx.tx.Key() {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *PendingTxs) Peek(max int) []TxWithResponse {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
