@@ -810,6 +810,14 @@ func (txmp *TxMempool) canAddTx(wtx *WrappedTx) error {
 }
 
 func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
+	existing := txmp.txStore.GetTxByHash(wtx.hash)
+	if existing != nil && !existing.removed {
+		txmp.priorityIndex.lock()
+		defer txmp.priorityIndex.unlock()
+		txmp.priorityIndex.print()
+		panic(fmt.Sprintf("INVARIANT: MEMPOOL address=%s, hash=%x, key=%x nonce=%d in txStore", wtx.evmAddress, wtx.hash, wtx.evmNonce, wtx.tx.Key()))
+	}
+
 	txmp.txStore.SetTx(wtx)
 	txmp.priorityIndex.PushTx(wtx)
 	txmp.heightIndex.Insert(wtx)
