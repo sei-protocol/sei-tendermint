@@ -661,8 +661,6 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 			"num_txs", txmp.Size(),
 		)
 		txmp.notifyTxsAvailable()
-	} else {
-		fmt.Println("DEBUG: ******************************** NOT INSERTING, ALREADY EXISTS")
 	}
 
 	return nil
