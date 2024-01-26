@@ -312,9 +312,6 @@ func (txmp *TxMempool) CheckTx(
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
-			if txmp.pendingTxs.Exists(wtx) {
-				panic(fmt.Sprintf("INVARIANT: MEMPOOL already pending address=%s, hash=%x, key=%x nonce=%d time=%d in txStore", wtx.evmAddress, wtx.hash, wtx.tx.Key(), wtx.evmNonce, wtx.timestamp.UnixNano()))
-			}
 			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
 			if err != nil {
 				return err
@@ -831,16 +828,6 @@ func (txmp *TxMempool) canAddTx(wtx *WrappedTx) error {
 	}
 
 	return nil
-}
-
-func (txmp *TxMempool) mustNotExist(msg string, wtx *WrappedTx) {
-	existing := txmp.txStore.GetTxByHash(wtx.hash)
-	if existing != nil && !existing.removed {
-		txmp.priorityIndex.lock()
-		defer txmp.priorityIndex.unlock()
-		txmp.priorityIndex.print()
-		panic(fmt.Sprintf("INVARIANT: MEMPOOL %s address=%s, hash=%x, key=%x nonce=%d time=%d in txStore", msg, wtx.evmAddress, wtx.hash, wtx.tx.Key(), wtx.evmNonce, wtx.timestamp.UnixNano()))
-	}
 }
 
 func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {

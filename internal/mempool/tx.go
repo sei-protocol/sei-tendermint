@@ -74,6 +74,10 @@ type WrappedTx struct {
 	isEVM      bool
 }
 
+func (wtx *WrappedTx) IsBefore(tx *WrappedTx) bool {
+	return wtx.evmNonce < tx.evmNonce || (wtx.evmNonce == tx.evmNonce && wtx.timestamp.Before(tx.timestamp))
+}
+
 func (wtx *WrappedTx) Size() int {
 	return len(wtx.tx)
 }
@@ -368,17 +372,6 @@ func (p *PendingTxs) Insert(tx *WrappedTx, resCheckTx *abci.ResponseCheckTxV2, t
 		checkTxResponse: resCheckTx,
 		txInfo:          txInfo,
 	})
-}
-
-func (p *PendingTxs) Exists(tx *WrappedTx) bool {
-	p.mtx.RLock()
-	defer p.mtx.RUnlock()
-	for _, txWithResponse := range p.txs {
-		if txWithResponse.tx.tx.Key() == tx.tx.Key() {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *PendingTxs) Peek(max int) []TxWithResponse {
