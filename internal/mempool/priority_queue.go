@@ -293,6 +293,7 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	}
 	tx := x.(*WrappedTx)
 
+	// non-evm transactions do not have txs waiting on a nonce
 	if !tx.isEVM {
 		return tx
 	}
@@ -300,7 +301,11 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	// evm transactions can have txs waiting on this nonce
 	// if there are any, we should replace the heap with the next nonce
 	// for the address
+
+	// remove the first item from the evmQueue
 	pq.removeQueuedEvmTxUnsafe(tx)
+
+	// if there is a next item, now it can be added to the heap
 	if len(pq.evmQueue[tx.evmAddress]) > 0 {
 		heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
 	}
