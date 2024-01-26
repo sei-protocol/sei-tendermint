@@ -331,10 +331,6 @@ func (txmp *TxMempool) CheckTx(
 				"nonce", res.EVMNonce,
 				"address", res.EVMSenderAddress,
 			)
-
-			if wtx.gossipEl != txmp.recheckCursor {
-				panic("corrupted reCheckTx cursor")
-			}
 			txmp.removeTx(wtx, !txmp.config.KeepInvalidTxsInCache)
 		} else {
 			// otherwise add to pending txs store
@@ -659,15 +655,19 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	txmp.metrics.Size.Set(float64(txmp.Size()))
 	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
 
-	txmp.insertTx(wtx)
-	txmp.logger.Debug(
-		"inserted good transaction",
-		"priority", wtx.priority,
-		"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
-		"height", txmp.height,
-		"num_txs", txmp.Size(),
-	)
-	txmp.notifyTxsAvailable()
+	if txmp.insertTx(wtx) {
+		txmp.logger.Debug(
+			"inserted good transaction",
+			"priority", wtx.priority,
+			"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
+			"height", txmp.height,
+			"num_txs", txmp.Size(),
+		)
+		txmp.notifyTxsAvailable()
+	} else {
+		fmt.Println("DEBUG: ******************************** NOT INSERTING, ALREADY EXISTS")
+	}
+
 	return nil
 }
 
@@ -843,8 +843,10 @@ func (txmp *TxMempool) mustNotExist(msg string, wtx *WrappedTx) {
 	}
 }
 
-func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
-	txmp.mustNotExist("insertTx", wtx)
+func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
+	if txmp.isInMempool(wtx.tx) {
+		return false
+	}
 
 	txmp.txStore.SetTx(wtx)
 	txmp.priorityIndex.PushTx(wtx)
@@ -858,6 +860,7 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
 	wtx.gossipEl = gossipEl
 
 	atomic.AddInt64(&txmp.sizeBytes, int64(wtx.Size()))
+	return true
 }
 
 func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
