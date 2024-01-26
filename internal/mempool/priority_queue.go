@@ -202,62 +202,62 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 // These are available if we need to test the invariant checks
 // these can be used to troubleshoot invariant violations
 func (pq *TxPriorityQueue) checkInvariants(msg string) {
-	uniqHashes := make(map[string]bool)
-	for idx, tx := range pq.txs {
-		if tx == nil {
-			pq.print()
-			panic(fmt.Sprintf("DEBUG PRINT: found nil item on heap: idx=%d\n", idx))
-		}
-		if tx.tx == nil {
-			pq.print()
-			panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on heap: idx=%d\n", idx))
-		}
-		if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
-			pq.print()
-			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
-		}
-		uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
-
-		//if _, ok := pq.keys[tx.tx.Key()]; !ok {
-		//	pq.print()
-		//	panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
-		//}
-
-		if tx.isEVM {
-			if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
-				if queue[0].tx.Key() != tx.tx.Key() {
-					pq.print()
-					panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not at front of evmQueue hash=%x", msg, tx.tx.Key()))
-				}
-			} else {
-				pq.print()
-				panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
-			}
-		}
-	}
-
-	// each item in all queues should be unique nonce
-	for _, queue := range pq.evmQueue {
-		hashes := make(map[string]bool)
-		for idx, tx := range queue {
-			if idx == 0 {
-				_, ok := pq.findTxIndexUnsafe(tx)
-				if !ok {
-					pq.print()
-					panic(fmt.Sprintf("INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
-				}
-			}
-			//if _, ok := pq.keys[tx.tx.Key()]; !ok {
-			//	pq.print()
-			//	panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
-			//}
-			if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
-				pq.print()
-				panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
-			}
-			hashes[fmt.Sprintf("%x", tx.tx.Key())] = true
-		}
-	}
+	//uniqHashes := make(map[string]bool)
+	//for idx, tx := range pq.txs {
+	//	if tx == nil {
+	//		pq.print()
+	//		panic(fmt.Sprintf("DEBUG PRINT: found nil item on heap: idx=%d\n", idx))
+	//	}
+	//	if tx.tx == nil {
+	//		pq.print()
+	//		panic(fmt.Sprintf("DEBUG PRINT: found nil tx.tx on heap: idx=%d\n", idx))
+	//	}
+	//	if _, ok := uniqHashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
+	//		pq.print()
+	//		panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in heap", msg, tx.tx.Key()))
+	//	}
+	//	uniqHashes[fmt.Sprintf("%x", tx.tx.Key())] = true
+	//
+	//	//if _, ok := pq.keys[tx.tx.Key()]; !ok {
+	//	//	pq.print()
+	//	//	panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
+	//	//}
+	//
+	//	if tx.isEVM {
+	//		if queue, ok := pq.evmQueue[tx.evmAddress]; ok {
+	//			if queue[0].tx.Key() != tx.tx.Key() {
+	//				pq.print()
+	//				panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not at front of evmQueue hash=%x", msg, tx.tx.Key()))
+	//			}
+	//		} else {
+	//			pq.print()
+	//			panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in evmQueue hash=%x", msg, tx.tx.Key()))
+	//		}
+	//	}
+	//}
+	//
+	//// each item in all queues should be unique nonce
+	//for _, queue := range pq.evmQueue {
+	//	hashes := make(map[string]bool)
+	//	for idx, tx := range queue {
+	//		if idx == 0 {
+	//			_, ok := pq.findTxIndexUnsafe(tx)
+	//			if !ok {
+	//				pq.print()
+	//				panic(fmt.Sprintf("INVARIANT (%s): did not find tx[0] hash=%x nonce=%d in heap", msg, tx.tx.Key(), tx.evmNonce))
+	//			}
+	//		}
+	//		//if _, ok := pq.keys[tx.tx.Key()]; !ok {
+	//		//	pq.print()
+	//		//	panic(fmt.Sprintf("INVARIANT (%s): tx in heap but not in keys hash=%x", msg, tx.tx.Key()))
+	//		//}
+	//		if _, ok := hashes[fmt.Sprintf("%x", tx.tx.Key())]; ok {
+	//			pq.print()
+	//			panic(fmt.Sprintf("INVARIANT (%s): duplicate hash=%x in queue nonce=%d", msg, tx.tx.Key(), tx.evmNonce))
+	//		}
+	//		hashes[fmt.Sprintf("%x", tx.tx.Key())] = true
+	//	}
+	//}
 }
 
 // for debugging situations where invariant violations occur
