@@ -313,14 +313,13 @@ func (app *CounterApplication) CheckTx(_ context.Context, req *abci.RequestCheck
 	app.mu.Lock()
 	defer app.mu.Unlock()
 
-	// asserts txs are in order
 	txValue := txAsUint64(req.Tx)
-	if txValue != uint64(app.lastTx) {
+	if txValue != uint64(app.mempoolTxCount) {
 		return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
 			Code: code.CodeTypeBadNonce,
 		}}, nil
 	}
-	app.lastTx++
+	app.mempoolTxCount++
 	return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{Code: code.CodeTypeOK}}, nil
 }
 
