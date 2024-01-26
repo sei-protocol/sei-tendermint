@@ -158,6 +158,7 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 		return
 	}
 
+	// if there aren't other waiting txs, init and return
 	queue, exists := pq.evmQueue[tx.evmAddress]
 	if !exists {
 		pq.evmQueue[tx.evmAddress] = []*WrappedTx{tx}
@@ -165,7 +166,12 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 		return
 	}
 
+	// this item is on the heap at the moment
 	first := queue[0]
+
+	// the queue's first item (and ONLY the first item) must be on the heap
+	// if this tx is before the first item, then we need to remove the first
+	// item from the heap
 	if tx.IsBefore(first) {
 		if idx, ok := pq.findTxIndexUnsafe(first); ok {
 			heap.Remove(pq, idx)
@@ -279,17 +285,21 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	if len(pq.txs) == 0 {
 		return nil
 	}
+
+	// remove the first item from the heap
 	x := heap.Pop(pq)
 	if x == nil {
 		return nil
 	}
-
 	tx := x.(*WrappedTx)
 
 	if !tx.isEVM {
 		return tx
 	}
 
+	// evm transactions can have txs waiting on this nonce
+	// if there are any, we should replace the heap with the next nonce
+	// for the address
 	pq.removeQueuedEvmTxUnsafe(tx)
 	if len(pq.evmQueue[tx.evmAddress]) > 0 {
 		heap.Push(pq, pq.evmQueue[tx.evmAddress][0])
