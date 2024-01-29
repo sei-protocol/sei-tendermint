@@ -153,9 +153,6 @@ func (pq *TxPriorityQueue) RemoveTx(tx *WrappedTx) {
 }
 
 func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
-	if tx == nil {
-		panic("attempting to push a nil transaction")
-	}
 	if !tx.isEVM {
 		heap.Push(pq, tx)
 		return
@@ -335,15 +332,15 @@ func (pq *TxPriorityQueue) ForEachTx(handler func(wtx *WrappedTx) bool) {
 
 	defer func() {
 		for _, tx := range txs {
-			// if tx is nil by this point, avoid re-pushing
-			if tx != nil {
-				pq.pushTxUnsafe(tx)
-			}
+			pq.pushTxUnsafe(tx)
 		}
 	}()
 
 	for i := 0; i < numTxs; i++ {
 		popped := pq.popTxUnsafe()
+		if popped == nil {
+			break
+		}
 		txs = append(txs, popped)
 		if !handler(popped) {
 			return
