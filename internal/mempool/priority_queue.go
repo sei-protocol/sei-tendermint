@@ -375,10 +375,7 @@ func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 	}
 
 	for _, tx := range res {
-		if tx != nil {
-			// if tx is nil by this point, avoid re-pushing
-			pq.pushTxUnsafe(tx)
-		}
+		pq.pushTxUnsafe(tx)
 	}
 	return res
 }
