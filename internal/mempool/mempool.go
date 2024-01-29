@@ -848,7 +848,6 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 
 	// Remove the transaction from the gossip index and cleanup the linked-list
 	// element so it can be garbage collected.
-
 	txmp.gossipIndex.Remove(wtx.gossipEl)
 	wtx.gossipEl.DetachPrev()
 
