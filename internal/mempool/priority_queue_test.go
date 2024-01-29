@@ -47,6 +47,13 @@ func TestTxPriorityQueue_ReapHalf(t *testing.T) {
 	}
 }
 
+func TestPanicIfTransactionIsNil(t *testing.T) {
+	pq := NewTxPriorityQueue()
+	require.Panics(t, func() {
+		pq.PushTx(nil)
+	})
+}
+
 func TestTxPriorityQueue_PriorityAndNonceOrdering(t *testing.T) {
 	testCases := []TxTestCase{
 		{
