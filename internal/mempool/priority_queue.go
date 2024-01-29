@@ -293,6 +293,10 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	}
 	tx := x.(*WrappedTx)
 
+	if tx == nil {
+		return nil
+	}
+
 	// non-evm transactions do not have txs waiting on a nonce
 	if !tx.isEVM {
 		return tx
@@ -371,7 +375,10 @@ func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 	}
 
 	for _, tx := range res {
-		pq.pushTxUnsafe(tx)
+		if tx != nil {
+			// if tx is nil by this point, avoid re-pushing
+			pq.pushTxUnsafe(tx)
+		}
 	}
 	return res
 }
@@ -380,9 +387,7 @@ func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 //
 // NOTE: A caller should never call Push. Use PushTx instead.
 func (pq *TxPriorityQueue) Push(x interface{}) {
-	n := len(pq.txs)
 	item := x.(*WrappedTx)
-	item.heapIndex = n
 	pq.txs = append(pq.txs, item)
 }
 
@@ -393,8 +398,7 @@ func (pq *TxPriorityQueue) Pop() interface{} {
 	old := pq.txs
 	n := len(old)
 	item := old[n-1]
-	old[n-1] = nil      // avoid memory leak
-	item.heapIndex = -1 // for safety
+	old[n-1] = nil // avoid memory leak
 	pq.txs = old[0 : n-1]
 	return item
 }
@@ -423,6 +427,4 @@ func (pq *TxPriorityQueue) Less(i, j int) bool {
 // Swap implements the Heap interface. It swaps two transactions in the queue.
 func (pq *TxPriorityQueue) Swap(i, j int) {
 	pq.txs[i], pq.txs[j] = pq.txs[j], pq.txs[i]
-	pq.txs[i].heapIndex = i
-	pq.txs[j].heapIndex = j
 }
