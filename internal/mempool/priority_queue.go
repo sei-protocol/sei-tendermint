@@ -293,6 +293,7 @@ func (pq *TxPriorityQueue) popTxUnsafe() *WrappedTx {
 	}
 	tx := x.(*WrappedTx)
 
+	// this situation is primarily for a test case that inserts nils
 	if tx == nil {
 		return nil
 	}
