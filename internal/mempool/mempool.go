@@ -137,6 +137,8 @@ func NewTxMempool(
 		opt(txmp)
 	}
 
+	go txmp.StartStats()
+
 	return txmp
 }
 
