@@ -140,6 +140,17 @@ func NewTxMempool(
 	return txmp
 }
 
+func (txmp *TxMempool) StartStats() {
+	ticker := time.NewTicker(5 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Println(txmp.priorityIndex.StatsString())
+			fmt.Println(txmp.pendingTxs.StatsString())
+		}
+	}
+}
+
 // WithPreCheck sets a filter for the mempool to reject a transaction if f(tx)
 // returns an error. This is executed before CheckTx. It only applies to the
 // first created block. After that, Update() overwrites the existing value.

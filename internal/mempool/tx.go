@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"encoding/json"
 	"sort"
 	"sync"
 	"time"
@@ -310,6 +311,18 @@ func (wtl *WrappedTxList) Remove(wtx *WrappedTx) {
 type PendingTxs struct {
 	mtx *sync.RWMutex
 	txs []TxWithResponse
+}
+
+type PendingReport struct {
+	PendingCount int `json:"pendingCount"`
+}
+
+func (p *PendingTxs) StatsString() string {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
+	b, _ := json.Marshal(PendingReport{PendingCount: len(p.txs)})
+	return string(b)
 }
 
 type TxWithResponse struct {

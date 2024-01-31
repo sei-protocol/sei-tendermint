@@ -2,19 +2,50 @@ package mempool
 
 import (
 	"container/heap"
+	"encoding/json"
+	tmmath "github.com/tendermint/tendermint/libs/math"
 	"sort"
 	"sync"
-
-	tmmath "github.com/tendermint/tendermint/libs/math"
 )
 
 var _ heap.Interface = (*TxPriorityQueue)(nil)
+
+type StatsReporter interface {
+	StatsString() string
+}
 
 // TxPriorityQueue defines a thread-safe priority queue for valid transactions.
 type TxPriorityQueue struct {
 	mtx      sync.RWMutex
 	txs      []*WrappedTx            // priority heap
 	evmQueue map[string][]*WrappedTx // sorted by nonce
+}
+
+type QueueReport struct {
+	Name      string              `json:"name"`
+	HeapCount int                 `json:"heapCount"`
+	Nonces    map[string][]uint64 `json:"nonces"`
+}
+
+func (pq *TxPriorityQueue) StatsString() string {
+	pq.mtx.RLock()
+	defer pq.mtx.RUnlock()
+
+	count := len(pq.txs)
+	nonces := make(map[string][]uint64)
+	for addr, queue := range pq.evmQueue {
+		for _, tx := range queue {
+			nonces[addr] = append(nonces[addr], tx.evmNonce)
+		}
+	}
+	pq.mtx.RUnlock()
+
+	b, _ := json.Marshal(&QueueReport{
+		Name:      "priorityQueue",
+		HeapCount: count,
+		Nonces:    nonces,
+	})
+	return string(b)
 }
 
 func insertToEVMQueue(queue []*WrappedTx, tx *WrappedTx, i int) []*WrappedTx {
@@ -46,7 +77,6 @@ func NewTxPriorityQueue() *TxPriorityQueue {
 	}
 
 	heap.Init(pq)
-
 	return pq
 }
 
