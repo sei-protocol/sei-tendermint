@@ -408,6 +408,41 @@ func (txmp *TxMempool) Flush() {
 // NOTE:
 //   - Transactions returned are not removed from the mempool transaction
 //     store or indexes.
+//func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
+//	txmp.mtx.RLock()
+//	defer txmp.mtx.RUnlock()
+//
+//	var (
+//		totalGas  int64
+//		totalSize int64
+//	)
+//
+//	var txs []types.Tx
+//	if uint64(txmp.Size()) < txmp.config.TxNotifyThreshold {
+//		// do not reap anything if threshold is not met
+//		return txs
+//	}
+//	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
+//		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
+//
+//		if maxBytes > -1 && totalSize+size > maxBytes {
+//			return false
+//		}
+//		totalSize += size
+//		gas := totalGas + wtx.gasWanted
+//		if maxGas > -1 && gas > maxGas {
+//			return false
+//		}
+//
+//		totalGas = gas
+//
+//		txs = append(txs, wtx.tx)
+//		return true
+//	})
+//
+//	return txs
+//}
+
 func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
@@ -417,28 +452,42 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		totalSize int64
 	)
 
-	var txs []types.Tx
+	// wTxs contains a list of *WrappedTx retrieved from the priority queue that
+	// need to be re-enqueued prior to returning.
+	wTxs := make([]*WrappedTx, 0, txmp.priorityIndex.NumTxs())
+	defer func() {
+		for _, wtx := range wTxs {
+			txmp.priorityIndex.PushTx(wtx)
+		}
+	}()
+
+	txs := make([]types.Tx, 0, txmp.priorityIndex.NumTxs())
 	if uint64(txmp.Size()) < txmp.config.TxNotifyThreshold {
 		// do not reap anything if threshold is not met
 		return txs
 	}
-	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
+	for txmp.priorityIndex.NumTxs() > 0 {
+		wtx := txmp.priorityIndex.PopTx()
+		txs = append(txs, wtx.tx)
+		wTxs = append(wTxs, wtx)
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
+		// Ensure we have capacity for the transaction with respect to the
+		// transaction size.
 		if maxBytes > -1 && totalSize+size > maxBytes {
-			return false
+			return txs[:len(txs)-1]
 		}
+
 		totalSize += size
+
+		// ensure we have capacity for the transaction with respect to total gas
 		gas := totalGas + wtx.gasWanted
 		if maxGas > -1 && gas > maxGas {
-			return false
+			return txs[:len(txs)-1]
 		}
 
 		totalGas = gas
-
-		txs = append(txs, wtx.tx)
-		return true
-	})
+	}
 
 	return txs
 }
