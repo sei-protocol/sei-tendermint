@@ -879,9 +879,9 @@ func (txmp *TxMempool) canAddTx(wtx *WrappedTx) error {
 }
 
 func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
-	if txmp.isInMempool(wtx.tx) {
-		return false
-	}
+	//if txmp.isInMempool(wtx.tx) {
+	//	return false
+	//}
 
 	txmp.txStore.SetTx(wtx)
 	txmp.priorityIndex.PushTx(wtx)
