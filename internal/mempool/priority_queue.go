@@ -29,8 +29,6 @@ type QueueReport struct {
 
 func (pq *TxPriorityQueue) StatsString() string {
 	pq.mtx.RLock()
-	defer pq.mtx.RUnlock()
-
 	count := len(pq.txs)
 	nonces := make(map[string][]uint64)
 	for addr, queue := range pq.evmQueue {
