@@ -50,6 +50,18 @@ func NewTxPriorityQueue() *TxPriorityQueue {
 	return pq
 }
 
+func (pq *TxPriorityQueue) HeapSize() int {
+	pq.mtx.RLock()
+	defer pq.mtx.RUnlock()
+	return len(pq.txs)
+}
+
+func (pq *TxPriorityQueue) EVMSize() int {
+	pq.mtx.RLock()
+	defer pq.mtx.RUnlock()
+	return pq.numQueuedUnsafe()
+}
+
 // GetEvictableTxs attempts to find and return a list of *WrappedTx than can be
 // evicted to make room for another *WrappedTx with higher priority. If no such
 // list of *WrappedTx exists, nil will be returned. The returned list of *WrappedTx

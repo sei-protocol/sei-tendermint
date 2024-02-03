@@ -137,6 +137,7 @@ func NewTxMempool(
 		opt(txmp)
 	}
 
+	go txmp.PrintStats()
 	return txmp
 }
 
@@ -520,6 +521,16 @@ func (txmp *TxMempool) Update(
 	txmp.metrics.Size.Set(float64(txmp.Size()))
 	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
 	return nil
+}
+
+func (txmp *TxMempool) PrintStats() {
+	ticker := time.NewTicker(10 * time.Second)
+	for {
+		<-ticker.C
+		txmp.mtx.RLock()
+		defer txmp.mtx.RUnlock()
+		txmp.logger.Info("MEMPOOL stats", "size", txmp.Size(), "size_bytes", txmp.SizeBytes(), "pending_size", txmp.PendingSize(), "priority_heap_size", txmp.priorityIndex.HeapSize(), "evm_queue_size", txmp.priorityIndex.EVMSize())
+	}
 }
 
 // addNewTransaction is invoked for a new unique transaction after CheckTx
