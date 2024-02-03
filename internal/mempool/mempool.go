@@ -601,7 +601,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		if len(evictTxs) == 0 {
 			// No room for the new incoming transaction so we just remove it from
 			// the cache.
-			txmp.cache.Remove(wtx.tx)
+			wtx.removeHandler(true)
 			txmp.logger.Error(
 				"rejected incoming good transaction; mempool full",
 				"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
@@ -981,9 +981,7 @@ func (txmp *TxMempool) handlePendingTransactions() {
 			txmp.logger.Error(fmt.Sprintf("error adding pending transaction: %s", err))
 		}
 	}
-	if !txmp.config.KeepInvalidTxsInCache {
-		for _, tx := range rejected {
-			txmp.cache.Remove(tx.tx.tx)
-		}
+	for _, tx := range rejected {
+		tx.tx.removeHandler(!txmp.config.KeepInvalidTxsInCache)
 	}
 }
