@@ -45,6 +45,10 @@ func (env *Environment) BroadcastTx(ctx context.Context, req *coretypes.RequestB
 			select {
 			case <-ctx.Done():
 			case resCh <- res:
+				if res.Code != 0 {
+					fmt.Printf("[TM-DEBUG] Got CheckTx response: %v \n", res)
+				}
+
 			}
 		},
 		mempool.TxInfo{},
