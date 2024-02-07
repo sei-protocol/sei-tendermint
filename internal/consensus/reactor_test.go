@@ -778,6 +778,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 	require.Greater(t, ps.VotesSent(), 0, "number of votes sent should've increased")
 }
 
+// TODO: fix flaky test
 //func TestReactorVotingPowerChange(t *testing.T) {
 //	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 //	defer cancel()
