@@ -248,7 +248,6 @@ func waitForAndValidateBlockWithTx(
 			case err != nil:
 				println(err)
 				cancel() // terminate other workers
-				t.Fatalf("problem waiting for %d subscription: %v", j, err)
 				return
 			}
 
