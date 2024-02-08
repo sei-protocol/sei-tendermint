@@ -139,6 +139,7 @@ func (r *Reactor) handleMempoolMessage(ctx context.Context, envelope *p2p.Envelo
 		}
 
 		wg := sync.WaitGroup{}
+		logger.Info("Received tx envelope", "num_txs", len(protoTxs))
 		for _, tx := range protoTxs {
 			wg.Add(1)
 			go func(tx []byte) {
