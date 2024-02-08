@@ -138,31 +138,20 @@ func (r *Reactor) handleMempoolMessage(ctx context.Context, envelope *p2p.Envelo
 			txInfo.SenderNodeID = envelope.From
 		}
 
+		wg := sync.WaitGroup{}
 		for _, tx := range protoTxs {
-			if err := r.mempool.CheckTx(ctx, types.Tx(tx), nil, txInfo); err != nil {
-				if errors.Is(err, types.ErrTxInCache) {
-					// if the tx is in the cache,
-					// then we've been gossiped a
-					// Tx that we've already
-					// got. Gossip should be
-					// smarter, but it's not a
-					// problem.
-					continue
+			wg.Add(1)
+			go func(tx []byte) {
+				defer wg.Done()
+				if err := r.mempool.CheckTx(ctx, types.Tx(tx), nil, txInfo); err != nil {
+					// presumably if we get a contextCanceled or Deadline Exceeded, all of the waitgroup items will fail similarly
+					logger.Debug("checktx failed for tx",
+						"tx", fmt.Sprintf("%X", types.Tx(tx).Hash()),
+						"err", err)
 				}
-				if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-					// Do not propagate context
-					// cancellation errors, but do
-					// not continue to check
-					// transactions from this
-					// message if we are shutting down.
-					return nil
-				}
-
-				logger.Debug("checktx failed for tx",
-					"tx", fmt.Sprintf("%X", types.Tx(tx).Hash()),
-					"err", err)
-			}
+			}(tx)
 		}
+		wg.Wait()
 
 	default:
 		return fmt.Errorf("received unknown message: %T", msg)
