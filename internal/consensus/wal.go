@@ -244,7 +244,11 @@ func (wal *BaseWAL) SearchForEndHeight(
 	// searching for the last height. See replay.go
 	min, max := wal.group.MinIndex(), wal.group.MaxIndex()
 	wal.logger.Info("Searching for height", "height", height, "min", min, "max", max)
+	defer func() {
+		wal.logger.Info("Done for height", "height", height)
+	}()
 	for index := max; index >= min; index-- {
+		wal.logger.Info("Searching with index", "index", index)
 		gr, err = wal.group.NewReader(index)
 		if err != nil {
 			return nil, false, err
