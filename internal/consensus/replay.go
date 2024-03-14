@@ -397,11 +397,12 @@ func (h *Handshaker) ReplayBlocks(
 
 		} else if appBlockHeight == storeBlockHeight {
 			// We're good!
-			fmt.Printf("[Debug] We are good, not going to replay blocks\n")
-			if err := checkAppHashEqualsOneFromState(appHash, state); err != nil {
+			fmt.Printf("[Debug] We are good, but still going to replay blocks for height %d\n", appBlockHeight)
+			state, err = h.replayBlock(ctx, state, appBlockHeight, appClient)
+			if err != nil {
 				return nil, err
 			}
-			return appHash, nil
+			return state.AppHash, nil
 		}
 
 	} else if storeBlockHeight == stateBlockHeight+1 {
@@ -424,7 +425,6 @@ func (h *Handshaker) ReplayBlocks(
 			state, err = h.replayBlock(ctx, state, storeBlockHeight, appClient)
 			if err != nil {
 				return nil, err
-
 			}
 			return state.AppHash, nil
 
