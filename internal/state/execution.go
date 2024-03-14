@@ -338,7 +338,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
-
+	time.Sleep(2 * time.Second)
 	// Update the app hash and save the state.
 	state.AppHash = fBlockRes.AppHash
 	if err := blockExec.store.Save(state); err != nil {
@@ -358,7 +358,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
-	time.Sleep(1 * time.Second)
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fmt.Printf("[Debug] Fire events for block height %d\n", block.Height)
