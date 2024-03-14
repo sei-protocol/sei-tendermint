@@ -292,7 +292,7 @@ func (h *Handshaker) ReplayBlocks(
 	storeBlockHeight := h.store.Height()
 	stateBlockHeight := state.LastBlockHeight
 	h.logger.Info(
-		"ABCI Replay Blocks",
+		"[Debug] ABCI Replay Blocks",
 		"appHeight",
 		appBlockHeight,
 		"storeHeight",
