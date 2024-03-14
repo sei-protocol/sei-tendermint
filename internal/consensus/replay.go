@@ -292,7 +292,7 @@ func (h *Handshaker) ReplayBlocks(
 	storeBlockHeight := h.store.Height()
 	stateBlockHeight := state.LastBlockHeight
 	h.logger.Info(
-		"[Debug] ABCI Replay Blocks",
+		"ABCI Replay Blocks",
 		"appHeight",
 		appBlockHeight,
 		"storeHeight",
@@ -391,13 +391,11 @@ func (h *Handshaker) ReplayBlocks(
 		// Tendermint ran Commit and saved the state.
 		// Either the app is asking for replay, or we're all synced up.
 		if appBlockHeight < storeBlockHeight {
-			fmt.Printf("[Debug] App is behind, so replay blocks, but no need to go through WAL, replayBlocks app height %d, store height %d\n", appBlockHeight, storeBlockHeight)
 			// the app is behind, so replay blocks, but no need to go through WAL (state is already synced to store)
 			return h.replayBlocks(ctx, state, appClient, appBlockHeight, storeBlockHeight, false)
 
 		} else if appBlockHeight == storeBlockHeight {
 			// We're good!
-			fmt.Printf("[Debug] We are good, not going to replay blocks\n")
 			err := h.replayEvents(appBlockHeight)
 			if err != nil {
 				return nil, err
@@ -415,7 +413,6 @@ func (h *Handshaker) ReplayBlocks(
 		case appBlockHeight < stateBlockHeight:
 			// the app is further behind than it should be, so replay blocks
 			// but leave the last block to go through the WAL
-			fmt.Printf("[Debug] App is further behind than it should be, replay but leave the last block to go through the WAL, replayBlocks app height %d, store height %d\n", appBlockHeight, storeBlockHeight)
 			return h.replayBlocks(ctx, state, appClient, appBlockHeight, storeBlockHeight, true)
 
 		case appBlockHeight == stateBlockHeight:
@@ -424,7 +421,6 @@ func (h *Handshaker) ReplayBlocks(
 			// NOTE: We could instead use the cs.WAL on cs.Start,
 			// but we'd have to allow the WAL to replay a block that wrote it's #ENDHEIGHT
 			h.logger.Info("Replay last block using real app")
-			fmt.Printf("[Debug] We haven't run Commit so replayBlock with the real app, replay height: %d\n", storeBlockHeight)
 			state, err = h.replayBlock(ctx, state, storeBlockHeight, appClient)
 			if err != nil {
 				return nil, err
@@ -447,7 +443,6 @@ func (h *Handshaker) ReplayBlocks(
 			}
 
 			h.logger.Info("Replay last block using mock app")
-			fmt.Printf("[Debug] We ran Commit, but didn't save the state, so replayBlock with mock app, replay height: %d\n", storeBlockHeight)
 			state, err = h.replayBlock(ctx, state, storeBlockHeight, mockApp)
 			if err != nil {
 				return nil, err
@@ -470,6 +465,9 @@ func (h *Handshaker) replayEvents(height int64) error {
 		return err
 	}
 	validatorUpdates, err := types.PB2TM.ValidatorUpdates(res.ValidatorUpdates)
+	if err != nil {
+		return err
+	}
 	sm.FireEvents(h.logger, h.eventBus, block, meta.BlockID, res, validatorUpdates)
 	return nil
 }
