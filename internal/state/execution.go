@@ -358,6 +358,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
+	panic(fmt.Sprintf("Force to quite on block %d", block.Height))
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fmt.Printf("[Debug] Fire events for block height %d\n", block.Height)
