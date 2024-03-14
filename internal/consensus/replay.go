@@ -468,17 +468,21 @@ func (h *Handshaker) replayEvents(height int64) error {
 	if err != nil {
 		return err
 	}
-	for i, tx := range block.Data.Txs {
-		if err := h.eventBus.PublishEventTx(types.EventDataTx{
-			TxResult: abci.TxResult{
+	event := types.EventDataNewBlockHeader{
+		Header:              block.Header,
+		NumTxs:              int64(len(block.Txs)),
+		ResultFinalizeBlock: *res,
+	}
+	if event.NumTxs > 0 {
+		for i := range block.Data.Txs {
+			tr := abci.TxResult{
 				Height: block.Height,
 				Index:  uint32(i),
-				Tx:     tx,
+				Tx:     block.Data.Txs[i],
 				Result: *(res.TxResults[i]),
-			},
-		}); err != nil {
-			h.logger.Error("failed publishing event TX", "err", err)
-			return err
+			}
+			data := types.EventDataTx{tr}
+			h.eventBus.PublishEventTx(data)
 		}
 	}
 	return nil
