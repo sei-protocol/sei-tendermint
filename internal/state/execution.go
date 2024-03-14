@@ -362,7 +362,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fmt.Printf("[Debug] Fire events for block height %d\n", block.Height)
-	fireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
+	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 
 	return state, nil
 }
@@ -689,7 +689,7 @@ func (state State) Update(
 // Fire NewBlock, NewBlockHeader.
 // Fire TxEvent for every tx.
 // NOTE: if Tendermint crashes before commit, some or all of these events may be published again.
-func fireEvents(
+func FireEvents(
 	logger log.Logger,
 	eventBus types.BlockEventPublisher,
 	block *types.Block,
@@ -813,7 +813,7 @@ func ExecCommitBlock(
 		}
 
 		blockID := types.BlockID{Hash: block.Hash(), PartSetHeader: bps.Header()}
-		fireEvents(be.logger, be.eventBus, block, blockID, finalizeBlockResponse, validatorUpdates)
+		FireEvents(be.logger, be.eventBus, block, blockID, finalizeBlockResponse, validatorUpdates)
 	}
 
 	// Commit block

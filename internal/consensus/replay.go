@@ -464,27 +464,13 @@ func (h *Handshaker) ReplayBlocks(
 
 func (h *Handshaker) replayEvents(height int64) error {
 	block := h.store.LoadBlock(height)
+	meta := h.store.LoadBlockMeta(height)
 	res, err := h.stateStore.LoadFinalizeBlockResponses(height)
 	if err != nil {
 		return err
 	}
-	event := types.EventDataNewBlockHeader{
-		Header:              block.Header,
-		NumTxs:              int64(len(block.Txs)),
-		ResultFinalizeBlock: *res,
-	}
-	if event.NumTxs > 0 {
-		for i := range block.Data.Txs {
-			tr := abci.TxResult{
-				Height: block.Height,
-				Index:  uint32(i),
-				Tx:     block.Data.Txs[i],
-				Result: *(res.TxResults[i]),
-			}
-			data := types.EventDataTx{tr}
-			h.eventBus.PublishEventTx(data)
-		}
-	}
+	validatorUpdates, err := types.PB2TM.ValidatorUpdates(res.ValidatorUpdates)
+	sm.FireEvents(h.logger, h.eventBus, block, meta.BlockID, res, validatorUpdates)
 	return nil
 }
 
