@@ -327,6 +327,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
 		defer commitSpan.End()
 	}
+	time.Sleep(2 * time.Second)
 	// Lock mempool, commit app state, update mempoool.
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
@@ -338,7 +339,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
-	time.Sleep(2 * time.Second)
+
 	// Update the app hash and save the state.
 	state.AppHash = fBlockRes.AppHash
 	if err := blockExec.store.Save(state); err != nil {
