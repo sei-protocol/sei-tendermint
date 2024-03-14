@@ -327,7 +327,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
 		defer commitSpan.End()
 	}
-	time.Sleep(2 * time.Second)
+	//time.Sleep(2 * time.Second)
 	// Lock mempool, commit app state, update mempoool.
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
