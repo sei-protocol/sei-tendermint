@@ -397,12 +397,15 @@ func (h *Handshaker) ReplayBlocks(
 
 		} else if appBlockHeight == storeBlockHeight {
 			// We're good!
-			fmt.Printf("[Debug] We are good, but still going to replay blocks for height %d\n", appBlockHeight)
-			state, err = h.replayBlock(ctx, state, appBlockHeight, appClient)
+			fmt.Printf("[Debug] We are good, not going to replay blocks\n")
+			_, err := h.replayEvents(ctx, state, appClient, appBlockHeight)
 			if err != nil {
 				return nil, err
 			}
-			return state.AppHash, nil
+			if err := checkAppHashEqualsOneFromState(appHash, state); err != nil {
+				return nil, err
+			}
+			return appHash, nil
 		}
 
 	} else if storeBlockHeight == stateBlockHeight+1 {
@@ -425,6 +428,7 @@ func (h *Handshaker) ReplayBlocks(
 			state, err = h.replayBlock(ctx, state, storeBlockHeight, appClient)
 			if err != nil {
 				return nil, err
+
 			}
 			return state.AppHash, nil
 
@@ -456,6 +460,17 @@ func (h *Handshaker) ReplayBlocks(
 
 	return nil, fmt.Errorf("uncovered case! appHeight: %d, storeHeight: %d, stateHeight: %d",
 		appBlockHeight, storeBlockHeight, stateBlockHeight)
+}
+
+func (h *Handshaker) replayEvents(
+	ctx context.Context,
+	state sm.State,
+	appClient abciclient.Client,
+	height int64,
+) ([]byte, error) {
+	block := h.store.LoadBlock(height)
+	blockExec := sm.NewBlockExecutor(h.stateStore, h.logger, appClient, emptyMempool{}, sm.EmptyEvidencePool{}, h.store, h.eventBus, sm.NopMetrics())
+	return sm.ExecCommitBlock(ctx, blockExec, appClient, block, h.logger, h.stateStore, h.genDoc.InitialHeight, state)
 }
 
 func (h *Handshaker) replayBlocks(
