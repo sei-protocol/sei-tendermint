@@ -398,7 +398,7 @@ func (h *Handshaker) ReplayBlocks(
 		} else if appBlockHeight == storeBlockHeight {
 			// We're good!
 			fmt.Printf("[Debug] We are good, not going to replay blocks\n")
-			_, err := h.replayEvents(ctx, state, appClient, appBlockHeight)
+			err := h.replayEvents(appBlockHeight)
 			if err != nil {
 				return nil, err
 			}
@@ -462,15 +462,26 @@ func (h *Handshaker) ReplayBlocks(
 		appBlockHeight, storeBlockHeight, stateBlockHeight)
 }
 
-func (h *Handshaker) replayEvents(
-	ctx context.Context,
-	state sm.State,
-	appClient abciclient.Client,
-	height int64,
-) ([]byte, error) {
+func (h *Handshaker) replayEvents(height int64) error {
 	block := h.store.LoadBlock(height)
-	blockExec := sm.NewBlockExecutor(h.stateStore, h.logger, appClient, emptyMempool{}, sm.EmptyEvidencePool{}, h.store, h.eventBus, sm.NopMetrics())
-	return sm.ExecCommitBlock(ctx, blockExec, appClient, block, h.logger, h.stateStore, h.genDoc.InitialHeight, state)
+	res, err := h.stateStore.LoadFinalizeBlockResponses(height)
+	if err != nil {
+		return err
+	}
+	for i, tx := range block.Data.Txs {
+		if err := h.eventBus.PublishEventTx(types.EventDataTx{
+			TxResult: abci.TxResult{
+				Height: block.Height,
+				Index:  uint32(i),
+				Tx:     tx,
+				Result: *(res.TxResults[i]),
+			},
+		}); err != nil {
+			h.logger.Error("failed publishing event TX", "err", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *Handshaker) replayBlocks(
