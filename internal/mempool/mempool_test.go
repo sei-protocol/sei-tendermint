@@ -304,43 +304,27 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 		require.Equal(t, priorities[:len(reapedPriorities)], reapedPriorities)
 	}
 
-	var wg sync.WaitGroup
-
 	// reap by gas capacity only
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50)
-		ensurePrioritized(reapedTxs)
-		require.Equal(t, len(tTxs), txmp.Size())
-		require.Equal(t, int64(5690), txmp.SizeBytes())
-		require.Len(t, reapedTxs, 50)
-	}()
+	reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50)
+	ensurePrioritized(reapedTxs)
+	require.Equal(t, len(tTxs), txmp.Size())
+	require.Equal(t, int64(5690), txmp.SizeBytes())
+	require.Len(t, reapedTxs, 50)
 
 	// reap by transaction bytes only
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1)
-		ensurePrioritized(reapedTxs)
-		require.Equal(t, len(tTxs), txmp.Size())
-		require.Equal(t, int64(5690), txmp.SizeBytes())
-		require.GreaterOrEqual(t, len(reapedTxs), 16)
-	}()
+	reapedTxs = txmp.ReapMaxBytesMaxGas(1000, -1)
+	ensurePrioritized(reapedTxs)
+	require.Equal(t, len(tTxs), txmp.Size())
+	require.Equal(t, int64(5690), txmp.SizeBytes())
+	require.GreaterOrEqual(t, len(reapedTxs), 16)
 
 	// Reap by both transaction bytes and gas, where the size yields 31 reaped
 	// transactions and the gas limit reaps 25 transactions.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30)
-		ensurePrioritized(reapedTxs)
-		require.Equal(t, len(tTxs), txmp.Size())
-		require.Equal(t, int64(5690), txmp.SizeBytes())
-		require.Len(t, reapedTxs, 25)
-	}()
-
-	wg.Wait()
+	reapedTxs = txmp.ReapMaxBytesMaxGas(1500, 30)
+	ensurePrioritized(reapedTxs)
+	require.Equal(t, len(tTxs), txmp.Size())
+	require.Equal(t, int64(5690), txmp.SizeBytes())
+	require.Len(t, reapedTxs, 25)
 }
 
 func TestTxMempool_ReapMaxTxs(t *testing.T) {
@@ -379,42 +363,26 @@ func TestTxMempool_ReapMaxTxs(t *testing.T) {
 		require.Equal(t, priorities[:len(reapedPriorities)], reapedPriorities)
 	}
 
-	var wg sync.WaitGroup
-
 	// reap all transactions
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reapedTxs := txmp.ReapMaxTxs(-1)
-		ensurePrioritized(reapedTxs)
-		require.Equal(t, len(tTxs), txmp.Size())
-		require.Equal(t, int64(5690), txmp.SizeBytes())
-		require.Len(t, reapedTxs, len(tTxs))
-	}()
+	reapedTxs := txmp.ReapMaxTxs(-1)
+	ensurePrioritized(reapedTxs)
+	require.Equal(t, len(tTxs), txmp.Size())
+	require.Equal(t, int64(5690), txmp.SizeBytes())
+	require.Len(t, reapedTxs, len(tTxs))
 
 	// reap a single transaction
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reapedTxs := txmp.ReapMaxTxs(1)
-		ensurePrioritized(reapedTxs)
-		require.Equal(t, len(tTxs), txmp.Size())
-		require.Equal(t, int64(5690), txmp.SizeBytes())
-		require.Len(t, reapedTxs, 1)
-	}()
+	reapedTxs = txmp.ReapMaxTxs(1)
+	ensurePrioritized(reapedTxs)
+	require.Equal(t, len(tTxs), txmp.Size())
+	require.Equal(t, int64(5690), txmp.SizeBytes())
+	require.Len(t, reapedTxs, 1)
 
 	// reap half of the transactions
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		reapedTxs := txmp.ReapMaxTxs(len(tTxs) / 2)
-		ensurePrioritized(reapedTxs)
-		require.Equal(t, len(tTxs), txmp.Size())
-		require.Equal(t, int64(5690), txmp.SizeBytes())
-		require.Len(t, reapedTxs, len(tTxs)/2)
-	}()
-
-	wg.Wait()
+	reapedTxs = txmp.ReapMaxTxs(len(tTxs) / 2)
+	ensurePrioritized(reapedTxs)
+	require.Equal(t, len(tTxs), txmp.Size())
+	require.Equal(t, int64(5690), txmp.SizeBytes())
+	require.Len(t, reapedTxs, len(tTxs)/2)
 }
 
 func TestTxMempool_CheckTxExceedsMaxSize(t *testing.T) {
