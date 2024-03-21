@@ -178,12 +178,13 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) (removedIdx in
 }
 
 func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
-	for i, t := range pq.txs {
-		if t.tx.Key() == tx.tx.Key() {
-			return i, true
-		}
-	}
-	return 0, false
+	return tx.heapIndex, true
+	//for i, t := range pq.txs {
+	//	if t.tx.Key() == tx.tx.Key() {
+	//		return i, true
+	//	}
+	//}
+	//return 0, false
 }
 
 // RemoveTx removes a specific transaction from the priority queue.
@@ -444,6 +445,7 @@ func (pq *TxPriorityQueue) PeekTxs(max int) []*WrappedTx {
 // NOTE: A caller should never call Push. Use PushTx instead.
 func (pq *TxPriorityQueue) Push(x interface{}) {
 	item := x.(*WrappedTx)
+	item.heapIndex = len(pq.txs)
 	pq.txs = append(pq.txs, item)
 }
 
@@ -454,7 +456,8 @@ func (pq *TxPriorityQueue) Pop() interface{} {
 	old := pq.txs
 	n := len(old)
 	item := old[n-1]
-	old[n-1] = nil // avoid memory leak
+	old[n-1] = nil      // avoid memory leak
+	item.heapIndex = -1 // for safety
 	pq.txs = old[0 : n-1]
 	return item
 }
@@ -483,4 +486,6 @@ func (pq *TxPriorityQueue) Less(i, j int) bool {
 // Swap implements the Heap interface. It swaps two transactions in the queue.
 func (pq *TxPriorityQueue) Swap(i, j int) {
 	pq.txs[i], pq.txs[j] = pq.txs[j], pq.txs[i]
+	pq.txs[i].heapIndex = i
+	pq.txs[j].heapIndex = j
 }
