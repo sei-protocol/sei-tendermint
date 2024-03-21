@@ -462,8 +462,8 @@ func (pq *TxPriorityQueue) Pop() interface{} {
 	old := pq.txs
 	n := len(old)
 	item := old[n-1]
-	old[n-1] = nil      // avoid memory leak
-	item.heapIndex = -1 // for safety
+	old[n-1] = nil         // avoid memory leak
+	setHeapIndex(item, -1) // for safety
 	pq.txs = old[0 : n-1]
 	return item
 }
@@ -492,6 +492,14 @@ func (pq *TxPriorityQueue) Less(i, j int) bool {
 // Swap implements the Heap interface. It swaps two transactions in the queue.
 func (pq *TxPriorityQueue) Swap(i, j int) {
 	pq.txs[i], pq.txs[j] = pq.txs[j], pq.txs[i]
-	pq.txs[i].heapIndex = i
-	pq.txs[j].heapIndex = j
+	setHeapIndex(pq.txs[i], i)
+	setHeapIndex(pq.txs[j], j)
+}
+
+func setHeapIndex(tx *WrappedTx, i int) {
+	// a removed tx can be nil
+	if tx == nil {
+		return
+	}
+	tx.heapIndex = i
 }
