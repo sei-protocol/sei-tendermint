@@ -178,16 +178,18 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) (removedIdx in
 }
 
 func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
-	// safety check to ensure heapIndex did not drift
-	if tx.heapIndex < 0 || tx.heapIndex >= len(pq.txs) || pq.txs[tx.heapIndex].tx.Key() != tx.tx.Key() {
-		for i, t := range pq.txs {
-			if t.tx.Key() == tx.tx.Key() {
-				return i, true
-			}
-		}
-		return 0, false
+	// safety check for race situation where heapIndex is out of range of txs
+	if tx.heapIndex >= 0 && tx.heapIndex < len(pq.txs) && pq.txs[tx.heapIndex].tx.Key() == tx.tx.Key() {
+		return tx.heapIndex, true
 	}
-	return tx.heapIndex, true
+
+	// heap index isn't trustable here, so attempt to find it
+	for i, t := range pq.txs {
+		if t.tx.Key() == tx.tx.Key() {
+			return i, true
+		}
+	}
+	return 0, false
 }
 
 // RemoveTx removes a specific transaction from the priority queue.
