@@ -179,9 +179,11 @@ func (pq *TxPriorityQueue) removeQueuedEvmTxUnsafe(tx *WrappedTx) (removedIdx in
 
 func (pq *TxPriorityQueue) findTxIndexUnsafe(tx *WrappedTx) (int, bool) {
 	// safety check for race situation where heapIndex is out of range of txs
-	if tx.heapIndex >= 0 && tx.heapIndex < len(pq.txs) && pq.txs[tx.heapIndex].tx.Key() == tx.tx.Key() {
-		return tx.heapIndex, true
-	}
+
+	// commenting out to prove perf improvement
+	//if tx.heapIndex >= 0 && tx.heapIndex < len(pq.txs) && pq.txs[tx.heapIndex].tx.Key() == tx.tx.Key() {
+	//	return tx.heapIndex, true
+	//}
 
 	// heap index isn't trustable here, so attempt to find it
 	for i, t := range pq.txs {
