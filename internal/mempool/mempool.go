@@ -241,7 +241,7 @@ func (txmp *TxMempool) TxsAvailable() <-chan struct{} {
 func (txmp *TxMempool) CheckTx(
 	ctx context.Context,
 	tx types.Tx,
-	cb func(*abci.ResponseCheckTx),
+	cb func(*abci.ResponseCheckTxV2),
 	txInfo TxInfo,
 ) error {
 	txmp.mtx.RLock()
@@ -527,7 +527,7 @@ func (txmp *TxMempool) Update(
 //
 // NOTE:
 // - An explicit lock is NOT required.
-func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheckTx, txInfo TxInfo) error {
+func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheckTxV2, txInfo TxInfo) error {
 	var err error
 	if txmp.postCheck != nil {
 		err = txmp.postCheck(wtx.tx, res)
@@ -648,7 +648,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 //
 // This method is NOT executed for the initial CheckTx on a new transaction;
 // that case is handled by addNewTransaction instead.
-func (txmp *TxMempool) handleRecheckResult(tx types.Tx, res *abci.ResponseCheckTx) {
+func (txmp *TxMempool) handleRecheckResult(tx types.Tx, res *abci.ResponseCheckTxV2) {
 	if txmp.recheckCursor == nil {
 		return
 	}
