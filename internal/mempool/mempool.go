@@ -924,7 +924,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 	txmp.txStore.RemoveTx(wtx)
 	toBeReenqueued := []*WrappedTx{}
 	if updatePriorityIndex {
-		txmp.priorityIndex.RemoveTx(wtx)
+		txmp.priorityIndex.RemoveTx(wtx, shouldReenqueue)
 	}
 	txmp.heightIndex.Remove(wtx)
 	txmp.timestampIndex.Remove(wtx)
