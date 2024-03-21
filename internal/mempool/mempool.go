@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	tmmath "github.com/tendermint/tendermint/libs/math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -425,28 +426,42 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		totalSize int64
 	)
 
-	var txs []types.Tx
-	if uint64(txmp.SizeWithoutPending()) < txmp.config.TxNotifyThreshold {
+	// wTxs contains a list of *WrappedTx retrieved from the priority queue that
+	// need to be re-enqueued prior to returning.
+	wTxs := make([]*WrappedTx, 0, txmp.priorityIndex.NumTxs())
+	defer func() {
+		for _, wtx := range wTxs {
+			txmp.priorityIndex.PushTx(wtx)
+		}
+	}()
+
+	txs := make([]types.Tx, 0, txmp.priorityIndex.NumTxs())
+	if uint64(txmp.Size()) < txmp.config.TxNotifyThreshold {
 		// do not reap anything if threshold is not met
 		return txs
 	}
-	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
+	for txmp.priorityIndex.NumTxs() > 0 {
+		wtx := txmp.priorityIndex.PopTx()
+		txs = append(txs, wtx.tx)
+		wTxs = append(wTxs, wtx)
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
+		// Ensure we have capacity for the transaction with respect to the
+		// transaction size.
 		if maxBytes > -1 && totalSize+size > maxBytes {
-			return false
+			return txs[:len(txs)-1]
 		}
+
 		totalSize += size
+
+		// ensure we have capacity for the transaction with respect to total gas
 		gas := totalGas + wtx.gasWanted
 		if maxGas > -1 && gas > maxGas {
-			return false
+			return txs[:len(txs)-1]
 		}
 
 		totalGas = gas
-
-		txs = append(txs, wtx.tx)
-		return true
-	})
+	}
 
 	return txs
 }
@@ -461,17 +476,24 @@ func (txmp *TxMempool) ReapMaxTxs(max int) types.Txs {
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
-	wTxs := txmp.priorityIndex.PeekTxs(max)
-	txs := make([]types.Tx, 0, len(wTxs))
-	for _, wtx := range wTxs {
-		txs = append(txs, wtx.tx)
+	numTxs := txmp.priorityIndex.NumTxs()
+	if max < 0 {
+		max = numTxs
 	}
-	if len(txs) < max {
-		// retrieve more from pending txs
-		pending := txmp.pendingTxs.Peek(max - len(txs))
-		for _, ptx := range pending {
-			txs = append(txs, ptx.tx.tx)
-		}
+
+	cap := tmmath.MinInt(numTxs, max)
+
+	// wTxs contains a list of *WrappedTx retrieved from the priority queue that
+	// need to be re-enqueued prior to returning.
+	wTxs := make([]*WrappedTx, 0, cap)
+	txs := make([]types.Tx, 0, cap)
+	for txmp.priorityIndex.NumTxs() > 0 && len(txs) < max {
+		wtx := txmp.priorityIndex.PopTx()
+		txs = append(txs, wtx.tx)
+		wTxs = append(wTxs, wtx)
+	}
+	for _, wtx := range wTxs {
+		txmp.priorityIndex.PushTx(wtx)
 	}
 	return txs
 }
@@ -520,12 +542,12 @@ func (txmp *TxMempool) Update(
 		if execTxResult[i].EvmTxInfo != nil {
 			// remove any tx that has the same nonce (because the committed tx
 			// may be from block proposal and is never in the local mempool)
-			if wtx, _ := txmp.priorityIndex.GetTxWithSameNonce(&WrappedTx{
-				evmAddress: execTxResult[i].EvmTxInfo.SenderAddress,
-				evmNonce:   execTxResult[i].EvmTxInfo.Nonce,
-			}); wtx != nil {
-				txmp.removeTx(wtx, false, false, true)
-			}
+			//if wtx, _ := txmp.priorityIndex.GetTxWithSameNonce(&WrappedTx{
+			//	evmAddress: execTxResult[i].EvmTxInfo.SenderAddress,
+			//	evmNonce:   execTxResult[i].EvmTxInfo.Nonce,
+			//}); wtx != nil {
+			//	txmp.removeTx(wtx, false, false, true)
+			//}
 		}
 	}
 
@@ -665,19 +687,20 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		txInfo.SenderID: {},
 	}
 
-	replaced, shouldDrop := txmp.priorityIndex.TryReplacement(wtx)
-	if shouldDrop {
-		return nil
-	}
+	//replaced, shouldDrop := txmp.priorityIndex.TryReplacement(wtx)
+	//if shouldDrop {
+	//	return nil
+	//}
 
 	txmp.metrics.TxSizeBytes.Observe(float64(wtx.Size()))
 	txmp.metrics.Size.Set(float64(txmp.SizeWithoutPending()))
 	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
 
-	if replaced != nil {
-		txmp.removeTx(replaced, true, false, false)
-	}
-	if txmp.insertTx(wtx, replaced == nil) {
+	//if replaced != nil {
+	//	txmp.removeTx(replaced, true, false, false)
+	//}
+	//if txmp.insertTx(wtx, replaced == nil) {
+	if txmp.insertTx(wtx, true) {
 		txmp.logger.Debug(
 			"inserted good transaction",
 			"priority", wtx.priority,
@@ -901,7 +924,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 	txmp.txStore.RemoveTx(wtx)
 	toBeReenqueued := []*WrappedTx{}
 	if updatePriorityIndex {
-		toBeReenqueued = txmp.priorityIndex.RemoveTx(wtx, shouldReenqueue)
+		txmp.priorityIndex.RemoveTx(wtx)
 	}
 	txmp.heightIndex.Remove(wtx)
 	txmp.timestampIndex.Remove(wtx)
