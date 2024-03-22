@@ -448,7 +448,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		return true
 	})
 
-	fmt.Printf("PERF ReapMaxBytesMaxGas txs=%d, queue=%d, txstore=%d\n", len(txs), txmp.priorityIndex.Len(), txmp.SizeWithoutPending())
+	txmp.logger.Info("ReapMaxBytesMaxGas", "txs", len(txs), "queue", txmp.priorityIndex.Len(), "txstore", txmp.SizeWithoutPending())
 	return txs
 }
 
