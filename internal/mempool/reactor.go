@@ -322,6 +322,8 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 		}
 	}()
 
+	batchSize := 100
+	batch := make([][]byte, 0, batchSize)
 	for {
 		if !r.IsRunning() || ctx.Err() != nil {
 			return
@@ -348,17 +350,20 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 		if ok := r.mempool.txStore.TxHasPeer(memTx.hash, peerMempoolID); !ok {
 			// Send the mempool tx to the corresponding peer. Note, the peer may be
 			// behind and thus would not be able to process the mempool tx correctly.
+			batch = append(batch, memTx.tx)
+			if len(batch) < batchSize {
+				continue
+			}
 
-			start := time.Now()
 			if err := mempoolCh.Send(ctx, p2p.Envelope{
 				To: peerID,
 				Message: &protomem.Txs{
-					Txs: [][]byte{memTx.tx},
+					Txs: batch,
 				},
 			}); err != nil {
 				return
 			}
-			durations <- time.Since(start)
+			batch = make([][]byte, 0, batchSize)
 
 			r.logger.Debug(
 				"gossiped tx to peer",
