@@ -316,7 +316,7 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 					sum += d
 				}
 				avg := sum / time.Duration(len(batch))
-				r.logger.Info("PERF Broadcast", "durationAvg", avg)
+				r.logger.Info("PERF Broadcast", "durationAvg", avg.Milliseconds())
 				batch = nil
 			}
 		}
