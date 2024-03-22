@@ -250,9 +250,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 				r.ids.ReserveForPeer(peerUpdate.NodeID)
 
 				// start a broadcast routine ensuring all txs are forwarded to the peer
-				for i := 0; i < 10; i++ {
-					go r.broadcastTxRoutine(pctx, peerUpdate.NodeID, mempoolCh)
-				}
+				go r.broadcastTxRoutine(pctx, peerUpdate.NodeID, mempoolCh)
 			}
 		}
 
