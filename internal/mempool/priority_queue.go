@@ -392,8 +392,8 @@ func (pq *TxPriorityQueue) PopTx() *WrappedTx {
 
 // dequeue up to `max` transactions and reenqueue while locked
 func (pq *TxPriorityQueue) ForEachTx(handler func(wtx *WrappedTx) bool) {
-	pq.mtx.Lock()
-	defer pq.mtx.Unlock()
+	//pq.mtx.Lock()
+	//defer pq.mtx.Unlock()
 
 	numTxs := len(pq.txs) + pq.numQueuedUnsafe()
 
