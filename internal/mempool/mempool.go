@@ -417,8 +417,8 @@ func (txmp *TxMempool) Flush() {
 //   - Transactions returned are not removed from the mempool transaction
 //     store or indexes.
 func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
-	//txmp.mtx.Lock()
-	//defer txmp.mtx.Unlock()
+	txmp.mtx.Lock()
+	defer txmp.mtx.Unlock()
 
 	var (
 		totalGas  int64
@@ -448,7 +448,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		return true
 	})
 
-	txmp.logger.Info("ReapMaxBytesMaxGas", "txs", len(txs), "queue", txmp.priorityIndex.Len(), "txstore", txmp.SizeWithoutPending())
+	txmp.logger.Info("PERF ReapMaxBytesMaxGas", "txs", len(txs), "queue", txmp.priorityIndex.Len(), "txstore", txmp.SizeWithoutPending())
 	return txs
 }
 
@@ -459,8 +459,8 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 //   - Transactions returned are not removed from the mempool transaction
 //     store or indexes.
 func (txmp *TxMempool) ReapMaxTxs(max int) types.Txs {
-	//txmp.mtx.Lock()
-	//defer txmp.mtx.Unlock()
+	txmp.mtx.Lock()
+	defer txmp.mtx.Unlock()
 
 	wTxs := txmp.priorityIndex.PeekTxs(max)
 	txs := make([]types.Tx, 0, len(wTxs))
@@ -474,6 +474,8 @@ func (txmp *TxMempool) ReapMaxTxs(max int) types.Txs {
 			txs = append(txs, ptx.tx.tx)
 		}
 	}
+
+	txmp.logger.Info("PERF ReapMaxTxs", "txs", len(txs), "queue", txmp.priorityIndex.Len(), "txstore", txmp.SizeWithoutPending())
 	return txs
 }
 
