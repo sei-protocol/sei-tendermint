@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime/debug"
-	"sync"
-	"time"
-
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/libs/clist"
 	"github.com/tendermint/tendermint/internal/p2p"
@@ -15,6 +11,8 @@ import (
 	"github.com/tendermint/tendermint/libs/service"
 	protomem "github.com/tendermint/tendermint/proto/tendermint/mempool"
 	"github.com/tendermint/tendermint/types"
+	"runtime/debug"
+	"sync"
 )
 
 var (
@@ -252,7 +250,9 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 				r.ids.ReserveForPeer(peerUpdate.NodeID)
 
 				// start a broadcast routine ensuring all txs are forwarded to the peer
-				go r.broadcastTxRoutine(pctx, peerUpdate.NodeID, mempoolCh)
+				for i := 0; i < 10; i++ {
+					go r.broadcastTxRoutine(pctx, peerUpdate.NodeID, mempoolCh)
+				}
 			}
 		}
 
@@ -304,26 +304,6 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 		}
 	}()
 
-	durations := make(chan time.Duration, 1000)
-	go func() {
-		var batch []time.Duration
-		for d := range durations {
-			batch = append(batch, d)
-			if len(batch) == 1000 {
-				// average the durations
-				var sum time.Duration
-				for _, d := range batch {
-					sum += d
-				}
-				avg := sum / time.Duration(len(batch))
-				r.logger.Info("PERF Broadcast", "durationAvg", avg.Milliseconds())
-				batch = nil
-			}
-		}
-	}()
-
-	batchSize := 100
-	batch := make([][]byte, 0, batchSize)
 	for {
 		if !r.IsRunning() || ctx.Err() != nil {
 			return
@@ -350,20 +330,15 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 		if ok := r.mempool.txStore.TxHasPeer(memTx.hash, peerMempoolID); !ok {
 			// Send the mempool tx to the corresponding peer. Note, the peer may be
 			// behind and thus would not be able to process the mempool tx correctly.
-			batch = append(batch, memTx.tx)
-			if len(batch) < batchSize {
-				continue
-			}
 
 			if err := mempoolCh.Send(ctx, p2p.Envelope{
 				To: peerID,
 				Message: &protomem.Txs{
-					Txs: batch,
+					Txs: [][]byte{memTx.tx},
 				},
 			}); err != nil {
 				return
 			}
-			batch = make([][]byte, 0, batchSize)
 
 			r.logger.Debug(
 				"gossiped tx to peer",
