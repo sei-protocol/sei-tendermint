@@ -331,7 +331,7 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 		if ok := r.mempool.txStore.TxHasPeer(memTx.hash, peerMempoolID); !ok {
 			// Send the mempool tx to the corresponding peer. Note, the peer may be
 			// behind and thus would not be able to process the mempool tx correctly.
-			r.logger.Info("PERF broadcast send", "time", time.Now().UnixNano(), "hash", fmt.Sprintf("%X", memTx.tx.Hash()), "peer", envelope.To)
+			r.logger.Info("PERF broadcast send", "time", time.Now().UnixNano(), "hash", fmt.Sprintf("%X", memTx.tx.Hash()))
 
 			if err := mempoolCh.Send(ctx, p2p.Envelope{
 				To: peerID,
