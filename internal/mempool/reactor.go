@@ -140,7 +140,7 @@ func (r *Reactor) handleMempoolMessage(ctx context.Context, envelope *p2p.Envelo
 
 		for _, tx := range protoTxs {
 			if err := r.mempool.CheckTx(ctx, types.Tx(tx), nil, txInfo); err != nil {
-				r.logger.Info("PERF broadcast receive", "time", time.Now().UnixNano(), "hash", fmt.Sprintf("%X", types.Tx(tx).Hash()), "peer", envelope.To)
+				r.logger.Info("PERF broadcast receive", "msgTime", time.Now().UnixNano(), "hash", fmt.Sprintf("%X", types.Tx(tx).Hash()))
 
 				if errors.Is(err, types.ErrTxInCache) {
 					// if the tx is in the cache,
@@ -331,7 +331,7 @@ func (r *Reactor) broadcastTxRoutine(ctx context.Context, peerID types.NodeID, m
 		if ok := r.mempool.txStore.TxHasPeer(memTx.hash, peerMempoolID); !ok {
 			// Send the mempool tx to the corresponding peer. Note, the peer may be
 			// behind and thus would not be able to process the mempool tx correctly.
-			r.logger.Info("PERF broadcast send", "time", time.Now().UnixNano(), "hash", fmt.Sprintf("%X", memTx.tx.Hash()))
+			r.logger.Info("PERF broadcast send", "msgTime", time.Now().UnixNano(), "hash", fmt.Sprintf("%X", memTx.tx.Hash()))
 
 			if err := mempoolCh.Send(ctx, p2p.Envelope{
 				To: peerID,
