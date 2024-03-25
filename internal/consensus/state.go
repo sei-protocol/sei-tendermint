@@ -45,7 +45,13 @@ var (
 	ErrAddingVote                 = errors.New("error adding vote")
 	ErrSignatureFoundInPastBlocks = errors.New("found signature from the same key")
 
-	errPubKeyIsNotSet = errors.New("pubkey is not set. Look for \"Can't get private validator pubkey\" errors")
+	errPubKeyIsNotSet          = errors.New("pubkey is not set. Look for \"Can't get private validator pubkey\" errors")
+	ENTER_NEW_ROUND_TIME       = time.Now()
+	ENTER_PROPOSE_TIME         = time.Now()
+	ENTER_PREVOTE_TIME         = time.Now()
+	ENTER_PRECOMMIT_TIME       = time.Now()
+	ENTER_COMMIT_TIME          = time.Now()
+	ENTER_FINALIZE_COMMIT_TIME = time.Now()
 )
 
 var msgQueueSize = 1000
@@ -1295,6 +1301,9 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 
 	logger.Debug("entering new round", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
 
+	ENTER_NEW_ROUND_TIME = time.Now()
+	fmt.Printf("[Debug] Finalize commit latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_FINALIZE_COMMIT_TIME))
+
 	// increment validators if necessary
 	validators := cs.roundState.Validators()
 	if cs.roundState.Round() < round {
@@ -1400,6 +1409,8 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	}
 
 	logger.Debug("entering propose step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
+	ENTER_PROPOSE_TIME = time.Now()
+	fmt.Printf("[Debug] New round latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_NEW_ROUND_TIME))
 
 	defer func() {
 		// Done enterPropose:
@@ -1614,6 +1625,8 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 	}()
 
 	logger.Debug("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
+	ENTER_PREVOTE_TIME = time.Now()
+	fmt.Printf("[Debug] Propose latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_PROPOSE_TIME))
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -1857,6 +1870,9 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 
 	logger.Debug("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
+	ENTER_PRECOMMIT_TIME = time.Now()
+	fmt.Printf("[Debug] Prevote latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_PREVOTE_TIME))
+
 	defer func() {
 		// Done enterPrecommit:
 		cs.updateRoundStep(round, cstypes.RoundStepPrecommit)
@@ -2013,6 +2029,9 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 
 	logger.Debug("entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
+	ENTER_COMMIT_TIME = time.Now()
+	fmt.Printf("[Debug] Precommit latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_PRECOMMIT_TIME))
+
 	defer func() {
 		// Done enterCommit:
 		// keep cs.Round the same, commitRound points to the right Precommits set.
@@ -2127,6 +2146,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		panic(fmt.Errorf("+2/3 committed an invalid block: %w", err))
 	}
 
+	ENTER_FINALIZE_COMMIT_TIME = time.Now()
+	fmt.Printf("[Debug] Commit latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_COMMIT_TIME))
 	logger.Info(
 		"finalizing commit of block",
 		"hash", block.Hash(),
