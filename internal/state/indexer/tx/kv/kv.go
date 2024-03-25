@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
@@ -65,6 +66,7 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 // respective attribute's key delimited by a "." (eg. "account.number").
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) Index(results []*abci.TxResult) error {
+	startTime := time.Now()
 	b := txi.store.NewBatch()
 	defer b.Close()
 
@@ -94,7 +96,10 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 		}
 	}
 
-	return b.WriteSync()
+	fmt.Printf("PERF TxIndex.Index latency=%dms, txs=%d\n", time.Since(startTime).Milliseconds(), len(results))
+	err := b.WriteSync()
+
+	return err
 }
 
 func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
