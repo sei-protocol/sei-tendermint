@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
@@ -100,6 +101,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 }
 
 func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
+	var durations []time.Duration
 	for _, event := range result.Result.Events {
 		// only index events with a non-empty type
 		if len(event.Type) == 0 {
@@ -118,14 +120,16 @@ func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Ba
 				return fmt.Errorf("event type and attribute key \"%s\" is reserved; please use a different key", compositeTag)
 			}
 			if attr.GetIndex() {
+				start := time.Now()
 				err := store.Set(keyFromEvent(compositeTag, string(attr.Value), result), hash)
+				durations = append(durations, time.Since(start))
 				if err != nil {
 					return err
 				}
 			}
 		}
 	}
-
+	debugutil.PrintStats("indexEvents", durations)
 	return nil
 }
 
