@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tendermint/tendermint/debugutil"
 	"io"
 	"os"
 	"runtime/debug"
@@ -1850,6 +1851,9 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // Lock & precommit the ProposalBlock if we have enough prevotes for it (a POL in this round)
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, entryLabel string) {
+	t := debugutil.NewTimer("enterPrecommit")
+	defer t.Stop()
+
 	_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterPrecommit")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -2011,6 +2015,9 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 // Enter: +2/3 precommits for block
 func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int32, entryLabel string) {
+	t := debugutil.NewTimer("enterCommit")
+	defer t.Stop()
+
 	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterCommit")
 	span.SetAttributes(attribute.Int("round", int(commitRound)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -2632,6 +2639,8 @@ func (cs *State) addVote(
 	peerID types.NodeID,
 	handleVoteMsgSpan otrace.Span,
 ) (added bool, err error) {
+	t := debugutil.NewTimer("State.addVote")
+	defer t.Stop()
 	cs.logger.Debug(
 		"adding vote",
 		"vote_height", vote.Height,

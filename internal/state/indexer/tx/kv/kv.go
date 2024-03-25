@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
+	"github.com/google/orderedcode"
+	"github.com/tendermint/tendermint/debugutil"
+	dbm "github.com/tendermint/tm-db"
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/gogo/protobuf/proto"
-	"github.com/google/orderedcode"
-	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
@@ -66,7 +65,8 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 // respective attribute's key delimited by a "." (eg. "account.number").
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) Index(results []*abci.TxResult) error {
-	startTime := time.Now()
+	t := debugutil.NewTimer(fmt.Sprintf("TxIndex.Index (txs=%d)", len(results)))
+	defer t.Stop()
 	b := txi.store.NewBatch()
 	defer b.Close()
 
@@ -96,10 +96,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 		}
 	}
 
-	fmt.Printf("[Debug] TxIndex.Index latency=%dms, txs=%d\n", time.Since(startTime).Milliseconds(), len(results))
-	err := b.WriteSync()
-
-	return err
+	return b.WriteSync()
 }
 
 func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
