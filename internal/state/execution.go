@@ -695,6 +695,7 @@ func fireEvents(
 	finalizeBlockResponse *abci.ResponseFinalizeBlock,
 	validatorUpdates []*types.Validator,
 ) {
+	startTime := time.Now().UTC()
 	if err := eventBus.PublishEventNewBlock(types.EventDataNewBlock{
 		Block:               block,
 		BlockID:             blockID,
@@ -740,6 +741,25 @@ func fireEvents(
 			logger.Error("failed publishing event TX", "err", err)
 		}
 	}
+	//
+	//wg := &sync.WaitGroup{}
+	//wg.Add(len(block.Data.Txs))
+	//for i, tx := range block.Data.Txs {
+	//	go func() {
+	//		defer wg.Done()
+	//		if err := eventBus.PublishEventTx(types.EventDataTx{
+	//			TxResult: abci.TxResult{
+	//				Height: block.Height,
+	//				Index:  uint32(i),
+	//				Tx:     tx,
+	//				Result: *(finalizeBlockResponse.TxResults[i]),
+	//			},
+	//		}); err != nil {
+	//			logger.Error("failed publishing event TX", "err", err)
+	//		}
+	//	}()
+	//}
+	//wg.Wait()
 
 	if len(finalizeBlockResponse.ValidatorUpdates) > 0 {
 		if err := eventBus.PublishEventValidatorSetUpdates(
@@ -747,6 +767,7 @@ func fireEvents(
 			logger.Error("failed publishing event", "err", err)
 		}
 	}
+	logger.Info("PERF fireEvents", "latency", time.Since(startTime).Milliseconds())
 }
 
 //----------------------------------------------------------------------------------------------------
