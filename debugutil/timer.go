@@ -22,6 +22,10 @@ func (t *Timer) Stop() {
 }
 
 func PrintStats(msg string, durations []time.Duration) {
+	if len(durations) == 0 {
+		fmt.Printf("[Debug] %s count=0 (no stats)\n", msg)
+		return
+	}
 	var sum time.Duration
 	var max time.Duration
 	var min time.Duration
