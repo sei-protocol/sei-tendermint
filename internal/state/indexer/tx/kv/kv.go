@@ -36,11 +36,7 @@ func NewTxIndex(store dbm.DB) *TxIndex {
 	go func() {
 		for {
 			<-ticker.C
-			var vals []string
-			for k, v := range store.Stats() {
-				vals = append(vals, fmt.Sprintf("%s=%v", k, v))
-			}
-			fmt.Printf("[Debug] TxIndex store stats: %s\n", strings.Join(vals, " "))
+			fmt.Printf("[Debug] leveldb.stats: %s", store.Stats()["leveldb.stats"])
 		}
 	}()
 	return &TxIndex{
