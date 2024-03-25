@@ -2157,10 +2157,6 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	)
 	logger.Debug(fmt.Sprintf("%v", block))
 
-	finalizeStartTime := time.Now()
-	defer func() {
-		fmt.Printf("[Debug] ApplyBlock latency for block %d took %s \n", height, time.Since(finalizeStartTime))
-	}()
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
 		// NOTE: the seenCommit is local justification to commit this block,
@@ -2209,7 +2205,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash won't reflect these txs until the next block.
-
+	finalizeStartTime := time.Now()
 	stateCopy, err := cs.blockExec.ApplyBlock(spanCtx,
 		stateCopy,
 		types.BlockID{
@@ -2223,6 +2219,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to apply block", "err", err)
 		return
 	}
+	fmt.Printf("[Debug] ApplyBlock latency for block %d took %s \n", height, time.Since(finalizeStartTime))
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
