@@ -2157,6 +2157,10 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	)
 	logger.Debug(fmt.Sprintf("%v", block))
 
+	finalizeStartTime := time.Now()
+	defer func() {
+		fmt.Printf("[Debug] ApplyBlock latency for block %d took %s \n", height, time.Since(finalizeStartTime))
+	}()
 	// Save to blockStore.
 	if cs.blockStore.Height() < block.Height {
 		// NOTE: the seenCommit is local justification to commit this block,
