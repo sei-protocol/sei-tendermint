@@ -2051,7 +2051,9 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 		cs.tryFinalizeCommit(spanCtx, height)
 	}()
 
+	t2 := debugutil.NewTimer("enterCommit cs.roundState.Votes().Precommits(commitRound).TwoThirdsMajority()")
 	blockID, ok := cs.roundState.Votes().Precommits(commitRound).TwoThirdsMajority()
+	t2.Stop()
 	if !ok {
 		panic("RunActionCommit() expects +2/3 precommits")
 	}
@@ -2061,8 +2063,14 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 	// otherwise they'll be cleared in updateToState.
 	if cs.roundState.LockedBlock().HashesTo(blockID.Hash) {
 		logger.Info("commit is for a locked block; set ProposalBlock=LockedBlock", "block_hash", blockID.Hash)
+
+		t := debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlock(cs.roundState.LockedBlock())")
 		cs.roundState.SetProposalBlock(cs.roundState.LockedBlock())
+		t.Stop()
+
+		t2 := debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlockParts(cs.roundState.LockedBlockParts())")
 		cs.roundState.SetProposalBlockParts(cs.roundState.LockedBlockParts())
+		t2.Stop()
 	}
 
 	// If we don't have the block being committed, set up to get it.
@@ -2076,16 +2084,29 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 
 			// We're getting the wrong block.
 			// Set up ProposalBlockParts and keep waiting.
+			t := debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlock(cs.roundState.LockedBlock())")
 			cs.roundState.SetProposalBlock(nil)
-			cs.metrics.MarkBlockGossipStarted()
-			cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(blockID.PartSetHeader))
+			t.Stop()
 
+			cs.metrics.MarkBlockGossipStarted()
+
+			t = debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(blockID.PartSetHeader))")
+			cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(blockID.PartSetHeader))
+			t.Stop()
+
+			t = debugutil.NewTimer("enterCommit cs.eventBus.PublishEventValidBlock(cs.roundState.RoundStateEvent())")
 			if err := cs.eventBus.PublishEventValidBlock(cs.roundState.RoundStateEvent()); err != nil {
 				logger.Error("failed publishing valid block", "err", err)
 			}
+			t.Stop()
 
+			t = debugutil.NewTimer("enterCommit cs.roundState.CopyInternal()")
 			roundState := cs.roundState.CopyInternal()
+			t.Stop()
+
+			t = debugutil.NewTimer("enterCommit cs.evsw.FireEvent(types.EventValidBlockValue, roundState)")
 			cs.evsw.FireEvent(types.EventValidBlockValue, roundState)
+			t.Stop()
 		}
 	}
 }
