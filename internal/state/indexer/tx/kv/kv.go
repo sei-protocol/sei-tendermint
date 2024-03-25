@@ -96,7 +96,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 		}
 	}
 
-	fmt.Printf("PERF TxIndex.Index latency=%dms, txs=%d\n", time.Since(startTime).Milliseconds(), len(results))
+	fmt.Printf("[Debug] TxIndex.Index latency=%dms, txs=%d\n", time.Since(startTime).Milliseconds(), len(results))
 	err := b.WriteSync()
 
 	return err
