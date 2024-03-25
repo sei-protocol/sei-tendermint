@@ -32,6 +32,13 @@ type TxIndex struct {
 
 // NewTxIndex creates new KV indexer.
 func NewTxIndex(store dbm.DB) *TxIndex {
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for {
+			<-ticker.C
+			fmt.Printf("[Debug] TxIndex store stats: %v\n", store.Stats())
+		}
+	}()
 	return &TxIndex{
 		store: store,
 	}
