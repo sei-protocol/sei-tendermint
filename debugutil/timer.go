@@ -39,5 +39,8 @@ func PrintStats(msg string, durations []time.Duration) {
 		}
 	}
 	avg := sum / time.Duration(len(durations))
-	fmt.Printf("[Debug] %s count=%d sum=%s avg=%s max=%s min=%s\n", msg, len(durations), sum, avg, max, min)
+	// only show the slow ones
+	if sum > 500*time.Millisecond {
+		fmt.Printf("[Debug] %s count=%d sum=%s avg=%s max=%s min=%s\n", msg, len(durations), sum, avg, max, min)
+	}
 }
