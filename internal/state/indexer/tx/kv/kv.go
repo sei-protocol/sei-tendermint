@@ -71,6 +71,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 	b := txi.store.NewBatch()
 	defer b.Close()
 
+	var durations []time.Duration
 	for _, result := range results {
 		hash := types.Tx(result.Tx).Hash()
 
@@ -91,13 +92,18 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 			return err
 		}
 		// index by hash (always)
+		start := time.Now()
 		err = b.Set(primaryKey(hash), rawBytes)
+		durations = append(durations, time.Since(start))
 		if err != nil {
 			return err
 		}
 	}
-
-	return b.WriteSync()
+	debugutil.PrintStats("TxIndex.Index b.Set(primaryKey(hash), rawBytes)", durations)
+	t2 := debugutil.NewTimer(fmt.Sprintf("TxIndex.Index WriteSync (txs=%d)", len(results)))
+	err := b.WriteSync()
+	t2.Stop()
+	return err
 }
 
 func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
