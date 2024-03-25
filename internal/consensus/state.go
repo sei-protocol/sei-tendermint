@@ -2825,24 +2825,42 @@ func (cs *State) addVote(
 			"vote_timestamp", vote.Timestamp,
 			"data", precommits.LogString())
 
+		t2 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType TwoThirdsMajority")
 		blockID, ok := precommits.TwoThirdsMajority()
+		t2.Stop()
 		handleVoteMsgSpan.End()
 		if ok {
 			// Executed as TwoThirdsMajority could be from a higher round
+
+			t3 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterNewRound precommit-two-thirds")
 			cs.enterNewRound(ctx, height, vote.Round, "precommit-two-thirds")
+			t3.Stop()
+
+			t4 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterPrecommit precommit-two-thirds")
 			cs.enterPrecommit(ctx, height, vote.Round, "precommit-two-thirds")
+			t4.Stop()
 
 			if !blockID.IsNil() {
+				t5 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterCommit precommit-two-thirds")
 				cs.enterCommit(ctx, height, vote.Round, "precommit-two-thirds")
+				t5.Stop()
 				if cs.bypassCommitTimeout() && precommits.HasAll() {
+					t6 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterNewRound precommit-skip-round")
 					cs.enterNewRound(ctx, cs.roundState.Height(), 0, "precommit-skip-round")
+					t6.Stop()
 				}
 			} else {
+				t7 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterPrecommitWait")
 				cs.enterPrecommitWait(height, vote.Round)
+				t7.Stop()
 			}
 		} else if cs.roundState.Round() <= vote.Round && precommits.HasTwoThirdsAny() {
+			t8 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterNewRound precommit-two-thirds-any")
 			cs.enterNewRound(ctx, height, vote.Round, "precommit-two-thirds-any")
+			t8.Stop()
+			t9 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterPrecommitWait precommit-two-thirds-any")
 			cs.enterPrecommitWait(height, vote.Round)
+			t9.Stop()
 		}
 		t.Stop()
 
