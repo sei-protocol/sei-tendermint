@@ -2752,6 +2752,7 @@ func (cs *State) addVote(
 
 	switch vote.Type {
 	case tmproto.PrevoteType:
+		t := debugutil.NewTimer("State.addVote case tmproto.PrevoteType")
 		prevotes := cs.roundState.Votes().Prevotes(vote.Round)
 		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
 
@@ -2812,8 +2813,10 @@ func (cs *State) addVote(
 				cs.enterPrevote(ctx, height, cs.roundState.Round(), "prevote-future")
 			}
 		}
+		t.Stop()
 
 	case tmproto.PrecommitType:
+		t := debugutil.NewTimer("State.addVote case tmproto.PrecommitType")
 		precommits := cs.roundState.Votes().Precommits(vote.Round)
 		cs.logger.Debug("added vote to precommit",
 			"height", vote.Height,
@@ -2841,6 +2844,7 @@ func (cs *State) addVote(
 			cs.enterNewRound(ctx, height, vote.Round, "precommit-two-thirds-any")
 			cs.enterPrecommitWait(height, vote.Round)
 		}
+		t.Stop()
 
 	default:
 		panic(fmt.Sprintf("unexpected vote type %v", vote.Type))
