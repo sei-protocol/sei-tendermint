@@ -230,6 +230,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	ctx context.Context,
 	state State,
 	blockID types.BlockID, block *types.Block, tracer otrace.Tracer) (State, error) {
+
+	startTime := time.Now()
 	if tracer != nil {
 		spanCtx, span := tracer.Start(ctx, "cs.state.ApplyBlock")
 		ctx = spanCtx
@@ -239,7 +241,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.ValidateBlock(ctx, state, block); err != nil {
 		return state, ErrInvalidBlock(err)
 	}
-	startTime := time.Now()
 	defer func() {
 		blockExec.metrics.BlockProcessingTime.Observe(time.Since(startTime).Seconds())
 	}()
@@ -280,14 +281,15 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	blockExec.logger.Info(
-		"finalized block",
+		"[Debug] finalized block",
 		"height", block.Height,
-		"latency_ms", time.Now().Sub(startTime).Milliseconds(),
+		"latency_ms", time.Since(startTime).Milliseconds(),
 		"num_txs_res", len(fBlockRes.TxResults),
 		"num_val_updates", len(fBlockRes.ValidatorUpdates),
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
 
+	saveResponseTime := time.Now()
 	// Save the results before we commit.
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
 	if err != nil && !errors.Is(err, ErrNoFinalizeBlockResponsesForHeight{block.Height}) {
@@ -330,6 +332,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
 		defer commitSpan.End()
 	}
+
+	fmt.Printf("[Debug] Save finalize response took %s \n", time.Since(saveResponseTime))
+
+	commitStartTime := time.Now()
+
 	// Lock mempool, commit app state, update mempoool.
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
@@ -338,6 +345,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if commitSpan != nil {
 		commitSpan.End()
 	}
+	fmt.Printf("[Debug] blockExec Commit took %s \n", time.Since(commitStartTime))
+
+	blockSaveTime := time.Now()
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
@@ -347,6 +357,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
+	fmt.Printf("[Debug] blockExec save took %s \n", time.Since(blockSaveTime))
+
+	pruneTime := time.Now()
 
 	// Prune old heights, if requested by ABCI app.
 	if retainHeight > 0 {
@@ -364,6 +377,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
+	fmt.Printf("[Debug] prune block took %s \n", time.Since(pruneTime))
 
 	return state, nil
 }
