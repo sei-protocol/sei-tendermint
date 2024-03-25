@@ -289,7 +289,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
 
-	saveResponseTime := time.Now()
 	// Save the results before we commit.
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
 	if err != nil && !errors.Is(err, ErrNoFinalizeBlockResponsesForHeight{block.Height}) {
@@ -333,10 +332,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		defer commitSpan.End()
 	}
 
-	fmt.Printf("[Debug] Save finalize response took %s \n", time.Since(saveResponseTime))
-
-	commitStartTime := time.Now()
-
 	// Lock mempool, commit app state, update mempoool.
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
@@ -345,9 +340,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if commitSpan != nil {
 		commitSpan.End()
 	}
-	fmt.Printf("[Debug] blockExec Commit took %s \n", time.Since(commitStartTime))
-
-	blockSaveTime := time.Now()
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
@@ -357,10 +349,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
-	fmt.Printf("[Debug] blockExec save took %s \n", time.Since(blockSaveTime))
 
-	pruneTime := time.Now()
-
+	pruneStartTime := time.Now()
 	// Prune old heights, if requested by ABCI app.
 	if retainHeight > 0 {
 		pruned, err := blockExec.pruneBlocks(retainHeight)
@@ -370,14 +360,16 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			blockExec.logger.Debug("pruned blocks", "pruned", pruned, "retain_height", retainHeight)
 		}
 	}
+	fmt.Printf("[Debug] Prune block took %s\n", time.Since(pruneStartTime))
 
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
+	fireEventsStartTime := time.Now()
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
-	fmt.Printf("[Debug] prune block took %s \n", time.Since(pruneTime))
+	fmt.Printf("[Debug] FireEvents took %s\n", time.Since(fireEventsStartTime))
 
 	return state, nil
 }
