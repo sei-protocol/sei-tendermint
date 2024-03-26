@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tendermint/tendermint/debugutil"
+
 	"github.com/gogo/protobuf/proto"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -45,7 +47,13 @@ var (
 	ErrAddingVote                 = errors.New("error adding vote")
 	ErrSignatureFoundInPastBlocks = errors.New("found signature from the same key")
 
-	errPubKeyIsNotSet = errors.New("pubkey is not set. Look for \"Can't get private validator pubkey\" errors")
+	errPubKeyIsNotSet          = errors.New("pubkey is not set. Look for \"Can't get private validator pubkey\" errors")
+	ENTER_NEW_ROUND_TIME       = time.Now()
+	ENTER_PROPOSE_TIME         = time.Now()
+	ENTER_PREVOTE_TIME         = time.Now()
+	ENTER_PRECOMMIT_TIME       = time.Now()
+	ENTER_COMMIT_TIME          = time.Now()
+	ENTER_FINALIZE_COMMIT_TIME = time.Now()
 )
 
 var msgQueueSize = 1000
@@ -1295,6 +1303,9 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 
 	logger.Debug("entering new round", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
 
+	ENTER_NEW_ROUND_TIME = time.Now()
+	fmt.Printf("[Debug] Finalize commit latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_FINALIZE_COMMIT_TIME))
+
 	// increment validators if necessary
 	validators := cs.roundState.Validators()
 	if cs.roundState.Round() < round {
@@ -1400,6 +1411,8 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	}
 
 	logger.Debug("entering propose step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
+	ENTER_PROPOSE_TIME = time.Now()
+	fmt.Printf("[Debug] New round latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_NEW_ROUND_TIME))
 
 	defer func() {
 		// Done enterPropose:
@@ -1614,6 +1627,8 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 	}()
 
 	logger.Debug("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
+	ENTER_PREVOTE_TIME = time.Now()
+	fmt.Printf("[Debug] Propose latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_PROPOSE_TIME))
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -1837,6 +1852,9 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // Lock & precommit the ProposalBlock if we have enough prevotes for it (a POL in this round)
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, entryLabel string) {
+	t := debugutil.NewTimer("enterPrecommit")
+	defer t.Stop()
+
 	_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterPrecommit")
 	span.SetAttributes(attribute.Int("round", int(round)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -1857,6 +1875,9 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 
 	logger.Debug("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
+	ENTER_PRECOMMIT_TIME = time.Now()
+	fmt.Printf("[Debug] Prevote latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_PREVOTE_TIME))
+
 	defer func() {
 		// Done enterPrecommit:
 		cs.updateRoundStep(round, cstypes.RoundStepPrecommit)
@@ -1864,10 +1885,13 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	}()
 
 	// check for a polka
+	t = debugutil.NewTimer("checkPolka")
 	blockID, ok := cs.roundState.Votes().Prevotes(round).TwoThirdsMajority()
+	t.Stop()
 
 	// If we don't have a polka, we must precommit nil.
 	if !ok {
+		t = debugutil.NewTimer("noPolkaPreccomitNil")
 		if cs.roundState.LockedBlock() != nil {
 			logger.Info("precommit step; no +2/3 prevotes during enterPrecommit while we are locked; precommitting nil")
 		} else {
@@ -1875,44 +1899,56 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
+		t.Stop()
 		return
 	}
 
 	// At this point +2/3 prevoted for a particular block or nil.
+	t = debugutil.NewTimer("publishEventPolka")
 	if err := cs.eventBus.PublishEventPolka(cs.roundState.RoundStateEvent()); err != nil {
 		logger.Error("failed publishing polka", "err", err)
 	}
+	t.Stop()
 
 	// the latest POLRound should be this round.
+	t = debugutil.NewTimer("polInfo")
 	polRound, _ := cs.roundState.Votes().POLInfo()
 	if polRound < round {
 		panic(fmt.Sprintf("this POLRound should be %v but got %v", round, polRound))
 	}
+	t.Stop()
 
 	// +2/3 prevoted nil. Precommit nil.
 	if blockID.IsNil() {
+		t = debugutil.NewTimer("prevoteNilPreccomitNil")
 		logger.Info("precommit step: +2/3 prevoted for nil; precommitting nil")
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
+		t.Stop()
 		return
 	}
 	// At this point, +2/3 prevoted for a particular block.
 
 	// If we never received a proposal for this block, we must precommit nil
 	if cs.roundState.Proposal() == nil || cs.roundState.ProposalBlock() == nil {
+		t = debugutil.NewTimer("noBlockProposalPreccomitNil")
 		logger.Info("precommit step; did not receive proposal, precommitting nil")
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
+		t.Stop()
 		return
 	}
 
 	// If the proposal time does not match the block time, precommit nil.
 	if !cs.roundState.Proposal().Timestamp.Equal(cs.roundState.ProposalBlock().Header.Time) {
 		logger.Info("precommit step: proposal timestamp not equal; precommitting nil")
+		t = debugutil.NewTimer("proposalNotMatchBlockTimePreccomitNil")
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
+		t.Stop()
 		return
 	}
 
 	// If we're already locked on that block, precommit it, and update the LockedRound
 	if cs.roundState.LockedBlock().HashesTo(blockID.Hash) {
+		t = debugutil.NewTimer("lockedBlockPreccomit")
 		logger.Info("precommit step: +2/3 prevoted locked block; relocking")
 		cs.roundState.SetLockedRound(round)
 
@@ -1921,6 +1957,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, blockID.Hash, blockID.PartSetHeader)
+		t.Stop()
 		return
 	}
 
@@ -1928,6 +1965,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	// the proposed block, update our locked block to this block and issue a
 	// precommit vote for it.
 	if cs.roundState.ProposalBlock().HashesTo(blockID.Hash) {
+		t = debugutil.NewTimer("updatedLockedBlockPreccomit")
 		logger.Info("precommit step: +2/3 prevoted proposal block; locking", "hash", blockID.Hash)
 
 		// Validate the block.
@@ -1944,6 +1982,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, blockID.Hash, blockID.PartSetHeader)
+		t.Stop()
 		return
 	}
 
@@ -1951,6 +1990,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	// Fetch that block, and precommit nil.
 	logger.Info("precommit step: +2/3 prevotes for a block we do not have; voting nil", "block_id", blockID)
 
+	t = debugutil.NewTimer("polkaNotHavePreccomitNil")
 	if !cs.roundState.ProposalBlockParts().HasHeader(blockID.PartSetHeader) {
 		cs.roundState.SetProposalBlock(nil)
 		cs.metrics.MarkBlockGossipStarted()
@@ -1958,6 +1998,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	}
 
 	cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
+	t.Stop()
 }
 
 // Enter: any +2/3 precommits for next round.
@@ -1995,6 +2036,9 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 
 // Enter: +2/3 precommits for block
 func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int32, entryLabel string) {
+	t := debugutil.NewTimer("enterCommit")
+	defer t.Stop()
+
 	spanCtx, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterCommit")
 	span.SetAttributes(attribute.Int("round", int(commitRound)))
 	span.SetAttributes(attribute.String("entry", entryLabel))
@@ -2013,6 +2057,9 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 
 	logger.Debug("entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
+	ENTER_COMMIT_TIME = time.Now()
+	fmt.Printf("[Debug] Precommit latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_PRECOMMIT_TIME))
+
 	defer func() {
 		// Done enterCommit:
 		// keep cs.Round the same, commitRound points to the right Precommits set.
@@ -2025,7 +2072,9 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 		cs.tryFinalizeCommit(spanCtx, height)
 	}()
 
+	t2 := debugutil.NewTimer("enterCommit cs.roundState.Votes().Precommits(commitRound).TwoThirdsMajority()")
 	blockID, ok := cs.roundState.Votes().Precommits(commitRound).TwoThirdsMajority()
+	t2.Stop()
 	if !ok {
 		panic("RunActionCommit() expects +2/3 precommits")
 	}
@@ -2035,8 +2084,14 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 	// otherwise they'll be cleared in updateToState.
 	if cs.roundState.LockedBlock().HashesTo(blockID.Hash) {
 		logger.Info("commit is for a locked block; set ProposalBlock=LockedBlock", "block_hash", blockID.Hash)
+
+		t := debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlock(cs.roundState.LockedBlock())")
 		cs.roundState.SetProposalBlock(cs.roundState.LockedBlock())
+		t.Stop()
+
+		t2 := debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlockParts(cs.roundState.LockedBlockParts())")
 		cs.roundState.SetProposalBlockParts(cs.roundState.LockedBlockParts())
+		t2.Stop()
 	}
 
 	// If we don't have the block being committed, set up to get it.
@@ -2050,16 +2105,29 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 
 			// We're getting the wrong block.
 			// Set up ProposalBlockParts and keep waiting.
+			t := debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlock(cs.roundState.LockedBlock())")
 			cs.roundState.SetProposalBlock(nil)
-			cs.metrics.MarkBlockGossipStarted()
-			cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(blockID.PartSetHeader))
+			t.Stop()
 
+			cs.metrics.MarkBlockGossipStarted()
+
+			t = debugutil.NewTimer("enterCommit cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(blockID.PartSetHeader))")
+			cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(blockID.PartSetHeader))
+			t.Stop()
+
+			t = debugutil.NewTimer("enterCommit cs.eventBus.PublishEventValidBlock(cs.roundState.RoundStateEvent())")
 			if err := cs.eventBus.PublishEventValidBlock(cs.roundState.RoundStateEvent()); err != nil {
 				logger.Error("failed publishing valid block", "err", err)
 			}
+			t.Stop()
 
+			t = debugutil.NewTimer("enterCommit cs.roundState.CopyInternal()")
 			roundState := cs.roundState.CopyInternal()
+			t.Stop()
+
+			t = debugutil.NewTimer("enterCommit cs.evsw.FireEvent(types.EventValidBlockValue, roundState)")
 			cs.evsw.FireEvent(types.EventValidBlockValue, roundState)
+			t.Stop()
 		}
 	}
 }
@@ -2127,6 +2195,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		panic(fmt.Errorf("+2/3 committed an invalid block: %w", err))
 	}
 
+	ENTER_FINALIZE_COMMIT_TIME = time.Now()
+	fmt.Printf("[Debug] Commit latency for block %d is: %s \n", cs.roundState.Height(), time.Since(ENTER_COMMIT_TIME))
 	logger.Info(
 		"finalizing commit of block",
 		"hash", block.Hash(),
@@ -2184,7 +2254,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash won't reflect these txs until the next block.
-
+	finalizeStartTime := time.Now()
 	stateCopy, err := cs.blockExec.ApplyBlock(spanCtx,
 		stateCopy,
 		types.BlockID{
@@ -2198,6 +2268,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to apply block", "err", err)
 		return
 	}
+	fmt.Printf("[Debug] ApplyBlock latency for block %d took %s \n", height, time.Since(finalizeStartTime))
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
@@ -2610,6 +2681,8 @@ func (cs *State) addVote(
 	peerID types.NodeID,
 	handleVoteMsgSpan otrace.Span,
 ) (added bool, err error) {
+	t := debugutil.NewTimer("State.addVote")
+	defer t.Stop()
 	cs.logger.Debug(
 		"adding vote",
 		"vote_height", vote.Height,
@@ -2721,6 +2794,7 @@ func (cs *State) addVote(
 
 	switch vote.Type {
 	case tmproto.PrevoteType:
+		t := debugutil.NewTimer("State.addVote case tmproto.PrevoteType")
 		prevotes := cs.roundState.Votes().Prevotes(vote.Round)
 		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
 
@@ -2781,8 +2855,10 @@ func (cs *State) addVote(
 				cs.enterPrevote(ctx, height, cs.roundState.Round(), "prevote-future")
 			}
 		}
+		t.Stop()
 
 	case tmproto.PrecommitType:
+		t := debugutil.NewTimer("State.addVote case tmproto.PrecommitType")
 		precommits := cs.roundState.Votes().Precommits(vote.Round)
 		cs.logger.Debug("added vote to precommit",
 			"height", vote.Height,
@@ -2791,25 +2867,44 @@ func (cs *State) addVote(
 			"vote_timestamp", vote.Timestamp,
 			"data", precommits.LogString())
 
+		t2 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType TwoThirdsMajority")
 		blockID, ok := precommits.TwoThirdsMajority()
+		t2.Stop()
 		handleVoteMsgSpan.End()
 		if ok {
 			// Executed as TwoThirdsMajority could be from a higher round
+
+			t3 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterNewRound precommit-two-thirds")
 			cs.enterNewRound(ctx, height, vote.Round, "precommit-two-thirds")
+			t3.Stop()
+
+			t4 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterPrecommit precommit-two-thirds")
 			cs.enterPrecommit(ctx, height, vote.Round, "precommit-two-thirds")
+			t4.Stop()
 
 			if !blockID.IsNil() {
+				t5 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterCommit precommit-two-thirds")
 				cs.enterCommit(ctx, height, vote.Round, "precommit-two-thirds")
+				t5.Stop()
 				if cs.bypassCommitTimeout() && precommits.HasAll() {
+					t6 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterNewRound precommit-skip-round")
 					cs.enterNewRound(ctx, cs.roundState.Height(), 0, "precommit-skip-round")
+					t6.Stop()
 				}
 			} else {
+				t7 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterPrecommitWait")
 				cs.enterPrecommitWait(height, vote.Round)
+				t7.Stop()
 			}
 		} else if cs.roundState.Round() <= vote.Round && precommits.HasTwoThirdsAny() {
+			t8 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterNewRound precommit-two-thirds-any")
 			cs.enterNewRound(ctx, height, vote.Round, "precommit-two-thirds-any")
+			t8.Stop()
+			t9 := debugutil.NewTimer("State.addVote case tmproto.PrecommitType enterPrecommitWait precommit-two-thirds-any")
 			cs.enterPrecommitWait(height, vote.Round)
+			t9.Stop()
 		}
+		t.Stop()
 
 	default:
 		panic(fmt.Sprintf("unexpected vote type %v", vote.Type))

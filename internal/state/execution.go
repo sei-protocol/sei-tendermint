@@ -98,10 +98,13 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	evidence, evSize := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxBytes)
 
+	fmt.Printf("[Debug] Creating proposal block height %d, mempool size: %d \n", height, blockExec.mempool.Size())
 	// Fetch a limited amount of valid txs
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
+	fmt.Printf("[Debug] Reap %d txs for height %d, mempool size: %d \n", len(txs), height, blockExec.mempool.Size())
+
 	commit := lastExtCommit.ToCommit()
 	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 	rpp, err := blockExec.appClient.PrepareProposal(
@@ -227,6 +230,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	ctx context.Context,
 	state State,
 	blockID types.BlockID, block *types.Block, tracer otrace.Tracer) (State, error) {
+
+	startTime := time.Now()
 	if tracer != nil {
 		spanCtx, span := tracer.Start(ctx, "cs.state.ApplyBlock")
 		ctx = spanCtx
@@ -236,7 +241,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.ValidateBlock(ctx, state, block); err != nil {
 		return state, ErrInvalidBlock(err)
 	}
-	startTime := time.Now()
 	defer func() {
 		blockExec.metrics.BlockProcessingTime.Observe(time.Since(startTime).Seconds())
 	}()
@@ -277,9 +281,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	blockExec.logger.Info(
-		"finalized block",
+		"[Debug] finalized block",
 		"height", block.Height,
-		"latency_ms", time.Now().Sub(startTime).Milliseconds(),
+		"latency_ms", time.Since(startTime).Milliseconds(),
 		"num_txs_res", len(fBlockRes.TxResults),
 		"num_val_updates", len(fBlockRes.ValidatorUpdates),
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
@@ -327,6 +331,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
 		defer commitSpan.End()
 	}
+
 	// Lock mempool, commit app state, update mempoool.
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
@@ -345,6 +350,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, err
 	}
 
+	pruneStartTime := time.Now()
 	// Prune old heights, if requested by ABCI app.
 	if retainHeight > 0 {
 		pruned, err := blockExec.pruneBlocks(retainHeight)
@@ -354,13 +360,16 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			blockExec.logger.Debug("pruned blocks", "pruned", pruned, "retain_height", retainHeight)
 		}
 	}
+	fmt.Printf("[Debug] Prune block took %s\n", time.Since(pruneStartTime))
 
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
+	fireEventsStartTime := time.Now()
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
+	fmt.Printf("[Debug] FireEvents took %s\n", time.Since(fireEventsStartTime))
 
 	return state, nil
 }
@@ -695,6 +704,8 @@ func FireEvents(
 	finalizeBlockResponse *abci.ResponseFinalizeBlock,
 	validatorUpdates []*types.Validator,
 ) {
+
+	startTime := time.Now()
 	if err := eventBus.PublishEventNewBlock(types.EventDataNewBlock{
 		Block:               block,
 		BlockID:             blockID,
@@ -702,7 +713,9 @@ func FireEvents(
 	}); err != nil {
 		logger.Error("failed publishing new block", "err", err)
 	}
+	fmt.Printf("[Debug] Publish New block event took %s\n", time.Since(startTime))
 
+	startBlockHeaderTime := time.Now()
 	if err := eventBus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
 		Header:              block.Header,
 		NumTxs:              int64(len(block.Txs)),
@@ -710,7 +723,9 @@ func FireEvents(
 	}); err != nil {
 		logger.Error("failed publishing new block header", "err", err)
 	}
+	fmt.Printf("[Debug] Publish Block header took %s\n", time.Since(startBlockHeaderTime))
 
+	startEvidenceTime := time.Now()
 	if len(block.Evidence) != 0 {
 		for _, ev := range block.Evidence {
 			if err := eventBus.PublishEventNewEvidence(types.EventDataNewEvidence{
@@ -721,6 +736,7 @@ func FireEvents(
 			}
 		}
 	}
+	fmt.Printf("[Debug] Publish Evidence took %s\n", time.Since(startEvidenceTime))
 
 	// sanity check
 	if len(finalizeBlockResponse.TxResults) != len(block.Data.Txs) {
@@ -728,6 +744,7 @@ func FireEvents(
 			len(block.Data.Txs), len(finalizeBlockResponse.TxResults)))
 	}
 
+	startPublishTxTime := time.Now()
 	for i, tx := range block.Data.Txs {
 		if err := eventBus.PublishEventTx(types.EventDataTx{
 			TxResult: abci.TxResult{
@@ -740,6 +757,7 @@ func FireEvents(
 			logger.Error("failed publishing event TX", "err", err)
 		}
 	}
+	fmt.Printf("[Debug] Publish %d event tx took %s\n", len(block.Data.Txs), time.Since(startPublishTxTime))
 
 	if len(finalizeBlockResponse.ValidatorUpdates) > 0 {
 		if err := eventBus.PublishEventValidatorSetUpdates(

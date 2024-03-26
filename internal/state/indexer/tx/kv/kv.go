@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
+	"github.com/google/orderedcode"
+	"github.com/tendermint/tendermint/debugutil"
+	dbm "github.com/tendermint/tm-db"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/gogo/protobuf/proto"
-	"github.com/google/orderedcode"
-	dbm "github.com/tendermint/tm-db"
+	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
@@ -31,6 +32,13 @@ type TxIndex struct {
 
 // NewTxIndex creates new KV indexer.
 func NewTxIndex(store dbm.DB) *TxIndex {
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for {
+			<-ticker.C
+			fmt.Printf("[Debug] leveldb.stats: %s", store.Stats()["leveldb.stats"])
+		}
+	}()
 	return &TxIndex{
 		store: store,
 	}
@@ -65,9 +73,12 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 // respective attribute's key delimited by a "." (eg. "account.number").
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) Index(results []*abci.TxResult) error {
+	t := debugutil.NewTimer(fmt.Sprintf("TxIndex.Index (txs=%d)", len(results)))
+	defer t.Stop()
 	b := txi.store.NewBatch()
 	defer b.Close()
 
+	var durations []time.Duration
 	for _, result := range results {
 		hash := types.Tx(result.Tx).Hash()
 
@@ -88,16 +99,22 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 			return err
 		}
 		// index by hash (always)
+		start := time.Now()
 		err = b.Set(primaryKey(hash), rawBytes)
+		durations = append(durations, time.Since(start))
 		if err != nil {
 			return err
 		}
 	}
-
-	return b.WriteSync()
+	debugutil.PrintStats("TxIndex.Index b.Set(primaryKey(hash), rawBytes)", durations)
+	t2 := debugutil.NewTimer(fmt.Sprintf("TxIndex.Index WriteSync (txs=%d)", len(results)))
+	err := b.WriteSync()
+	t2.Stop()
+	return err
 }
 
 func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
+	var durations []time.Duration
 	for _, event := range result.Result.Events {
 		// only index events with a non-empty type
 		if len(event.Type) == 0 {
@@ -116,14 +133,16 @@ func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Ba
 				return fmt.Errorf("event type and attribute key \"%s\" is reserved; please use a different key", compositeTag)
 			}
 			if attr.GetIndex() {
+				start := time.Now()
 				err := store.Set(keyFromEvent(compositeTag, string(attr.Value), result), hash)
+				durations = append(durations, time.Since(start))
 				if err != nil {
 					return err
 				}
 			}
 		}
 	}
-
+	debugutil.PrintStats("indexEvents", durations)
 	return nil
 }
 
