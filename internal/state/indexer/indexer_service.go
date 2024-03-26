@@ -109,7 +109,6 @@ func (is *Service) publish(msg pubsub.Message) error {
 				//			"height", is.currentBlock.height, "sink", sink.Type())
 				//	}
 				//}()
-
 			}
 		}
 		is.currentBlock.batch = nil // return to the WAIT state for the next block
