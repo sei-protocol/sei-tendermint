@@ -13,7 +13,7 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-var DefaultBufferCapacity = 10
+var DefaultBufferCapacity = 100
 
 // Subscription is a proxy interface for a pubsub Subscription.
 type Subscription interface {
