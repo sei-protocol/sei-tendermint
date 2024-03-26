@@ -108,7 +108,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 	}
 	debugutil.PrintStats("TxIndex.Index b.Set(primaryKey(hash), rawBytes)", durations)
 	t2 := debugutil.NewTimer(fmt.Sprintf("TxIndex.Index WriteSync (txs=%d)", len(results)))
-	err := b.Write()
+	err := b.WriteSync()
 	t2.Stop()
 	return err
 }
