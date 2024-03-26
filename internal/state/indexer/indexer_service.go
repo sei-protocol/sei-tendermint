@@ -95,20 +95,20 @@ func (is *Service) publish(msg pubsub.Message) error {
 			}
 
 			if curr.Size() != 0 {
-				go func() {
-					ops := curr.Ops
-					start := time.Now()
-					err := sink.IndexTxEvents(ops)
-					if err != nil {
-						is.logger.Error("failed to index block txs",
-							"height", is.currentBlock.height, "err", err)
-					} else {
-						is.metrics.TxEventsSeconds.Observe(time.Since(start).Seconds())
-						is.metrics.TransactionsIndexed.Add(float64(curr.Size()))
-						is.logger.Debug("indexed txs",
-							"height", is.currentBlock.height, "sink", sink.Type())
-					}
-				}()
+				//go func() {
+				//	ops := curr.Ops
+				//	start := time.Now()
+				//	err := sink.IndexTxEvents(ops[:1])
+				//	if err != nil {
+				//		is.logger.Error("failed to index block txs",
+				//			"height", is.currentBlock.height, "err", err)
+				//	} else {
+				//		is.metrics.TxEventsSeconds.Observe(time.Since(start).Seconds())
+				//		is.metrics.TransactionsIndexed.Add(float64(curr.Size()))
+				//		is.logger.Debug("indexed txs",
+				//			"height", is.currentBlock.height, "sink", sink.Type())
+				//	}
+				//}()
 
 			}
 		}
