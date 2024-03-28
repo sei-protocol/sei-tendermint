@@ -41,6 +41,11 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc, logger log.Logger) http.Han
 		}
 
 		requests, err := parseRequests(b)
+		if len(requests) > 10 {
+			writeRPCResponse(w, logger, rpctypes.RPCRequest{}.MakeErrorf(
+				rpctypes.CodeParseError, "Batch size limit exceeded."))
+			return
+		}
 		if err != nil {
 			writeRPCResponse(w, logger, rpctypes.RPCRequest{}.MakeErrorf(
 				rpctypes.CodeParseError, "decoding request: %v", err))
