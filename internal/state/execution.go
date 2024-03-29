@@ -705,7 +705,6 @@ func FireEvents(
 	validatorUpdates []*types.Validator,
 ) {
 
-	startTime := time.Now()
 	if err := eventBus.PublishEventNewBlock(types.EventDataNewBlock{
 		Block:               block,
 		BlockID:             blockID,
@@ -713,9 +712,7 @@ func FireEvents(
 	}); err != nil {
 		logger.Error("failed publishing new block", "err", err)
 	}
-	fmt.Printf("[Debug] Publish New block event took %s\n", time.Since(startTime))
 
-	startBlockHeaderTime := time.Now()
 	if err := eventBus.PublishEventNewBlockHeader(types.EventDataNewBlockHeader{
 		Header:              block.Header,
 		NumTxs:              int64(len(block.Txs)),
@@ -723,9 +720,7 @@ func FireEvents(
 	}); err != nil {
 		logger.Error("failed publishing new block header", "err", err)
 	}
-	fmt.Printf("[Debug] Publish Block header took %s\n", time.Since(startBlockHeaderTime))
 
-	startEvidenceTime := time.Now()
 	if len(block.Evidence) != 0 {
 		for _, ev := range block.Evidence {
 			if err := eventBus.PublishEventNewEvidence(types.EventDataNewEvidence{
@@ -736,8 +731,6 @@ func FireEvents(
 			}
 		}
 	}
-	fmt.Printf("[Debug] Publish Evidence took %s\n", time.Since(startEvidenceTime))
-
 	// sanity check
 	if len(finalizeBlockResponse.TxResults) != len(block.Data.Txs) {
 		panic(fmt.Sprintf("number of TXs (%d) and ABCI TX responses (%d) do not match",
