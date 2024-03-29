@@ -2355,6 +2355,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 				block.Time.Sub(lastBlockMeta.Header.Time).Seconds(),
 			)
 		}
+		fmt.Printf("[Debug] Block time for height %d is: %s\n", block.Height, block.Time.Sub(lastBlockMeta.Header.Time))
 	}
 
 	roundState := cs.GetRoundState()
