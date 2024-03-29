@@ -1852,8 +1852,6 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 // Lock & precommit the ProposalBlock if we have enough prevotes for it (a POL in this round)
 // else, precommit nil otherwise.
 func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, entryLabel string) {
-	t := debugutil.NewTimer("enterPrecommit")
-	defer t.Stop()
 
 	_, span := cs.tracer.Start(cs.getTracingCtx(ctx), "cs.state.enterPrecommit")
 	span.SetAttributes(attribute.Int("round", int(round)))
@@ -1885,13 +1883,10 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	}()
 
 	// check for a polka
-	t = debugutil.NewTimer("checkPolka")
 	blockID, ok := cs.roundState.Votes().Prevotes(round).TwoThirdsMajority()
-	t.Stop()
 
 	// If we don't have a polka, we must precommit nil.
 	if !ok {
-		t = debugutil.NewTimer("noPolkaPreccomitNil")
 		if cs.roundState.LockedBlock() != nil {
 			logger.Info("precommit step; no +2/3 prevotes during enterPrecommit while we are locked; precommitting nil")
 		} else {
@@ -1899,56 +1894,44 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
-		t.Stop()
 		return
 	}
 
 	// At this point +2/3 prevoted for a particular block or nil.
-	t = debugutil.NewTimer("publishEventPolka")
 	if err := cs.eventBus.PublishEventPolka(cs.roundState.RoundStateEvent()); err != nil {
 		logger.Error("failed publishing polka", "err", err)
 	}
-	t.Stop()
 
 	// the latest POLRound should be this round.
-	t = debugutil.NewTimer("polInfo")
 	polRound, _ := cs.roundState.Votes().POLInfo()
 	if polRound < round {
 		panic(fmt.Sprintf("this POLRound should be %v but got %v", round, polRound))
 	}
-	t.Stop()
 
 	// +2/3 prevoted nil. Precommit nil.
 	if blockID.IsNil() {
-		t = debugutil.NewTimer("prevoteNilPreccomitNil")
 		logger.Info("precommit step: +2/3 prevoted for nil; precommitting nil")
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
-		t.Stop()
 		return
 	}
 	// At this point, +2/3 prevoted for a particular block.
 
 	// If we never received a proposal for this block, we must precommit nil
 	if cs.roundState.Proposal() == nil || cs.roundState.ProposalBlock() == nil {
-		t = debugutil.NewTimer("noBlockProposalPreccomitNil")
 		logger.Info("precommit step; did not receive proposal, precommitting nil")
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
-		t.Stop()
 		return
 	}
 
 	// If the proposal time does not match the block time, precommit nil.
 	if !cs.roundState.Proposal().Timestamp.Equal(cs.roundState.ProposalBlock().Header.Time) {
 		logger.Info("precommit step: proposal timestamp not equal; precommitting nil")
-		t = debugutil.NewTimer("proposalNotMatchBlockTimePreccomitNil")
 		cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
-		t.Stop()
 		return
 	}
 
 	// If we're already locked on that block, precommit it, and update the LockedRound
 	if cs.roundState.LockedBlock().HashesTo(blockID.Hash) {
-		t = debugutil.NewTimer("lockedBlockPreccomit")
 		logger.Info("precommit step: +2/3 prevoted locked block; relocking")
 		cs.roundState.SetLockedRound(round)
 
@@ -1957,7 +1940,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, blockID.Hash, blockID.PartSetHeader)
-		t.Stop()
 		return
 	}
 
@@ -1965,7 +1947,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	// the proposed block, update our locked block to this block and issue a
 	// precommit vote for it.
 	if cs.roundState.ProposalBlock().HashesTo(blockID.Hash) {
-		t = debugutil.NewTimer("updatedLockedBlockPreccomit")
 		logger.Info("precommit step: +2/3 prevoted proposal block; locking", "hash", blockID.Hash)
 
 		// Validate the block.
@@ -1982,7 +1963,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		}
 
 		cs.signAddVote(ctx, tmproto.PrecommitType, blockID.Hash, blockID.PartSetHeader)
-		t.Stop()
 		return
 	}
 
@@ -1990,7 +1970,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	// Fetch that block, and precommit nil.
 	logger.Info("precommit step: +2/3 prevotes for a block we do not have; voting nil", "block_id", blockID)
 
-	t = debugutil.NewTimer("polkaNotHavePreccomitNil")
 	if !cs.roundState.ProposalBlockParts().HasHeader(blockID.PartSetHeader) {
 		cs.roundState.SetProposalBlock(nil)
 		cs.metrics.MarkBlockGossipStarted()
@@ -1998,7 +1977,6 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 	}
 
 	cs.signAddVote(ctx, tmproto.PrecommitType, nil, types.PartSetHeader{})
-	t.Stop()
 }
 
 // Enter: any +2/3 precommits for next round.
