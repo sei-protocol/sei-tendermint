@@ -289,6 +289,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
 
+	saveStartTime := time.Now()
 	// Save the results before we commit.
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
 	if err != nil && !errors.Is(err, ErrNoFinalizeBlockResponsesForHeight{block.Height}) {
@@ -349,6 +350,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
+	fmt.Printf("[Debug] Save block took %s\n", time.Since(saveStartTime))
 
 	pruneStartTime := time.Now()
 	// Prune old heights, if requested by ABCI app.
