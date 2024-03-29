@@ -98,12 +98,12 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	evidence, evSize := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxBytes)
 
-	fmt.Printf("[Debug] Creating proposal block height %d, mempool size: %d \n", height, blockExec.mempool.Size())
+	startTime := time.Now()
 	// Fetch a limited amount of valid txs
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
-	fmt.Printf("[Debug] Reap %d txs for height %d, mempool size: %d \n", len(txs), height, blockExec.mempool.Size())
+	fmt.Printf("[Debug] Reap %d txs for height %d, mempool size: %d took %s \n", len(txs), height, blockExec.mempool.Size(), time.Since(startTime))
 
 	commit := lastExtCommit.ToCommit()
 	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
