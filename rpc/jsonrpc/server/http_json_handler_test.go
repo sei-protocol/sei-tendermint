@@ -237,17 +237,17 @@ func TestRPCBatchLimit(t *testing.T) {
 		},
 		{
 			`[
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"},
-				{"jsonrpc": "2.0"}
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]},
+				{"jsonrpc": "2.0","method":"c","id":"abc","params":["a","10"]}
 			 ]`,
 			false,
 		},
