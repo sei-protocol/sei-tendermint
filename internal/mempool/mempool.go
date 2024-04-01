@@ -797,7 +797,6 @@ func (txmp *TxMempool) canAddTx(wtx *WrappedTx) error {
 }
 
 func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
-	txmp.metrics.InsertedTxs.Add(1)
 	txmp.txStore.SetTx(wtx)
 	txmp.priorityIndex.PushTx(wtx)
 	txmp.heightIndex.Insert(wtx)
@@ -809,6 +808,7 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
 	gossipEl := txmp.gossipIndex.PushBack(wtx)
 	wtx.gossipEl = gossipEl
 
+	txmp.metrics.InsertedTxs.Add(1)
 	atomic.AddInt64(&txmp.sizeBytes, int64(wtx.Size()))
 }
 
@@ -817,7 +817,6 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 		return
 	}
 
-	txmp.metrics.RecheckTimes.Add(1)
 	txmp.txStore.RemoveTx(wtx)
 	txmp.priorityIndex.RemoveTx(wtx)
 	txmp.heightIndex.Remove(wtx)
@@ -828,6 +827,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 	txmp.gossipIndex.Remove(wtx.gossipEl)
 	wtx.gossipEl.DetachPrev()
 
+	txmp.metrics.RemovedTxs.Add(1)
 	atomic.AddInt64(&txmp.sizeBytes, int64(-wtx.Size()))
 
 	if removeFromCache {
