@@ -797,6 +797,7 @@ func (txmp *TxMempool) canAddTx(wtx *WrappedTx) error {
 }
 
 func (txmp *TxMempool) insertTx(wtx *WrappedTx) {
+	txmp.metrics.InsertedTxs.Add(1)
 	txmp.txStore.SetTx(wtx)
 	txmp.priorityIndex.PushTx(wtx)
 	txmp.heightIndex.Insert(wtx)
@@ -816,6 +817,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool) {
 		return
 	}
 
+	txmp.metrics.RecheckTimes.Add(1)
 	txmp.txStore.RemoveTx(wtx)
 	txmp.priorityIndex.RemoveTx(wtx)
 	txmp.heightIndex.Remove(wtx)
