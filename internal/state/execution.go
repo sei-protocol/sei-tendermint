@@ -270,7 +270,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
-	blockExec.metrics.BlockProcessingTime.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
+	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
 	}
