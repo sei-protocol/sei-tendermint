@@ -270,7 +270,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
-	blockExec.metrics.BlockProcessingTime.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
+	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
 	}
@@ -290,7 +290,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Save the results before we commit.
 	saveBlockResponseTime := time.Now()
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
-	blockExec.metrics.BlockProcessingTime.Observe(float64(time.Since(saveBlockResponseTime).Milliseconds()))
+	blockExec.metrics.SaveBlockResponseLatency.Observe(float64(time.Since(saveBlockResponseTime).Milliseconds()))
 	if err != nil && !errors.Is(err, ErrNoFinalizeBlockResponsesForHeight{block.Height}) {
 		// It is correct to have an empty ResponseFinalizeBlock for ApplyBlock,
 		// but not for saving it to the state store
