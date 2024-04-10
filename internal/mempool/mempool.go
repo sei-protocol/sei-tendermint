@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	lru "github.com/hashicorp/golang-lru"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -99,6 +100,7 @@ type TxMempool struct {
 	// NodeID to count of transactions failing CheckTx
 	failedCheckTxCounts    map[types.NodeID]uint64
 	mtxFailedCheckTxCounts sync.RWMutex
+	recentTxNonces         *lru.Cache
 
 	peerManager PeerEvictor
 }
@@ -111,16 +113,21 @@ func NewTxMempool(
 	options ...TxMempoolOption,
 ) *TxMempool {
 
+	recentTxs, err := lru.New(10000)
+	if err != nil {
+		panic(err)
+	}
 	txmp := &TxMempool{
-		logger:        logger,
-		config:        cfg,
-		proxyAppConn:  proxyAppConn,
-		height:        -1,
-		cache:         NopTxCache{},
-		metrics:       NopMetrics(),
-		txStore:       NewTxStore(),
-		gossipIndex:   clist.New(),
-		priorityIndex: NewTxPriorityQueue(),
+		logger:         logger,
+		config:         cfg,
+		proxyAppConn:   proxyAppConn,
+		height:         -1,
+		cache:          NopTxCache{},
+		metrics:        NopMetrics(),
+		txStore:        NewTxStore(),
+		recentTxNonces: recentTxs,
+		gossipIndex:    clist.New(),
+		priorityIndex:  NewTxPriorityQueue(),
 		heightIndex: NewWrappedTxList(func(wtx1, wtx2 *WrappedTx) bool {
 			return wtx1.height >= wtx2.height
 		}),
@@ -444,6 +451,15 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 
 		totalGas = gas
 
+		if wtx.isEVM {
+			if txmp.recentTxNonces.Contains(fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce)) {
+				txmp.logger.Error("[Debug] DUPE_NONCE_CHECK reaping transaction with recently used nonce",
+					"address", wtx.evmAddress,
+					"nonce", wtx.evmNonce,
+				)
+			}
+		}
+
 		txs = append(txs, wtx.tx)
 		return true
 	})
@@ -526,6 +542,7 @@ func (txmp *TxMempool) Update(
 			}); wtx != nil {
 				txmp.removeTx(wtx, false, false, true)
 			}
+			txmp.recentTxNonces.Add(fmt.Sprintf("%s/%d", execTxResult[i].EvmTxInfo.SenderAddress, execTxResult[i].EvmTxInfo.Nonce), true)
 		}
 	}
 
