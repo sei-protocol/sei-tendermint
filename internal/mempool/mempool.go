@@ -703,8 +703,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		txInfo.SenderID: {},
 	}
 
-	replaced, shouldDrop := txmp.priorityIndex.TryReplacement(wtx)
-	if shouldDrop {
+	if txmp.isInMempool(wtx.tx) {
 		return nil
 	}
 
@@ -712,10 +711,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	txmp.metrics.Size.Set(float64(txmp.SizeWithoutPending()))
 	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
 
-	if replaced != nil {
-		txmp.removeTx(replaced, true, false, false)
-	}
-	if txmp.insertTx(wtx, replaced == nil) {
+	if txmp.insertTx(wtx) {
 		txmp.logger.Debug(
 			"inserted good transaction",
 			"priority", wtx.priority,
@@ -723,11 +719,10 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 			"height", txmp.height,
 			"num_txs", txmp.SizeWithoutPending(),
 		)
+		if wtx.isEVM {
+			txmp.logger.Info("[DUPE_NONCE_DEBUG] addNewTransaction added", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
+		}
 		txmp.notifyTxsAvailable()
-	}
-
-	if wtx.isEVM {
-		txmp.logger.Info("[DUPE_NONCE_DEBUG] addNewTransaction added", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
 	}
 
 	return nil
@@ -913,15 +908,15 @@ func (txmp *TxMempool) canAddPendingTx(wtx *WrappedTx) error {
 	return nil
 }
 
-func (txmp *TxMempool) insertTx(wtx *WrappedTx, updatePriorityIndex bool) bool {
-	if txmp.isInMempool(wtx.tx) {
+func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
+	replacedTx, inserted := txmp.priorityIndex.PushTx(wtx)
+	if !inserted {
 		return false
 	}
-
-	txmp.txStore.SetTx(wtx)
-	if updatePriorityIndex {
-		txmp.priorityIndex.PushTx(wtx)
+	if replacedTx != nil {
+		txmp.removeTx(replacedTx, true, false, false)
 	}
+	txmp.txStore.SetTx(wtx)
 	txmp.heightIndex.Insert(wtx)
 	txmp.timestampIndex.Insert(wtx)
 
