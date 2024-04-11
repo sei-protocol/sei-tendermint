@@ -349,7 +349,7 @@ func (txmp *TxMempool) CheckTx(
 			atomic.AddInt64(&txmp.pendingSizeBytes, int64(wtx.Size()))
 
 			if wtx.isEVM {
-				txmp.logger.Info("[DUPE_NONCE_DEBUG] add pending", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
+				txmp.logger.Info("[DUPE_NONCE_DEBUG] add pending", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
 			}
 
 			if err := txmp.pendingTxs.Insert(wtx, res, txInfo); err != nil {
@@ -460,12 +460,13 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 			nonceKey := fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce)
 			if txmp.recentTxNonces.Contains(nonceKey) {
 				txmp.logger.Error("[Debug] DUPE_NONCE_CHECK reaping transaction with recently used nonce",
+					"tx", fmt.Sprintf("%X", wtx.tx.Key()),
 					"address", wtx.evmAddress,
 					"nonce", wtx.evmNonce,
 				)
 			}
 			txmp.recentTxNonces.Add(nonceKey, true)
-			txmp.logger.Info("[DUPE_NONCE_DEBUG] reap-max-bytes-max-gas transaction", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
+			txmp.logger.Info("[DUPE_NONCE_DEBUG] reap-max-bytes-max-gas transaction", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
 		}
 
 		txs = append(txs, wtx.tx)
@@ -541,13 +542,13 @@ func (txmp *TxMempool) Update(
 		if wtx := txmp.txStore.GetTxByHash(tx.Key()); wtx != nil {
 			txmp.removeTx(wtx, false, false, true)
 			if wtx.isEVM {
-				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
+				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 				txmp.recentTxNonces.Add(fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce), true)
 				if dupe, _ := txmp.priorityIndex.GetTxWithSameNonce(&WrappedTx{
 					evmAddress: wtx.evmAddress,
 					evmNonce:   wtx.evmNonce,
 				}); dupe != nil {
-					txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() duplicate nonce is in pool", "address", dupe.evmAddress, "nonce", dupe.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
+					txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() duplicate nonce is in pool", "tx", fmt.Sprintf("%X", dupe.tx.Key()), "address", dupe.evmAddress, "nonce", dupe.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 				}
 			}
 		} else {
@@ -561,10 +562,8 @@ func (txmp *TxMempool) Update(
 				evmNonce:   execTxResult[i].EvmTxInfo.Nonce,
 			}); wtx != nil {
 				txmp.removeTx(wtx, false, false, true)
+				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", execTxResult[i].EvmTxInfo.SenderAddress, "nonce", execTxResult[i].EvmTxInfo.Nonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 			}
-
-			txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction", "address", execTxResult[i].EvmTxInfo.SenderAddress, "nonce", execTxResult[i].EvmTxInfo.Nonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
-
 		}
 	}
 
@@ -728,7 +727,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	}
 
 	if wtx.isEVM {
-		txmp.logger.Info("[DUPE_NONCE_DEBUG] addNewTransaction added", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
+		txmp.logger.Info("[DUPE_NONCE_DEBUG] addNewTransaction added", "tx", fmt.Sprintf("%X", wtx.tx.Key()), "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
 	}
 
 	return nil
