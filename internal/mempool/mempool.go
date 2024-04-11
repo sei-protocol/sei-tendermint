@@ -665,19 +665,11 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		txInfo.SenderID: {},
 	}
 
-	replaced, shouldDrop := txmp.priorityIndex.TryReplacement(wtx)
-	if shouldDrop {
+	if txmp.isInMempool(wtx.tx) {
 		return nil
 	}
 
-	txmp.metrics.TxSizeBytes.Observe(float64(wtx.Size()))
-	txmp.metrics.Size.Set(float64(txmp.SizeWithoutPending()))
-	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
-
-	if replaced != nil {
-		txmp.removeTx(replaced, true, false, false)
-	}
-	if txmp.insertTx(wtx, replaced == nil) {
+	if txmp.insertTx(wtx) {
 		txmp.logger.Debug(
 			"inserted good transaction",
 			"priority", wtx.priority,
@@ -687,6 +679,10 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		)
 		txmp.notifyTxsAvailable()
 	}
+
+	txmp.metrics.TxSizeBytes.Observe(float64(wtx.Size()))
+	txmp.metrics.Size.Set(float64(txmp.SizeWithoutPending()))
+	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
 
 	return nil
 }
@@ -871,15 +867,16 @@ func (txmp *TxMempool) canAddPendingTx(wtx *WrappedTx) error {
 	return nil
 }
 
-func (txmp *TxMempool) insertTx(wtx *WrappedTx, updatePriorityIndex bool) bool {
-	if txmp.isInMempool(wtx.tx) {
+func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
+	replacedTx, inserted := txmp.priorityIndex.PushTx(wtx)
+	if !inserted {
 		return false
+	}
+	if replacedTx != nil {
+		txmp.removeTx(replacedTx, true, false, false)
 	}
 
 	txmp.txStore.SetTx(wtx)
-	if updatePriorityIndex {
-		txmp.priorityIndex.PushTx(wtx)
-	}
 	txmp.heightIndex.Insert(wtx)
 	txmp.timestampIndex.Insert(wtx)
 
