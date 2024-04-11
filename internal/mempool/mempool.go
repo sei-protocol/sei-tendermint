@@ -665,15 +665,11 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		txInfo.SenderID: {},
 	}
 
-	txmp.metrics.Size.Set(float64(txmp.SizeWithoutPending()))
-	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
-
 	if txmp.isInMempool(wtx.tx) {
 		return nil
 	}
 
 	if txmp.insertTx(wtx) {
-		txmp.metrics.TxSizeBytes.Observe(float64(wtx.Size()))
 		txmp.logger.Debug(
 			"inserted good transaction",
 			"priority", wtx.priority,
@@ -872,6 +868,10 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 	if !inserted {
 		return false
 	}
+	txmp.metrics.TxSizeBytes.Observe(float64(wtx.Size()))
+	txmp.metrics.Size.Set(float64(txmp.SizeWithoutPending()))
+	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
+
 	if replacedTx != nil {
 		txmp.removeTx(replacedTx, true, false, false)
 	}
