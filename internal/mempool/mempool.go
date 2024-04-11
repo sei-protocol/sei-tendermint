@@ -541,8 +541,8 @@ func (txmp *TxMempool) Update(
 		if wtx := txmp.txStore.GetTxByHash(tx.Key()); wtx != nil {
 			if wtx.isEVM {
 				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
+				txmp.recentTxNonces.Add(fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce), true)
 			}
-
 			txmp.removeTx(wtx, false, false, true)
 		}
 		if execTxResult[i].EvmTxInfo != nil {
