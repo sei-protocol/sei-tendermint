@@ -542,6 +542,12 @@ func (txmp *TxMempool) Update(
 			if wtx.isEVM {
 				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 				txmp.recentTxNonces.Add(fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce), true)
+				if dupe, _ := txmp.priorityIndex.GetTxWithSameNonce(&WrappedTx{
+					evmAddress: wtx.evmAddress,
+					evmNonce:   wtx.evmNonce,
+				}); dupe != nil {
+					txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() duplicate nonce is in pool", "address", dupe.evmAddress, "nonce", dupe.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
+				}
 			}
 			txmp.removeTx(wtx, false, false, true)
 		}
