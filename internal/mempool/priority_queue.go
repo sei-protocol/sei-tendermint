@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"container/heap"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -81,7 +82,10 @@ func (pq *TxPriorityQueue) TryReplacement(tx *WrappedTx) (replaced *WrappedTx, s
 	if ok && len(queue) > 0 {
 		existing, idx := pq.getTxWithSameNonceUnsafe(tx)
 		if existing != nil {
+			fmt.Printf("[DUPE_NONCE_DEBUG] trying replacement for nonce=%d tx=%X, existing=%X\n", tx.evmNonce, tx.tx.Key(), existing.tx.Key())
 			if tx.priority > existing.priority {
+				fmt.Printf("[DUPE_NONCE_DEBUG] replacing for nonce=%d tx=%X, existing=%X\n", tx.evmNonce, tx.tx.Key(), existing.tx.Key())
+
 				// should replace
 				// replace heap if applicable
 				if hi, ok := pq.findTxIndexUnsafe(existing); ok {
@@ -90,9 +94,14 @@ func (pq *TxPriorityQueue) TryReplacement(tx *WrappedTx) (replaced *WrappedTx, s
 				}
 				pq.evmQueue[tx.evmAddress][idx] = tx // replace queue item in-place
 				return existing, false
+			} else {
+				fmt.Printf("[DUPE_NONCE_DEBUG] not replacing...(priority) nonce=%d priority=%d\n", tx.evmNonce, tx.priority)
 			}
 			// tx should be dropped since it's dominated by an existing tx
 			return nil, true
+		} else {
+			fmt.Printf("[DUPE_NONCE_DEBUG] not replacing (no duplicate found) nonce=%d key=%X\n", tx.evmNonce, tx.tx.Key())
+
 		}
 	}
 	return nil, false
