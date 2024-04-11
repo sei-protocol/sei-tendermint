@@ -540,7 +540,7 @@ func (txmp *TxMempool) Update(
 		// remove the committed transaction from the transaction store and indexes
 		if wtx := txmp.txStore.GetTxByHash(tx.Key()); wtx != nil {
 			if wtx.isEVM {
-				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano())
+				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 			}
 
 			txmp.removeTx(wtx, false, false, true)
@@ -555,7 +555,7 @@ func (txmp *TxMempool) Update(
 				txmp.removeTx(wtx, false, false, true)
 			}
 
-			txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction", "address", execTxResult[i].EvmTxInfo.SenderAddress, "nonce", execTxResult[i].EvmTxInfo.Nonce, "time_ns", time.Now().UTC().UnixNano())
+			txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction", "address", execTxResult[i].EvmTxInfo.SenderAddress, "nonce", execTxResult[i].EvmTxInfo.Nonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 
 		}
 	}
