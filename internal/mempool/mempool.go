@@ -539,6 +539,7 @@ func (txmp *TxMempool) Update(
 
 		// remove the committed transaction from the transaction store and indexes
 		if wtx := txmp.txStore.GetTxByHash(tx.Key()); wtx != nil {
+			txmp.removeTx(wtx, false, false, true)
 			if wtx.isEVM {
 				txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() remove transaction (wtx)", "address", wtx.evmAddress, "nonce", wtx.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 				txmp.recentTxNonces.Add(fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce), true)
@@ -549,7 +550,6 @@ func (txmp *TxMempool) Update(
 					txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() duplicate nonce is in pool", "address", dupe.evmAddress, "nonce", dupe.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 				}
 			}
-			txmp.removeTx(wtx, false, false, true)
 		}
 		if execTxResult[i].EvmTxInfo != nil {
 			// remove any tx that has the same nonce (because the committed tx
