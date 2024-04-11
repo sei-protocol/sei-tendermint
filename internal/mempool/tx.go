@@ -2,7 +2,9 @@ package mempool
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -79,6 +81,10 @@ type WrappedTx struct {
 // IsBefore returns true if the WrappedTx is before the given WrappedTx
 // this applies to EVM transactions only
 func (wtx *WrappedTx) IsBefore(tx *WrappedTx) bool {
+	if wtx.evmNonce == tx.evmNonce {
+		fmt.Printf("[DUPE_NONCE_DEBUG] IsBefore comparing dupe tx by hash, address=%s nonce=%d\n", wtx.evmAddress, wtx.evmNonce)
+		return strings.Compare(fmt.Sprintf("%X", wtx.hash), fmt.Sprintf("%X", tx.hash)) < 0
+	}
 	return wtx.evmNonce < tx.evmNonce
 }
 
