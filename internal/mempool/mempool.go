@@ -550,6 +550,8 @@ func (txmp *TxMempool) Update(
 					txmp.logger.Info("[DUPE_NONCE_DEBUG] Update() duplicate nonce is in pool", "address", dupe.evmAddress, "nonce", dupe.evmNonce, "time_ns", time.Now().UTC().UnixNano(), "height", blockHeight)
 				}
 			}
+		} else {
+			txmp.logger.Error("[DUPE_NONCE_DEBUG] Update() committed transaction not found in mempool", "tx", fmt.Sprintf("%X", tx.Key()))
 		}
 		if execTxResult[i].EvmTxInfo != nil {
 			// remove any tx that has the same nonce (because the committed tx
