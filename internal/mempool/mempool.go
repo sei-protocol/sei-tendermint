@@ -452,12 +452,14 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		totalGas = gas
 
 		if wtx.isEVM {
-			if txmp.recentTxNonces.Contains(fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce)) {
+			nonceKey := fmt.Sprintf("%s/%d", wtx.evmAddress, wtx.evmNonce)
+			if txmp.recentTxNonces.Contains(nonceKey) {
 				txmp.logger.Error("[Debug] DUPE_NONCE_CHECK reaping transaction with recently used nonce",
 					"address", wtx.evmAddress,
 					"nonce", wtx.evmNonce,
 				)
 			}
+			txmp.recentTxNonces.Add(nonceKey, true)
 		}
 
 		txs = append(txs, wtx.tx)
@@ -542,7 +544,6 @@ func (txmp *TxMempool) Update(
 			}); wtx != nil {
 				txmp.removeTx(wtx, false, false, true)
 			}
-			txmp.recentTxNonces.Add(fmt.Sprintf("%s/%d", execTxResult[i].EvmTxInfo.SenderAddress, execTxResult[i].EvmTxInfo.Nonce), true)
 		}
 	}
 
