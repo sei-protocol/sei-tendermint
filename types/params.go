@@ -427,6 +427,8 @@ func (params ConsensusParams) UpdateConsensusParams(params2 *tmproto.ConsensusPa
 	if params2.Block != nil {
 		res.Block.MaxBytes = params2.Block.MaxBytes
 		res.Block.MaxGas = params2.Block.MaxGas
+		res.Block.CosmosGasMultiplierNumerator = params2.Block.CosmosGasMultiplierNumerator
+		res.Block.CosmosGasMultiplierDenominator = params2.Block.CosmosGasMultiplierDenominator
 	}
 	if params2.Evidence != nil {
 		res.Evidence.MaxAgeNumBlocks = params2.Evidence.MaxAgeNumBlocks

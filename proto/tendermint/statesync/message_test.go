@@ -190,8 +190,10 @@ func TestStateSyncVectors(t *testing.T) {
 				Height: 9001,
 				ConsensusParams: tmproto.ConsensusParams{
 					Block: &tmproto.BlockParams{
-						MaxBytes: 10,
-						MaxGas:   20,
+						MaxBytes:                       10,
+						MaxGas:                         20,
+						CosmosGasMultiplierNumerator:   1,
+						CosmosGasMultiplierDenominator: 1,
 					},
 					Evidence: &tmproto.EvidenceParams{
 						MaxAgeNumBlocks: 10,

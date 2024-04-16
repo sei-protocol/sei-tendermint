@@ -176,15 +176,17 @@ func TestConsensusParamsValidation(t *testing.T) {
 }
 
 type makeParamsArgs struct {
-	blockBytes          int64
-	blockGas            int64
-	recheck             bool
-	evidenceAge         int64
-	maxEvidenceBytes    int64
-	pubkeyTypes         []string
-	precision           time.Duration
-	messageDelay        time.Duration
-	bypassCommitTimeout bool
+	blockBytes                     int64
+	blockGas                       int64
+	cosmosGasMultiplierNumerator   uint64
+	cosmosGasMultiplierDenominator uint64
+	recheck                        bool
+	evidenceAge                    int64
+	maxEvidenceBytes               int64
+	pubkeyTypes                    []string
+	precision                      time.Duration
+	messageDelay                   time.Duration
+	bypassCommitTimeout            bool
 
 	propose      *time.Duration
 	proposeDelta *time.Duration
@@ -216,8 +218,10 @@ func makeParams(args makeParamsArgs) ConsensusParams {
 	}
 	return ConsensusParams{
 		Block: BlockParams{
-			MaxBytes: args.blockBytes,
-			MaxGas:   args.blockGas,
+			MaxBytes:                       args.blockBytes,
+			MaxGas:                         args.blockGas,
+			CosmosGasMultiplierNumerator:   args.cosmosGasMultiplierNumerator,
+			CosmosGasMultiplierDenominator: args.cosmosGasMultiplierDenominator,
 		},
 		Evidence: EvidenceParams{
 			MaxAgeNumBlocks: args.evidenceAge,
@@ -344,8 +348,10 @@ func TestConsensusParamsUpdate(t *testing.T) {
 			initialParams: makeParams(makeParamsArgs{blockBytes: 1, blockGas: 2, evidenceAge: 3}),
 			updates: &tmproto.ConsensusParams{
 				Block: &tmproto.BlockParams{
-					MaxBytes: 100,
-					MaxGas:   200,
+					MaxBytes:                       100,
+					MaxGas:                         200,
+					CosmosGasMultiplierNumerator:   1,
+					CosmosGasMultiplierDenominator: 1,
 				},
 				Evidence: &tmproto.EvidenceParams{
 					MaxAgeNumBlocks: 300,
@@ -366,8 +372,10 @@ func TestConsensusParamsUpdate(t *testing.T) {
 			initialParams: makeParams(makeParamsArgs{blockBytes: 1, blockGas: 2, evidenceAge: 3}),
 			updates: &tmproto.ConsensusParams{
 				Block: &tmproto.BlockParams{
-					MaxBytes: 100,
-					MaxGas:   200,
+					MaxBytes:                       100,
+					MaxGas:                         200,
+					CosmosGasMultiplierNumerator:   1,
+					CosmosGasMultiplierDenominator: 1,
 				},
 				Evidence: &tmproto.EvidenceParams{
 					MaxAgeNumBlocks: 300,
