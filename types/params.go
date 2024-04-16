@@ -57,8 +57,10 @@ type HashedParams struct {
 // BlockParams define limits on the block size and gas plus minimum time
 // between blocks.
 type BlockParams struct {
-	MaxBytes int64 `json:"max_bytes,string"`
-	MaxGas   int64 `json:"max_gas,string"`
+	MaxBytes                       int64  `json:"max_bytes,string"`
+	MaxGas                         int64  `json:"max_gas,string"`
+	CosmosGasMultiplierNumerator   uint64 `json:"cosmos_gas_multiplier_numerator,string"`
+	CosmosGasMultiplierDenominator uint64 `json:"cosmos_gas_multiplier_denominator,string"`
 }
 
 // EvidenceParams determine how we handle evidence of malfeasance.
@@ -132,7 +134,9 @@ func DefaultBlockParams() BlockParams {
 		MaxBytes: 22020096, // 21MB
 		// Default, can be increased and tuned as needed
 		// match sei-devnet-3 and atlantic-2 current values
-		MaxGas:   100000000,
+		MaxGas:                         100000000,
+		CosmosGasMultiplierNumerator:   1,
+		CosmosGasMultiplierDenominator: 1,
 	}
 }
 
@@ -473,8 +477,10 @@ func (params ConsensusParams) UpdateConsensusParams(params2 *tmproto.ConsensusPa
 func (params *ConsensusParams) ToProto() tmproto.ConsensusParams {
 	return tmproto.ConsensusParams{
 		Block: &tmproto.BlockParams{
-			MaxBytes: params.Block.MaxBytes,
-			MaxGas:   params.Block.MaxGas,
+			MaxBytes:                       params.Block.MaxBytes,
+			MaxGas:                         params.Block.MaxGas,
+			CosmosGasMultiplierNumerator:   params.Block.CosmosGasMultiplierNumerator,
+			CosmosGasMultiplierDenominator: params.Block.CosmosGasMultiplierDenominator,
 		},
 		Evidence: &tmproto.EvidenceParams{
 			MaxAgeNumBlocks: params.Evidence.MaxAgeNumBlocks,
@@ -509,8 +515,10 @@ func (params *ConsensusParams) ToProto() tmproto.ConsensusParams {
 func ConsensusParamsFromProto(pbParams tmproto.ConsensusParams) ConsensusParams {
 	c := ConsensusParams{
 		Block: BlockParams{
-			MaxBytes: pbParams.Block.MaxBytes,
-			MaxGas:   pbParams.Block.MaxGas,
+			MaxBytes:                       pbParams.Block.MaxBytes,
+			MaxGas:                         pbParams.Block.MaxGas,
+			CosmosGasMultiplierNumerator:   pbParams.Block.CosmosGasMultiplierNumerator,
+			CosmosGasMultiplierDenominator: pbParams.Block.CosmosGasMultiplierDenominator,
 		},
 		Evidence: EvidenceParams{
 			MaxAgeNumBlocks: pbParams.Evidence.MaxAgeNumBlocks,
