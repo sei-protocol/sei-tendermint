@@ -365,6 +365,7 @@ func (txmp *TxMempool) RemoveTxByKey(txKey types.TxKey) error {
 
 	// remove the committed transaction from the transaction store and indexes
 	if wtx := txmp.txStore.GetTxByHash(txKey); wtx != nil {
+		fmt.Printf("[DEBUG] Remove tx by key: %X\n", wtx.tx.Hash())
 		txmp.removeTx(wtx, false, true, true)
 		return nil
 	}
@@ -516,6 +517,7 @@ func (txmp *TxMempool) Update(
 
 		// remove the committed transaction from the transaction store and indexes
 		if wtx := txmp.txStore.GetTxByHash(tx.Key()); wtx != nil {
+			fmt.Printf("[DEBUG] Remove committed tx: %X\n", wtx.tx.Hash())
 			txmp.removeTx(wtx, false, false, true)
 		}
 		if execTxResult[i].EvmTxInfo != nil {
@@ -525,6 +527,7 @@ func (txmp *TxMempool) Update(
 				evmAddress: execTxResult[i].EvmTxInfo.SenderAddress,
 				evmNonce:   execTxResult[i].EvmTxInfo.Nonce,
 			}); wtx != nil {
+				fmt.Printf("[DEBUG] Remove tx with same nonce: %X\n", wtx.tx.Hash())
 				txmp.removeTx(wtx, false, false, true)
 			}
 		}
@@ -757,7 +760,7 @@ func (txmp *TxMempool) handleRecheckResult(tx types.Tx, res *abci.ResponseCheckT
 			if wtx.gossipEl != txmp.recheckCursor {
 				panic("corrupted reCheckTx cursor")
 			}
-
+			fmt.Printf("[DEBUG] Remove tx via handleRecheck %X\n", wtx.tx.Hash())
 			txmp.removeTx(wtx, !txmp.config.KeepInvalidTxsInCache, true, true)
 		}
 	}
@@ -874,6 +877,7 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
 
 	if replacedTx != nil {
+		fmt.Printf("[DEBUG] Remove tx due to replace %X\n", replacedTx.tx.Hash())
 		txmp.removeTx(replacedTx, true, false, false)
 	}
 
