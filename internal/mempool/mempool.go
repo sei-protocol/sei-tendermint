@@ -897,10 +897,11 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 }
 
 func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReenqueue bool, updatePriorityIndex bool) {
-	fmt.Printf("[DEBUG] removeTx removeFromCache=%v, shouldReenqueue=%v, updatePriorityIndex=%v, evm=%v, tx=%X\n", removeFromCache, shouldReenqueue, updatePriorityIndex, wtx.isEVM, wtx.tx.Hash())
 	if txmp.txStore.IsTxRemoved(wtx.hash) {
+		fmt.Printf("[DEBUG] removeTx already removed (skipping) tx=%X\n", wtx.tx.Hash())
 		return
 	}
+	fmt.Printf("[DEBUG] removeTx removeFromCache=%v, shouldReenqueue=%v, updatePriorityIndex=%v, evm=%v, tx=%X\n", removeFromCache, shouldReenqueue, updatePriorityIndex, wtx.isEVM, wtx.tx.Hash())
 
 	txmp.txStore.RemoveTx(wtx)
 	toBeReenqueued := []*WrappedTx{}
