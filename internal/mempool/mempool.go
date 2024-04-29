@@ -922,6 +922,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 
 	if shouldReenqueue {
 		for _, reenqueue := range toBeReenqueued {
+			fmt.Printf("[DEBUG] removing tx due to toBeEnqueued cause=%X, tx=%X", wtx.tx.Hash(), reenqueue.tx.Hash())
 			txmp.removeTx(reenqueue, removeFromCache, false, true)
 		}
 		for _, reenqueue := range toBeReenqueued {
