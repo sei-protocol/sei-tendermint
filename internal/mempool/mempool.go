@@ -897,7 +897,7 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 }
 
 func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReenqueue bool, updatePriorityIndex bool) {
-	if txmp.txStore.IsTxRemoved(wtx.hash) {
+	if wtx.removed || txmp.txStore.IsTxRemoved(wtx.hash) {
 		fmt.Printf("[DEBUG] removeTx already removed (skipping) tx=%X\n", wtx.tx.Hash())
 		return
 	}
