@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"container/heap"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -226,6 +227,12 @@ func (pq *TxPriorityQueue) pushTxUnsafe(tx *WrappedTx) {
 		pq.evmQueue[tx.evmAddress] = []*WrappedTx{tx}
 		heap.Push(pq, tx)
 		return
+	}
+
+	for _, qWtc := range queue {
+		if qWtc.tx.Key() == tx.tx.Key() {
+			panic(fmt.Sprintf("[DEBUG] duplicate tx found in evmQueue tx=%X\n", qWtc.tx.Key()))
+		}
 	}
 
 	// this item is on the heap at the moment
