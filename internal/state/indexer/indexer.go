@@ -59,7 +59,7 @@ func (b *Batch) Add(result *abci.TxResult) error {
 	}
 
 	if result != nil {
-		fmt.Printf("DEBUG - Batch Add height inner %v, hash=%X\n", result.Height, types.Tx(result.Tx).Hash())
+		fmt.Printf("DEBUG - Batch Add() height=%v, hash=%X\n", result.Height, types.Tx(result.Tx).Hash())
 	}
 	return nil
 }
