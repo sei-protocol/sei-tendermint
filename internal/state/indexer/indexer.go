@@ -61,10 +61,15 @@ func (b *Batch) Add(result *abci.TxResult) error {
 		// }
 	}
 
+	currHeight := int64(0)
 	fmt.Printf("DEBUG - Batch Add\n")
 	for _, txResult := range b.Ops {
 		if txResult != nil {
+			if currHeight != 0 && currHeight != txResult.Height {
+				fmt.Printf("DEBUG - Mismatch Batch Add height expected %+v tx height %+v\n", currHeight, txResult.Height)
+			}
 			fmt.Printf("DEBUG - Batch Add height inner %+v\n", txResult.Height)
+			currHeight = txResult.Height
 		}
 	}
 	return nil
