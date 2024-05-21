@@ -525,6 +525,13 @@ func (txmp *TxMempool) Update(
 			fmt.Printf("DEBUG mempool.update removed height=%v, insertHeight=%d, hash=%X\n", blockHeight, wtx.height, tx.Hash())
 		} else {
 			fmt.Printf("DEBUG mempool.update NOT FOUND (not removed) height=%v, hash=%X\n", blockHeight, tx.Hash())
+			txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
+				if wtx.hash == tx.Key() {
+					fmt.Printf("DEBUG mempool.update STILL IN QUEUE height=%v, hash=%X\n", blockHeight, tx.Hash())
+					return false
+				}
+				return true
+			})
 		}
 
 		if execTxResult[i].EvmTxInfo != nil {
