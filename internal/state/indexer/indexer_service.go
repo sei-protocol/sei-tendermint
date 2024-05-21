@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/tendermint/tendermint/internal/eventbus"
@@ -59,6 +60,8 @@ func (is *Service) publish(msg pubsub.Message) error {
 		is.currentBlock.height = hdr.Header.Height
 		is.currentBlock.batch = NewBatch(hdr.NumTxs)
 
+		fmt.Printf("DEBUG - Service is.currentBlock.batch == nil Height %+v Num Txs %+v \n", is.currentBlock.height, hdr.NumTxs)
+
 		if hdr.NumTxs != 0 {
 			return nil
 		}
@@ -71,6 +74,7 @@ func (is *Service) publish(msg pubsub.Message) error {
 	if curr.Pending != 0 {
 		// GATHER: Accumulate a transaction into the current block's batch.
 		txResult := msg.Data().(types.EventDataTx).TxResult
+		fmt.Printf("DEBUG - Service curr.Pending != 0 Height %+v Index %+v Height batch %+v\n", txResult.Height, txResult.Index, is.currentBlock.height)
 		if err := curr.Add(&txResult); err != nil {
 			is.logger.Error("failed to add tx to batch",
 				"height", is.currentBlock.height, "index", txResult.Index, "err", err)
