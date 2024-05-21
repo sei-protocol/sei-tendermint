@@ -245,6 +245,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, finalizeBlockSpan = tracer.Start(ctx, "cs.state.ApplyBlock.FinalizeBlock")
 		defer finalizeBlockSpan.End()
 	}
+
+	for _, tx := range block.Data.Txs {
+		fmt.Printf("DEBUG BlockExecutor.ApplyBlock height=%d, hash=%X\n", block.Height, tx.Hash())
+	}
+
 	txs := block.Data.Txs.ToSliceOfBytes()
 	finalizeBlockStartTime := time.Now()
 	fBlockRes, err := blockExec.appClient.FinalizeBlock(
