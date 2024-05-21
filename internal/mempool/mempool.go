@@ -509,7 +509,7 @@ func (txmp *TxMempool) Update(
 
 	for i, tx := range blockTxs {
 
-		fmt.Printf("DEBUG mempool.update height=%v, hash=%X", blockHeight, tx.Hash())
+		fmt.Printf("DEBUG mempool.update height=%v, hash=%X\n", blockHeight, tx.Hash())
 
 		if execTxResult[i].Code == abci.CodeTypeOK {
 			// add the valid committed transaction to the cache (if missing)

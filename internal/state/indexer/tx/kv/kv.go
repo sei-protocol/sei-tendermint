@@ -71,7 +71,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 	fmt.Printf("DEBUG - TxIndex Index NumTxs %+v\n", len(results))
 	for _, result := range results {
 		hash := types.Tx(result.Tx).Hash()
-		fmt.Printf("DEBUG - TxIndex Index Tx Hash %+v Tx Height %+v\n", string(hash), result.Height)
+		fmt.Printf("DEBUG - TxIndex Index Tx Hash %X Tx Height %+v\n", hash, result.Height)
 
 		// index tx by events
 		err := txi.indexEvents(result, hash, b)
