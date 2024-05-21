@@ -323,9 +323,14 @@ func (txmp *TxMempool) CheckTx(
 		removeHandler: removeHandler,
 	}
 
+	fmt.Printf("DEBUG mempool CheckTx height=%d, hash=%X", txmp.height, txHash)
+
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
+
+			fmt.Printf("DEBUG mempool CheckTx add-tx height=%d, hash=%X", txmp.height, txHash)
+
 			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
 			if err != nil {
 				return err
@@ -340,6 +345,9 @@ func (txmp *TxMempool) CheckTx(
 				removeHandler(true)
 				return err
 			}
+
+			fmt.Printf("DEBUG mempool CheckTx add-pending height=%d, hash=%X", txmp.height, txHash)
+
 			atomic.AddInt64(&txmp.pendingSizeBytes, int64(wtx.Size()))
 			if err := txmp.pendingTxs.Insert(wtx, res, txInfo); err != nil {
 				return err
