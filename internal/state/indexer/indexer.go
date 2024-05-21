@@ -60,7 +60,9 @@ func (b *Batch) Add(result *abci.TxResult) error {
 
 	fmt.Printf("DEBUG - Batch Add\n")
 	for _, txResult := range b.Ops {
-		fmt.Printf("DEBUG - Batch Add height inner %+v\n", txResult.Height)
+		if txResult != nil {
+			fmt.Printf("DEBUG - Batch Add height inner %+v\n", txResult.Height)
+		}
 	}
 	return nil
 }
