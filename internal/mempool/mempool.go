@@ -445,6 +445,8 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 
 		totalGas = gas
 
+		fmt.Printf("DEBUG - ReapMaxBytesMaxGas insert-height=%d, hash=%X", wtx.height, wtx.tx.Hash())
+
 		txs = append(txs, wtx.tx)
 		return true
 	})
