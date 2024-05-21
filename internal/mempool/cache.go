@@ -67,7 +67,6 @@ func (c *LRUTxCache) Push(tx types.Tx) bool {
 	moved, ok := c.cacheMap[key]
 	if ok {
 		c.list.MoveToBack(moved)
-		fmt.Printf("DEBUG - mempool LRUTxCache NOT adding to cache hash=%X\n", tx.Hash())
 		return false
 	}
 
@@ -82,7 +81,6 @@ func (c *LRUTxCache) Push(tx types.Tx) bool {
 
 	e := c.list.PushBack(key)
 	c.cacheMap[key] = e
-	fmt.Printf("DEBUG - mempool LRUTxCache adding to cache hash=%X\n", tx.Hash())
 
 	return true
 }
