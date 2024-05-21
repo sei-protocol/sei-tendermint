@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
@@ -55,6 +56,11 @@ func (b *Batch) Add(result *abci.TxResult) error {
 	if b.Ops[result.Index] == nil {
 		b.Pending--
 		b.Ops[result.Index] = result
+	}
+
+	fmt.Printf("DEBUG - Batch Add\n")
+	for _, txResult := range b.Ops {
+		fmt.Printf("DEBUG - Batch Add height inner %+v\n", txResult.Height)
 	}
 	return nil
 }
