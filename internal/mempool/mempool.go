@@ -524,6 +524,7 @@ func (txmp *TxMempool) Update(
 			_ = txmp.cache.Push(tx)
 		} else if !txmp.config.KeepInvalidTxsInCache {
 			// allow invalid transactions to be re-submitted
+			fmt.Printf("DEBUG mempool.update code != ok, removing from cache, height=%v, hash=%X\n", blockHeight, tx.Hash())
 			txmp.cache.Remove(tx)
 		}
 
