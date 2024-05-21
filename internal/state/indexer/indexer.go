@@ -56,9 +56,6 @@ func (b *Batch) Add(result *abci.TxResult) error {
 	if b.Ops[result.Index] == nil {
 		b.Pending--
 		b.Ops[result.Index] = result
-		// if len(b.Ops) > 1 && b.Ops[result.Index-1].Height != result.Height {
-		// 	fmt.Printf("DEBUG - DIFFERENCE FOUND Batch.Add(result): height=%v previous-height=%v\n", result.Height, b.Ops[result.Index-1].Height)
-		// }
 	}
 
 	currHeight := int64(0)
@@ -68,7 +65,7 @@ func (b *Batch) Add(result *abci.TxResult) error {
 			if currHeight != 0 && currHeight != txResult.Height {
 				fmt.Printf("DEBUG - Mismatch Batch Add height expected %+v tx height %+v\n", currHeight, txResult.Height)
 			}
-			fmt.Printf("DEBUG - Batch Add height inner %+v\n", txResult.Height)
+			fmt.Printf("DEBUG - Batch Add height inner %+v, hash=%X\n", txResult.Height, types.Tx(txResult.Tx).Hash())
 			currHeight = txResult.Height
 		}
 	}
