@@ -56,6 +56,9 @@ func (b *Batch) Add(result *abci.TxResult) error {
 	if b.Ops[result.Index] == nil {
 		b.Pending--
 		b.Ops[result.Index] = result
+		if len(b.Ops) > 1 && b.Ops[result.Index-1].Height != result.Height {
+			fmt.Printf("DEBUG - DIFFERENCE FOUND Batch.Add(result): height=%v previous-height=%v\n", result.Height, b.Ops[result.Index-1].Height)
+		}
 	}
 
 	fmt.Printf("DEBUG - Batch Add\n")
