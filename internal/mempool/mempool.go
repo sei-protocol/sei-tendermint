@@ -522,7 +522,11 @@ func (txmp *TxMempool) Update(
 		// remove the committed transaction from the transaction store and indexes
 		if wtx := txmp.txStore.GetTxByHash(tx.Key()); wtx != nil {
 			txmp.removeTx(wtx, false, false, true)
+			fmt.Printf("DEBUG mempool.update removed height=%v, insertHeight=%d, hash=%X\n", blockHeight, wtx.height, tx.Hash())
+		} else {
+			fmt.Printf("DEBUG mempool.update NOT FOUND (not removed) height=%v, hash=%X\n", blockHeight, tx.Hash())
 		}
+
 		if execTxResult[i].EvmTxInfo != nil {
 			// remove any tx that has the same nonce (because the committed tx
 			// may be from block proposal and is never in the local mempool)
@@ -870,6 +874,7 @@ func (txmp *TxMempool) canAddPendingTx(wtx *WrappedTx) error {
 }
 
 func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
+	fmt.Printf("DEBUG mempool insertTx hash=%X, insertHeight=%d\n", wtx.hash, wtx.height)
 	replacedTx, inserted := txmp.priorityIndex.PushTx(wtx)
 	if !inserted {
 		return false
