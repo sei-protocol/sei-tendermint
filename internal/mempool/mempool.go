@@ -521,6 +521,7 @@ func (txmp *TxMempool) Update(
 
 		if execTxResult[i].Code == abci.CodeTypeOK {
 			// add the valid committed transaction to the cache (if missing)
+			fmt.Printf("DEBUG mempool.update add to cache, height=%v, hash=%X\n", blockHeight, tx.Hash())
 			_ = txmp.cache.Push(tx)
 		} else if !txmp.config.KeepInvalidTxsInCache {
 			// allow invalid transactions to be re-submitted
@@ -535,14 +536,6 @@ func (txmp *TxMempool) Update(
 		} else {
 			fmt.Printf("DEBUG mempool.update NOT FOUND (not removed) height=%v, hash=%X\n", blockHeight, tx.Hash())
 		}
-
-		txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
-			if wtx.hash == tx.Key() {
-				fmt.Printf("DEBUG mempool.update IN POOL height=%v, hash=%X, insertHeight=%d\n", blockHeight, wtx.hash, wtx.height)
-				return false
-			}
-			return true
-		})
 
 		if execTxResult[i].EvmTxInfo != nil {
 			// remove any tx that has the same nonce (because the committed tx
@@ -673,6 +666,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		// - The transaction, toEvict, can be removed while a concurrent
 		//   reCheckTx callback is being executed for the same transaction.
 		for _, toEvict := range evictTxs {
+			fmt.Printf("DEBUG mempool.update evicting tx, hash=%X\n", toEvict.hash)
 			txmp.removeTx(toEvict, true, true, true)
 			txmp.logger.Debug(
 				"evicted existing good transaction; mempool full",
