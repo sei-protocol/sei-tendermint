@@ -91,6 +91,8 @@ func (c *LRUTxCache) Remove(tx types.Tx) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 
+	fmt.Printf("DEBUG - mempool LRUTxCache remove from cache hash=%X\n", tx.Hash())
+
 	key := tx.Key()
 	e := c.cacheMap[key]
 	delete(c.cacheMap, key)
