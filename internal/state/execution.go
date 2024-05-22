@@ -736,6 +736,7 @@ func FireEvents(
 	}
 
 	for i, tx := range block.Data.Txs {
+		fmt.Printf("[Debug] Publishing event tx with height %d, hash %X\n", block.Height, tx.Hash())
 		if err := eventBus.PublishEventTx(types.EventDataTx{
 			TxResult: abci.TxResult{
 				Height: block.Height,
@@ -747,6 +748,7 @@ func FireEvents(
 			logger.Error("failed publishing event TX", "err", err)
 		}
 	}
+	fmt.Printf("[Debug] Published total %d tx events at height %d\n", len(block.Data.Txs), block.Height)
 
 	if len(finalizeBlockResponse.ValidatorUpdates) > 0 {
 		if err := eventBus.PublishEventValidatorSetUpdates(
