@@ -445,6 +445,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		// do not reap anything if threshold is not met
 		return txs
 	}
+	var duration time.Duration
 	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
@@ -460,8 +461,18 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 		totalGas = gas
 
 		txs = append(txs, wtx.tx)
+		duration += time.Since(wtx.timestamp)
 		return true
 	})
+	if len(txs) > 0 {
+		txmp.logger.Info(
+			"reaped transactions",
+			"num_txs", len(txs),
+			"total_size", totalSize,
+			"total_gas", totalGas,
+			"duration", duration/time.Duration(len(txs)),
+		)
+	}
 
 	return txs
 }
