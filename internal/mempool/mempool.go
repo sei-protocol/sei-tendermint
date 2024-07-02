@@ -466,11 +466,11 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	})
 	if len(txs) > 0 {
 		txmp.logger.Info(
-			"reaped transactions",
+			"[Debug] reaped transactions",
 			"num_txs", len(txs),
 			"total_size", totalSize,
 			"total_gas", totalGas,
-			"duration", duration/time.Duration(len(txs)),
+			"avg_duration", duration/time.Duration(len(txs)),
 		)
 	}
 
