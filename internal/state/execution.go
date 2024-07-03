@@ -413,6 +413,7 @@ func (blockExec *BlockExecutor) Commit(
 	block *types.Block,
 	txResults []*abci.ExecTxResult,
 ) (int64, error) {
+	startTime := time.Now()
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
 
@@ -435,15 +436,6 @@ func (blockExec *BlockExecutor) Commit(
 	}
 	blockExec.metrics.ApplicationCommitTime.Observe(float64(time.Since(start)))
 
-	// ResponseCommit has no error code - just data
-	blockExec.logger.Info(
-		"committed state",
-		"height", block.Height,
-		"num_txs", len(block.Txs),
-		"block_app_hash", fmt.Sprintf("%X", block.AppHash),
-		"time", time.Now().UnixMilli(),
-	)
-
 	// Update mempool.
 	start = time.Now()
 	err = blockExec.mempool.Update(
@@ -456,6 +448,16 @@ func (blockExec *BlockExecutor) Commit(
 		state.ConsensusParams.ABCI.RecheckTx,
 	)
 	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(start)))
+
+	// ResponseCommit has no error code - just data
+	blockExec.logger.Info(
+		"[Debug] committed state",
+		"height", block.Height,
+		"num_txs", len(block.Txs),
+		"duration", time.Since(startTime),
+		"block_app_hash", fmt.Sprintf("%X", block.AppHash),
+		"time", time.Now().UnixMilli(),
+	)
 
 	return res.RetainHeight, err
 }

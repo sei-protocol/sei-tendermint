@@ -577,6 +577,8 @@ func (txmp *TxMempool) Update(
 	txmp.metrics.Size.Set(float64(txmp.NumTxsNotPending()))
 	txmp.metrics.TotalTxsSizeBytes.Set(float64(txmp.TotalTxsBytesSize()))
 	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
+
+	txmp.logger.Info("[Debug] mempool Update()", "height", blockHeight, "num_txs", len(blockTxs), "mempool_size", txmp.NumTxsNotPending(), "num_pending_txs", txmp.PendingSize())
 	return nil
 }
 
