@@ -135,7 +135,7 @@ func VerifyCommitLightTrusting(chainID string, vals *ValidatorSet, commit *Commi
 // size != crypto.HashSize.
 func ValidateHash(h []byte) error {
 	if len(h) > 0 && len(h) != crypto.HashSize {
-		fmt.Printf("expected hash %s, size to be %d bytes, got %d bytes\n", string(h), crypto.HashSize, len(h))
+		fmt.Printf("expected hash %s, size to be %d bytes, got %d bytes\n", fmt.Sprintf("%x", h), crypto.HashSize, len(h))
 		return fmt.Errorf("expected size to be %d bytes, got %d bytes",
 			crypto.HashSize,
 			len(h),
