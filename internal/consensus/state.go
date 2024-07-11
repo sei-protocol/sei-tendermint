@@ -50,6 +50,10 @@ var (
 
 var msgQueueSize = 1000
 var heartbeatIntervalInSecs = 10
+var BLOCK_START_TIME = time.Now()
+var FINALIZE_COMMIT_START_TIME = time.Now()
+var PREVOTE_START_TIME = time.Now()
+var PRECOMMIT_START_TIME = time.Now()
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -1606,6 +1610,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		)
 		return
 	}
+	PREVOTE_START_TIME = time.Now()
 
 	defer func() {
 		// Done enterPrevote:
@@ -1854,6 +1859,8 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		)
 		return
 	}
+	PRECOMMIT_START_TIME = time.Now()
+	fmt.Printf("[TM-DEBUG] Prevote took %s to complete \n", time.Since(PREVOTE_START_TIME))
 
 	logger.Debug("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
@@ -2107,6 +2114,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		)
 		return
 	}
+	FINALIZE_COMMIT_START_TIME = time.Now()
+	fmt.Printf("[TM-DEBUG] Precommit took %s to complete", time.Since(PRECOMMIT_START_TIME))
 
 	cs.calculatePrevoteMessageDelayMetrics()
 
@@ -2154,6 +2163,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
 	}
+	SAVE_TO_BLOCKSTORE_TIME := time.Now()
+	fmt.Printf("[TM-DEBUG] Save to blockstore took %s\n", time.Since(FINALIZE_COMMIT_START_TIME))
 
 	// Write EndHeightMessage{} for this height, implying that the blockstore
 	// has saved the block.
@@ -2199,6 +2210,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to apply block", "err", err)
 		return
 	}
+	fmt.Printf("[TM-DEBUG] ApplyBlock took %s\n", time.Since(SAVE_TO_BLOCKSTORE_TIME))
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
@@ -2211,10 +2223,11 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to get private validator pubkey", "err", err)
 	}
 
+	fmt.Printf("[TM-DEBUG] Total FinalizeCommit took %s\n", time.Since(FINALIZE_COMMIT_START_TIME))
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
-
+	BLOCK_START_TIME = time.Now()
 	// By here,
 	// * cs.Height has been increment to height+1
 	// * cs.Step is now cstypes.RoundStepNewHeight

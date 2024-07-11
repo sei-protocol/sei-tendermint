@@ -232,11 +232,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		ctx = spanCtx
 		defer span.End()
 	}
+	startTime := time.Now()
 	// validate the block if we haven't already
 	if err := blockExec.ValidateBlock(ctx, state, block); err != nil {
 		return state, ErrInvalidBlock(err)
 	}
-	startTime := time.Now()
 	defer func() {
 		blockExec.metrics.BlockProcessingTime.Observe(time.Since(startTime).Seconds())
 	}()
@@ -270,6 +270,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
+	fmt.Printf("[TM-DEBUG] FinalizeBlock took %s\n", time.Since(finalizeBlockStartTime))
+
 	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
@@ -297,6 +299,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, err
 	}
 
+	fmt.Printf("[TM-DEBUG] SaveFinalizeBlockResponses took %s\n", time.Since(saveBlockResponseTime))
 	// validate the validator updates and convert to tendermint types
 	err = validateValidatorUpdates(fBlockRes.ValidatorUpdates, state.ConsensusParams.Validator)
 	if err != nil {
@@ -331,14 +334,18 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
 		defer commitSpan.End()
 	}
+	updateStateCompleteTime := time.Now()
 	// Lock mempool, commit app state, update mempoool.
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
+
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
 	if commitSpan != nil {
 		commitSpan.End()
 	}
+	fmt.Printf("[TM-DEBUG] Update mempool took %s\n", time.Since(updateStateCompleteTime))
+	commitFinishTime := time.Now()
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
@@ -349,6 +356,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
+
+	fmt.Printf("[TM-DEBUG] Save state to blockstore took %s\n", time.Since(commitFinishTime))
+
 	blockExec.metrics.SaveBlockLatency.Observe(float64(time.Since(saveBlockTime).Milliseconds()))
 	// Prune old heights, if requested by ABCI app.
 	pruneBlockTime := time.Now()
@@ -360,6 +370,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			blockExec.logger.Debug("pruned blocks", "pruned", pruned, "retain_height", retainHeight)
 		}
 	}
+	fmt.Printf("[TM-DEBUG] Pruning blocks took %s\n", time.Since(pruneBlockTime))
+
 	blockExec.metrics.PruneBlockLatency.Observe(float64(time.Since(pruneBlockTime).Milliseconds()))
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
@@ -369,6 +381,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
+	fmt.Printf("[TM-DEBUG] Fire events took %s\n", time.Since(fireEventsStartTime))
+
 	return state, nil
 }
 
