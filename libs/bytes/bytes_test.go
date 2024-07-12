@@ -23,6 +23,35 @@ func TestMarshal(t *testing.T) {
 	assert.Equal(t, dataB, dataB2)
 }
 
+// // ValidateGenesis performs genesis state validation for the ibc module.
+// func (AppModuleBasic) ValidateGenesis(cdc codec.JSONCodec, config client.TxEncodingConfig, bz json.RawMessage) error {
+// 	var gs types.GenesisState
+// 	if err := cdc.UnmarshalJSON(bz, &gs); err != nil {
+// 		return fmt.Errorf("failed to unmarshal %s genesis state: %w", host.ModuleName, err)
+// 	}
+
+// 	return gs.Validate()
+// }
+
+// Define a struct to match the JSON structure
+type ValidatorsHash struct {
+	NextValidatorsHash HexBytes `json:"next_validators_hash"`
+}
+
+func TestUnmarshalCorruptedPOC(t *testing.T) {
+	jsonData := []byte(`{"next_validators_hash":"20021C2FB4B2DDFF6E8C484A2ED5862910E3AD7074FC6AD1C972AD34891AE3A4"}`)
+	expectedLength := 32
+	var vh ValidatorsHash
+	err := json.Unmarshal(jsonData, &vh)
+	fmt.Println("bz_: ", vh.NextValidatorsHash)
+	fmt.Printf("%x\n", vh.NextValidatorsHash)
+	if err != nil {
+		t.Fatalf("Error unmarshalling JSON: %v", err)
+		return
+	}
+	assert.Equal(t, expectedLength, len(vh.NextValidatorsHash))
+}
+
 // Test that the hex encoding works.
 func TestJSONMarshal(t *testing.T) {
 	type TestStruct struct {

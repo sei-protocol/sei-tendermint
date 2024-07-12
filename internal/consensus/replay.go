@@ -309,6 +309,7 @@ func (h *Handshaker) ReplayBlocks(
 		validatorSet := types.NewValidatorSet(validators)
 		nextVals := types.TM2PB.ValidatorUpdates(validatorSet)
 		pbParams := h.genDoc.ConsensusParams.ToProto()
+		// JEREMYFLAG: this is where InitChain is called
 		res, err := appClient.InitChain(ctx, &abci.RequestInitChain{
 			Time:            h.genDoc.GenesisTime,
 			ChainId:         h.genDoc.ChainID,

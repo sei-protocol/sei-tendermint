@@ -124,6 +124,7 @@ func kill() error {
 	return p.Signal(syscall.SIGABRT)
 }
 
+// JEREMYFLAG: where InitChain gets called from replay ReplayBlocks
 func (app *proxyClient) InitChain(ctx context.Context, req *types.RequestInitChain) (*types.ResponseInitChain, error) {
 	defer addTimeSample(app.metrics.MethodTiming.With("method", "init_chain", "type", "sync"))()
 	return app.client.InitChain(ctx, req)
