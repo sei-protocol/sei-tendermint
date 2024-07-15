@@ -1834,7 +1834,7 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 		))
 	}
 
-	fmt.Printf("[TM-DEBUG] prevote -> prevore wait took %s for height %d\n", time.Since(PREVOTE_START_TIME), cs.roundState.Height())
+	fmt.Printf("[TM-DEBUG] Prevote -> PrevoreWait took %s for height %d\n", time.Since(PREVOTE_START_TIME), cs.roundState.Height())
 	PREVOTE_WAIT_START_TIME = time.Now()
 	logger.Debug("entering prevote wait step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
@@ -1872,7 +1872,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 	PRECOMMIT_START_TIME = time.Now()
-	fmt.Printf("[TM-DEBUG] PrevoteWait -> Precommit took %s for height %d\n", time.Since(PREVOTE_WAIT_START_TIME), cs.roundState.Height())
+	fmt.Printf("[TM-DEBUG] Prevote -> Precommit took %s for height %d\n", time.Since(PREVOTE_START_TIME), cs.roundState.Height())
 	logger.Debug("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
 	defer func() {
@@ -2031,7 +2031,7 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 		return
 	}
 
-	fmt.Printf("[TM-DEBUG] PrecommitWait -> Commit took %s for height %d\n", time.Since(PRECOMMIT_WAIT_START_TIME), cs.roundState.Height())
+	fmt.Printf("[TM-DEBUG] Precommit -> Commit took %s for height %d\n", time.Since(PRECOMMIT_START_TIME), cs.roundState.Height())
 	COMMIT_START_TIME = time.Now()
 	logger.Debug("entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
@@ -2240,6 +2240,8 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
+	fmt.Printf("[TM-DEBUG] FinalizeCommit took %s for height %d\n", time.Since(FINALIZE_COMMIT_START_TIME), cs.roundState.Height())
+
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
 	// By here,
 	// * cs.Height has been increment to height+1
