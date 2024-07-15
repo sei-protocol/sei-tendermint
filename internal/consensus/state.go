@@ -50,10 +50,14 @@ var (
 
 var msgQueueSize = 1000
 var heartbeatIntervalInSecs = 10
-var BLOCK_START_TIME = time.Now()
-var FINALIZE_COMMIT_START_TIME = time.Now()
+var NEW_ROUND_START_TIME = time.Now()
+var PROPOSE_START_TIME = time.Now()
 var PREVOTE_START_TIME = time.Now()
+var PREVOTE_WAIT_START_TIME = time.Now()
 var PRECOMMIT_START_TIME = time.Now()
+var PRECOMMIT_WAIT_START_TIME = time.Now()
+var COMMIT_START_TIME = time.Now()
+var FINALIZE_COMMIT_START_TIME = time.Now()
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -1293,6 +1297,9 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 		return
 	}
 
+	fmt.Printf("[TM-DEBUG] FinalizeCommit -> NewRound took %s for height %d\n", time.Since(FINALIZE_COMMIT_START_TIME), cs.roundState.Height())
+	NEW_ROUND_START_TIME = time.Now()
+
 	if now := tmtime.Now(); cs.roundState.StartTime().After(now) {
 		logger.Debug("need to set a buffer and log message here for sanity", "start_time", cs.roundState.StartTime(), "now", now)
 	}
@@ -1403,6 +1410,8 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 		}
 	}
 
+	fmt.Printf("[TM-DEBUG] New Round -> Propose latency %s for height %d\n", time.Since(NEW_ROUND_START_TIME), cs.roundState.Height())
+	PROPOSE_START_TIME = time.Now()
 	logger.Debug("entering propose step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
 
 	defer func() {
@@ -1611,6 +1620,7 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 		return
 	}
 	PREVOTE_START_TIME = time.Now()
+	fmt.Printf("[TM-DEBUG] Propose -> prevote latency %s fot hright %d\n", time.Since(PROPOSE_START_TIME), cs.roundState.Height())
 
 	defer func() {
 		// Done enterPrevote:
@@ -1824,6 +1834,8 @@ func (cs *State) enterPrevoteWait(height int64, round int32) {
 		))
 	}
 
+	fmt.Printf("[TM-DEBUG] prevote -> prevore wait took %s for height %d\n", time.Since(PREVOTE_START_TIME), cs.roundState.Height())
+	PREVOTE_WAIT_START_TIME = time.Now()
 	logger.Debug("entering prevote wait step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
 	defer func() {
@@ -1860,8 +1872,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 		return
 	}
 	PRECOMMIT_START_TIME = time.Now()
-	fmt.Printf("[TM-DEBUG] Prevote took %s to complete \n", time.Since(PREVOTE_START_TIME))
-
+	fmt.Printf("[TM-DEBUG] PrevoteWait -> Precommit took %s for height %d\n", time.Since(PREVOTE_WAIT_START_TIME), cs.roundState.Height())
 	logger.Debug("entering precommit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
 	defer func() {
@@ -1988,6 +1999,8 @@ func (cs *State) enterPrecommitWait(height int64, round int32) {
 		))
 	}
 
+	fmt.Printf("[TM-DEBUG] Precommit -> PrecommitWait took %s for height %d\n", time.Since(PRECOMMIT_START_TIME), cs.roundState.Height())
+	PRECOMMIT_WAIT_START_TIME = time.Now()
 	logger.Debug("entering precommit wait step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
 	defer func() {
@@ -2018,6 +2031,8 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 		return
 	}
 
+	fmt.Printf("[TM-DEBUG] PrecommitWait -> Commit took %s for height %d\n", time.Since(PRECOMMIT_WAIT_START_TIME), cs.roundState.Height())
+	COMMIT_START_TIME = time.Now()
 	logger.Debug("entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
 
 	defer func() {
@@ -2115,7 +2130,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		return
 	}
 	FINALIZE_COMMIT_START_TIME = time.Now()
-	fmt.Printf("[TM-DEBUG] Precommit took %s to complete", time.Since(PRECOMMIT_START_TIME))
+	fmt.Printf("[TM-DEBUG] Commit -> FinalizeCommit took %s for height %d\n", time.Since(COMMIT_START_TIME), cs.roundState.Height())
 
 	cs.calculatePrevoteMessageDelayMetrics()
 
@@ -2223,11 +2238,9 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to get private validator pubkey", "err", err)
 	}
 
-	fmt.Printf("[TM-DEBUG] Total FinalizeCommit took %s\n", time.Since(FINALIZE_COMMIT_START_TIME))
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
-	BLOCK_START_TIME = time.Now()
 	// By here,
 	// * cs.Height has been increment to height+1
 	// * cs.Step is now cstypes.RoundStepNewHeight
