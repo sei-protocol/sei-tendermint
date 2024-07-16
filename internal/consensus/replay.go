@@ -301,6 +301,7 @@ func (h *Handshaker) ReplayBlocks(
 		stateBlockHeight)
 
 	// If appBlockHeight == 0 it means that we are at genesis and hence should send InitChain.
+	fmt.Println("appBlockHeight: ", appBlockHeight)
 	if appBlockHeight == 0 {
 		validators := make([]*types.Validator, len(h.genDoc.Validators))
 		for i, val := range h.genDoc.Validators {
