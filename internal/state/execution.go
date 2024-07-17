@@ -103,7 +103,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	startTime := time.Now()
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
-	fmt.Printf("[TM-DEBUG] Reap %d txs from mempool took %s for height %d", len(txs), time.Since(startTime), height)
+	fmt.Printf("[TM-DEBUG] Reap %d txs from mempool took %s for height %d\n", len(txs), time.Since(startTime), height)
 	commit := lastExtCommit.ToCommit()
 	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 	rpp, err := blockExec.appClient.PrepareProposal(
