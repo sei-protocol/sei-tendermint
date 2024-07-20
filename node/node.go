@@ -145,6 +145,7 @@ func makeNode(
 	tracerProviderOptions []trace.TracerProviderOption,
 	nodeMetrics *NodeMetrics,
 ) (service.Service, error) {
+
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
 
@@ -167,9 +168,7 @@ func makeNode(
 		return nil, combineCloseError(fmt.Errorf("error in genesis doc: %w", err), makeCloser(closers))
 	}
 
-	fmt.Println("In sei-tendermint node/node.go makeNode(), calling loadStateFromDBOrGenesisDocProvider()")
 	state, err := loadStateFromDBOrGenesisDocProvider(stateStore, genDoc)
-	fmt.Println("In sei-tendermint node/node.go makeNode(), after calling loadStateFromDBOrGenesisDocProvider(), state = ", state)
 	if err != nil {
 		return nil, combineCloseError(err, makeCloser(closers))
 	}
@@ -791,7 +790,6 @@ func loadStateFromDBOrGenesisDocProvider(stateStore sm.Store, genDoc *types.Gene
 	}
 
 	if state.IsEmpty() {
-		fmt.Println("In sei-tendermint loadStateFromDBOrGenesisDocProvider(), state is empty")
 		// 2. If it's not there, derive it from the genesis doc
 		state, err = sm.MakeGenesisState(genDoc)
 		if err != nil {

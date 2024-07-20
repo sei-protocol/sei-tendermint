@@ -301,7 +301,6 @@ func (h *Handshaker) ReplayBlocks(
 		stateBlockHeight)
 
 	// If appBlockHeight == 0 it means that we are at genesis and hence should send InitChain.
-	fmt.Println("appBlockHeight: ", appBlockHeight)
 	if appBlockHeight == 0 {
 		validators := make([]*types.Validator, len(h.genDoc.Validators))
 		for i, val := range h.genDoc.Validators {
@@ -310,7 +309,6 @@ func (h *Handshaker) ReplayBlocks(
 		validatorSet := types.NewValidatorSet(validators)
 		nextVals := types.TM2PB.ValidatorUpdates(validatorSet)
 		pbParams := h.genDoc.ConsensusParams.ToProto()
-		// JEREMYFLAG: this is where InitChain is called
 		res, err := appClient.InitChain(ctx, &abci.RequestInitChain{
 			Time:            h.genDoc.GenesisTime,
 			ChainId:         h.genDoc.ChainID,
