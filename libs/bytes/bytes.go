@@ -70,6 +70,8 @@ func (bz HexBytes) Format(s fmt.State, verb rune) {
 	}
 }
 
+// Matches the hexbytes MarshalJSON of tendermint/tendermint. Overrides the
+// default []byte Marshal implementation. This is basically the point of hex bytes.
 func (bz HexBytes) MarshalJSON() ([]byte, error) {
 	s := strings.ToUpper(hex.EncodeToString(bz))
 	jbz := make([]byte, len(s)+2)
@@ -79,6 +81,8 @@ func (bz HexBytes) MarshalJSON() ([]byte, error) {
 	return jbz, nil
 }
 
+// Matches the hexbytes UnmarshalJSON of tendermint/tendermint. Overrides the
+// default []byte Marshal implementation. This is basically the point of hex bytes.
 func (bz *HexBytes) UnmarshalJSON(data []byte) error {
 	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 		return fmt.Errorf("invalid hex string: %s", data)
