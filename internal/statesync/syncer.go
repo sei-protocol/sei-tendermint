@@ -554,6 +554,6 @@ func (s *syncer) verifyApp(ctx context.Context, snapshot *snapshot, appVersion u
 		return errVerifyFailed
 	}
 
-	s.logger.Info("Verified ABCI app", "height", snapshot.Height, "appHash", snapshot.trustedAppHash)
+	s.logger.Info("Verified ABCI app", "height", snapshot.Height, "appHash", hex.EncodeToString(snapshot.trustedAppHash), "snapshotHash", hex.EncodeToString(snapshot.Hash))
 	return nil
 }
