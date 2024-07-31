@@ -3,6 +3,7 @@ package statesync
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -535,8 +536,8 @@ func (s *syncer) verifyApp(ctx context.Context, snapshot *snapshot, appVersion u
 
 	if !bytes.Equal(snapshot.trustedAppHash, resp.LastBlockAppHash) {
 		s.logger.Error("appHash verification failed",
-			"expected", snapshot.trustedAppHash,
-			"actual", resp.LastBlockAppHash)
+			"expected", hex.EncodeToString(snapshot.trustedAppHash),
+			"actual", hex.EncodeToString(resp.LastBlockAppHash))
 		return errVerifyFailed
 	}
 
