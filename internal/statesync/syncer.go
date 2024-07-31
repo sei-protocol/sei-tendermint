@@ -537,7 +537,11 @@ func (s *syncer) verifyApp(ctx context.Context, snapshot *snapshot, appVersion u
 	if !bytes.Equal(snapshot.trustedAppHash, resp.LastBlockAppHash) {
 		s.logger.Error("appHash verification failed",
 			"expected", hex.EncodeToString(snapshot.trustedAppHash),
-			"actual", hex.EncodeToString(resp.LastBlockAppHash))
+			"snapshotHash", hex.EncodeToString(snapshot.Hash),
+			"actual", hex.EncodeToString(resp.LastBlockAppHash),
+			"expectedHeight", snapshot.Height,
+			"actualHeight", resp.LastBlockHeight,
+		)
 		return errVerifyFailed
 	}
 
