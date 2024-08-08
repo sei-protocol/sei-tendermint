@@ -776,6 +776,9 @@ type MempoolConfig struct {
 	// NOTE: the max size of a tx transmitted over the network is {max-tx-bytes}.
 	MaxTxBytes int `mapstructure:"max-tx-bytes"`
 
+	// Maximum gas wanted of a single transaction
+	MaxTxGasWanted int `mapstructure:"max-tx-gas-wanted"`
+
 	// Maximum size of a batch of transactions to send to a peer
 	// Including space needed by encoding (one varint per transaction).
 	// XXX: Unused due to https://github.com/tendermint/tendermint/issues/5796
@@ -827,6 +830,7 @@ func DefaultMempoolConfig() *MempoolConfig {
 		MaxTxsBytes:                  1024 * 1024 * 1024, // 1GB
 		CacheSize:                    10000,
 		MaxTxBytes:                   1024 * 1024, // 1MB
+		MaxTxGasWanted:               0,
 		TTLDuration:                  0 * time.Second,
 		TTLNumBlocks:                 0,
 		TxNotifyThreshold:            0,

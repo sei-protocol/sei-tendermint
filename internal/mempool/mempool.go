@@ -368,6 +368,10 @@ func (txmp *TxMempool) CheckTx(
 	return nil
 }
 
+func (txmp *TxMempool) shouldExclude(wtx *WrappedTx) bool {
+	return txmp.config.MaxTxGas > 0 && wtx.gasWanted > txmp.config.MaxTxsBytes
+}
+
 func (txmp *TxMempool) isInMempool(tx types.Tx) bool {
 	existingTx := txmp.txStore.GetTxByHash(tx.Key())
 	return existingTx != nil && !existingTx.removed
@@ -679,6 +683,10 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	wtx.sender = sender
 	wtx.peers = map[uint16]struct{}{
 		txInfo.SenderID: {},
+	}
+
+	if txmp.shouldExclude(wtx) {
+		return nil
 	}
 
 	if txmp.isInMempool(wtx.tx) {

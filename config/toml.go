@@ -381,6 +381,9 @@ keep-invalid-txs-in-cache = {{ .Mempool.KeepInvalidTxsInCache }}
 # NOTE: the max size of a tx transmitted over the network is {max-tx-bytes}.
 max-tx-bytes = {{ .Mempool.MaxTxBytes }}
 
+# Maximum gas of a single transaction.
+max-tx-gas-wanted = {{ .Mempool.MaxTxGasWanted }}
+
 # Maximum size of a batch of transactions to send to a peer
 # Including space needed by encoding (one varint per transaction).
 # XXX: Unused due to https://github.com/tendermint/tendermint/issues/5796
