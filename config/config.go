@@ -777,7 +777,7 @@ type MempoolConfig struct {
 	MaxTxBytes int `mapstructure:"max-tx-bytes"`
 
 	// Maximum gas wanted of a single transaction
-	MaxTxGasWanted int `mapstructure:"max-tx-gas-wanted"`
+	MaxTxGasWanted int64 `mapstructure:"max-tx-gas-wanted"`
 
 	// Maximum size of a batch of transactions to send to a peer
 	// Including space needed by encoding (one varint per transaction).
