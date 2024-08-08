@@ -369,7 +369,7 @@ func (txmp *TxMempool) CheckTx(
 }
 
 func (txmp *TxMempool) shouldExclude(wtx *WrappedTx) bool {
-	return txmp.config.MaxTxGasWanted > 0 && wtx.gasWanted > txmp.config.MaxTxsBytes
+	return txmp.config.MaxTxGasWanted > 0 && wtx.gasWanted > txmp.config.MaxTxGasWanted
 }
 
 func (txmp *TxMempool) isInMempool(tx types.Tx) bool {
