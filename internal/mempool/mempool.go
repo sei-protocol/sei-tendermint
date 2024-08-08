@@ -686,6 +686,12 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	}
 
 	if txmp.shouldExclude(wtx) {
+		txmp.logger.Info(
+			"excluded good transaction which has high gas wanted",
+			"gasWanted", wtx.gasWanted,
+			"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
+			"height", txmp.height,
+		)
 		return nil
 	}
 
