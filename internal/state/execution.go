@@ -271,7 +271,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		},
 	)
 	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
-	fmt.Printf("[TM-DEBUG] FinalizeBLock took %s for block %d", time.Since(finalizeBlockStartTime), block.Height)
+	fmt.Printf("[TM-DEBUG] FinalizeBLock took %s for block %d\n", time.Since(finalizeBlockStartTime), block.Height)
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
 	}
@@ -343,7 +343,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
-	fmt.Printf("[TM-DEBUG] saveBlockResponseTime took %s for block %d", time.Since(saveBlockResponseTime), block.Height)
+	fmt.Printf("[TM-DEBUG] saveBlockResponseTime took %s for block %d\n", time.Since(saveBlockResponseTime), block.Height)
 
 	// Update the app hash and save the state.
 	saveBlockTime := time.Now()
@@ -366,14 +366,14 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	blockExec.metrics.PruneBlockLatency.Observe(float64(time.Since(pruneBlockTime).Milliseconds()))
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
-	fmt.Printf("[TM-DEBUG] PruneBlock took %s for block %d", time.Since(pruneBlockTime), block.Height)
+	fmt.Printf("[TM-DEBUG] PruneBlock took %s for block %d\n", time.Since(pruneBlockTime), block.Height)
 
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
-	fmt.Printf("[TM-DEBUG] FireEvents took %s for block %d", time.Since(fireEventsStartTime), block.Height)
+	fmt.Printf("[TM-DEBUG] FireEvents took %s for block %d\n", time.Since(fireEventsStartTime), block.Height)
 	return state, nil
 }
 
