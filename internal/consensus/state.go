@@ -2137,6 +2137,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	logger.Debug(fmt.Sprintf("%v", block))
 
 	// Save to blockStore.
+	saveBlockStartTime := time.Now()
 	if cs.blockStore.Height() < block.Height {
 		// NOTE: the seenCommit is local justification to commit this block,
 		// but may differ from the LastCommit included in the next block
@@ -2154,6 +2155,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
 	}
+	fmt.Printf("[TM-DEBUG] SaveBlock took %s for block %d", time.Since(saveBlockStartTime), block.Height)
 
 	// Write EndHeightMessage{} for this height, implying that the blockstore
 	// has saved the block.
@@ -2195,6 +2197,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		cs.tracer,
 	)
 	cs.metrics.ApplyBlockLatency.Observe(float64(time.Since(startTime).Milliseconds()))
+	fmt.Printf("[TM-DEBUG] ApplyBlock took %s for block %d", time.Since(startTime), block.Height)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
 		return
