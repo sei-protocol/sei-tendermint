@@ -697,7 +697,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
-			fmt.Printf("[TM-DEBUG] Time to poll for applying next block height %d took: %s", first.Height, time.Since(startTime))
+			fmt.Printf("[TM-DEBUG] Time to poll for applying next block height %d took: %s\n", first.Height, time.Since(startTime))
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
 			startTime = time.Now()
 			if err != nil {
