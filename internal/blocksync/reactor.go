@@ -426,6 +426,7 @@ func (r *Reactor) processPeerUpdates(ctx context.Context, peerUpdates *p2p.PeerU
 // SwitchToBlockSync is called by the state sync reactor when switching to fast
 // sync.
 func (r *Reactor) SwitchToBlockSync(ctx context.Context, state sm.State) error {
+	fmt.Printf("[TM-DEBUG] SwitchToBlockSync called for height %d\n", state.LastBlockHeight)
 	r.blockSync.Set()
 	r.initialState = state
 	r.pool.height = state.LastBlockHeight + 1
@@ -511,6 +512,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 	defer trySyncTicker.Stop()
 	defer switchToConsensusTicker.Stop()
+	startTime := time.Now()
 
 	for {
 		select {
@@ -695,7 +697,9 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
+			fmt.Printf("[TM-DEBUG] Time to poll for applying next block height %d took: %s", first.Height, time.Since(startTime))
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
+			startTime = time.Now()
 			if err != nil {
 				panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 			}

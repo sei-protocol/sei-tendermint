@@ -2197,11 +2197,11 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		cs.tracer,
 	)
 	cs.metrics.ApplyBlockLatency.Observe(float64(time.Since(startTime).Milliseconds()))
-	fmt.Printf("[TM-DEBUG] ApplyBlock took %s for block %d\n", time.Since(startTime), block.Height)
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
 		return
 	}
+	fmt.Printf("[TM-DEBUG] ApplyBlock in finalizeCommit took %s for height %d\n", time.Since(startTime), block.Height)
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
