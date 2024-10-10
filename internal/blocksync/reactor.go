@@ -560,10 +560,11 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				continue
 
 			case r.pool.IsCaughtUp() && r.previousMaxPeerHeight <= r.pool.MaxPeerHeight():
-				r.logger.Info("switching to consensus reactor", "height", height)
+				r.logger.Info("switching to consensus reactor after caught up", "height", height)
 
 			case time.Since(lastAdvance) > syncTimeout:
 				r.logger.Error("no progress since last advance", "last_advance", lastAdvance)
+				continue
 
 			default:
 				r.logger.Info(
