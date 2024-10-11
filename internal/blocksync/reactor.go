@@ -621,14 +621,12 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
-				if first == nil && second == nil {
-					fmt.Printf("[Yiming-DEBUG] both first and second are nil\n")
-				} else if first == nil {
-					fmt.Printf("[Yiming-DEBUG] first is nil\n")
-				} else if second == nil {
+				if first != nil && second == nil {
 					fmt.Printf("[Yiming-DEBUG] first is %d second is nil\n", first.Height)
 				}
 				continue
+			} else {
+				fmt.Printf("[Yiming-DEBUG] Found first is %d second is %d\n", first.Height, second.Height)
 			}
 
 			// try again quickly next loop
