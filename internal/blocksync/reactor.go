@@ -258,6 +258,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 			return r.respondToPeer(ctx, msg, envelope.From, blockSyncCh)
 		case *bcproto.BlockResponse:
 			block, err := types.BlockFromProto(msg.Block)
+			fmt.Printf("[Yiming-Debug] Received block response from peer %s, block height: %d\n", envelope.From, block.Height)
 			if err != nil {
 				r.logger.Error("failed to convert block from proto",
 					"peer", envelope.From,
@@ -463,13 +464,17 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 				To:      request.PeerID,
 				Message: &bcproto.BlockRequest{Height: request.Height},
 			}); err != nil {
+				fmt.Printf("[Yiming-Debug] Failed to send block request to peer %s for height %d\n", request.PeerID, request.Height)
 				if err := blockSyncCh.SendError(ctx, p2p.PeerError{
 					NodeID: request.PeerID,
 					Err:    err,
 				}); err != nil {
 					return
 				}
+			} else {
+				fmt.Printf("[Yiming-Debug] Sent block request to peer %s for height %d\n", request.PeerID, request.Height)
 			}
+
 		case pErr := <-r.errorsCh:
 			if err := blockSyncCh.SendError(ctx, p2p.PeerError{
 				NodeID: pErr.peerID,
@@ -616,6 +621,13 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
+				if first == nil && second == nil {
+					fmt.Printf("[Yiming-DEBUG] both first and second are nil\n")
+				} else if first == nil {
+					fmt.Printf("[Yiming-DEBUG] first is nil\n")
+				} else if second == nil {
+					fmt.Printf("[Yiming-DEBUG] first is %d second is nil\n", first.Height)
+				}
 				continue
 			}
 
