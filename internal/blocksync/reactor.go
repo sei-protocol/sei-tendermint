@@ -572,6 +572,9 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 					"height", height,
 					"max_peer_height", r.pool.MaxPeerHeight(),
 					"timeout_in", syncTimeout-time.Since(lastAdvance),
+					"num_pending", numPending,
+					"num_peers", len(r.pool.peers),
+					"total_requesters", lenRequesters,
 				)
 				continue
 			}
