@@ -31,9 +31,9 @@ eg, L = latency = 0.1s
 */
 
 const (
-	requestInterval           = 10 * time.Millisecond
+	requestInterval           = 1000 * time.Millisecond
 	inactiveSleepInterval     = 1 * time.Second
-	maxTotalRequesters        = 600
+	maxTotalRequesters        = 60
 	maxPeerErrBuffer          = 1000
 	maxPendingRequests        = maxTotalRequesters
 	maxPendingRequestsPerPeer = 20
@@ -161,6 +161,7 @@ func (pool *BlockPool) makeRequestersRoutine(ctx context.Context) {
 			// is so small. Larger request intervals may necessitate using a
 			// timer/ticker.
 			time.Sleep(requestInterval)
+			// fmt.Printf("[YIREN-DEBUG] removeTimedoutPeers numPending: %d, lenRequesters: %d\n", numPending, lenRequesters)
 			pool.removeTimedoutPeers()
 			continue
 		}
@@ -173,7 +174,7 @@ func (pool *BlockPool) makeRequestersRoutine(ctx context.Context) {
 func (pool *BlockPool) removeTimedoutPeers() {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
-
+	fmt.Printf("[YIREN-DEBUG] removeTimedoutPeers peer len: %d\n", len(pool.peers))
 	for _, peer := range pool.peers {
 		// check if peer timed out
 		if !peer.didTimeout && peer.numPending > 0 {
@@ -186,11 +187,13 @@ func (pool *BlockPool) removeTimedoutPeers() {
 					"reason", err,
 					"curRate", fmt.Sprintf("%d KB/s", curRate/1024),
 					"minRate", fmt.Sprintf("%d KB/s", minRecvRate/1024))
+				fmt.Printf("[YIREN-DEBUG] Peer %s is not sending us data fast enough, curRate: %d KB/s, minRate: %d KB/s\n", peer.id, curRate/1024, minRecvRate/1024)
 				peer.didTimeout = true
 			}
 		}
 
 		if peer.didTimeout {
+			fmt.Printf("[YIREN-DEBUG] Peer %s didTimeout, removing\n", peer.id)
 			pool.removePeer(peer.id, true)
 		}
 	}
@@ -392,6 +395,7 @@ func (pool *BlockPool) removePeer(peerID types.NodeID, redo bool) {
 	if redo {
 		for _, requester := range pool.requesters {
 			if requester.getPeerID() == peerID {
+				fmt.Printf("[YIREN-DEBUG] requester.getPeerID() == peerID: %v\n", requester.getPeerID() == peerID)
 				requester.redo(peerID, PeerRemoved)
 			}
 		}
@@ -399,6 +403,7 @@ func (pool *BlockPool) removePeer(peerID types.NodeID, redo bool) {
 
 	peer, ok := pool.peers[peerID]
 	if ok {
+		fmt.Printf("[YIREN-DEBUG] peer.timeout != nil: %v\n", peer.timeout != nil)
 		if peer.timeout != nil {
 			peer.timeout.Stop()
 		}
@@ -447,21 +452,29 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 	// Generate a sorted list
 	sortedPeers := pool.getSortedPeers(pool.peers)
 	var goodPeers []types.NodeID
+	fmt.Printf("[YIREN-DEBUG] Sorted peers length: %d\n", len(sortedPeers))
 	// Remove peers with 0 score and shuffle list
 	for _, nodeId := range sortedPeers {
 		peer := pool.peers[nodeId]
+		fmt.Printf("[YIREN-DEBUG] Peer %s status: Timeout=%v, Pending=%d, Height=%d, Base=%d, Score=%.2f, State=%s\n",
+			peer.id, peer.didTimeout, peer.numPending, peer.height, peer.base, float64(pool.peerManager.Score(nodeId)), pool.peerManager.State(nodeId))
 		if peer.didTimeout {
+			fmt.Printf("[YIREN-DEBUG] Peer %s timed out, removing\n", peer.id)
 			pool.removePeer(peer.id, true)
 			continue
 		}
 		if peer.numPending >= maxPendingRequestsPerPeer {
+			fmt.Printf("[YIREN-DEBUG] Peer %s has too many pending requests: %d, skipping\n", peer.id, peer.numPending)
+			// peer.clearPendingRequests()
 			continue
 		}
 		if height < peer.base || height > peer.height {
+			// peer base and peer hight
 			continue
 		}
 		// We only want to work with peers that are ready & connected (not dialing)
 		if pool.peerManager.State(nodeId) == "ready,connected" {
+			fmt.Printf("[YIREN-DEBUG] Peer %s is ready and connected\n", peer.id)
 			goodPeers = append(goodPeers, nodeId)
 		}
 
@@ -480,17 +493,26 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		}
 		peer := pool.peers[goodPeers[index]]
 		peer.incrPending()
+		fmt.Printf("[YIREN-DEBUG] Picked peer: %s for height: %d\n", peer.id, height)
 		return peer
 	}
+	fmt.Printf("[YIREN-DEBUG] No good peers found for height: %d\n", height)
 	return nil
 }
+
+const maxRequestWindow = 50
 
 func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
 	nextHeight := pool.height + pool.requestersLen()
+	fmt.Printf("[YIREN-DEBUG] pool.height: %d, pool.requestersLen(): %d, request for nextHeight: %d\n", pool.height, pool.requestersLen(), nextHeight)
+	// nextHeight := pool.height + 1
+	// maxHeight := pool.height + maxRequestWindow
+	// find the first requester that has not been created
 	if nextHeight > pool.maxPeerHeight {
+		fmt.Printf("[YIREN-DEBUG] nextHeight %d > pool.maxPeerHeight %d, return\n", nextHeight, pool.maxPeerHeight)
 		return
 	}
 
@@ -571,8 +593,9 @@ type bpPeer struct {
 	id          types.NodeID
 	recvMonitor *flowrate.Monitor
 
-	timeout *time.Timer
-	startAt time.Time
+	timeout       *time.Timer
+	startAt       time.Time
+	lastClearTime time.Time
 
 	logger log.Logger
 }
@@ -618,6 +641,17 @@ func (peer *bpPeer) onTimeout() {
 	peer.pool.sendError(err, peer.id)
 	peer.logger.Error("SendTimeout", "reason", err, "timeout", peerTimeout)
 	peer.didTimeout = true
+}
+
+func (peer *bpPeer) clearPendingRequests() {
+	now := time.Now()
+	if now.Sub(peer.lastClearTime) < 1*time.Minute {
+		fmt.Printf("[YIREN-DEBUG] Skipping clear for peer %s, last clear was too recent\n", peer.id)
+		return
+	}
+	atomic.StoreInt32(&peer.numPending, 0)
+	peer.lastClearTime = now
+	fmt.Printf("[YIREN-DEBUG] Cleared pending requests for peer %s\n", peer.id)
 }
 
 //-------------------------------------
@@ -752,12 +786,12 @@ OUTER_LOOP:
 			if ctx.Err() != nil {
 				return
 			}
-
 			peer = bpr.pool.pickIncrAvailablePeer(bpr.height)
 			if peer == nil {
 				// This is preferable to using a timer because the request
 				// interval is so small. Larger request intervals may
 				// necessitate using a timer/ticker.
+				fmt.Printf("[YIREN-DEBUG] No available peer, sleep for %s\n", requestInterval)
 				time.Sleep(requestInterval)
 				continue PICK_PEER_LOOP
 			}

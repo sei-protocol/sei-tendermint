@@ -190,6 +190,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 // OnStop stops the reactor by signaling to all spawned goroutines to exit and
 // blocking until they all exit.
 func (r *Reactor) OnStop() {
+	fmt.Printf("[YIREN-DEBUG] BlockSync reactor stopping\n")
 	if r.blockSync.IsSet() {
 		r.pool.Stop()
 	}
@@ -258,6 +259,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 			return r.respondToPeer(ctx, msg, envelope.From, blockSyncCh)
 		case *bcproto.BlockResponse:
 			block, err := types.BlockFromProto(msg.Block)
+			fmt.Printf("[YIREN-DEBUG] Received block response from peer %s, block height: %d\n", envelope.From, block.Height)
 			if err != nil {
 				r.logger.Error("failed to convert block from proto",
 					"peer", envelope.From,
@@ -384,7 +386,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 	if len(peerUpdate.NodeID) == 0 {
 		return
 	}
-
+	fmt.Printf("[YIREN-DEBUG] Received peer status: peer: %s, status: %s\n", peerUpdate.NodeID, peerUpdate.Status)
 	switch peerUpdate.Status {
 	case p2p.PeerStatusUp:
 		// send a status update the newly added peer
@@ -462,12 +464,15 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 				To:      request.PeerID,
 				Message: &bcproto.BlockRequest{Height: request.Height},
 			}); err != nil {
+				fmt.Printf("[YIREN-DEBUG] Failed to send block request to peer %s for height %d\n", request.PeerID, request.Height)
 				if err := blockSyncCh.SendError(ctx, p2p.PeerError{
 					NodeID: request.PeerID,
 					Err:    err,
 				}); err != nil {
 					return
 				}
+			} else {
+				fmt.Printf("[YIREN-DEBUG] Sent block request to peer %s for height %d\n", request.PeerID, request.Height)
 			}
 		case pErr := <-r.errorsCh:
 			if err := blockSyncCh.SendError(ctx, p2p.PeerError{
@@ -568,7 +573,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			default:
 				r.logger.Info(
-					"not caught up yet",
+					"[YIREN-DEBUG] not caught up yet",
 					"height", height,
 					"max_peer_height", r.pool.MaxPeerHeight(),
 					"timeout_in", syncTimeout-time.Since(lastAdvance),
@@ -585,6 +590,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			if r.consReactor != nil {
 				r.logger.Info("switching to consensus reactor", "height", height, "blocks_synced", blocksSynced, "state_synced", stateSynced, "max_peer_height", r.pool.MaxPeerHeight())
+				fmt.Printf("[YIREN-DEBUG] Switching to consensus, height: %d, blocks_synced: %d, state_synced: %v, max_peer_height: %d\n", height, blocksSynced, stateSynced, r.pool.MaxPeerHeight())
 				r.consReactor.SwitchToConsensus(ctx, state, blocksSynced > 0 || stateSynced)
 
 				// Auto restart should only be checked after switching to consensus mode
@@ -617,6 +623,13 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
+				if first == nil && second == nil {
+					fmt.Printf("[YIREN-DEBUG] both first and second are nil\n")
+				} else if first == nil {
+					fmt.Printf("[YIREN-DEBUG] first is nil\n")
+				} else if second == nil {
+					//fmt.Printf("[YIREN-DEBUG] first is %d second is nil\n", first.Height)
+				}
 				continue
 			}
 
