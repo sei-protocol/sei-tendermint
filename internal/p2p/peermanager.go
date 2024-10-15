@@ -512,11 +512,15 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 	// higher score than any other peers, and if successful evict it.
 	if m.options.MaxConnected > 0 && m.NumConnected()+len(m.dialing) >=
 		int(m.options.MaxConnected)+int(m.options.MaxConnectedUpgrade) {
+		fmt.Printf("[YIREN-DEBUG] Skip dialing, already connected to maximum number of peers %d, dialing: %d\n", m.NumConnected(), len(m.dialing))
 		return NodeAddress{}, nil
 	}
 
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
+			if peer.ID == "589ebcc83f32b2127e8d81d199605f810077cbda" {
+				fmt.Printf("[YIREN-DEBUG] Skip dialing peer.ID: %s, m.dialing[peer.ID]: %v\n", peer.ID, m.dialing[peer.ID])
+			}
 			continue
 		}
 
