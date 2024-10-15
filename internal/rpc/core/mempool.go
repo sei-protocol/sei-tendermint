@@ -83,9 +83,9 @@ func (env *Environment) BroadcastTxCommit(ctx context.Context, req *coretypes.Re
 		mempool.TxInfo{},
 	)
 	if err != nil {
+		fmt.Printf("[Debug87] erro: %X\n", err)
 		return nil, err
 	}
-
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("broadcast confirmation not received: %w", ctx.Err())

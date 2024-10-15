@@ -805,7 +805,6 @@ func (r *Router) runWithPeerMutex(fn func() error) error {
 func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) {
 	r.metrics.Peers.Add(1)
 	r.peerManager.Ready(ctx, peerID, channels)
-
 	sendQueue := r.getOrMakeQueue(peerID, channels)
 	defer func() {
 		r.peerMtx.Lock()
@@ -863,7 +862,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 
 	switch err {
 	case nil, io.EOF:
-		r.logger.Info("peer disconnected", "peer", peerID, "endpoint", conn)
+		r.logger.Info("peer disconnected", "peer", peerID, "endpoint", conn, "err", err)
 	default:
 		r.logger.Error("peer failure", "peer", peerID, "endpoint", conn, "err", err)
 	}

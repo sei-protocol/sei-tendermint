@@ -662,6 +662,7 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 				upgradeFromPeer = u
 			}
 		}
+		fmt.Println("[YIREN-DEBUG] UpgradeFromPeer - evicting peer", upgradeFromPeer)
 		m.evict[upgradeFromPeer] = true
 	}
 	m.connected[peer.ID] = true
@@ -731,6 +732,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 
 	m.connected[peerID] = true
 	if upgradeFromPeer != "" {
+		fmt.Println("[YIREN-DEBUG] New inbound connection accepted, evicting peer", upgradeFromPeer)
 		m.evict[upgradeFromPeer] = true
 	}
 	m.evictWaker.Wake()
@@ -786,6 +788,7 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 		delete(m.evict, peerID)
 		if m.connected[peerID] && !m.evicting[peerID] {
 			m.evicting[peerID] = true
+			fmt.Println("[YIREN-DEBUG] TryEvictNext - evicting peer", peerID)
 			return peerID, nil
 		}
 	}
@@ -803,6 +806,7 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 		peer := ranked[i]
 		if m.connected[peer.ID] && !m.evicting[peer.ID] {
 			m.evicting[peer.ID] = true
+			fmt.Println("[YIREN-DEBUG] TryEvictNext - evicting lowest-ranked peer", peer.ID)
 			return peer.ID, nil
 		}
 	}
@@ -815,6 +819,9 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+
+	fmt.Printf("[YIREN-DEBUG] Peer disconnected: %s, previous state: %s\n",
+		peerID, m.State(peerID))
 
 	// Update score and invalidate cache if a peer got disconnected
 	if _, ok := m.store.peers[peerID]; ok {
@@ -852,6 +859,8 @@ func (m *PeerManager) Errored(peerID types.NodeID, err error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
+	fmt.Printf("[YIREN-DEBUG] Errored %v - evicting peer %s, connected: %v, score: %d\n",
+		err, peerID, m.connected[peerID], m.Score(peerID))
 	if m.connected[peerID] {
 		m.evict[peerID] = true
 	}
