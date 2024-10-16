@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
@@ -174,52 +173,27 @@ func (store dbStore) save(state State, key []byte) error {
 		}
 	}
 	// Save next validators.
-	validatorsStart := time.Now()
 	err := store.saveValidatorsInfo(nextHeight+1, state.LastHeightValidatorsChanged, state.NextValidators, batch)
 	if err != nil {
 		return err
 	}
-	validatorsDuration := time.Since(validatorsStart)
-	if validatorsDuration > 500*time.Millisecond {
-		fmt.Printf("[SAVE] Saving next validators took %s for height %d\n", validatorsDuration, nextHeight)
-	}
 
 	// Save next consensus params.
-	consensusParamsStart := time.Now()
 	if err := store.saveConsensusParamsInfo(nextHeight,
 		state.LastHeightConsensusParamsChanged, state.ConsensusParams, batch); err != nil {
 		return err
 	}
-	consensusParamsDuration := time.Since(consensusParamsStart)
-	if consensusParamsDuration > 500*time.Millisecond {
-		fmt.Printf("[SAVE] Saving consensus params took %s for height %d\n", consensusParamsDuration, nextHeight)
-	}
 
-	stateBytesStart := time.Now()
 	stateBz, err := state.Bytes()
 	if err != nil {
 		return err
 	}
-	stateBytesDuration := time.Since(stateBytesStart)
-	if stateBytesDuration > 500*time.Millisecond {
-		fmt.Printf("[SAVE] Converting state to bytes took %s for height %d\n", stateBytesDuration, nextHeight)
-	}
 
-	stateSetStart := time.Now()
 	if err := batch.Set(key, stateBz); err != nil {
 		return err
 	}
-	stateSetDuration := time.Since(stateSetStart)
-	if stateSetDuration > 500*time.Millisecond {
-		fmt.Printf("[SAVE] Setting state took %s for height %d\n", stateSetDuration, nextHeight)
-	}
 
-	writeSyncStart := time.Now()
 	err = batch.WriteSync()
-	writeSyncDuration := time.Since(writeSyncStart)
-	if writeSyncDuration > 500*time.Millisecond {
-		fmt.Printf("[SAVE] Writing sync took %s for height %d\n", writeSyncDuration, nextHeight)
-	}
 	return err
 }
 
