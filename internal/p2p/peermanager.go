@@ -858,6 +858,7 @@ func (m *PeerManager) Errored(peerID types.NodeID, err error) {
 
 	if m.connected[peerID] {
 		m.evict[peerID] = true
+		fmt.Printf("[YIREN-DEBUG] Evict peer due to peer error:%v \n", err)
 	}
 
 	m.evictWaker.Wake()
