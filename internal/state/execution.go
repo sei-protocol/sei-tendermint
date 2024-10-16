@@ -318,6 +318,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	// Update the state with the block and responses.
+	updateStateStart := time.Now()
 	rs, err := abci.MarshalTxResults(fBlockRes.TxResults)
 	if err != nil {
 		return state, fmt.Errorf("marshaling TxResults: %w", err)
@@ -327,13 +328,14 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
-
+	fmt.Printf("[TM-DEBUG] Update in blockExec took %s for height %d\n", time.Since(updateStateStart), block.Height)
 	var commitSpan otrace.Span = nil
 	if tracer != nil {
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
 		defer commitSpan.End()
 	}
 	// Lock mempool, commit app state, update mempoool.
+	commitStart := time.Now()
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
@@ -341,15 +343,18 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if commitSpan != nil {
 		commitSpan.End()
 	}
-
+	fmt.Printf("[TM-DEBUG] Commit in blockExec took %s for height %d\n", time.Since(commitStart), block.Height)
 	// Update evpool with the latest state.
+	evpoolUpdate := time.Now()
 	blockExec.evpool.Update(ctx, state, block.Evidence)
-
+	fmt.Printf("[TM-DEBUG] evpool.Update in blockExec took %s for height %d\n", time.Since(evpoolUpdate), block.Height)
 	// Update the app hash and save the state.
+	blockSave := time.Now()
 	state.AppHash = fBlockRes.AppHash
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
+	fmt.Printf("[SAVE] blockSave in blockExec took %s for height %d\n", time.Since(blockSave), block.Height)
 	blockExec.metrics.SaveBlockLatency.Observe(float64(time.Since(saveBlockTime).Milliseconds()))
 	fmt.Printf("[TM-DEBUG] SaveBlock in blockExec took %s for height %d\n", time.Since(saveBlockTime), block.Height)
 	// Prune old heights, if requested by ABCI app.
