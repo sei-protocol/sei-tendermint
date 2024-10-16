@@ -700,7 +700,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 		return dupeConnectionErr
 	}
 
-	if m.options.MaxConnected > 0 &&
+	if !m.options.isUnconditional(peerID) && m.options.MaxConnected > 0 &&
 		m.NumConnected() >= int(m.options.MaxConnected)+int(m.options.MaxConnectedUpgrade) {
 		return fmt.Errorf("already connected to maximum number of peers and max connected upgrade")
 	}
