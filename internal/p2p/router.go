@@ -862,8 +862,10 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 	}
 
 	switch err {
-	case nil, io.EOF:
-		r.logger.Info("peer disconnected", "peer", peerID, "endpoint", conn)
+	case nil:
+		r.logger.Info("peer disconnected normally", "peer", peerID, "endpoint", conn)
+	case io.EOF:
+		r.logger.Info("peer disconnected due to EOF", "peer", peerID, "endpoint", conn)
 	default:
 		r.logger.Error("peer failure", "peer", peerID, "endpoint", conn, "err", err)
 	}

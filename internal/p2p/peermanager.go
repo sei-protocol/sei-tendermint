@@ -663,6 +663,7 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 			}
 		}
 		m.evict[upgradeFromPeer] = true
+		fmt.Println("[YIREN-DEBUG] Dialed - evicting peer", upgradeFromPeer)
 	}
 	m.connected[peer.ID] = true
 	m.evictWaker.Wake()
@@ -732,6 +733,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 	m.connected[peerID] = true
 	if upgradeFromPeer != "" {
 		m.evict[upgradeFromPeer] = true
+		fmt.Println("[YIREN-DEBUG] New inbound connection accepted, evicting peer", upgradeFromPeer)
 	}
 	m.evictWaker.Wake()
 	return nil
@@ -786,6 +788,7 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 		delete(m.evict, peerID)
 		if m.connected[peerID] && !m.evicting[peerID] {
 			m.evicting[peerID] = true
+			fmt.Println("[YIREN-DEBUG] scheduled eviction - evicting peer", peerID)
 			return peerID, nil
 		}
 	}
@@ -803,6 +806,7 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 		peer := ranked[i]
 		if m.connected[peer.ID] && !m.evicting[peer.ID] {
 			m.evicting[peer.ID] = true
+			fmt.Println("[YIREN-DEBUG] ranked eviction - evicting peer", peer.ID)
 			return peer.ID, nil
 		}
 	}
