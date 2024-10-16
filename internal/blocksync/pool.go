@@ -31,9 +31,9 @@ eg, L = latency = 0.1s
 */
 
 const (
-	requestInterval           = 1000 * time.Millisecond
+	requestInterval           = 100 * time.Millisecond
 	inactiveSleepInterval     = 1 * time.Second
-	maxTotalRequesters        = 60
+	maxTotalRequesters        = 40
 	maxPeerErrBuffer          = 1000
 	maxPendingRequests        = maxTotalRequesters
 	maxPendingRequestsPerPeer = 20
@@ -54,7 +54,7 @@ const (
 	BadBlock    RetryReason = "BadBlock"
 )
 
-var peerTimeout = 10 * time.Second // not const so we can override with tests
+var peerTimeout = 2 * time.Second // not const so we can override with tests
 
 /*
 	Peers self report their heights when we join the block pool.
@@ -150,17 +150,10 @@ func (pool *BlockPool) OnStop() {
 
 // spawns requesters as needed
 func (pool *BlockPool) makeRequestersRoutine(ctx context.Context) {
-	cleanupTicker := time.NewTicker(30 * time.Second)
-	defer cleanupTicker.Stop()
-
 	for pool.IsRunning() {
 		select {
 		case <-ctx.Done():
 			return
-		case <-cleanupTicker.C:
-			fmt.Printf("[YIREN-DEBUG] cleanupTicker tick\n")
-			pool.removeTimedoutPeers()
-			pool.cleanupStalePendingRequests()
 		default:
 			_, numPending, lenRequesters := pool.GetStatus()
 			if numPending >= maxPendingRequests || lenRequesters >= maxTotalRequesters {
@@ -362,6 +355,12 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
+	blockSyncPeers := pool.peerManager.GetBlockSyncPeers()
+	if len(blockSyncPeers) > 0 && !blockSyncPeers[peerID] {
+		fmt.Printf("[Yiming-Debug] Skip adding peer %s to the block pool since it's not in the block sync peer list\n", peerID)
+		return
+	}
+
 	peer := pool.peers[peerID]
 	if peer != nil {
 		peer.base = base
@@ -439,6 +438,7 @@ func (pool *BlockPool) getSortedPeers(peers map[types.NodeID]*bpPeer) []types.No
 	for peer := range peers {
 		sortedPeers = append(sortedPeers, peer)
 	}
+
 	// Sort from high to low score
 	sort.Slice(sortedPeers, func(i, j int) bool {
 		return pool.peerManager.Score(sortedPeers[i]) > pool.peerManager.Score(sortedPeers[j])

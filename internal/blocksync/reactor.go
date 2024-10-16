@@ -624,11 +624,11 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				// we need to have fetched two consecutive blocks in order to
 				// perform blocksync verification
 				if first == nil && second == nil {
-					fmt.Printf("[YIREN-DEBUG] both first and second are nil\n")
+					//fmt.Printf("[YIREN-DEBUG] both first and second are nil\n")
 				} else if first == nil {
-					fmt.Printf("[YIREN-DEBUG] first is nil\n")
+					//fmt.Printf("[YIREN-DEBUG] first is nil\n")
 				} else if second == nil {
-					//fmt.Printf("[YIREN-DEBUG] first is %d second is nil\n", first.Height)
+					fmt.Printf("[YIREN-DEBUG] first is %d second is nil\n", first.Height)
 				}
 				continue
 			}
