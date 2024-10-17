@@ -642,9 +642,9 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 	case errors.Is(err, context.Canceled):
 		return
 	case err != nil:
-		r.logger.Debug("failed to dial peer", "peer", address, "err", err)
-		fmt.Printf("[YIREN-DEBUG] failed to report dial failure, peer: %s, err: %v\n", address.NodeID, err)
+		r.logger.Info("[YIREN-DEBUG] failed to dial peer", "peer", address, "err", err)
 		if err = r.peerManager.DialFailed(ctx, address); err != nil {
+			fmt.Printf("[YIREN-DEBUG] failed to report dial failure, peer: %s, err: %v\n", address.NodeID, err)
 			r.logger.Debug("failed to report dial failure", "peer", address, "err", err)
 		}
 		return
