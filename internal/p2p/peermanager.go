@@ -696,8 +696,8 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 		return fmt.Errorf("rejecting connection from self (%v)", peerID)
 	}
 	if m.connected[peerID] {
-		dupeConnectionErr := fmt.Errorf("can't accept, peer=%q is already connected", peerID)
-		return dupeConnectionErr
+		fmt.Printf("[YIREN-DEBUG] Skip adding already connected peer %s\n", peerID)
+		return nil
 	}
 
 	if !m.options.isUnconditional(peerID) && m.options.MaxConnected > 0 &&

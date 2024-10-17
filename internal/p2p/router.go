@@ -570,8 +570,8 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
 		// If peer is trying to reconnect, error and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
-			// r.peerManager.Errored(peerInfo.NodeID, err)
-			fmt.Printf("[YIREN-DEBUG] Peer %s already connected, skipping\n", peerInfo.NodeID)
+			r.peerManager.Errored(peerInfo.NodeID, err)
+			fmt.Printf("[YIREN-DEBUG] Error out and evict peer %s due to: %v\n", peerInfo.NodeID, err)
 		}
 		r.logger.Error("failed to accept connection",
 			"op", "incoming/accepted", "peer", peerInfo.NodeID, "err", err)
