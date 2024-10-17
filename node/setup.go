@@ -262,7 +262,7 @@ func createPeerManager(
 		}
 
 		peers = append(peers, address)
-		options.BlockSyncPeers = append(options.PersistentPeers, address.NodeID)
+		options.BlockSyncPeers = append(options.BlockSyncPeers, address.NodeID)
 	}
 
 	for _, p := range tmstrings.SplitAndTrimEmpty(cfg.P2P.UnconditionalPeerIDs, ",", " ") {
