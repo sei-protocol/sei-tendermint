@@ -513,12 +513,10 @@ func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	defer pool.mtx.Unlock()
 
 	nextHeight := pool.height + pool.requestersLen()
-	fmt.Printf("[YIREN-DEBUG] pool.height: %d, pool.requestersLen(): %d, request for nextHeight: %d\n", pool.height, pool.requestersLen(), nextHeight)
 	// nextHeight := pool.height + 1
 	// maxHeight := pool.height + maxRequestWindow
 	// find the first requester that has not been created
 	if nextHeight > pool.maxPeerHeight {
-		fmt.Printf("[YIREN-DEBUG] nextHeight %d > pool.maxPeerHeight %d, return\n", nextHeight, pool.maxPeerHeight)
 		return
 	}
 
