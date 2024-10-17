@@ -544,6 +544,9 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
+			if m.dialing[peer.ID] {
+				fmt.Printf("[YIREN-DEBUG] Skip dialing peer.ID: %s, because it is still dialing\n", peer.ID)
+			}
 			continue
 		}
 
