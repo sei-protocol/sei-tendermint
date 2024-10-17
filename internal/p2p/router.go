@@ -570,7 +570,8 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
 		// If peer is trying to reconnect, error and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
-			r.peerManager.Errored(peerInfo.NodeID, err)
+			// r.peerManager.Errored(peerInfo.NodeID, err)
+			fmt.Printf("[YIREN-DEBUG] Peer %s already connected, skipping\n", peerInfo.NodeID)
 		}
 		r.logger.Error("failed to accept connection",
 			"op", "incoming/accepted", "peer", peerInfo.NodeID, "err", err)
@@ -865,8 +866,10 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 	case nil:
 		r.logger.Info("peer disconnected normally", "peer", peerID, "endpoint", conn)
 	case io.EOF:
+		fmt.Println("[YIREN-DEBUG] peer disconnected due to EOF", "peer", peerID, "endpoint", conn)
 		r.logger.Info("peer disconnected due to EOF", "peer", peerID, "endpoint", conn)
 	default:
+		fmt.Println("[YIREN-DEBUG] peer disconnected due to error", "peer", peerID, "endpoint", conn, "err", err)
 		r.logger.Error("peer failure", "peer", peerID, "endpoint", conn, "err", err)
 	}
 }
@@ -973,6 +976,7 @@ func (r *Router) evictPeers(ctx context.Context) {
 		}
 
 		r.logger.Info("evicting peer", "peer", peerID)
+		fmt.Println("[YIREN-DEBUG] evicting peer", peerID)
 
 		r.peerMtx.RLock()
 		queue, ok := r.peerQueues[peerID]

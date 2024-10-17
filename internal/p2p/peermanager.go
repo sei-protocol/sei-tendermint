@@ -721,6 +721,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 	var upgradeFromPeer types.NodeID
 	if m.options.MaxConnected > 0 && m.NumConnected() >= int(m.options.MaxConnected) {
 		upgradeFromPeer = m.findUpgradeCandidate(peer.ID, peer.Score())
+		fmt.Println("[YIREN-DEBUG] upgradeFromPeer removing ", upgradeFromPeer, "and peer is", peer.ID)
 		if upgradeFromPeer == "" {
 			return fmt.Errorf("couldn't find upgrade candidate peer to evict when max connection reached")
 		}
@@ -834,6 +835,8 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	delete(m.evict, peerID)
 	delete(m.evicting, peerID)
 	delete(m.ready, peerID)
+
+	fmt.Println("[YIREN-DEBUG] Disconnected - evicting peer", peerID)
 
 	if ready {
 		m.broadcast(ctx, PeerUpdate{
