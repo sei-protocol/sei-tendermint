@@ -357,7 +357,7 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 
 	blockSyncPeers := pool.peerManager.GetBlockSyncPeers()
 	if len(blockSyncPeers) > 0 && !blockSyncPeers[peerID] {
-		pool.logger.Info(fmt.Sprintf("Skip adding peer %s for blocksync based on config, current num of blocksync peers: %d", peerID, len(blockSyncPeers)))
+		pool.logger.Info(fmt.Sprintf("Skip adding peer %s for blocksync, num of blocksync peers: %d, num of pool peers: %d", peerID, len(blockSyncPeers), len(pool.peers)))
 		return
 	}
 
@@ -375,7 +375,7 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 			logger:     pool.logger.With("peer", peerID),
 			startAt:    time.Now(),
 		}
-
+		pool.logger.Info(fmt.Sprintf("Adding peer %s to blocksync pool", peerID))
 		pool.peers[peerID] = peer
 	}
 
