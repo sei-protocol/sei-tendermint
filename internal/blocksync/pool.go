@@ -326,6 +326,9 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		if peer != nil {
 			peer.decrPending(blockSize)
 		}
+
+		// Increment the number of consecutive successful block syncs for the peer
+		pool.peerManager.IncrementBlockSyncs(peerID)
 	} else {
 		err := errors.New("requester is different or block already exists")
 		pool.sendError(err, peerID)
