@@ -327,8 +327,11 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		if peer != nil {
 			peer.decrPending(blockSize)
 		}
-	} else if setBlockResult < 0 {
-		err := errors.New("bpr requester peer is different from original peer")
+
+		// Increment the number of consecutive successful block syncs for the peer
+		pool.peerManager.IncrementBlockSyncs(peerID)
+	} else {
+		err := errors.New("requester is different or block already exists")
 		pool.sendError(err, peerID)
 		return fmt.Errorf("%w (peer: %s, requester: %s, block height: %d)", err, peerID, requester.getPeerID(), block.Height)
 	}
