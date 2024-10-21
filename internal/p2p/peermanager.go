@@ -1444,6 +1444,8 @@ func (p *peerInfo) Score() PeerScore {
 		return 0
 	}
 
+	fmt.Println("[DEBUG-YIREN] peer score: ", score)
+
 	return PeerScore(score)
 }
 
