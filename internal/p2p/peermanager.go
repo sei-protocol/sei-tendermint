@@ -584,6 +584,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	defer m.mtx.Unlock()
 
 	delete(m.dialing, address.NodeID)
+	fmt.Printf("[YIREN-DEBUG] DialFailed, remove dialing peer: %s\n", address.NodeID)
 	for from, to := range m.upgrading {
 		if to == address.NodeID {
 			delete(m.upgrading, from) // Unmark failed upgrade attempt.
@@ -616,6 +617,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
 			}
+			fmt.Printf("[YIREN-DEBUG] DialFailed, dialing failed %d times will not retry for address=%s, deleting peer", addressInfo.DialFailures, address.NodeID)
 			return fmt.Errorf("dialing failed %d times will not retry for address=%s, deleting peer", addressInfo.DialFailures, address.NodeID)
 		}
 		go func() {
@@ -643,7 +645,7 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 	defer m.mtx.Unlock()
 
 	delete(m.dialing, address.NodeID)
-
+	fmt.Printf("[YIREN-DEBUG] Dialed, remove dialing peer: %s\n", address.NodeID)
 	var upgradeFromPeer types.NodeID
 	for from, to := range m.upgrading {
 		if to == address.NodeID {
