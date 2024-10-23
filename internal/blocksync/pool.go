@@ -361,8 +361,8 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 
 	blockSyncPeers := pool.peerManager.GetBlockSyncPeers()
 	if len(blockSyncPeers) > 0 && !blockSyncPeers[peerID] {
-		pool.logger.Info(fmt.Sprintf("Skip adding peer %s for blocksync, num of blocksync peers: %d, num of pool peers: %d", peerID, len(blockSyncPeers), len(pool.peers)))
-		return
+		// pool.logger.Info(fmt.Sprintf("Skip adding peer %s for blocksync, num of blocksync peers: %d, num of pool peers: %d", peerID, len(blockSyncPeers), len(pool.peers)))
+		// return
 	}
 
 	peer := pool.peers[peerID]
@@ -462,6 +462,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		peer := pool.peers[nodeId]
 		if peer.didTimeout {
 			pool.removePeer(peer.id, true)
+			fmt.Printf("[YIREN-DEBUG] Remove peer %s because it timed out\n", peer.id)
 			continue
 		}
 		if peer.numPending >= maxPendingRequestsPerPeer {
@@ -473,6 +474,7 @@ func (pool *BlockPool) pickIncrAvailablePeer(height int64) *bpPeer {
 		// We only want to work with peers that are ready & connected (not dialing)
 		if pool.peerManager.State(nodeId) == "ready,connected" {
 			goodPeers = append(goodPeers, nodeId)
+			fmt.Printf("[YIREN-DEBUG] Append Peer %s is ready and connected\n", nodeId)
 		}
 
 		// Skip the ones with zero score to avoid connecting to bad peers
