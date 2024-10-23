@@ -564,6 +564,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 					return NodeAddress{}, nil
 				}
 				m.upgrading[upgradeFromPeer] = peer.ID
+				fmt.Printf("[YIREN-DEBUG] Upgrade candidate found: %s, upgrading from: %s\n", upgradeFromPeer, peer.ID)
 			}
 
 			m.dialing[peer.ID] = true
