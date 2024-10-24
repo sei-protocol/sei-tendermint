@@ -397,6 +397,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 			},
 		}); err != nil {
 			r.pool.RemovePeer(peerUpdate.NodeID)
+			fmt.Printf("[YIREN-DEBUG] StatusUp Removed peer: %s\n", peerUpdate.NodeID)
 			if err := blockSyncCh.SendError(ctx, p2p.PeerError{
 				NodeID: peerUpdate.NodeID,
 				Err:    err,
@@ -407,6 +408,7 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 
 	case p2p.PeerStatusDown:
 		r.pool.RemovePeer(peerUpdate.NodeID)
+		fmt.Printf("[YIREN-DEBUG] StatusDown Removed peer: %s\n", peerUpdate.NodeID)
 	}
 }
 
