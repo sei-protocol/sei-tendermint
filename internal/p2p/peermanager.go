@@ -49,7 +49,7 @@ const (
 	PeerScorePersistent       PeerScore = PeerScoreUnconditional - 1 // persistent peers
 	MaxPeerScoreNotPersistent PeerScore = PeerScorePersistent - 1
 	// DefaultMutableScore is the default score for a peer during initialization
-	DefaultMutableScore int64 = int64(MaxPeerScoreNotPersistent) - 10 //
+	DefaultMutableScore int64 = int64(MaxPeerScoreNotPersistent) - 10 // 255 - 1 - 1 - 10 = 243
 )
 
 // PeerUpdate is a peer update event sent via PeerUpdates.
@@ -599,6 +599,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	addressInfo.LastDialFailure = time.Now().UTC()
 	addressInfo.DialFailures++
 	peer.ConsecSuccessfulBlocks = 0
+	fmt.Printf("[SCORE-DEBUG] DialFailed: %s, ConsecSuccessfulBlocks: %d\n", peer.ID, peer.ConsecSuccessfulBlocks)
 	// We need to invalidate the cache after score changed
 	m.store.ranked = nil
 	if err := m.store.Set(peer); err != nil {
@@ -848,6 +849,7 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 	if _, ok := m.store.peers[peerID]; ok {
 		m.store.peers[peerID].NumOfDisconnections++
 		m.store.peers[peerID].ConsecSuccessfulBlocks = 0
+		fmt.Printf("[SCORE-DEBUG] Disconnected, PeerId: %s  ConsecSuccessfulBlocks: %d\n", peerID, m.store.peers[peerID].ConsecSuccessfulBlocks)
 		m.store.ranked = nil
 	}
 
@@ -997,11 +999,12 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 	if _, ok := m.store.peers[pu.NodeID]; !ok {
 		m.store.peers[pu.NodeID] = &peerInfo{}
 	}
-
 	switch pu.Status {
 	case PeerStatusBad:
+		fmt.Printf("[YIREN-DEBUG] ProcessPeerEventPeerStatusBad: %s\n", pu.NodeID)
 		m.store.peers[pu.NodeID].MutableScore--
 	case PeerStatusGood:
+		fmt.Printf("[YIREN-DEBUG] ProcessPeerEvent PeerStatusGood: %s\n", pu.NodeID)
 		m.store.peers[pu.NodeID].MutableScore++
 	}
 	// Invalidate the cache after score changed
@@ -1425,18 +1428,28 @@ func (p *peerInfo) Score() PeerScore {
 	}
 
 	// add points for consecutive successful block syncs
+	if p.ConsecSuccessfulBlocks > 0 {
+		fmt.Printf("[SCORE-DEBUG] Add Points PeerId: %s, ConsecSuccessfulBlocks: %d\n", p.ID, p.ConsecSuccessfulBlocks)
+	}
 	score += p.ConsecSuccessfulBlocks / 5
 
 	for _, addr := range p.AddressInfo {
 		// DialFailures is reset when dials succeed, so this
 		// is either the number of dial failures or 0.
 		failureScore := float64(addr.DialFailures) * math.Exp(-0.1*float64(time.Since(addr.LastDialFailure).Hours()))
+		if int64(failureScore) > 0 {
+			fmt.Printf("[SCORE-DEBUG] PeerId: %s, failureScore: %d\n", p.ID, int64(failureScore))
+		}
 		score -= int64(failureScore)
 	}
 
 	// We consider lowering the score for every 3 disconnection events
+	if p.NumOfDisconnections/3 > 0 {
+		fmt.Printf("[SCORE-DEBUG] PeerId: %s, NumOfDisconnections: %d\n", p.ID, p.NumOfDisconnections/3)
+	}
 	score -= p.NumOfDisconnections / 3
 
+	// the cap of score is MaxPeerScoreNotPersistent
 	if !p.Persistent && score > int64(MaxPeerScoreNotPersistent) {
 		score = int64(MaxPeerScoreNotPersistent)
 	}
@@ -1444,8 +1457,6 @@ func (p *peerInfo) Score() PeerScore {
 	if score <= 0 {
 		return 0
 	}
-
-	fmt.Println("[DEBUG-YIREN] peer score: ", score)
 
 	return PeerScore(score)
 }
@@ -1551,6 +1562,7 @@ func (m *PeerManager) IncrementBlockSyncs(peerID types.NodeID) {
 	defer m.mtx.Unlock()
 
 	if peer, ok := m.store.peers[peerID]; ok {
+		fmt.Printf("[SCORE-DEBUG] PeerId: %s IncrementBlockSyncs ConsecSuccessfulBlocks: %d\n", peerID, peer.ConsecSuccessfulBlocks)
 		peer.ConsecSuccessfulBlocks++
 		m.store.ranked = nil
 	}
