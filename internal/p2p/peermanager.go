@@ -448,6 +448,7 @@ func (m *PeerManager) prunePeers() error {
 // exists, the address is added to it if it isn't already present. This will push
 // low scoring peers out of the address book if it exceeds the maximum size.
 func (m *PeerManager) Add(address NodeAddress) (bool, error) {
+	fmt.Printf("[ADD-DEBUG] Add: Adding peer %s with address %s\n", address.NodeID, address.String())
 	if err := address.Validate(); err != nil {
 		return false, err
 	}
@@ -542,6 +543,7 @@ func (m *PeerManager) TryDialNext() (NodeAddress, error) {
 
 	for _, peer := range m.store.Ranked() {
 		if m.dialing[peer.ID] || m.connected[peer.ID] {
+			fmt.Printf("[YIREN-DEBUG] TryDialNext: Peer %s is in dialing or connected\n", peer.ID)
 			continue
 		}
 
@@ -598,7 +600,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	addressInfo.LastDialFailure = time.Now().UTC()
 	addressInfo.DialFailures++
 	peer.ConsecSuccessfulBlocks = 0
-	fmt.Printf("[SCORE-DEBUG] DialFailed: %s, ConsecSuccessfulBlocks: %d\n", peer.ID, peer.ConsecSuccessfulBlocks)
+	// fmt.Printf("[SCORE-DEBUG] DialFailed: %s, ConsecSuccessfulBlocks: %d\n", peer.ID, peer.ConsecSuccessfulBlocks)
 	// We need to invalidate the cache after score changed
 	m.store.ranked = nil
 	if err := m.store.Set(peer); err != nil {
@@ -849,14 +851,14 @@ func (m *PeerManager) Disconnected(ctx context.Context, peerID types.NodeID) {
 		// check for potential overflow
 		if m.store.peers[peerID].NumOfDisconnections < math.MaxInt64 {
 			m.store.peers[peerID].NumOfDisconnections++
-			fmt.Printf("[SCORE-DEBUG] Disconnected, PeerId: %s, NumOfDisconnections: %d\n", peerID, m.store.peers[peerID].NumOfDisconnections)
+			// fmt.Printf("[SCORE-DEBUG] Disconnected, PeerId: %s, NumOfDisconnections: %d\n", peerID, m.store.peers[peerID].NumOfDisconnections)
 		} else {
 			fmt.Printf("Warning: NumOfDisconnections for peer %s has reached its maximum value\n", peerID)
 			m.store.peers[peerID].NumOfDisconnections = 0
 		}
 
 		m.store.peers[peerID].ConsecSuccessfulBlocks = 0
-		fmt.Printf("[SCORE-DEBUG] Disconnected, PeerId: %s  ConsecSuccessfulBlocks: %d\n", peerID, m.store.peers[peerID].ConsecSuccessfulBlocks)
+		// fmt.Printf("[SCORE-DEBUG] Disconnected, PeerId: %s  ConsecSuccessfulBlocks: %d\n", peerID, m.store.peers[peerID].ConsecSuccessfulBlocks)
 		m.store.ranked = nil
 	}
 
@@ -1008,7 +1010,7 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 	}
 	switch pu.Status {
 	case PeerStatusBad:
-		m.store.peers[pu.NodeID].MutableScore--
+		//m.store.peers[pu.NodeID].MutableScore--
 		fmt.Printf("[YIREN-DEBUG] ProcessPeerEvent PeerStatusBad, PeerId: %s, Score: %d\n", pu.NodeID, m.store.peers[pu.NodeID].MutableScore)
 	case PeerStatusGood:
 		m.store.peers[pu.NodeID].MutableScore++
@@ -1444,9 +1446,9 @@ func (p *peerInfo) Score() PeerScore {
 		// DialFailures is reset when dials succeed, so this
 		// is either the number of dial failures or 0.
 		failureScore := float64(addr.DialFailures) * math.Exp(-0.1*float64(time.Since(addr.LastDialFailure).Hours()))
-		if int64(failureScore) > 0 {
-			fmt.Printf("[SCORE-DEBUG] PeerId: %s, failureScore: %d\n", p.ID, int64(failureScore))
-		}
+		// if int64(failureScore) > 0 {
+		// 	fmt.Printf("[SCORE-DEBUG] PeerId: %s, failureScore: %d\n", p.ID, int64(failureScore))
+		// }
 		score -= int64(failureScore)
 	}
 
@@ -1455,9 +1457,9 @@ func (p *peerInfo) Score() PeerScore {
 	decayFactor := math.Exp(-0.1 * timeSinceLastDisconnect.Hours())
 	effectiveDisconnections := int64(float64(p.NumOfDisconnections) * decayFactor)
 	// We consider lowering the score for every 3 disconnection events
-	if effectiveDisconnections/3 > 0 {
-		fmt.Printf("[SCORE-DEBUG] PeerId: %s, NumOfDisconnections: %d\n", p.ID, effectiveDisconnections/3)
-	}
+	// if effectiveDisconnections/3 > 0 {
+	// 	fmt.Printf("[SCORE-DEBUG] PeerId: %s, NumOfDisconnections: %d\n", p.ID, effectiveDisconnections/3)
+	// }
 	score -= effectiveDisconnections / 3
 
 	// the cap of score is MaxPeerScoreNotPersistent
