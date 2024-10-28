@@ -656,7 +656,6 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		return
 	case err != nil:
 		r.logger.Error("failed to handshake with peer", "peer", address, "err", err)
-		fmt.Printf("[YIREN-DEBUG] Handshake failed with peer %s, close connection\n", address.NodeID)
 		if err = r.peerManager.DialFailed(ctx, address); err != nil {
 			r.logger.Error("failed to report dial failure", "peer", address, "err", err)
 		}
@@ -673,7 +672,6 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 
 		r.logger.Debug("failed to dial peer",
 			"op", "outgoing/dialing", "peer", address.NodeID, "err", err)
-		fmt.Printf("[YIREN-DEBUG] Dial failed peer, error: %s\n", err)
 		conn.Close()
 		return
 	}
