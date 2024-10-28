@@ -498,10 +498,10 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 		conn, err := transport.Accept(ctx)
 		switch {
 		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-			r.logger.Debug("stopping accept routine", "transport", transport, "err", "context canceled")
+			r.logger.Error("stopping accept routine", "transport", transport, "err", "context canceled")
 			return
 		case errors.Is(err, io.EOF):
-			r.logger.Debug("stopping accept routine", "transport", transport, "err", "EOF")
+			r.logger.Error("stopping accept routine", "transport", transport, "err", "EOF")
 			return
 		case err != nil:
 			// in this case we got an error from the net.Listener.
@@ -510,6 +510,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 		}
 
 		incomingIP := conn.RemoteEndpoint().IP
+		fmt.Printf("[Yiren-Debug] Accepting incoming IP %s\n", incomingIP)
 		if err := r.connTracker.AddConn(incomingIP); err != nil {
 			closeErr := conn.Close()
 			r.logger.Error("rate limiting incoming peer",
