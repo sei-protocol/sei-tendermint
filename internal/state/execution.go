@@ -341,7 +341,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		commitSpan.End()
 	}
 	if time.Since(commitStart) > 1000*time.Millisecond {
-		blockExec.logger.Info("Commit in blockExec took %s for height %d\n", time.Since(commitStart), block.Height)
+		blockExec.logger.Info("commit in blockExec",
+			"duration", time.Since(commitStart),
+			"height", block.Height)
 	}
 
 	// Update evpool with the latest state.
