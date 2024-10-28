@@ -328,7 +328,7 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 			peer.decrPending(blockSize)
 		}
 	} else if setBlockResult < 0 {
-		err := errors.New("brp requester peer is different from original peer")
+		err := errors.New("bpr requester peer is different from original peer")
 		pool.sendError(err, peerID)
 		return fmt.Errorf("%w (peer: %s, requester: %s, block height: %d)", err, peerID, requester.getPeerID(), block.Height)
 	}
@@ -677,23 +677,20 @@ func (*bpRequester) OnStop() {}
 // Return 1 if block exist and peer matches.
 func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) int {
 	bpr.mtx.Lock()
+	defer bpr.mtx.Unlock()
 	if bpr.block == nil {
 		bpr.block = block
 		if extCommit != nil {
 			bpr.extCommit = extCommit
 		}
-		bpr.mtx.Unlock()
-
 		select {
 		case bpr.gotBlockCh <- struct{}{}:
 		default:
 		}
 		return 0
 	} else if bpr.peerID == peerID {
-		bpr.mtx.Unlock()
 		return 1
 	}
-	bpr.mtx.Unlock()
 	return -1
 }
 
