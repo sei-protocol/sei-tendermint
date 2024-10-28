@@ -258,7 +258,10 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 			return r.respondToPeer(ctx, msg, envelope.From, blockSyncCh)
 		case *bcproto.BlockResponse:
 			block, err := types.BlockFromProto(msg.Block)
-			fmt.Printf("[YIREN-DEBUG] Received block response from peer %s, block height: %d\n", envelope.From, block.Height)
+
+			r.logger.Info("received block response from peer",
+				"peer", envelope.From,
+				"height", block.Height)
 			if err != nil {
 				r.logger.Error("failed to convert block from proto",
 					"peer", envelope.From,
