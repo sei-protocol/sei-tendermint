@@ -999,6 +999,13 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 		return
 	}
 
+	switch pu.Status {
+	case PeerStatusBad:
+		m.store.peers[pu.NodeID].MutableScore--
+	case PeerStatusGood:
+		m.store.peers[pu.NodeID].MutableScore++
+	}
+
 	if _, ok := m.store.peers[pu.NodeID]; !ok {
 		m.store.peers[pu.NodeID] = &peerInfo{}
 	}
