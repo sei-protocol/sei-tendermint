@@ -358,6 +358,11 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 	pool.mtx.Lock()
 	defer pool.mtx.Unlock()
 
+	blockSyncPeers := pool.peerManager.GetBlockSyncPeers()
+	if len(blockSyncPeers) > 0 && !blockSyncPeers[peerID] {
+		return
+	}
+
 	peer := pool.peers[peerID]
 	if peer != nil {
 		peer.base = base
