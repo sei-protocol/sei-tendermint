@@ -2,10 +2,11 @@ package p2p
 
 import (
 	"context"
-	"github.com/tendermint/tendermint/libs/log"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/libs/log"
 
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
@@ -44,7 +45,7 @@ func TestPeerScoring(t *testing.T) {
 				NodeID: id,
 				Status: PeerStatusGood,
 			})
-			require.EqualValues(t, defaultScore+int64(i), peerManager.Scores()[id])
+			require.EqualValues(t, defaultScore+PeerScore(i), peerManager.Scores()[id])
 		}
 		// watch the corresponding decreases respond to update
 		for i := 1; i < 10; i++ {
@@ -52,7 +53,7 @@ func TestPeerScoring(t *testing.T) {
 				NodeID: id,
 				Status: PeerStatusBad,
 			})
-			require.EqualValues(t, DefaultMutableScore+int64(9)-int64(i), peerManager.Scores()[id])
+			require.EqualValues(t, DefaultMutableScore+PeerScore(9)-PeerScore(i), peerManager.Scores()[id])
 		}
 
 		// Dial failure should decrease score

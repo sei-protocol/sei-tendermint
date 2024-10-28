@@ -415,7 +415,7 @@ func (m *PeerManager) newPeerInfo(id types.NodeID) peerInfo {
 	peerInfo := peerInfo{
 		ID:           id,
 		AddressInfo:  map[NodeAddress]*peerAddressInfo{},
-		MutableScore: int64(DefaultMutableScore), // Should start with a default value above 0
+		MutableScore: DefaultMutableScore, // Should start with a default value above 0
 	}
 	return m.configurePeer(peerInfo)
 }
@@ -1350,7 +1350,7 @@ type peerInfo struct {
 	Height        int64
 	FixedScore    PeerScore // mainly for tests
 
-	MutableScore int64 // updated by router
+	MutableScore PeerScore // updated by router
 
 	ConsecSuccessfulBlocks int64
 }
@@ -1418,7 +1418,7 @@ func (p *peerInfo) Score() PeerScore {
 		return PeerScoreUnconditional
 	}
 
-	score := p.MutableScore
+	score := int64(p.MutableScore)
 	if p.Persistent || p.BlockSync {
 		score = int64(PeerScorePersistent)
 	}
