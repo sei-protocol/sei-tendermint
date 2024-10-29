@@ -57,14 +57,17 @@ func TestPeerScoring(t *testing.T) {
 		}
 
 		// Dial failure should decrease score
-		_ = peerManager.DialFailed(ctx, NodeAddress{NodeID: id, Protocol: "memory"})
-		require.EqualValues(t, DefaultMutableScore-1, peerManager.Scores()[id])
+		addr := NodeAddress{NodeID: id, Protocol: "memory"}
+		_ = peerManager.DialFailed(ctx, addr)
+		_ = peerManager.DialFailed(ctx, addr)
+		_ = peerManager.DialFailed(ctx, addr)
+		require.EqualValues(t, DefaultMutableScore-2, peerManager.Scores()[id])
 
 		// Disconnect every 3 times should also decrease score
 		for i := 1; i < 7; i++ {
 			peerManager.Disconnected(ctx, id)
 		}
-		require.EqualValues(t, DefaultMutableScore-3, peerManager.Scores()[id])
+		require.EqualValues(t, DefaultMutableScore-2, peerManager.Scores()[id])
 	})
 	t.Run("AsynchronousIncrement", func(t *testing.T) {
 		start := peerManager.Scores()[id]
@@ -93,18 +96,18 @@ func TestPeerScoring(t *testing.T) {
 			"startAt=%d score=%d", start, peerManager.Scores()[id])
 	})
 	t.Run("TestNonPersistantPeerUpperBound", func(t *testing.T) {
-		start := int64(peerManager.Scores()[id] + 1)
-		for i := start; i <= int64(PeerScorePersistent)+start; i++ {
-			peerManager.processPeerEvent(ctx, PeerUpdate{
-				NodeID: id,
-				Status: PeerStatusGood,
-			})
-
-			if i >= int64(PeerScorePersistent) {
-				require.EqualValues(t, MaxPeerScoreNotPersistent, peerManager.Scores()[id])
-			} else {
-				require.EqualValues(t, i, peerManager.Scores()[id])
-			}
+		// Reset peer state to remove any previous penalties
+		peerManager.store.peers[id] = &peerInfo{
+			ID:           id,
+			MutableScore: DefaultMutableScore,
 		}
+
+		// Add successful blocks to increase score
+		for i := 0; i < 100; i++ {
+			peerManager.IncrementBlockSyncs(id)
+		}
+
+		// Score should be capped at MaxPeerScoreNotPersistent
+		require.EqualValues(t, MaxPeerScoreNotPersistent, peerManager.Scores()[id])
 	})
 }

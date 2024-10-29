@@ -45,10 +45,10 @@ const (
 type PeerScore uint8
 
 const (
-	PeerScoreUnconditional    PeerScore = math.MaxUint8              // unconditional peers
-	PeerScorePersistent       PeerScore = PeerScoreUnconditional - 1 // persistent peers
-	MaxPeerScoreNotPersistent PeerScore = PeerScorePersistent - 1
-	DefaultMutableScore       PeerScore = MaxPeerScoreNotPersistent - 10
+	PeerScoreUnconditional    PeerScore = math.MaxUint8                  // unconditional peers, 255
+	PeerScorePersistent       PeerScore = PeerScoreUnconditional - 1     // persistent peers, 254
+	MaxPeerScoreNotPersistent PeerScore = PeerScorePersistent - 1        // not persistent peers, 253
+	DefaultMutableScore       PeerScore = MaxPeerScoreNotPersistent - 10 // mutable score, 243
 )
 
 // PeerUpdate is a peer update event sent via PeerUpdates.
