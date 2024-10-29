@@ -320,7 +320,8 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		return fmt.Errorf("peer sent us a block we didn't expect (peer: %s, current height: %d, block height: %d)", peerID, pool.height, block.Height)
 	}
 
-	if requester.setBlock(block, extCommit, peerID) {
+	setBlockResult := requester.setBlock(block, extCommit, peerID)
+	if setBlockResult == 0 {
 		atomic.AddInt32(&pool.numPending, -1)
 		peer := pool.peers[peerID]
 		if peer != nil {
@@ -673,24 +674,26 @@ func (bpr *bpRequester) OnStart(ctx context.Context) error {
 
 func (*bpRequester) OnStop() {}
 
-// Returns true if the peer matches and block doesn't already exist.
-func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) bool {
+// Returns 0 if block doesn't already exist.
+// Returns -1 if block exist but peers doesn't match.
+// Return 1 if block exist and peer matches.
+func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) int {
 	bpr.mtx.Lock()
-	if bpr.block != nil || bpr.peerID != peerID {
-		bpr.mtx.Unlock()
-		return false
+	defer bpr.mtx.Unlock()
+	if bpr.block == nil {
+		bpr.block = block
+		if extCommit != nil {
+			bpr.extCommit = extCommit
+		}
+		select {
+		case bpr.gotBlockCh <- struct{}{}:
+		default:
+		}
+		return 0
+	} else if bpr.peerID == peerID {
+		return 1
 	}
-	bpr.block = block
-	if extCommit != nil {
-		bpr.extCommit = extCommit
-	}
-	bpr.mtx.Unlock()
-
-	select {
-	case bpr.gotBlockCh <- struct{}{}:
-	default:
-	}
-	return true
+	return -1
 }
 
 func (bpr *bpRequester) getBlock() *types.Block {
