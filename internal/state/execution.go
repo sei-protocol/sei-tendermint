@@ -278,6 +278,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, ErrProxyAppConn(err)
 	}
 
+	fmt.Printf("[Debug] Finalize block took %s\n", time.Since(startTime))
 	blockExec.logger.Info(
 		"finalized block",
 		"height", block.Height,
@@ -349,6 +350,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
 
+	fmt.Printf("[Debug] SaveFinalizeBlockResponses took %s\n", time.Since(saveBlockResponseTime))
+
 	// Update the app hash and save the state.
 	saveBlockTime := time.Now()
 	state.AppHash = fBlockRes.AppHash
@@ -370,11 +373,14 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
+	fmt.Printf("[Debug] saveBlockTime took %s\n", time.Since(saveBlockResponseTime))
+
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
+	fmt.Printf("[Debug] FireEvents took %s\n", time.Since(fireEventsStartTime))
 	return state, nil
 }
 
