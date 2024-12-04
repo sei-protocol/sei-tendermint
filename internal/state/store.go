@@ -557,6 +557,14 @@ func lastStoredHeightFor(height, lastHeightChanged int64) int64 {
 	return tmmath.MaxInt64(checkpointHeight, lastHeightChanged)
 }
 
+func (store dbStore) LoadValidatorsInfo(height int64) (*tmstate.ValidatorsInfo, error) {
+	valInfo, err := loadValidatorsInfo(store.db, height)
+	if err != nil {
+		return nil, ErrNoValSetForHeight{Height: height, Err: err}
+	}
+	return valInfo, nil
+}
+
 // CONTRACT: Returned ValidatorsInfo can be mutated.
 func loadValidatorsInfo(db dbm.DB, height int64) (*tmstate.ValidatorsInfo, error) {
 	buf, err := db.Get(validatorsKey(height))
