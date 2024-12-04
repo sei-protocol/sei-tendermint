@@ -92,10 +92,6 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	if err != nil {
 		return -1, nil, err
 	}
-	previousLastValidatorSet, err = ss.LoadValidators(rollbackHeight + 1)
-	if err != nil {
-		return -1, nil, err
-	}
 
 	paramsChangeHeight := latestState.LastHeightConsensusParamsChanged
 	// this can only happen if params changed from the last block
