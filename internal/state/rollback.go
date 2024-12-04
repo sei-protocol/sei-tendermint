@@ -28,9 +28,7 @@ func resetPrivValidatorConfig(privValidatorConfig config.PrivValidatorConfig) er
 // recent previous state (height n - 1).
 // Note that this function does not affect application state.
 func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *config.PrivValidatorConfig) (int64, []byte, error) {
-	// Only the latest state is stored
 	latestState, err := ss.Load()
-	fmt.Printf("Initial tendermint state height=%d, appHash=%X, lastResultHash=%X\n", latestState.LastBlockHeight, latestState.AppHash, latestState.LastResultsHash)
 	if err != nil {
 		return -1, nil, err
 	}
@@ -38,12 +36,15 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		return -1, nil, errors.New("no state found")
 	}
 
-	height := bs.Height()
+	latestBlockHeight := bs.Height()
+	latestStateHeight := latestState.LastBlockHeight
+	fmt.Printf("Current blockStore height=%d tendermint state height=%d blockHash=%X appHash=%X lastResultHash=%X\n", latestBlockHeight, latestStateHeight, bs.LoadSeenCommit().Hash(), latestState.AppHash, latestState.LastResultsHash)
+
 	// NOTE: persistence of state and blocks don't happen atomically. Therefore it is possible that
 	// when the user stopped the node the state wasn't updated but the blockstore was. Discard the
 	// pending block before continuing.
-	if height == latestState.LastBlockHeight+1 {
-		fmt.Printf("Invalid state in the latest block height=%d, removing it first \n", height)
+	if latestBlockHeight == latestStateHeight+1 {
+		fmt.Printf("Invalid state in the latest block height=%d, removing it first \n", latestBlockHeight)
 		if removeBlock {
 			if err := bs.DeleteLatestBlock(); err != nil {
 				return -1, nil, fmt.Errorf("failed to remove final block from blockstore: %w", err)
@@ -54,9 +55,9 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 
 	// If the state store isn't one below nor equal to the blockstore height than this violates the
 	// invariant
-	if height != latestState.LastBlockHeight {
+	if latestBlockHeight != latestState.LastBlockHeight {
 		return -1, nil, fmt.Errorf("statestore height (%d) is not one below or equal to blockstore height (%d)",
-			latestState.LastBlockHeight, height)
+			latestState.LastBlockHeight, latestBlockHeight)
 	}
 
 	// state store height is equal to blockstore height. We're good to proceed with rolling back state
@@ -75,6 +76,8 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	previousLastValidatorSet, err := ss.LoadValidators(rollbackHeight)
 	if err != nil {
 		return -1, nil, err
+	} else {
+		fmt.Printf("Validatorset for height=%d has size of %d\n", rollbackHeight, len(previousLastValidatorSet.Validators))
 	}
 
 	previousParams, err := ss.LoadConsensusParams(rollbackHeight + 1)
@@ -94,7 +97,7 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		paramsChangeHeight = rollbackHeight + 1
 	}
 
-	lastBlockHeight := rollbackBlock.Header.Height
+	rolledBackHeight := rollbackBlock.Header.Height
 	rolledBackAppHash := latestBlock.Header.AppHash
 	rolledBackLastResultHash := latestBlock.Header.LastResultsHash
 
@@ -114,7 +117,7 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		ChainID:       latestState.ChainID,
 		InitialHeight: latestState.InitialHeight,
 
-		LastBlockHeight: lastBlockHeight,
+		LastBlockHeight: rolledBackHeight,
 		LastBlockID:     rollbackBlock.BlockID,
 		LastBlockTime:   rollbackBlock.Header.Time,
 
@@ -150,6 +153,6 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		}
 	}
 
-	fmt.Printf("Saved tendermint state height=%d, appHash=%X, lastResultHash=%X\n", lastBlockHeight, rolledBackState.AppHash, rolledBackState.LastResultsHash)
-	return lastBlockHeight, rolledBackState.AppHash, nil
+	fmt.Printf("Saved tendermint state height=%d, appHash=%X, lastResultHash=%X\n", rolledBackHeight, rolledBackState.AppHash, rolledBackState.LastResultsHash)
+	return rolledBackHeight, rolledBackState.AppHash, nil
 }
