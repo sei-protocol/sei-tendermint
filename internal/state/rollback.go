@@ -85,7 +85,6 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		valChangeHeight = valInfo.LastHeightChanged
 	}
 
-	// Verify it has validator set data
 	previousLastValidatorSet, err := ss.LoadValidators(rollbackHeight)
 	if err != nil {
 		return -1, nil, err
