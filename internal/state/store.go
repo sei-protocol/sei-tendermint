@@ -173,7 +173,6 @@ func (store dbStore) save(state State, key []byte) error {
 		}
 	}
 	// Save next validators.
-	fmt.Printf("[Debug] saveValidatorsInfo nextHeight+1=%d, LastHeightValidatorsChanged=%d, NextValidatorsSize=%d\n", nextHeight+1, state.LastHeightValidatorsChanged, len(state.NextValidators.Validators))
 	err := store.saveValidatorsInfo(nextHeight+1, state.LastHeightValidatorsChanged, state.NextValidators, batch)
 	if err != nil {
 		return err
@@ -512,7 +511,6 @@ func (store dbStore) LoadValidators(height int64) (*types.ValidatorSet, error) {
 	if err != nil {
 		return nil, ErrNoValSetForHeight{Height: height, Err: err}
 	}
-	fmt.Printf("[Debug] LoadValidators for height %d with LastHeightChanged %d\n", height, valInfo.LastHeightChanged)
 	if valInfo.ValidatorSet == nil {
 		lastStoredHeight := lastStoredHeightFor(height, valInfo.LastHeightChanged)
 		valInfo2, err := loadValidatorsInfo(store.db, lastStoredHeight)
