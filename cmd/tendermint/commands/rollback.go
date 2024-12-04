@@ -2,11 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"github.com/tendermint/tendermint/internal/state"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/internal/state"
 )
 
 var removeBlock bool = false
@@ -52,10 +52,11 @@ func RollbackState(config *config.Config, removeBlock bool) (int64, []byte, erro
 		return -1, nil, err
 	}
 	currentHeight := blockStore.Height()
-	fmt.Printf("Current blockStore height=%d hash=%X\n", currentHeight, blockStore.LoadSeenCommit().Hash())
+	currentState, _ := stateStore.Load()
+	fmt.Printf("Current blockStore height=%d statestore height=%d hash=%X\n", currentHeight, currentState.LastBlockHeight, blockStore.LoadSeenCommit().Hash())
 	lastValSet, err := stateStore.LoadValidators(currentHeight - 1)
 	if err != nil {
-		panic(fmt.Errorf("[Debug] Not able to load validator set at height %d: %w", currentHeight-1, err))
+		panic(fmt.Errorf("[Debug] Not able to load validator set at height %d: %v", currentHeight-1, err))
 	} else {
 		fmt.Printf("Validator set for height=%d has size of %d\n", currentHeight-1, len(lastValSet.Validators))
 	}
