@@ -48,9 +48,16 @@ application.
 func RollbackState(config *config.Config, removeBlock bool) (int64, []byte, error) {
 	// use the parsed config to load the block and state store
 	blockStore, stateStore, err := loadStateAndBlockStore(config)
-	fmt.Printf("Current blockStore height=%d hash=%X\n", blockStore.Height(), blockStore.LoadSeenCommit().Hash())
 	if err != nil {
 		return -1, nil, err
+	}
+	currentHeight := blockStore.Height()
+	fmt.Printf("Current blockStore height=%d hash=%X\n", currentHeight, blockStore.LoadSeenCommit().Hash())
+	lastValSet, err := stateStore.LoadValidators(currentHeight - 1)
+	if err != nil {
+		panic(fmt.Errorf("[Debug] Not able to load validator set at height %d: %w", currentHeight-1, err))
+	} else {
+		fmt.Printf("Validator set for height=%d has size of %d\n", currentHeight-1, len(lastValSet.Validators))
 	}
 
 	defer func() {
