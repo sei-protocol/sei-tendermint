@@ -71,13 +71,6 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 		return -1, nil, fmt.Errorf("block at height %d not found", latestState.LastBlockHeight)
 	}
 
-	previousLastValidatorSet, err := ss.LoadValidators(rollbackHeight)
-	if err != nil {
-		return -1, nil, err
-	} else {
-		fmt.Printf("Validatorset for height=%d has size of %d\n", rollbackHeight, len(previousLastValidatorSet.Validators))
-	}
-
 	previousParams, err := ss.LoadConsensusParams(rollbackHeight + 1)
 	if err != nil {
 		return -1, nil, err
@@ -87,6 +80,20 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 	// this can only happen if the validator set changed since the last block
 	if valChangeHeight > rollbackHeight {
 		valChangeHeight = rollbackHeight + 1
+	}
+
+	// Verify it has validator set data
+	previousLastValidatorSet, err := ss.LoadValidators(rollbackHeight)
+	if err != nil {
+		return -1, nil, err
+	}
+	previousLastValidatorSet, err = ss.LoadValidators(rollbackHeight - 1)
+	if err != nil {
+		return -1, nil, err
+	}
+	previousLastValidatorSet, err = ss.LoadValidators(rollbackHeight + 1)
+	if err != nil {
+		return -1, nil, err
 	}
 
 	paramsChangeHeight := latestState.LastHeightConsensusParamsChanged
