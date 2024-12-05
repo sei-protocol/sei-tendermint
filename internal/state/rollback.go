@@ -38,7 +38,7 @@ func Rollback(bs BlockStore, ss Store, removeBlock bool, privValidatorConfig *co
 
 	latestBlockHeight := bs.Height()
 	latestStateHeight := latestState.LastBlockHeight
-	fmt.Printf("Current blockStore height=%d tendermint state height=%d blockHash=%X appHash=%X lastResultHash=%X\n", latestBlockHeight, latestStateHeight, bs.LoadSeenCommit().Hash(), latestState.AppHash, latestState.LastResultsHash)
+	fmt.Printf("Current blockStore height=%d tendermint state height=%d appHash=%X lastResultHash=%X\n", latestBlockHeight, latestStateHeight, latestState.AppHash, latestState.LastResultsHash)
 
 	// NOTE: persistence of state and blocks don't happen atomically. Therefore it is possible that
 	// when the user stopped the node the state wasn't updated but the blockstore was. Discard the
