@@ -38,6 +38,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "total_txs_size_bytes",
 			Help:      "Total current mempool uncommitted txs bytes",
 		}, labels).With(labelsAndValues...),
+		TxGasWantedTooHigh: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "tx_gas_wanted_too_high",
+			Help:      "Number of txs rejected because of high gas wanted",
+		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -85,16 +91,17 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 
 func NopMetrics() *Metrics {
 	return &Metrics{
-		Size:              discard.NewGauge(),
-		PendingSize:       discard.NewGauge(),
-		TxSizeBytes:       discard.NewCounter(),
-		TotalTxsSizeBytes: discard.NewGauge(),
-		FailedTxs:         discard.NewCounter(),
-		RejectedTxs:       discard.NewCounter(),
-		EvictedTxs:        discard.NewCounter(),
-		ExpiredTxs:        discard.NewCounter(),
-		RecheckTimes:      discard.NewCounter(),
-		RemovedTxs:        discard.NewCounter(),
-		InsertedTxs:       discard.NewCounter(),
+		Size:               discard.NewGauge(),
+		PendingSize:        discard.NewGauge(),
+		TxSizeBytes:        discard.NewCounter(),
+		TotalTxsSizeBytes:  discard.NewGauge(),
+		TxGasWantedTooHigh: discard.NewCounter(),
+		FailedTxs:          discard.NewCounter(),
+		RejectedTxs:        discard.NewCounter(),
+		EvictedTxs:         discard.NewCounter(),
+		ExpiredTxs:         discard.NewCounter(),
+		RecheckTimes:       discard.NewCounter(),
+		RemovedTxs:         discard.NewCounter(),
+		InsertedTxs:        discard.NewCounter(),
 	}
 }
