@@ -384,7 +384,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -395,7 +395,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -407,7 +407,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
