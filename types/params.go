@@ -289,7 +289,7 @@ func (params ConsensusParams) ValidateConsensusParams() error {
 	}
 
 	if params.Block.MinTxsInBlock < 0 {
-		return fmt.Errorf("block.MinTxsInBlock must be positive. Got %d",
+		return fmt.Errorf("block.MinTxsInBlock must be non-negative. Got %d",
 			params.Block.MinTxsInBlock)
 	}
 

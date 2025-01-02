@@ -414,6 +414,16 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 		require.Len(t, reapedTxs, 25)
 	}()
 
+	// Reap by min transactions in block regardless of gas limit.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 1, 2)
+		ensurePrioritized(reapedTxs)
+		require.Equal(t, len(tTxs), txmp.Size())
+		require.Len(t, reapedTxs, 2)
+	}()
+
 	wg.Wait()
 }
 
