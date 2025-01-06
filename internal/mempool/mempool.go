@@ -436,8 +436,9 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas, minTxsInBlock int64)
 	defer txmp.mtx.Unlock()
 
 	var (
-		totalGas  int64
-		totalSize int64
+		totalGas        int64
+		totalSize       int64
+		nonzeroGasTxCnt int64
 	)
 
 	var txs []types.Tx
@@ -453,13 +454,16 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas, minTxsInBlock int64)
 		}
 		totalSize += size
 		gas := totalGas + wtx.gasWanted
-		if len(txs) >= int(minTxsInBlock) && maxGas > -1 && gas > maxGas {
+		if nonzeroGasTxCnt >= minTxsInBlock && maxGas > -1 && gas > maxGas {
 			return false
 		}
 
 		totalGas = gas
 
 		txs = append(txs, wtx.tx)
+		if wtx.gasWanted > 0 {
+			nonzeroGasTxCnt++
+		}
 		return true
 	})
 
