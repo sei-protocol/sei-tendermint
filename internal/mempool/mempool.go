@@ -454,7 +454,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas int64) types.Txs {
 	
 		if wtx.gasWanted >= txmp.config.MaxTxGas {
 			txmp.metrics.TxGasWantedTooHigh.Add(1)
-			return false
+			return true
 		}
 		totalSize += size
 		gas := totalGas + wtx.gasWanted
