@@ -690,8 +690,7 @@ func TestEmptyPrepareProposal(t *testing.T) {
 
 // TestPrepareProposalErrorOnNonExistingRemoved tests that the block creation logic returns
 // an error if the ResponsePrepareProposal returned from the application marks
-//
-//	a transaction as REMOVED that was not present in the original proposal.
+// a transaction that would cause the block to exceed size limits
 func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 	const height = 2
 	ctx, cancel := context.WithCancel(context.Background())
@@ -702,22 +701,26 @@ func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 	require.NoError(t, eventBus.Start(ctx))
 
 	state, stateDB, privVals := makeState(t, 1, height)
+	// Set a reasonable max block size that can accommodate header/commit/evidence
+	// We don't have to set this in the test, but it's good to have it here for reference
+	state.ConsensusParams.Block.MaxBytes = 1000
 	stateStore := sm.NewStore(stateDB)
 
 	evpool := &mocks.EvidencePool{}
 	evpool.On("PendingEvidence", mock.Anything).Return([]types.Evidence{}, int64(0))
 
+	// Create a transaction that's too large
+	maxDataBytes := types.MaxDataBytes(state.ConsensusParams.Block.MaxBytes, 0, 1)
+	bigTx := make([]byte, maxDataBytes+1)
 	mp := &mpmocks.Mempool{}
 	mp.On("ReapMaxBytesMaxGas", mock.Anything, mock.Anything).Return(types.Txs{})
 
 	app := abcimocks.NewApplication(t)
-
-	// create an invalid ResponsePrepareProposal
 	rpp := &abci.ResponsePrepareProposal{
 		TxRecords: []*abci.TxRecord{
 			{
 				Action: abci.TxRecord_UNMODIFIED,
-				Tx:     []byte("new tx"),
+				Tx:     bigTx,
 			},
 		},
 	}
@@ -741,7 +744,7 @@ func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 	pa, _ := state.Validators.GetByIndex(0)
 	commit, _ := makeValidCommit(ctx, t, height, types.BlockID{}, state.Validators, privVals)
 	block, err := blockExec.CreateProposalBlock(ctx, height, state, commit, pa)
-	require.ErrorContains(t, err, "new transaction incorrectly marked as removed")
+	require.ErrorContains(t, err, "transaction data size exceeds maximum")
 	require.Nil(t, block)
 
 	mp.AssertExpectations(t)
