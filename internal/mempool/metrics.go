@@ -27,6 +27,9 @@ type Metrics struct {
 	// Total current mempool uncommitted txs bytes
 	TotalTxsSizeBytes metrics.Gauge
 
+	// Number of txs rejected because of high gas wanted
+	TxGasWantedTooHigh metrics.Counter
+
 	// Number of failed transactions.
 	FailedTxs metrics.Counter
 
