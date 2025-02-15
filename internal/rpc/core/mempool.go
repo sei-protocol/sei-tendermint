@@ -70,6 +70,7 @@ func (env *Environment) BroadcastTx(ctx context.Context, req *coretypes.RequestB
 // BroadcastTxCommit returns with the responses from CheckTx and DeliverTx.
 // More: https://docs.tendermint.com/master/rpc/#/Tx/broadcast_tx_commit
 func (env *Environment) BroadcastTxCommit(ctx context.Context, req *coretypes.RequestBroadcastTx) (*coretypes.ResultBroadcastTxCommit, error) {
+	fmt.Printf("[DEBUG]: In internal/rpc/core/mempool.go BroadcastTxCommit, req = %+v", req)
 	resCh := make(chan *abci.ResponseCheckTx, 1)
 	err := env.Mempool.CheckTx(
 		ctx,

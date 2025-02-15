@@ -39,6 +39,9 @@ type WrappedTx struct {
 	// gasWanted defines the amount of gas the transaction sender requires
 	gasWanted int64
 
+	// estimatedGasUsed defines the amount of gas that the transaction is estimated to use
+	estimatedGasUsed int64
+
 	// priority defines the transaction's priority as specified by the application
 	// in the ResponseCheckTx response.
 	priority int64
