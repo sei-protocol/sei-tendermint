@@ -55,18 +55,20 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		if err != nil {
 			// could not parse
 			return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  priority,
-				Code:      100,
-				GasWanted: 1,
+				Priority:     priority,
+				Code:         100,
+				GasWanted:    1,
+				GasEstimated: 1,
 			}}, nil
 		}
 		nonce, err := strconv.ParseUint(string(parts[3]), 10, 64)
 		if err != nil {
 			// could not parse
 			return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  priority,
-				Code:      101,
-				GasWanted: 1,
+				Priority:     priority,
+				Code:         101,
+				GasWanted:    1,
+				GasEstimated: 1,
 			}}, nil
 		}
 		if app.occupiedNonces == nil {
@@ -92,9 +94,10 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		app.occupiedNonces[account] = append(app.occupiedNonces[account], nonce)
 		return &abci.ResponseCheckTxV2{
 			ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  v,
-				Code:      code.CodeTypeOK,
-				GasWanted: 1,
+				Priority:     v,
+				Code:         code.CodeTypeOK,
+				GasWanted:    1,
+				GasEstimated: 1,
 			},
 			EVMNonce:             nonce,
 			EVMSenderAddress:     account,
@@ -122,9 +125,10 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		v, err := strconv.ParseInt(string(parts[2]), 10, 64)
 		if err != nil {
 			return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  priority,
-				Code:      100,
-				GasWanted: 1,
+				Priority:     priority,
+				Code:         100,
+				GasWanted:    1,
+				GasEstimated: 1,
 			}}, nil
 		}
 
@@ -132,16 +136,18 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		sender = string(parts[0])
 	} else {
 		return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-			Priority:  priority,
-			Code:      101,
-			GasWanted: 1,
+			Priority:     priority,
+			Code:         101,
+			GasWanted:    1,
+			GasEstimated: 1,
 		}}, nil
 	}
 	return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-		Priority:  priority,
-		Sender:    sender,
-		Code:      code.CodeTypeOK,
-		GasWanted: 1,
+		Priority:     priority,
+		Sender:       sender,
+		Code:         code.CodeTypeOK,
+		GasWanted:    1,
+		GasEstimated: 1,
 	}}, nil
 }
 
@@ -384,7 +390,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50, 0)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -395,7 +401,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1, 0)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -407,7 +413,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30, 0)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -418,10 +424,19 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 1, 2)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 1, -1, 2)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Len(t, reapedTxs, 2)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, -1, 50, 0)
+		ensurePrioritized(reapedTxs)
+		require.Equal(t, len(tTxs), txmp.Size())
+		require.Len(t, reapedTxs, 50)
 	}()
 
 	wg.Wait()

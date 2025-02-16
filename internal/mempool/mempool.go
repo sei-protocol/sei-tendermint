@@ -335,11 +335,13 @@ func (txmp *TxMempool) CheckTx(
 		evmAddress:    res.EVMSenderAddress,
 		isEVM:         res.IsEVM,
 		removeHandler: removeHandler,
+		estimatedGas:  res.GasEstimated,
 	}
 
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
+			fmt.Printf("[DEBUG]: In sei-tendermint's mempool checkTx, adding new tx with gas estimated = %+v\n", wtx.estimatedGas)
 			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
 			if err != nil {
 				return err
@@ -431,14 +433,15 @@ func (txmp *TxMempool) Flush() {
 // NOTE:
 //   - Transactions returned are not removed from the mempool transaction
 //     store or indexes.
-func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas, minTxsInBlock int64) types.Txs {
+func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimated, minTxsInBlock int64) types.Txs {
 	txmp.mtx.Lock()
 	defer txmp.mtx.Unlock()
 
 	var (
-		totalGas        int64
-		totalSize       int64
-		nonzeroGasTxCnt int64
+		totalGasWanted    int64
+		totalGasEstimated int64
+		totalSize         int64
+		nonzeroGasTxCnt   int64
 	)
 
 	var txs []types.Tx
@@ -453,12 +456,16 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGas, minTxsInBlock int64)
 			return false
 		}
 		totalSize += size
-		gas := totalGas + wtx.gasWanted
-		if nonzeroGasTxCnt >= minTxsInBlock && maxGas > -1 && gas > maxGas {
+		gasWanted := totalGasWanted + wtx.gasWanted
+		gasEstimated := totalGasEstimated + wtx.estimatedGas
+		maxGasWantedExceeded := maxGasWanted > -1 && gasWanted > maxGasWanted
+		maxGasEstimatedExceeded := maxGasEstimated > -1 && gasEstimated > maxGasEstimated
+		if nonzeroGasTxCnt >= minTxsInBlock && (maxGasWantedExceeded || maxGasEstimatedExceeded) {
 			return false
 		}
 
-		totalGas = gas
+		totalGasWanted = gasWanted
+		totalGasEstimated = gasEstimated
 
 		txs = append(txs, wtx.tx)
 		if wtx.gasWanted > 0 {
@@ -679,6 +686,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	}
 
 	wtx.gasWanted = res.GasWanted
+	wtx.estimatedGas = res.GasEstimated
 	wtx.priority = priority
 	wtx.sender = sender
 	wtx.peers = map[uint16]struct{}{
