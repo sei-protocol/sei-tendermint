@@ -341,7 +341,6 @@ func (txmp *TxMempool) CheckTx(
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
-			fmt.Printf("[DEBUG]: In sei-tendermint's mempool checkTx, adding new tx with gas estimated = %+v\n", wtx.estimatedGas)
 			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
 			if err != nil {
 				return err
@@ -455,9 +454,18 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		if maxBytes > -1 && totalSize+size > maxBytes {
 			return false
 		}
+
+		// if the tx doesn't have a gas estimate, fallback to gas wanted
+		var txGasEstimate int64
+		if wtx.estimatedGas > 0 {
+			txGasEstimate = wtx.estimatedGas
+		} else {
+			txGasEstimate = wtx.gasWanted
+		}
+
 		totalSize += size
 		gasWanted := totalGasWanted + wtx.gasWanted
-		gasEstimated := totalGasEstimated + wtx.estimatedGas
+		gasEstimated := totalGasEstimated + txGasEstimate
 		maxGasWantedExceeded := maxGasWanted > -1 && gasWanted > maxGasWanted
 		maxGasEstimatedExceeded := maxGasEstimated > -1 && gasEstimated > maxGasEstimated
 		if nonzeroGasTxCnt >= minTxsInBlock && (maxGasWantedExceeded || maxGasEstimatedExceeded) {
