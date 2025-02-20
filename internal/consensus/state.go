@@ -1728,11 +1728,9 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	}
 	cs.metrics.MarkProposalProcessed(isAppValid)
 
-	numberOfTxs := cs.roundState.ProposalBlock().Txs.Len()
-	//cs.metrics.MarkProposalTxNumber(numberOfTxs)
-
 	// Vote nil if the Application rejected the block
 	if !isAppValid {
+		numberOfTxs := cs.roundState.ProposalBlock().Txs.Len()
 		logger.Error("prevote step: state machine rejected a proposed block; this should not happen:"+
 			"the proposer may be misbehaving; prevoting nil", "err", err,
 			"proposerAddress", cs.roundState.ProposalBlock().ProposerAddress,

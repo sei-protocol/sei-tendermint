@@ -252,7 +252,3 @@ func (m *Metrics) MarkStep(s cstypes.RoundStepType) {
 	}
 	m.stepStart = time.Now()
 }
-
-func (m *Metrics) MarkProposalTxNumber(txs int) {
-	m.ProposalTxs.With("proposal_tx_number").Add(float64(txs))
-}
