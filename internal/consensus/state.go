@@ -1737,6 +1737,11 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	numberOfTxs := cs.roundState.ProposalBlock().Txs.Len()
 	cs.metrics.MarkProposalTxNumber(numberOfTxs)
 
+	logger.Info("proposal info",
+		"proposerAddress", cs.roundState.ProposalBlock().ProposerAddress,
+		"numberOfTxs", numberOfTxs,
+		"gasWanted", gasWanted)
+
 	// Vote nil if the Application rejected the block
 	if !isAppValid {
 		logger.Error("prevote step: state machine rejected a proposed block; this should not happen:"+
