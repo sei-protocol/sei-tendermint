@@ -161,7 +161,7 @@ func (blockExec *BlockExecutor) ProcessProposal(
 	ctx context.Context,
 	block *types.Block,
 	state State,
-) (bool, error) {
+) (bool, *abci.ResponseProcessProposal, error) {
 	txs := block.Data.Txs.ToSliceOfBytes()
 	resp, err := blockExec.appClient.ProcessProposal(ctx, &abci.RequestProcessProposal{
 		Hash:                  block.Header.Hash(),
@@ -184,13 +184,13 @@ func (blockExec *BlockExecutor) ProcessProposal(
 		LastResultsHash:       block.LastResultsHash,
 	})
 	if err != nil {
-		return false, ErrInvalidBlock(err)
+		return false, resp, ErrInvalidBlock(err)
 	}
 	if resp.IsStatusUnknown() {
 		panic(fmt.Sprintf("ProcessProposal responded with status %s", resp.Status.String()))
 	}
 
-	return resp.IsAccepted(), nil
+	return resp.IsAccepted(), resp, nil
 }
 
 // ValidateBlock validates the given block against the given state.
