@@ -1735,7 +1735,7 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 	cs.metrics.MarkProposalProcessed(isAppValid)
 
 	numberOfTxs := cs.roundState.ProposalBlock().Txs.Len()
-	cs.metrics.MarkProposalTxNumber(numberOfTxs)
+	//cs.metrics.MarkProposalTxNumber(numberOfTxs)
 
 	logger.Info("proposal info",
 		"proposerAddress", cs.roundState.ProposalBlock().ProposerAddress,

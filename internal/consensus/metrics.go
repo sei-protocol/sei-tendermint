@@ -254,5 +254,5 @@ func (m *Metrics) MarkStep(s cstypes.RoundStepType) {
 }
 
 func (m *Metrics) MarkProposalTxNumber(txs int) {
-	m.ProposalTxs.With("proposal_tx_number").Add(float64(txs))
+	m.ProposalTxs.Add(float64(txs))
 }
