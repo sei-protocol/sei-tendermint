@@ -139,6 +139,7 @@ func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Ba
 // Search will exit early and return any result fetched so far,
 // when a message is received on the context chan.
 func (txi *TxIndex) Search(ctx context.Context, q *query.Query) ([]*abci.TxResult, error) {
+	fmt.Printf("PSUDEBUG -- Received query q: %s\n", q.String())
 	select {
 	case <-ctx.Done():
 		return make([]*abci.TxResult, 0), nil
@@ -204,12 +205,14 @@ func (txi *TxIndex) Search(ctx context.Context, q *query.Query) ([]*abci.TxResul
 		}
 
 		if !hashesInitialized {
+			fmt.Printf("PSUDEBUG -- no hashes initialized, running txi.match() with condition %s and height %d and prefixForCondition: %s\n", c.String(), height, prefixForCondition(c, height))
 			filteredHashes = txi.match(ctx, c, prefixForCondition(c, height), filteredHashes, true)
 			hashesInitialized = true
 
 			// Ignore any remaining conditions if the first condition resulted
 			// in no matches (assuming implicit AND operand).
 			if len(filteredHashes) == 0 {
+				fmt.Printf("PSUDEBUG -- no filtered hashes found, breaking\n")
 				break
 			}
 		} else {
@@ -217,6 +220,7 @@ func (txi *TxIndex) Search(ctx context.Context, q *query.Query) ([]*abci.TxResul
 		}
 	}
 
+	fmt.Printf("PSUDEBUG -- building results with filtered hashes: %v\n", filteredHashes)
 	results := make([]*abci.TxResult, 0, len(filteredHashes))
 hashes:
 	for _, h := range filteredHashes {
@@ -269,6 +273,7 @@ func (txi *TxIndex) match(
 	filteredHashes map[string][]byte,
 	firstRun bool,
 ) map[string][]byte {
+	fmt.Printf("PSUDEBUG -- Calling match(), firstRun: %t, condition: %s\n", firstRun, c)
 	// A previous match was attempted but resulted in no matches, so we return
 	// no matches (assuming AND operand).
 	if !firstRun && len(filteredHashes) == 0 {
@@ -279,26 +284,35 @@ func (txi *TxIndex) match(
 
 	switch {
 	case c.Op == syntax.TEq:
+		fmt.Printf("PSUDEBUG -- switch case within match(), eq with condition %s\n", c)
 		it, err := dbm.IteratePrefix(txi.store, startKeyBz)
+		fmt.Printf("PSUDEBUG -- switch case within match(), eq, finished iterating dbm with condition %s\n", c)
 		if err != nil {
+			fmt.Printf("PSUDEBUG - Err thrown here: %s in store %s\n", startKeyBz, txi.store.Print())
 			panic(err)
 		}
 		defer it.Close()
 
 	iterEqual:
 		for ; it.Valid(); it.Next() {
+			if strings.Contains(c.String(), "sei1z3r0ccsssnvuaheuakul58zlu65rngw7njrjcz") {
+				fmt.Printf("PSUDEBUG - Iterating...")
+			}
 			tmpHashes[string(it.Value())] = it.Value()
 
 			// Potentially exit early.
 			select {
 			case <-ctx.Done():
+				fmt.Printf("PSUDEBUG - iter cancelled for condition c: %s\n", c)
 				break iterEqual
 			default:
 			}
 		}
 		if err := it.Error(); err != nil {
+			fmt.Printf("PSUDEBUG -- iterator error err with condition: %s\n", c)
 			panic(err)
 		}
+		fmt.Printf("PSUDEBUG - iter finished for condition c: %s\n", c)
 
 	case c.Op == syntax.TExists:
 		// XXX: can't use startKeyBz here because c.Operand is nil
@@ -394,6 +408,7 @@ func (txi *TxIndex) match(
 		// return no matches (assuming AND operand).
 		//
 		// 2. A previous match was not attempted, so we return all results.
+		fmt.Printf("PSUDEBUG - tmphashes was empty or it was first run, returning")
 		return tmpHashes
 	}
 
