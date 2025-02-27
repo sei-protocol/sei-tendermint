@@ -283,6 +283,22 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
+
+	if txSize := len(tx); txSize > txmp.config.MaxTxBytes {
+		return types.ErrTxTooLarge{
+			Max:    txmp.config.MaxTxBytes,
+			Actual: txSize,
+		}
+	}
+
+	// We add the transaction to the mempool's cache and if the
+	// transaction is already present in the cache, i.e. false is returned, then we
+	// check if we've seen this transaction and error if we have.
+	if !txmp.cache.Push(tx) {
+		txmp.txStore.GetOrSetPeerByTxHash(tx.Key(), txInfo.SenderID)
+		return types.ErrTxInCache
+	}
+
 	payload := &checkTxPayload{
 		ctx:    ctx,
 		tx:     tx,
@@ -323,13 +339,6 @@ func (txmp *TxMempool) checkTx(
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
-	if txSize := len(tx); txSize > txmp.config.MaxTxBytes {
-		return types.ErrTxTooLarge{
-			Max:    txmp.config.MaxTxBytes,
-			Actual: txSize,
-		}
-	}
-
 	if txmp.preCheck != nil {
 		if err := txmp.preCheck(tx); err != nil {
 			return types.ErrPreCheck{Reason: err}
@@ -341,14 +350,6 @@ func (txmp *TxMempool) checkTx(
 	}
 
 	txHash := tx.Key()
-
-	// We add the transaction to the mempool's cache and if the
-	// transaction is already present in the cache, i.e. false is returned, then we
-	// check if we've seen this transaction and error if we have.
-	if !txmp.cache.Push(tx) {
-		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
-		return types.ErrTxInCache
-	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 
