@@ -33,6 +33,9 @@ type TxMempool struct {
 	config       *config.MempoolConfig
 	proxyAppConn abciclient.Client
 
+	checkTxCh      chan *checkTxPayload
+	checkTxWorkers int
+
 	// txsAvailable fires once for each height when the mempool is not empty
 	txsAvailable         chan struct{}
 	notifiedTxsAvailable bool
@@ -112,15 +115,17 @@ func NewTxMempool(
 ) *TxMempool {
 
 	txmp := &TxMempool{
-		logger:        logger,
-		config:        cfg,
-		proxyAppConn:  proxyAppConn,
-		height:        -1,
-		cache:         NopTxCache{},
-		metrics:       NopMetrics(),
-		txStore:       NewTxStore(),
-		gossipIndex:   clist.New(),
-		priorityIndex: NewTxPriorityQueue(),
+		logger:         logger,
+		checkTxCh:      make(chan *checkTxPayload, 10000),
+		checkTxWorkers: 10,
+		config:         cfg,
+		proxyAppConn:   proxyAppConn,
+		height:         -1,
+		cache:          NopTxCache{},
+		metrics:        NopMetrics(),
+		txStore:        NewTxStore(),
+		gossipIndex:    clist.New(),
+		priorityIndex:  NewTxPriorityQueue(),
 		heightIndex: NewWrappedTxList(func(wtx1, wtx2 *WrappedTx) bool {
 			return wtx1.height >= wtx2.height
 		}),
@@ -139,6 +144,8 @@ func NewTxMempool(
 	for _, opt := range options {
 		opt(txmp)
 	}
+
+	go txmp.listenForCheckTx()
 
 	return txmp
 }
@@ -251,6 +258,41 @@ func (txmp *TxMempool) TxsAvailable() <-chan struct{} {
 	return txmp.txsAvailable
 }
 
+type checkTxPayload struct {
+	ctx    context.Context
+	tx     types.Tx
+	cb     func(*abci.ResponseCheckTx)
+	txInfo TxInfo
+}
+
+func (txmp *TxMempool) listenForCheckTx() {
+	for i := 0; i < txmp.checkTxWorkers; i++ {
+		go func() {
+			for payload := range txmp.checkTxCh {
+				if err := txmp.checkTx(payload.ctx, payload.tx, payload.cb, payload.txInfo); err != nil {
+					txmp.logger.Error("failed to check tx", "err", err)
+				}
+			}
+		}()
+	}
+}
+
+func (txmp *TxMempool) CheckTx(
+	ctx context.Context,
+	tx types.Tx,
+	cb func(*abci.ResponseCheckTx),
+	txInfo TxInfo,
+) error {
+	payload := &checkTxPayload{
+		ctx:    ctx,
+		tx:     tx,
+		cb:     cb,
+		txInfo: txInfo,
+	}
+	txmp.checkTxCh <- payload
+	return nil
+}
+
 // CheckTx executes the ABCI CheckTx method for a given transaction.
 // It acquires a read-lock and attempts to execute the application's
 // CheckTx ABCI method synchronously. We return an error if any of
@@ -272,7 +314,7 @@ func (txmp *TxMempool) TxsAvailable() <-chan struct{} {
 // NOTE:
 // - The applications' CheckTx implementation may panic.
 // - The caller is not to explicitly require any locks for executing CheckTx.
-func (txmp *TxMempool) CheckTx(
+func (txmp *TxMempool) checkTx(
 	ctx context.Context,
 	tx types.Tx,
 	cb func(*abci.ResponseCheckTx),
