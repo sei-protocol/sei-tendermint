@@ -203,7 +203,7 @@ func TestParseNodeAddress(t *testing.T) {
 }
 
 func TestNodeAddress_Resolve(t *testing.T) {
-	id := types.NodeID("00112233445566778899aabbccddeeff00112233")
+	// id := types.NodeID("00112233445566778899aabbccddeeff00112233")
 
 	bctx, bcancel := context.WithCancel(context.Background())
 	defer bcancel()
