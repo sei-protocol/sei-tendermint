@@ -117,7 +117,7 @@ func NewTxMempool(
 	txmp := &TxMempool{
 		logger:         logger,
 		checkTxCh:      make(chan *checkTxPayload, 10000),
-		checkTxWorkers: 10,
+		checkTxWorkers: 16,
 		config:         cfg,
 		proxyAppConn:   proxyAppConn,
 		height:         -1,
@@ -267,16 +267,24 @@ type checkTxPayload struct {
 
 func (txmp *TxMempool) listenForCheckTx() {
 	for i := 0; i < txmp.checkTxWorkers; i++ {
-		go func() {
-			for payload := range txmp.checkTxCh {
-				if err := txmp.checkTx(payload.ctx, payload.tx, payload.cb, payload.txInfo); err != nil {
-					// if not a duplicate tx, print the error.
-					if !errors.Is(err, types.ErrTxInCache) {
-						txmp.logger.Error("failed to check tx", "err", err)
+		go func(w int) {
+			ticker := time.NewTicker(1 * time.Second)
+			for {
+				select {
+				case payload := <-txmp.checkTxCh:
+					ticker.Reset(1 * time.Second)
+					if err := txmp.checkTx(payload.ctx, payload.tx, payload.cb, payload.txInfo); err != nil {
+						// if not a duplicate tx, print the error.
+						if !errors.Is(err, types.ErrTxInCache) {
+							txmp.logger.Error("failed to check tx", "err", err)
+						}
 					}
+				case <-ticker.C:
+					// log when worker hasn't seen anything for 1 second.
+					txmp.logger.Info("mempool checkTx worker has no work", "worker", w)
 				}
 			}
-		}()
+		}(i)
 	}
 }
 
