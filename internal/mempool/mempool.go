@@ -270,7 +270,10 @@ func (txmp *TxMempool) listenForCheckTx() {
 		go func() {
 			for payload := range txmp.checkTxCh {
 				if err := txmp.checkTx(payload.ctx, payload.tx, payload.cb, payload.txInfo); err != nil {
-					txmp.logger.Error("failed to check tx", "err", err)
+					// if not a duplicate tx, print the error.
+					if !errors.Is(err, types.ErrTxInCache) {
+						txmp.logger.Error("failed to check tx", "err", err)
+					}
 				}
 			}
 		}()
@@ -289,14 +292,6 @@ func (txmp *TxMempool) CheckTx(
 			Max:    txmp.config.MaxTxBytes,
 			Actual: txSize,
 		}
-	}
-
-	// We add the transaction to the mempool's cache and if the
-	// transaction is already present in the cache, i.e. false is returned, then we
-	// check if we've seen this transaction and error if we have.
-	if !txmp.cache.Push(tx) {
-		txmp.txStore.GetOrSetPeerByTxHash(tx.Key(), txInfo.SenderID)
-		return types.ErrTxInCache
 	}
 
 	payload := &checkTxPayload{
@@ -350,6 +345,14 @@ func (txmp *TxMempool) checkTx(
 	}
 
 	txHash := tx.Key()
+
+	// We add the transaction to the mempool's cache and if the
+	// transaction is already present in the cache, i.e. false is returned, then we
+	// check if we've seen this transaction and error if we have.
+	if !txmp.cache.Push(tx) {
+		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
+		return types.ErrTxInCache
+	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 
