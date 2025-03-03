@@ -198,7 +198,7 @@ func (txmp *TxMempool) BytesNotPending() int64 {
 }
 
 func (txmp *TxMempool) TotalTxsBytesSize() int64 {
-	return txmp.BytesNotPending() + int64(txmp.pendingTxs.sizeBytes)
+	return txmp.BytesNotPending() + int64(txmp.pendingTxs.SizeBytes())
 }
 
 // PendingSize returns the number of pending transactions in the mempool.

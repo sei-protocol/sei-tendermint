@@ -400,6 +400,12 @@ func (p *PendingTxs) Insert(tx *WrappedTx, resCheckTx *abci.ResponseCheckTxV2, t
 	return nil
 }
 
+func (p *PendingTxs) SizeBytes() uint64 {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+	return p.sizeBytes
+}
+
 func (p *PendingTxs) Peek(max int) []TxWithResponse {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
