@@ -367,7 +367,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	gasEstimated := int64(1)
+	gasEstimated := int64(1) // gas estimated set to 1
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated})
 	if err := client.Start(ctx); err != nil {
 		t.Fatal(err)
@@ -462,7 +462,7 @@ func TestTxMempool_ReapMaxBytesMaxGas_FallbackToGasWanted(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	gasEstimated := int64(0)
+	gasEstimated := int64(0) // gas estimated not set so fallback to gas wanted
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated})
 	if err := client.Start(ctx); err != nil {
 		t.Fatal(err)
