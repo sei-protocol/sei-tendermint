@@ -429,11 +429,11 @@ func (txmp *TxMempool) Flush() {
 // ReapMaxBytesMaxGas returns a list of transactions within the provided size
 // and gas constraints. Transaction are retrieved in priority order.
 // There are 4 types of constraints.
-// 1. maxBytes - stops pulling txs from mempool once maxBytes is hit. Can be set to -1 to be ignored.
-// 2. maxGasWanted - stops pulling txs from mempool once total gas wanted exceeds maxGasWanted.
-//    Can be set to -1 to be ignored. 
-// 3. maxGasEstimated - similar to maxGasWanted but will use the estimated gas used for EVM txs
-//    while still using gas wanted for cosmos txs. Can be set to -1 to be ignored.
+//  1. maxBytes - stops pulling txs from mempool once maxBytes is hit. Can be set to -1 to be ignored.
+//  2. maxGasWanted - stops pulling txs from mempool once total gas wanted exceeds maxGasWanted.
+//     Can be set to -1 to be ignored.
+//  3. maxGasEstimated - similar to maxGasWanted but will use the estimated gas used for EVM txs
+//     while still using gas wanted for cosmos txs. Can be set to -1 to be ignored.
 //
 // NOTE:
 //   - Transactions returned are not removed from the mempool transaction
