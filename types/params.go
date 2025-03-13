@@ -58,6 +58,7 @@ type HashedParams struct {
 // between blocks.
 type BlockParams struct {
 	MaxBytes      int64 `json:"max_bytes,string"`
+	MaxGasWanted  int64 `json:"max_gas_wanted,string"`
 	MaxGas        int64 `json:"max_gas,string"`
 	MinTxsInBlock int64 `json:"min_txs_in_block,string"`
 }
@@ -130,7 +131,8 @@ func DefaultConsensusParams() *ConsensusParams {
 // DefaultBlockParams returns a default BlockParams.
 func DefaultBlockParams() BlockParams {
 	return BlockParams{
-		MaxBytes: 22020096, // 21MB
+		MaxBytes:     22020096, // 21MB
+		MaxGasWanted: 500000000,
 		// Default, can be increased and tuned as needed
 		MaxGas:        100000000,
 		MinTxsInBlock: 10,
@@ -282,6 +284,11 @@ func (params ConsensusParams) ValidateConsensusParams() error {
 			params.Block.MaxBytes, MaxBlockSizeBytes)
 	}
 
+	if params.Block.MaxGasWanted < -1 {
+		return fmt.Errorf("block.MaxGasWanted must be greater or equal to -1. Got %d",
+			params.Block.MaxGasWanted)
+	}
+
 	if params.Block.MaxGas < -1 {
 		return fmt.Errorf("block.MaxGas must be greater or equal to -1. Got %d",
 			params.Block.MaxGas)
@@ -428,6 +435,7 @@ func (params ConsensusParams) UpdateConsensusParams(params2 *tmproto.ConsensusPa
 	// we must defensively consider any structs may be nil
 	if params2.Block != nil {
 		res.Block.MaxBytes = params2.Block.MaxBytes
+		res.Block.MaxGasWanted = params2.Block.MaxGasWanted
 		res.Block.MaxGas = params2.Block.MaxGas
 		res.Block.MinTxsInBlock = params2.Block.MinTxsInBlock
 	}
@@ -481,6 +489,7 @@ func (params *ConsensusParams) ToProto() tmproto.ConsensusParams {
 	return tmproto.ConsensusParams{
 		Block: &tmproto.BlockParams{
 			MaxBytes:      params.Block.MaxBytes,
+			MaxGasWanted:  params.Block.MaxGasWanted,
 			MaxGas:        params.Block.MaxGas,
 			MinTxsInBlock: params.Block.MinTxsInBlock,
 		},
@@ -518,6 +527,7 @@ func ConsensusParamsFromProto(pbParams tmproto.ConsensusParams) ConsensusParams 
 	c := ConsensusParams{
 		Block: BlockParams{
 			MaxBytes:      pbParams.Block.MaxBytes,
+			MaxGasWanted:  pbParams.Block.MaxGasWanted,
 			MaxGas:        pbParams.Block.MaxGas,
 			MinTxsInBlock: pbParams.Block.MinTxsInBlock,
 		},
