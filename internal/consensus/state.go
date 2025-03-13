@@ -50,6 +50,15 @@ var (
 
 var msgQueueSize = 1000
 var heartbeatIntervalInSecs = 10
+var RoundEndTime = time.Now()
+var ReceivedProposalTime = time.Now()
+var CompleteProposalTime = time.Now()
+var EnterNewRoundTime = time.Now()
+var EnterProposeTime = time.Now()
+var EnterPrevoteTime = time.Now()
+var EnterPrecommitTime = time.Now()
+var EnterCommitTime = time.Now()
+var StartFinalizeCommitTime = time.Now()
 
 // msgs from the reactor which may update the state
 type msgInfo struct {
@@ -1020,6 +1029,8 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 	}
 }
 func (cs *State) fsyncAndCompleteProposal(ctx context.Context, fsyncUponCompletion bool, height int64, span otrace.Span, onPropose bool) {
+	fmt.Printf("[TM-Debug] ReceiveProposal -> CompleteProposal(%v) took %s for height %d \n", onPropose, time.Since(ReceivedProposalTime), cs.roundState.Height())
+	CompleteProposalTime = time.Now()
 	cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(onPropose)).Add(1)
 	if fsyncUponCompletion {
 		if err := cs.wal.FlushAndSync(); err != nil { // fsync
@@ -1299,6 +1310,9 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 
 	logger.Debug("entering new round", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
 
+	fmt.Printf("[TM-Debug] PrevRoundEnd -> EnterNewRound(%s) latency is %s for height %d \n", entryLabel, time.Since(RoundEndTime), cs.roundState.Height())
+	EnterNewRoundTime = time.Now()
+
 	// increment validators if necessary
 	validators := cs.roundState.Validators()
 	if cs.roundState.Round() < round {
@@ -1404,6 +1418,8 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	}
 
 	logger.Debug("entering propose step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()))
+	fmt.Printf("[TM-Debug] EnterNewRound -> EnterPropose(%s) latency is %s for height %d \n", entryLabel, time.Since(EnterNewRoundTime), cs.roundState.Height())
+	EnterProposeTime = time.Now()
 
 	defer func() {
 		// Done enterPropose:
@@ -1421,7 +1437,8 @@ func (cs *State) enterPropose(ctx context.Context, height int64, round int32, en
 	}()
 
 	// If we don't get the proposal and all block parts quick enough, enterPrevote
-	cs.scheduleTimeout(cs.proposeTimeout(round), height, round, cstypes.RoundStepPropose)
+	timeoutDuration := cs.proposeTimeout(round)
+	cs.scheduleTimeout(timeoutDuration, height, round, cstypes.RoundStepPropose)
 
 	// Nothing more to do if we're not a validator
 	if cs.privValidator == nil {
@@ -1618,6 +1635,8 @@ func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, en
 	}()
 
 	logger.Debug("entering prevote step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
+	fmt.Printf("[TM-Debug] CompleteProposal -> EnterPrevote latency is %s for height %d \n", time.Since(CompleteProposalTime), cs.roundState.Height())
+	EnterPrevoteTime = time.Now()
 
 	// Sign and broadcast vote as necessary
 	cs.doPrevote(ctx, height, round)
@@ -1883,6 +1902,8 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 
 	// check for a polka
 	blockID, ok := cs.roundState.Votes().Prevotes(round).TwoThirdsMajority()
+	fmt.Printf("[TM-Debug] EnterPrevote -> EnterPrecommit latency is %s for height %d \n", time.Since(EnterPrevoteTime), cs.roundState.Height())
+	EnterPrecommitTime = time.Now()
 
 	// If we don't have a polka, we must precommit nil.
 	if !ok {
@@ -2030,6 +2051,8 @@ func (cs *State) enterCommit(ctx context.Context, height int64, commitRound int3
 	}
 
 	logger.Debug("entering commit step", "current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()), "time", time.Now().UnixMilli())
+	fmt.Printf("[TM-Debug] EnterPrecommit -> EnterCommit latency is %s for height %d \n", time.Since(EnterPrecommitTime), cs.roundState.Height())
+	EnterCommitTime = time.Now()
 
 	defer func() {
 		// Done enterCommit:
@@ -2107,6 +2130,8 @@ func (cs *State) tryFinalizeCommit(ctx context.Context, height int64) {
 		)
 		return
 	}
+	fmt.Printf("[TM-Debug] EnterCommit -> StartFinalizeCommit latency is %s for height %d \n", time.Since(EnterCommitTime), cs.roundState.Height())
+	StartFinalizeCommitTime = time.Now()
 
 	cs.finalizeCommit(ctx, height)
 }
@@ -2217,9 +2242,11 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		logger.Error("failed to apply block", "err", err)
 		return
 	}
+	fmt.Printf("[TM-Debug] Apply block latency is %s for height %d \n", time.Since(StartFinalizeCommitTime), cs.roundState.Height())
 
 	// must be called before we update state
 	cs.RecordMetrics(height, block)
+	fmt.Printf("[TM-Debug] Total block time is %s for height %d \n", time.Since(RoundEndTime), cs.roundState.Height())
 
 	// NewHeightStep!
 	cs.updateToState(stateCopy)
@@ -2232,6 +2259,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 	// cs.StartTime is already set.
 	// Schedule Round0 to start soon.
 	cs.scheduleRound0(cs.roundState.GetInternalPointer())
+	RoundEndTime = time.Now()
 
 	// By here,
 	// * cs.Height has been increment to height+1
@@ -2376,6 +2404,12 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	if proposal.POLRound < -1 ||
 		(proposal.POLRound >= 0 && proposal.POLRound >= proposal.Round) {
 		return ErrInvalidProposalPOLRound
+	}
+
+	fmt.Printf("[TM-Debug] EnterPropose -> ReceivedAndSetProposal took %s for height %d \n", time.Since(EnterProposeTime), cs.roundState.Height())
+	ReceivedProposalTime = time.Now()
+	if time.Since(EnterProposeTime).Milliseconds() > 100 {
+		fmt.Printf("[TM-Debug] Received slow proposal from validator %s\n", proposal.ProposerAddress.String())
 	}
 
 	p := proposal.ToProto()
@@ -2537,6 +2571,7 @@ func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommi
 
 func (cs *State) handleCompleteProposal(ctx context.Context, height int64, handleBlockPartSpan otrace.Span) {
 	// Update Valid* if we can.
+
 	prevotes := cs.roundState.Votes().Prevotes(cs.roundState.Round())
 	blockID, hasTwoThirds := prevotes.TwoThirdsMajority()
 	if hasTwoThirds && !blockID.IsNil() && (cs.roundState.ValidRound() < cs.roundState.Round()) {
