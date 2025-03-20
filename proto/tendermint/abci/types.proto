@@ -197,6 +197,7 @@ message RequestBeginBlock {
   tendermint.types.Header header               = 2 [(gogoproto.nullable) = false];
   LastCommitInfo          last_commit_info     = 3 [(gogoproto.nullable) = false];
   repeated Evidence       byzantine_validators = 4 [(gogoproto.nullable) = false];
+  bool                    simulate             = 5;
 }
 
 message RequestDeliverTx {
@@ -296,6 +297,7 @@ message ResponseCheckTx {
   string         codespace  = 8;
   string         sender     = 9;
   int64          priority   = 10;
+  int64          gas_estimated = 12;
 
   reserved 4, 6, 7, 11; // see https://github.com/tendermint/tendermint/issues/8543
 }
@@ -492,6 +494,8 @@ message BlockParams {
   int64 max_gas = 2;
   // Minimum txs to include in a block regardless of gas limit
   int64 min_txs_in_block = 3;
+  // Maximum gas wanted in a block. Must be greater than or equal to -1
+  int64 max_gas_wanted = 4;
 }
 
 message ConsensusParams {
