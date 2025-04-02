@@ -97,7 +97,7 @@ type PeerManagerOptions struct {
 	// necessary to make room for these.
 	PersistentPeers []types.NodeID
 
-	// Peers to which a connection will be (re)established ignoring any existing limits
+	// Peers to which a connection will be (re)established, dropping an existing peer if any existing limit has been reached
 	UnconditionalPeers []types.NodeID
 
 	// Only include those peers for block sync
@@ -157,7 +157,7 @@ type PeerManagerOptions struct {
 	// by optimize().
 	persistentPeers map[types.NodeID]bool
 
-	// List of node IDs, to which a connection will be (re)established ignoring any existing limits
+	// List of node IDs, to which a connection will be (re)established, dropping an existing peer if any existing limit has been reached
 	unconditionalPeers map[types.NodeID]struct{}
 
 	// blocksyncPeers provides fast blocksyncPeers lookups.
@@ -1002,9 +1002,13 @@ func (m *PeerManager) processPeerEvent(ctx context.Context, pu PeerUpdate) {
 
 	switch pu.Status {
 	case PeerStatusBad:
-		m.store.peers[pu.NodeID].MutableScore--
+		if peer, ok := m.store.peers[pu.NodeID]; ok {
+			peer.MutableScore--
+		}
 	case PeerStatusGood:
-		m.store.peers[pu.NodeID].MutableScore++
+		if peer, ok := m.store.peers[pu.NodeID]; ok {
+			peer.MutableScore++
+		}
 	}
 
 	if _, ok := m.store.peers[pu.NodeID]; !ok {

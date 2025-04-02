@@ -659,6 +659,7 @@ func (cs *State) SetProposalAndBlock(
 
 func (cs *State) updateHeight(height int64) {
 	cs.metrics.Height.Set(float64(height))
+	cs.metrics.ClearStepMetrics()
 	cs.roundState.SetHeight(height)
 }
 
@@ -1043,6 +1044,8 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		err   error
 	)
 
+	cs.metrics.MarkStepLatency(cs.roundState.Step())
+
 	msg, peerID := mi.Msg, mi.PeerID
 
 	switch msg := msg.(type) {
@@ -1179,6 +1182,7 @@ func (cs *State) handleTimeout(
 	// the timeout will now cause a state transition
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
+	cs.metrics.MarkStepLatency(rs.Step)
 
 	switch ti.Step {
 	case cstypes.RoundStepNewHeight:
@@ -2507,14 +2511,13 @@ func (cs *State) tryCreateProposalBlock(ctx context.Context, height int64, round
 // Build a proposal block from mempool txs. If cs.config.GossipTransactionKeyOnly=true
 // proposals only contain txKeys so we rebuild the block using mempool txs
 func (cs *State) buildProposalBlock(height int64, header types.Header, lastCommit *types.Commit, evidence []types.Evidence, proposerAddress types.Address, txKeys []types.TxKey) *types.Block {
-	missingTxs := cs.blockExec.GetMissingTxs(txKeys)
+	txs, missingTxs := cs.blockExec.SafeGetTxsByKeys(txKeys)
 	if len(missingTxs) > 0 {
 		cs.metrics.ProposalMissingTxs.Set(float64(len(missingTxs)))
 		cs.logger.Debug("Missing txs when trying to build block", "missing_txs", cs.blockExec.GetMissingTxs(txKeys))
 		return nil
 	}
-	txs := cs.blockExec.GetTxsForKeys(txKeys)
-	block := cs.state.MakeBlock(height, cs.blockExec.GetTxsForKeys(txKeys), lastCommit, evidence, proposerAddress)
+	block := cs.state.MakeBlock(height, txs, lastCommit, evidence, proposerAddress)
 	block.Version = header.Version
 	block.Data.Txs = txs
 	block.DataHash = block.Data.Hash(true)

@@ -30,6 +30,8 @@ import (
 type application struct {
 	*kvstore.Application
 
+	gasWanted      *int64
+	gasEstimated   *int64
 	occupiedNonces map[string][]uint64
 }
 
@@ -38,12 +40,25 @@ type testTx struct {
 	priority int64
 }
 
+var DefaultGasEstimated = int64(1)
+var DefaultGasWanted = int64(1)
+
 func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, error) {
 
 	var (
 		priority int64
 		sender   string
 	)
+
+	gasWanted := DefaultGasWanted
+	if app.gasWanted != nil {
+		gasWanted = *app.gasWanted
+	}
+
+	gasEstimated := DefaultGasEstimated
+	if app.gasEstimated != nil {
+		gasEstimated = *app.gasEstimated
+	}
 
 	if strings.HasPrefix(string(req.Tx), "evm") {
 		// format is evm-sender-0=account=priority=nonce
@@ -55,18 +70,20 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		if err != nil {
 			// could not parse
 			return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  priority,
-				Code:      100,
-				GasWanted: 1,
+				Priority:     priority,
+				Code:         100,
+				GasWanted:    gasWanted,
+				GasEstimated: gasEstimated,
 			}}, nil
 		}
 		nonce, err := strconv.ParseUint(string(parts[3]), 10, 64)
 		if err != nil {
 			// could not parse
 			return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  priority,
-				Code:      101,
-				GasWanted: 1,
+				Priority:     priority,
+				Code:         101,
+				GasWanted:    gasWanted,
+				GasEstimated: gasEstimated,
 			}}, nil
 		}
 		if app.occupiedNonces == nil {
@@ -92,9 +109,10 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		app.occupiedNonces[account] = append(app.occupiedNonces[account], nonce)
 		return &abci.ResponseCheckTxV2{
 			ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  v,
-				Code:      code.CodeTypeOK,
-				GasWanted: 1,
+				Priority:     v,
+				Code:         code.CodeTypeOK,
+				GasWanted:    gasWanted,
+				GasEstimated: gasEstimated,
 			},
 			EVMNonce:             nonce,
 			EVMSenderAddress:     account,
@@ -122,9 +140,10 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		v, err := strconv.ParseInt(string(parts[2]), 10, 64)
 		if err != nil {
 			return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-				Priority:  priority,
-				Code:      100,
-				GasWanted: 1,
+				Priority:     priority,
+				Code:         100,
+				GasWanted:    gasWanted,
+				GasEstimated: gasEstimated,
 			}}, nil
 		}
 
@@ -132,16 +151,18 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 		sender = string(parts[0])
 	} else {
 		return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-			Priority:  priority,
-			Code:      101,
-			GasWanted: 1,
+			Priority:     priority,
+			Code:         101,
+			GasWanted:    gasWanted,
+			GasEstimated: gasEstimated,
 		}}, nil
 	}
 	return &abci.ResponseCheckTxV2{ResponseCheckTx: &abci.ResponseCheckTx{
-		Priority:  priority,
-		Sender:    sender,
-		Code:      code.CodeTypeOK,
-		GasWanted: 1,
+		Priority:     priority,
+		Sender:       sender,
+		Code:         code.CodeTypeOK,
+		GasWanted:    gasWanted,
+		GasEstimated: gasEstimated,
 	}}, nil
 }
 
@@ -346,7 +367,8 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
+	gasEstimated := int64(1) // gas estimated set to 1
+	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated})
 	if err := client.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +406,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50, 0)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -395,7 +417,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1, 0)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(1000, -1, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -407,7 +429,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30, 0)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(1500, 30, -1, 0)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Equal(t, int64(5690), txmp.SizeBytes())
@@ -418,10 +440,91 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 1, 2)
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 1, -1, 2)
 		ensurePrioritized(reapedTxs)
 		require.Equal(t, len(tTxs), txmp.Size())
 		require.Len(t, reapedTxs, 2)
+	}()
+
+	// Reap by max gas estimated
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, -1, 50, 0)
+		ensurePrioritized(reapedTxs)
+		require.Equal(t, len(tTxs), txmp.Size())
+		require.Len(t, reapedTxs, 50)
+	}()
+
+	// Test that minTxsPerBlock is still used even when max gas esimated is exceeded
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// pull minTxsPerBlock even though max gas wanted is hit
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, -1, 50, 51)
+		ensurePrioritized(reapedTxs)
+		require.Equal(t, len(tTxs), txmp.Size())
+		require.Len(t, reapedTxs, 51)
+	}()
+
+	// Test that minTxsPerBlock is still used even when max gas wanted is exceeded
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// pull minTxsPerBlock even though max gas wanted is hit
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, 50, -1, 51)
+		ensurePrioritized(reapedTxs)
+		require.Equal(t, len(tTxs), txmp.Size())
+		require.Len(t, reapedTxs, 51)
+	}()
+
+	wg.Wait()
+}
+
+func TestTxMempool_ReapMaxBytesMaxGas_FallbackToGasWanted(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gasEstimated := int64(0) // gas estimated not set so fallback to gas wanted
+	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated})
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+	tTxs := checkTxs(ctx, t, txmp, 100, 0)
+
+	txMap := make(map[types.TxKey]testTx)
+	priorities := make([]int64, len(tTxs))
+	for i, tTx := range tTxs {
+		txMap[tTx.tx.Key()] = tTx
+		priorities[i] = tTx.priority
+	}
+
+	// Debug: Print sorted priorities
+	sort.Slice(priorities, func(i, j int) bool {
+		return priorities[i] > priorities[j]
+	})
+
+	ensurePrioritized := func(reapedTxs types.Txs) {
+		reapedPriorities := make([]int64, len(reapedTxs))
+		for i, rTx := range reapedTxs {
+			reapedPriorities[i] = txMap[rTx.Key()].priority
+		}
+
+		require.Equal(t, priorities[:len(reapedPriorities)], reapedPriorities)
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		reapedTxs := txmp.ReapMaxBytesMaxGas(-1, -1, 50, 0)
+		ensurePrioritized(reapedTxs)
+		require.Equal(t, len(tTxs), txmp.Size())
+		require.Len(t, reapedTxs, 50)
 	}()
 
 	wg.Wait()

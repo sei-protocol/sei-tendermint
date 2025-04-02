@@ -24,6 +24,10 @@ func (m emptyMempool) GetTxsForKeys(txKeys []types.TxKey) types.Txs {
 	return types.Txs{}
 }
 
+func (m emptyMempool) SafeGetTxsForKeys(txKeys []types.TxKey) (types.Txs, []types.TxKey) {
+	return types.Txs{}, []types.TxKey{}
+}
+
 var _ mempool.Mempool = emptyMempool{}
 
 func (emptyMempool) TxStore() *mempool.TxStore { return nil }
@@ -33,9 +37,9 @@ func (emptyMempool) Size() int                 { return 0 }
 func (emptyMempool) CheckTx(context.Context, types.Tx, func(*abci.ResponseCheckTx), mempool.TxInfo) error {
 	return nil
 }
-func (emptyMempool) RemoveTxByKey(txKey types.TxKey) error      { return nil }
-func (emptyMempool) ReapMaxBytesMaxGas(_, _, _ int64) types.Txs { return types.Txs{} }
-func (emptyMempool) ReapMaxTxs(n int) types.Txs                 { return types.Txs{} }
+func (emptyMempool) RemoveTxByKey(txKey types.TxKey) error         { return nil }
+func (emptyMempool) ReapMaxBytesMaxGas(_, _, _, _ int64) types.Txs { return types.Txs{} }
+func (emptyMempool) ReapMaxTxs(n int) types.Txs                    { return types.Txs{} }
 func (emptyMempool) Update(
 	_ context.Context,
 	_ int64,
