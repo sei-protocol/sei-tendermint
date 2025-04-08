@@ -350,6 +350,7 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 
 	blockSyncPeers := pool.peerManager.GetBlockSyncPeers()
 	if len(blockSyncPeers) > 0 && !blockSyncPeers[peerID] {
+		fmt.Printf("[Debug] Skip using peer %s since it's not in block sync peer list\n", peerID)
 		return
 	}
 
