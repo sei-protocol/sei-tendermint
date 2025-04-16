@@ -618,6 +618,11 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				panic(fmt.Errorf("peeked first block without extended commit at height %d - possible node store corruption", first.Height))
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to perform blocksync verification
+				if first == nil {
+					fmt.Printf("[Debug] Missing and waiting to fetch block %d\n", first.Height)
+				} else {
+					fmt.Printf("[Debug] Missing and waiting to fetch block %d\n", second.Height)
+				}
 				continue
 			}
 
@@ -700,10 +705,12 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
-			r.logger.Info(fmt.Sprintf("Requesting block %d from peer took %s", first.Height, time.Since(lastApplyBlockTime)))
+			r.logger.Info(fmt.Sprintf("[Debug] Requesting block %d from peer took %s", first.Height, time.Since(lastApplyBlockTime)))
 			startTime := time.Now()
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
-			r.logger.Info(fmt.Sprintf("ApplyBlock %d took %s", first.Height, time.Since(startTime)))
+			r.logger.Info(fmt.Sprintf("[Debug] ApplyBlock %d took %s", first.Height, time.Since(startTime)))
+			r.logger.Info(fmt.Sprintf("[Debug] Time since last apply took %s for block %d", time.Since(lastApplyBlockTime), first.Height))
+
 			lastApplyBlockTime = time.Now()
 			if err != nil {
 				panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
