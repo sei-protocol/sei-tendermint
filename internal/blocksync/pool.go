@@ -664,7 +664,10 @@ func (*bpRequester) OnStop() {}
 // Returns true if the peer matches and block doesn't already exist.
 func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) bool {
 	bpr.mtx.Lock()
-	if bpr.block != nil || bpr.peerID != peerID {
+	if bpr.block != nil {
+		bpr.mtx.Unlock()
+		return true
+	} else if bpr.peerID != peerID {
 		bpr.mtx.Unlock()
 		return false
 	}
