@@ -250,7 +250,6 @@ func DefaultBaseConfig() BaseConfig {
 		FilterPeers: false,
 		DBBackend:   "goleveldb",
 		DBPath:      "data",
-		RootDir:     "/root/.sei",
 	}
 }
 
@@ -315,6 +314,7 @@ func (cfg BaseConfig) LoadOrGenNodeKeyID() (types.NodeID, error) {
 
 // DBDir returns the full path to the database directory
 func (cfg BaseConfig) DBDir() string {
+	fmt.Printf("PSUDEUBg: dbdir root: %s\n", cfg.RootDir)
 	return rootify(cfg.DBPath, cfg.RootDir)
 }
 
