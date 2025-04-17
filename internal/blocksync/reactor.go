@@ -620,12 +620,12 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to perform blocksync verification
 				if first == nil && r.pool.height != missingBlockHeight {
-					missingBlockHeight = r.pool.height
 					fmt.Printf("[Debug] Missing and waiting to fetch first block %d, missing %d\n", r.pool.height, missingBlockHeight)
+					missingBlockHeight = r.pool.height
 				} else {
 					if r.pool.height+1 != missingBlockHeight {
-						missingBlockHeight = r.pool.height + 1
 						fmt.Printf("[Debug] Missing and waiting to fetch second block %d, missing %d\n", r.pool.height+1, missingBlockHeight)
+						missingBlockHeight = r.pool.height + 1
 					}
 				}
 				continue
