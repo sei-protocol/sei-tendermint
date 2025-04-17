@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"github.com/tendermint/tendermint/libs/cli"
 	"os"
 	"path/filepath"
@@ -89,6 +90,7 @@ func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger,
 		logger.Error("error removing all blockchain history", "dir", dbDir, "err", err)
 	}
 
+	fmt.Printf("PSUDEBUG - dbdir: %s\n", dbDir)
 	if err := tmos.EnsureDir(dbDir, 0700); err != nil {
 		logger.Error("unable to recreate dbDir", "err", err)
 	} else {
