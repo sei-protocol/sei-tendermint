@@ -61,6 +61,7 @@ Only use in testing. This can cause the node to double sign`,
 			if err != nil {
 				return err
 			}
+			fmt.Printf("PSUDEBUG - home flag: %s, rootdir: %s\n", home, conf.RootDir)
 			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
 				conf.PrivValidator.StateFile(), logger, keyType, home)
 		},
