@@ -497,10 +497,11 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 // NOTE: Don't sleep in the FOR_LOOP or otherwise slow it down!
 func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh *p2p.Channel) {
 	var (
-		trySyncTicker           = time.NewTicker(trySyncIntervalMS * time.Millisecond)
-		switchToConsensusTicker = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
-		lastApplyBlockTime      = time.Now()
-		missingBlockHeight      = int64(0)
+		trySyncTicker            = time.NewTicker(trySyncIntervalMS * time.Millisecond)
+		switchToConsensusTicker  = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
+		lastApplyBlockTime       = time.Now()
+		missingFirstBlockHeight  = int64(0)
+		missingSecondBlockHeight = int64(0)
 
 		blocksSynced = uint64(0)
 
@@ -619,13 +620,13 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				panic(fmt.Errorf("peeked first block without extended commit at height %d - possible node store corruption", first.Height))
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to perform blocksync verification
-				if first == nil && r.pool.height != missingBlockHeight {
-					fmt.Printf("[Debug] Missing and waiting to fetch first block %d, missing %d\n", r.pool.height, missingBlockHeight)
-					missingBlockHeight = r.pool.height
+				if first == nil && r.pool.height != missingFirstBlockHeight {
+					fmt.Printf("[Debug] Missing and waiting to fetch first block %d, missing %d\n", r.pool.height, missingFirstBlockHeight)
+					missingFirstBlockHeight = r.pool.height
 				} else {
-					if r.pool.height+1 != missingBlockHeight {
-						fmt.Printf("[Debug] Missing and waiting to fetch second block %d, missing %d\n", r.pool.height+1, missingBlockHeight)
-						missingBlockHeight = r.pool.height + 1
+					if r.pool.height+1 != missingSecondBlockHeight {
+						fmt.Printf("[Debug] Missing and waiting to fetch second block %d, missing %d\n", r.pool.height+1, missingSecondBlockHeight)
+						missingSecondBlockHeight = r.pool.height + 1
 					}
 				}
 				continue
