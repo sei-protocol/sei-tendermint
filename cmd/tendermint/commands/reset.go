@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"github.com/tendermint/tendermint/libs/cli"
 	"os"
 	"path/filepath"
@@ -96,6 +97,7 @@ func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger,
 	}
 
 	// recreate the dbDir since the privVal state needs to live there
+	fmt.Printf("PSUDEBUG: homeDir: %s, privValKeyFile: %s, privValStateFile: %s", homeDir, privValKeyFile, privValStateFile)
 	return ResetFilePV(filepath.Join(homeDir, privValKeyFile), filepath.Join(homeDir, privValStateFile), logger, keyType)
 }
 
