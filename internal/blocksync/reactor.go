@@ -500,6 +500,7 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 		trySyncTicker           = time.NewTicker(trySyncIntervalMS * time.Millisecond)
 		switchToConsensusTicker = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
 		lastApplyBlockTime      = time.Now()
+		missingBlockHeight      = int64(0)
 
 		blocksSynced = uint64(0)
 
@@ -618,10 +619,14 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				panic(fmt.Errorf("peeked first block without extended commit at height %d - possible node store corruption", first.Height))
 			} else if first == nil || second == nil {
 				// we need to have fetched two consecutive blocks in order to perform blocksync verification
-				if first == nil {
+				if first == nil && r.pool.height != missingBlockHeight {
+					missingBlockHeight = r.pool.height
 					fmt.Printf("[Debug] Missing and waiting to fetch first block %d\n", r.pool.height)
 				} else {
-					fmt.Printf("[Debug] Missing and waiting to fetch second block %d\n", r.pool.height+1)
+					if r.pool.height+1 != missingBlockHeight {
+						missingBlockHeight = r.pool.height + 1
+						fmt.Printf("[Debug] Missing and waiting to fetch second block %d\n", r.pool.height+1)
+					}
 				}
 				continue
 			}
