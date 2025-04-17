@@ -204,11 +204,7 @@ Only use in testing. This can cause the node to double sign`,
 				conf.PrivValidator.StateFile(), logger, keyType, conf.RootDir)
 		},
 	}
-	home, err := resetAllCmd.Flags().GetString(cli.HomeFlag)
-	if err != nil {
-		return nil
-	}
-	fmt.Printf("PSUDEBUG - home flag: %s, rootdir: %s\n", home, conf.RootDir)
+	fmt.Printf("PSUDEBUG - , rootdir: %s\n", conf.RootDir)
 
 	resetAllCmd.Flags().StringVar(&keyType, "key", types.ABCIPubKeyTypeEd25519,
 		"Signer key type. Options: ed25519, secp256k1")
