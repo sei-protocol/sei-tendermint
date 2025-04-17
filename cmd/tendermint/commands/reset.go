@@ -96,7 +96,7 @@ func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger,
 	}
 
 	// recreate the dbDir since the privVal state needs to live there
-	return ResetFilePV(privValKeyFile, privValStateFile, logger, keyType)
+	return ResetFilePV(filepath.Join(homeDir, privValKeyFile), filepath.Join(homeDir, privValStateFile), logger, keyType)
 }
 
 // ResetState removes all blocks, tendermint state, indexed transactions and evidence.
