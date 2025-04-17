@@ -314,6 +314,7 @@ func (cfg BaseConfig) LoadOrGenNodeKeyID() (types.NodeID, error) {
 
 // DBDir returns the full path to the database directory
 func (cfg BaseConfig) DBDir() string {
+	return rootify(cfg.DBPath, cfg.RootDir)
 }
 
 // ValidateBasic performs basic validation (checking param bounds, etc.) and
