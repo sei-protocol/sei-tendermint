@@ -198,7 +198,7 @@ func MakeUnsafeResetAllCommand(conf *config.Config, logger log.Logger) *cobra.Co
 Only use in testing. This can cause the node to double sign`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
-				conf.PrivValidator.StateFile(), logger, keyType)
+				conf.PrivValidator.StateFile(), logger, keyType, conf.RootDir)
 		},
 	}
 
