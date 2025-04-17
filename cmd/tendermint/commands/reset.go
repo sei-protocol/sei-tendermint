@@ -204,7 +204,7 @@ Only use in testing. This can cause the node to double sign`,
 				conf.PrivValidator.StateFile(), logger, keyType, conf.RootDir)
 		},
 	}
-	fmt.Printf("PSUDEBUG  rootdir: %s, config: %s\n", conf.RootDir, conf.BaseConfig)
+	fmt.Printf("PSUDEBUG  rootdir: %s, config: %s\n", conf.RootDir, conf.BaseConfig.RootDir)
 
 	resetAllCmd.Flags().StringVar(&keyType, "key", types.ABCIPubKeyTypeEd25519,
 		"Signer key type. Options: ed25519, secp256k1")
