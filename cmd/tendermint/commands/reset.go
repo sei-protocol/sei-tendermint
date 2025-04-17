@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"github.com/tendermint/tendermint/libs/cli"
 	"os"
 	"path/filepath"
 
@@ -55,8 +56,12 @@ Only use in testing. This can cause the node to double sign`,
 		Long: `Removes all tendermint data including signing state.
 Only use in testing. This can cause the node to double sign`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			home, err := cmd.Flags().GetString(cli.HomeFlag)
+			if err != nil {
+				return err
+			}
 			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
-				conf.PrivValidator.StateFile(), logger, keyType)
+				conf.PrivValidator.StateFile(), logger, keyType, home)
 		},
 	}
 
@@ -77,7 +82,7 @@ Only use in testing. This can cause the node to double sign`,
 // ResetAll removes address book files plus all data, and resets the privValdiator data.
 // Exported for extenal CLI usage
 // XXX: this is unsafe and should only suitable for testnets.
-func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger, keyType string) error {
+func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger, keyType string, homeDir string) error {
 	if err := os.RemoveAll(dbDir); err == nil {
 		logger.Info("Removed all blockchain history", "dir", dbDir)
 	} else {
@@ -86,6 +91,8 @@ func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger,
 
 	if err := tmos.EnsureDir(dbDir, 0700); err != nil {
 		logger.Error("unable to recreate dbDir", "err", err)
+	} else {
+		logger.Info("Removed dbDir")
 	}
 
 	// recreate the dbDir since the privVal state needs to live there
