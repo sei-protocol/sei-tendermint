@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -62,7 +61,10 @@ Only use in testing. This can cause the node to double sign`,
 			if err != nil {
 				return err
 			}
-			fmt.Printf("PSUDEBUG - home flag: %s, rootdir: %s\n", home, conf.RootDir)
+			// If home is empty, use conf.RootDir as a fallback
+			if home == "" {
+				home = conf.RootDir
+			}
 			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
 				conf.PrivValidator.StateFile(), logger, keyType, home)
 		},
@@ -99,7 +101,6 @@ func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger,
 	}
 
 	// recreate the dbDir since the privVal state needs to live there
-	fmt.Printf("PSUDEBUG: homeDir: %s, privValKeyFile: %s, privValStateFile: %s", homeDir, privValKeyFile, privValStateFile)
 	return ResetFilePV(filepath.Join(homeDir, privValKeyFile), filepath.Join(homeDir, privValStateFile), logger, keyType)
 }
 
@@ -211,8 +212,6 @@ Only use in testing. This can cause the node to double sign`,
 			if home == "" {
 				home = conf.RootDir
 			}
-
-			logger.Info("Using home directory", "home", home)
 
 			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
 				conf.PrivValidator.StateFile(), logger, keyType, home)
