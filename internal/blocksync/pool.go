@@ -98,6 +98,7 @@ type BlockPool struct {
 	startHeight               int64
 	lastHundredBlockTimeStamp time.Time
 	lastSyncRate              float64
+	cancels                   []context.CancelFunc
 }
 
 // NewBlockPool returns a new BlockPool with the height equal to start. Block
@@ -135,7 +136,16 @@ func (pool *BlockPool) OnStart(ctx context.Context) error {
 	return nil
 }
 
-func (*BlockPool) OnStop() {}
+func (pool *BlockPool) OnStop() {
+	pool.mtx.Lock()
+	defer pool.mtx.Unlock()
+
+	// cancel all running requesters if any
+	for _, cancel := range pool.cancels {
+		cancel()
+	}
+	pool.cancels = []context.CancelFunc{}
+}
 
 // spawns requesters as needed
 func (pool *BlockPool) makeRequestersRoutine(ctx context.Context) {
@@ -310,7 +320,8 @@ func (pool *BlockPool) AddBlock(peerID types.NodeID, block *types.Block, extComm
 		return fmt.Errorf("peer sent us a block we didn't expect (peer: %s, current height: %d, block height: %d)", peerID, pool.height, block.Height)
 	}
 
-	if requester.setBlock(block, extCommit, peerID) {
+	setBlockResult := requester.setBlock(block, extCommit, peerID)
+	if setBlockResult == 0 {
 		atomic.AddInt32(&pool.numPending, -1)
 		peer := pool.peers[peerID]
 		if peer != nil {
@@ -350,7 +361,6 @@ func (pool *BlockPool) SetPeerRange(peerID types.NodeID, base int64, height int6
 
 	blockSyncPeers := pool.peerManager.GetBlockSyncPeers()
 	if len(blockSyncPeers) > 0 && !blockSyncPeers[peerID] {
-		fmt.Printf("[Debug] Skip using peer %s since it's not in block sync peer list\n", peerID)
 		return
 	}
 
@@ -498,6 +508,8 @@ func (pool *BlockPool) makeNextRequester(ctx context.Context) {
 	pool.requesters[nextHeight] = request
 	atomic.AddInt32(&pool.numPending, 1)
 
+	ctx, cancel := context.WithCancel(ctx)
+	pool.cancels = append(pool.cancels, cancel)
 	err := request.Start(ctx)
 	if err != nil {
 		request.logger.Error("error starting request", "err", err)
@@ -584,6 +596,7 @@ func (peer *bpPeer) resetTimeout() {
 	if peer.timeout == nil {
 		peer.timeout = time.AfterFunc(peerTimeout, peer.onTimeout)
 	} else {
+		peer.timeout.Stop()
 		peer.timeout.Reset(peerTimeout)
 	}
 }
@@ -661,27 +674,26 @@ func (bpr *bpRequester) OnStart(ctx context.Context) error {
 
 func (*bpRequester) OnStop() {}
 
-// Returns true if the peer matches and block doesn't already exist.
-func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) bool {
+// Returns 0 if block doesn't already exist.
+// Returns -1 if block exist but peers doesn't match.
+// Return 1 if block exist and peer matches.
+func (bpr *bpRequester) setBlock(block *types.Block, extCommit *types.ExtendedCommit, peerID types.NodeID) int {
 	bpr.mtx.Lock()
-	if bpr.block != nil {
-		bpr.mtx.Unlock()
-		return true
-	} else if bpr.peerID != peerID {
-		bpr.mtx.Unlock()
-		return false
+	defer bpr.mtx.Unlock()
+	if bpr.block == nil {
+		bpr.block = block
+		if extCommit != nil {
+			bpr.extCommit = extCommit
+		}
+		select {
+		case bpr.gotBlockCh <- struct{}{}:
+		default:
+		}
+		return 0
+	} else if bpr.peerID == peerID {
+		return 1
 	}
-	bpr.block = block
-	if extCommit != nil {
-		bpr.extCommit = extCommit
-	}
-	bpr.mtx.Unlock()
-
-	select {
-	case bpr.gotBlockCh <- struct{}{}:
-	default:
-	}
-	return true
+	return -1
 }
 
 func (bpr *bpRequester) getBlock() *types.Block {
