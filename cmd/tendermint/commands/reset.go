@@ -88,13 +88,13 @@ Only use in testing. This can cause the node to double sign`,
 // Exported for extenal CLI usage
 // XXX: this is unsafe and should only suitable for testnets.
 func ResetAll(dbDir, privValKeyFile, privValStateFile string, logger log.Logger, keyType string, homeDir string) error {
-	if err := os.RemoveAll(dbDir); err == nil {
+	if err := os.RemoveAll(filepath.Join(homeDir, dbDir)); err == nil {
 		logger.Info("Removed all blockchain history", "dir", dbDir)
 	} else {
 		logger.Error("error removing all blockchain history", "dir", dbDir, "err", err)
 	}
 
-	if err := tmos.EnsureDir(dbDir, 0700); err != nil {
+	if err := tmos.EnsureDir(filepath.Join(homeDir, dbDir), 0700); err != nil {
 		logger.Error("unable to recreate dbDir", "err", err)
 	} else {
 		logger.Info("Removed dbDir")
