@@ -769,6 +769,7 @@ OUTER_LOOP:
 				// This is preferable to using a timer because the request
 				// interval is so small. Larger request intervals may
 				// necessitate using a timer/ticker.
+				fmt.Printf("[Debug] No peer available for height %d\n", bpr.height)
 				time.Sleep(requestInterval)
 				continue PICK_PEER_LOOP
 			}
@@ -795,6 +796,7 @@ OUTER_LOOP:
 				}
 				continue WAIT_LOOP
 			case <-bpr.timeoutTicker.C:
+				fmt.Printf("[Debug] bpr timeoutTicker ticks for height %d\n", bpr.height)
 				if bpr.reset(false) {
 					continue OUTER_LOOP
 				}
@@ -802,6 +804,7 @@ OUTER_LOOP:
 				// We got a block!
 				// Continue the for-loop and wait til Quit
 				// in case we need to reset the block
+				fmt.Printf("[Debug] bpr.gotBlockCh for height %d\n", bpr.height)
 				continue WAIT_LOOP
 			}
 		}
