@@ -806,7 +806,8 @@ OUTER_LOOP:
 				// in case we need to reset the block
 				fmt.Printf("[Debug] bpr.gotBlockCh for height %d\n", bpr.height)
 				bpr.timeoutTicker.Stop()
-				continue WAIT_LOOP
+				bpr.Stop()
+				return
 			}
 		}
 	}
