@@ -2,9 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"github.com/tendermint/tendermint/libs/cli"
 	"os"
 	"path/filepath"
+
+	"github.com/tendermint/tendermint/libs/cli"
 
 	"github.com/spf13/cobra"
 
@@ -200,12 +201,23 @@ func MakeUnsafeResetAllCommand(conf *config.Config, logger log.Logger) *cobra.Co
 		Long: `Removes all tendermint data including signing state.
 Only use in testing. This can cause the node to double sign`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Get the --home flag value from the command
+			home, err := cmd.Flags().GetString(cli.HomeFlag)
+			if err != nil {
+				return err
+			}
+
+			// If home is empty, use conf.RootDir as a fallback
+			if home == "" {
+				home = conf.RootDir
+			}
+
+			logger.Info("Using home directory", "home", home)
+
 			return ResetAll(conf.DBDir(), conf.PrivValidator.KeyFile(),
-				conf.PrivValidator.StateFile(), logger, keyType, conf.RootDir)
+				conf.PrivValidator.StateFile(), logger, keyType, home)
 		},
 	}
-	fmt.Printf("PSUDEBUG - flags: %s\n", resetAllCmd.Flags())
-	fmt.Printf("PSUDEBUG  rootdir: %s, config: %s\n", conf.RootDir, conf.BaseConfig.RootDir)
 
 	resetAllCmd.Flags().StringVar(&keyType, "key", types.ABCIPubKeyTypeEd25519,
 		"Signer key type. Options: ed25519, secp256k1")
