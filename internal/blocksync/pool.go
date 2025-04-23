@@ -712,8 +712,9 @@ OUTER_LOOP:
 				}
 			case <-bpr.gotBlockCh:
 				// We got a block!
-				// Continue the for-loop and wait til Quit.
-				continue WAIT_LOOP
+				// Stop the goroutine to avoid leak
+				bpr.Stop()
+				return
 			}
 		}
 	}
