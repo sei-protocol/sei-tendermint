@@ -75,11 +75,12 @@ type Reactor struct {
 	// store
 	stateStore sm.Store
 
-	blockExec   *sm.BlockExecutor
-	store       sm.BlockStore
-	pool        *BlockPool
-	consReactor consensusReactor
-	blockSync   *atomicBool
+	blockExec             *sm.BlockExecutor
+	store                 sm.BlockStore
+	pool                  *BlockPool
+	consReactor           consensusReactor
+	blockSync             *atomicBool
+	previousMaxPeerHeight int64
 
 	peerEvents  p2p.PeerEventSubscriber
 	peerManager *p2p.PeerManager
@@ -93,9 +94,12 @@ type Reactor struct {
 
 	syncStartTime time.Time
 
-	restartCh                 chan struct{}
+	restartCh chan struct{}
+
+	lastRestartTime           time.Time
 	blocksBehindThreshold     uint64
 	blocksBehindCheckInterval time.Duration
+	restartCooldownSeconds    uint64
 }
 
 // NewReactor returns new reactor instance.
@@ -125,8 +129,10 @@ func NewReactor(
 		metrics:                   metrics,
 		eventBus:                  eventBus,
 		restartCh:                 restartCh,
+		lastRestartTime:           time.Now(),
 		blocksBehindThreshold:     selfRemediationConfig.BlocksBehindThreshold,
 		blocksBehindCheckInterval: time.Duration(selfRemediationConfig.BlocksBehindCheckIntervalSeconds) * time.Second,
+		restartCooldownSeconds:    selfRemediationConfig.RestartCooldownSeconds,
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "BlockSync", r)
@@ -150,6 +156,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		return err
 	}
 	r.initialState = state
+	r.lastRestartTime = time.Now()
 
 	if state.LastBlockHeight != r.store.Height() {
 		return fmt.Errorf("state (%v) and store (%v) height mismatch", state.LastBlockHeight, r.store.Height())
@@ -252,6 +259,10 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 			return r.respondToPeer(ctx, msg, envelope.From, blockSyncCh)
 		case *bcproto.BlockResponse:
 			block, err := types.BlockFromProto(msg.Block)
+
+			r.logger.Info("received block response from peer",
+				"peer", envelope.From,
+				"height", block.Height)
 			if err != nil {
 				r.logger.Error("failed to convert block from proto",
 					"peer", envelope.From,
@@ -329,8 +340,8 @@ func (r *Reactor) processBlockSyncCh(ctx context.Context, blockSyncCh *p2p.Chann
 // autoRestartIfBehind will check if the node is behind the max peer height by
 // a certain threshold. If it is, the node will attempt to restart itself
 func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
-	if r.blocksBehindThreshold == 0 {
-		r.logger.Info("blocks behind threshold is 0, not checking if node is behind")
+	if r.blocksBehindThreshold == 0 || r.blocksBehindCheckInterval <= 0 {
+		r.logger.Info("Auto remediation is disabled")
 		return
 	}
 
@@ -342,15 +353,24 @@ func (r *Reactor) autoRestartIfBehind(ctx context.Context) {
 			maxPeerHeight := r.pool.MaxPeerHeight()
 			threshold := int64(r.blocksBehindThreshold)
 			behindHeight := maxPeerHeight - selfHeight
-			// No peer info yet so maxPeerHeight will be 0
-
 			blockSyncIsSet := r.blockSync.IsSet()
+			if maxPeerHeight > r.previousMaxPeerHeight {
+				r.previousMaxPeerHeight = maxPeerHeight
+			}
+
+			// We do not restart if we are not lagging behind, or we are already in block sync mode
 			if maxPeerHeight == 0 || behindHeight < threshold || blockSyncIsSet {
 				r.logger.Debug("does not exceed threshold or is already in block sync mode", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight, "blockSyncIsSet", blockSyncIsSet)
 				continue
 			}
 
-			r.logger.Info("Blocks behind threshold restarting node", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
+			// Check if we have met cooldown time
+			if time.Since(r.lastRestartTime).Seconds() < float64(r.restartCooldownSeconds) {
+				r.logger.Debug("we are lagging behind, going to trigger a restart after cooldown time passes")
+				continue
+			}
+
+			r.logger.Info("Blocks behind threshold, restarting node", "threshold", threshold, "behindHeight", behindHeight, "maxPeerHeight", maxPeerHeight, "selfHeight", selfHeight)
 
 			// Send signal to restart the node
 			r.blockSync.Set()
@@ -478,8 +498,11 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 // NOTE: Don't sleep in the FOR_LOOP or otherwise slow it down!
 func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh *p2p.Channel) {
 	var (
-		trySyncTicker           = time.NewTicker(trySyncIntervalMS * time.Millisecond)
-		switchToConsensusTicker = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
+		trySyncTicker            = time.NewTicker(trySyncIntervalMS * time.Millisecond)
+		switchToConsensusTicker  = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
+		lastApplyBlockTime       = time.Now()
+		missingFirstBlockHeight  = int64(0)
+		missingSecondBlockHeight = int64(0)
 
 		blocksSynced = uint64(0)
 
@@ -544,11 +567,12 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				)
 				continue
 
-			case r.pool.IsCaughtUp():
-				r.logger.Info("switching to consensus reactor", "height", height)
+			case r.pool.IsCaughtUp() && r.previousMaxPeerHeight <= r.pool.MaxPeerHeight():
+				r.logger.Info("switching to consensus reactor after caught up", "height", height)
 
 			case time.Since(lastAdvance) > syncTimeout:
 				r.logger.Error("no progress since last advance", "last_advance", lastAdvance)
+				continue
 
 			default:
 				r.logger.Info(
@@ -596,8 +620,16 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				// See https://github.com/tendermint/tendermint/pull/8433#discussion_r866790631
 				panic(fmt.Errorf("peeked first block without extended commit at height %d - possible node store corruption", first.Height))
 			} else if first == nil || second == nil {
-				// we need to have fetched two consecutive blocks in order to
-				// perform blocksync verification
+				// we need to have fetched two consecutive blocks in order to perform blocksync verification
+				if first == nil && r.pool.height != missingFirstBlockHeight {
+					fmt.Printf("[Debug] Missing and waiting to fetch first block %d\n", r.pool.height)
+					missingFirstBlockHeight = r.pool.height
+				} else {
+					if r.pool.height+1 != missingSecondBlockHeight {
+						fmt.Printf("[Debug] Missing and waiting to fetch second block %d\n", r.pool.height+1)
+						missingSecondBlockHeight = r.pool.height + 1
+					}
+				}
 				continue
 			}
 
@@ -680,7 +712,13 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
+			r.logger.Info(fmt.Sprintf("[Debug] Requesting block %d from peer took %s", first.Height, time.Since(lastApplyBlockTime)))
+			startTime := time.Now()
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
+			r.logger.Info(fmt.Sprintf("[Debug] ApplyBlock %d took %s", first.Height, time.Since(startTime)))
+			r.logger.Info(fmt.Sprintf("[Debug] Time since last apply took %s for block %d", time.Since(lastApplyBlockTime), first.Height))
+
+			lastApplyBlockTime = time.Now()
 			if err != nil {
 				panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 			}
