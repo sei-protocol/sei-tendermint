@@ -94,7 +94,8 @@ type Reactor struct {
 
 	syncStartTime time.Time
 
-	restartCh                 chan struct{}
+	restartCh chan struct{}
+
 	lastRestartTime           time.Time
 	blocksBehindThreshold     uint64
 	blocksBehindCheckInterval time.Duration
@@ -258,6 +259,10 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope, blo
 			return r.respondToPeer(ctx, msg, envelope.From, blockSyncCh)
 		case *bcproto.BlockResponse:
 			block, err := types.BlockFromProto(msg.Block)
+
+			r.logger.Info("received block response from peer",
+				"peer", envelope.From,
+				"height", block.Height)
 			if err != nil {
 				r.logger.Error("failed to convert block from proto",
 					"peer", envelope.From,
@@ -493,8 +498,11 @@ func (r *Reactor) requestRoutine(ctx context.Context, blockSyncCh *p2p.Channel) 
 // NOTE: Don't sleep in the FOR_LOOP or otherwise slow it down!
 func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh *p2p.Channel) {
 	var (
-		trySyncTicker           = time.NewTicker(trySyncIntervalMS * time.Millisecond)
-		switchToConsensusTicker = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
+		trySyncTicker            = time.NewTicker(trySyncIntervalMS * time.Millisecond)
+		switchToConsensusTicker  = time.NewTicker(switchToConsensusIntervalSeconds * time.Second)
+		lastApplyBlockTime       = time.Now()
+		missingFirstBlockHeight  = int64(0)
+		missingSecondBlockHeight = int64(0)
 
 		blocksSynced = uint64(0)
 
@@ -560,10 +568,11 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				continue
 
 			case r.pool.IsCaughtUp() && r.previousMaxPeerHeight <= r.pool.MaxPeerHeight():
-				r.logger.Info("switching to consensus reactor", "height", height)
+				r.logger.Info("switching to consensus reactor after caught up", "height", height)
 
 			case time.Since(lastAdvance) > syncTimeout:
 				r.logger.Error("no progress since last advance", "last_advance", lastAdvance)
+				continue
 
 			default:
 				r.logger.Info(
@@ -611,8 +620,16 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 				// See https://github.com/tendermint/tendermint/pull/8433#discussion_r866790631
 				panic(fmt.Errorf("peeked first block without extended commit at height %d - possible node store corruption", first.Height))
 			} else if first == nil || second == nil {
-				// we need to have fetched two consecutive blocks in order to
-				// perform blocksync verification
+				// we need to have fetched two consecutive blocks in order to perform blocksync verification
+				if first == nil && r.pool.height != missingFirstBlockHeight {
+					fmt.Printf("[Debug] Missing and waiting to fetch first block %d\n", r.pool.height)
+					missingFirstBlockHeight = r.pool.height
+				} else {
+					if r.pool.height+1 != missingSecondBlockHeight {
+						fmt.Printf("[Debug] Missing and waiting to fetch second block %d\n", r.pool.height+1)
+						missingSecondBlockHeight = r.pool.height + 1
+					}
+				}
 				continue
 			}
 
@@ -695,7 +712,13 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
+			r.logger.Info(fmt.Sprintf("[Debug] Requesting block %d from peer took %s", first.Height, time.Since(lastApplyBlockTime)))
+			startTime := time.Now()
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
+			r.logger.Info(fmt.Sprintf("[Debug] ApplyBlock %d took %s", first.Height, time.Since(startTime)))
+			r.logger.Info(fmt.Sprintf("[Debug] Time since last apply took %s for block %d", time.Since(lastApplyBlockTime), first.Height))
+
+			lastApplyBlockTime = time.Now()
 			if err != nil {
 				panic(fmt.Sprintf("failed to process committed block (%d:%X): %v", first.Height, first.Hash(), err))
 			}
