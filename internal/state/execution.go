@@ -287,6 +287,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
 
+	postBlockStartTime := time.Now()
 	// Save the results before we commit.
 	saveBlockResponseTime := time.Now()
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
@@ -332,12 +333,18 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		defer commitSpan.End()
 	}
 	// Lock mempool, commit app state, update mempoool.
+	commitStart := time.Now()
 	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
 	if commitSpan != nil {
 		commitSpan.End()
+	}
+	if time.Since(commitStart) > 1000*time.Millisecond {
+		blockExec.logger.Info("commit in blockExec",
+			"duration", time.Since(commitStart),
+			"height", block.Height)
 	}
 
 	// Update evpool with the latest state.
@@ -366,9 +373,8 @@ func (blockExec *BlockExecutor) ApplyBlock(
 
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
-	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
-	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
+	fmt.Printf("[Debug] Post finalize block latency: %s\n", time.Since(postBlockStartTime))
 	return state, nil
 }
 

@@ -601,7 +601,7 @@ func (r *Router) dialPeers(ctx context.Context) {
 				case <-ctx.Done():
 					return
 				case address := <-addresses:
-					r.logger.Debug(fmt.Sprintf("Going to dial next peer %s", address.NodeID))
+					r.logger.Info(fmt.Sprintf("Going to dial next peer %s", address.NodeID))
 					r.connectPeer(ctx, address)
 				}
 			}
