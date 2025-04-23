@@ -769,6 +769,7 @@ OUTER_LOOP:
 				// This is preferable to using a timer because the request
 				// interval is so small. Larger request intervals may
 				// necessitate using a timer/ticker.
+				fmt.Printf("[Debug] No peer available for height %d\n", bpr.height)
 				time.Sleep(requestInterval)
 				continue PICK_PEER_LOOP
 			}
@@ -802,7 +803,9 @@ OUTER_LOOP:
 				// We got a block!
 				// Continue the for-loop and wait til Quit
 				// in case we need to reset the block
-				continue WAIT_LOOP
+				bpr.timeoutTicker.Stop()
+				bpr.Stop()
+				return
 			}
 		}
 	}
