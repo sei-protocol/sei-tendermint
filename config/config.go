@@ -766,7 +766,7 @@ type MempoolConfig struct {
 	// max-txs-bytes=5MB, mempool will only accept 5 transactions).
 	MaxTxsBytes int64 `mapstructure:"max-txs-bytes"`
 
-	// Size of the cache (used to filter transactions we saw earlier) in transactions
+	// Size of the cache (to filter duplicate transactions)
 	CacheSize int `mapstructure:"cache-size"`
 
 	// Do not remove invalid transactions from the cache (default: false)
@@ -783,20 +783,16 @@ type MempoolConfig struct {
 	// XXX: Unused due to https://github.com/tendermint/tendermint/issues/5796
 	MaxBatchBytes int `mapstructure:"max-batch-bytes"`
 
-	// TTLDuration, if non-zero, defines the maximum amount of time a transaction
-	// can exist for in the mempool.
-	//
-	// Note, if TTLNumBlocks is also defined, a transaction will be removed if it
-	// has existed in the mempool at least TTLNumBlocks number of blocks or if it's
-	// insertion time into the mempool is beyond TTLDuration.
+	// Time-to-live for txs in the mempool
+	// If both 'ttl-num-blocks' and 'ttl-duration' are defined, 
+	// txs are removed if they have existed for at least 
+	// 'ttl-num-blocks', or if the time they entered into mempool
+	// is beyond 'ttl-duration', whichever is less.
+
+	// Maximum length of time a transaction can remain in the mempool
 	TTLDuration time.Duration `mapstructure:"ttl-duration"`
 
-	// TTLNumBlocks, if non-zero, defines the maximum number of blocks a transaction
-	// can exist for in the mempool.
-	//
-	// Note, if TTLDuration is also defined, a transaction will be removed if it
-	// has existed in the mempool at least TTLNumBlocks number of blocks or if
-	// it's insertion time into the mempool is beyond TTLDuration.
+	// Maximum number of blocks a transaction can remain in the mempool
 	TTLNumBlocks int64 `mapstructure:"ttl-num-blocks"`
 
 	// TxNotifyThreshold, if non-zero, defines the minimum number of transactions
@@ -829,15 +825,15 @@ func DefaultMempoolConfig() *MempoolConfig {
 		MaxTxsBytes:                  1024 * 1024 * 1024, // 1GB
 		CacheSize:                    10000,
 		MaxTxBytes:                   1024 * 1024, // 1MB
-		TTLDuration:                  0 * time.Second,
-		TTLNumBlocks:                 0,
+		TTLDuration:                  3 * time.Second,
+		TTLNumBlocks:                 5,
 		TxNotifyThreshold:            0,
-		CheckTxErrorBlacklistEnabled: false,
-		CheckTxErrorThreshold:        0,
+		CheckTxErrorBlacklistEnabled: true,
+		CheckTxErrorThreshold:        50,
 		PendingSize:                  5000,
 		MaxPendingTxsBytes:           1024 * 1024 * 1024, // 1GB
-		PendingTTLDuration:           0 * time.Second,
-		PendingTTLNumBlocks:          0,
+		PendingTTLDuration:           3 * time.Second,
+		PendingTTLNumBlocks:          5,
 	}
 }
 
