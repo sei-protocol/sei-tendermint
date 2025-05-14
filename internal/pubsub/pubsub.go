@@ -309,6 +309,7 @@ func (s *Server) Wait() { <-s.exited; s.BaseService.Wait() }
 func (s *Server) OnStart(ctx context.Context) error { s.run(ctx); return nil }
 
 func (s *Server) publish(data types.EventData, events []abci.Event) error {
+	fmt.Printf("[Debug] publish going to aqcuire Rlock at for %d events\n", len(events))
 	s.pubs.RLock()
 	defer s.pubs.RUnlock()
 
