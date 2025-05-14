@@ -296,7 +296,6 @@ func (s *Server) Publish(msg types.EventData) error {
 // is matched with clients queries. If there is a match, the message is sent to
 // the client.
 func (s *Server) PublishWithEvents(msg types.EventData, events []abci.Event) error {
-	fmt.Printf("[Debug] PublishWithEvents with %d events\n", len(events))
 	return s.publish(msg, events)
 }
 
@@ -311,11 +310,9 @@ func (s *Server) Wait() { <-s.exited; s.BaseService.Wait() }
 func (s *Server) OnStart(ctx context.Context) error { s.run(ctx); return nil }
 
 func (s *Server) publish(data types.EventData, events []abci.Event) error {
-	fmt.Printf("[Debug] publish going to aqcuire Rlock at for %d events\n", len(events))
 	s.pubs.RLock()
 	defer s.pubs.RUnlock()
 
-	fmt.Printf("[Debug] publish Acquired Rlock at for %d events\n", len(events))
 	select {
 	case <-s.done:
 		return ErrServerStopped
@@ -323,7 +320,6 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 		Data:   data,
 		Events: events,
 	}:
-		fmt.Printf("[Debug] publish enqued for %d events, queue size %d\n", len(events), len(s.queue))
 		return nil
 	default:
 		fmt.Printf("[Debug] failed to enque %d events, queue size %d\n", len(events), len(s.queue))

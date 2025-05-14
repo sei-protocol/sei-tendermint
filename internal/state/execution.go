@@ -285,7 +285,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
 
-	postBlockStartTime := time.Now()
 	// Save the results before we commit.
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
 	if err != nil && !errors.Is(err, ErrNoFinalizeBlockResponsesForHeight{block.Height}) {
@@ -368,8 +367,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
 	fmt.Printf("[Debug] Going to fire events for height %d\n", block.Height)
+	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
-	fmt.Printf("[Debug] Post finalize block latency: %s for height %d\n", time.Since(postBlockStartTime), block.Height)
+	fmt.Printf("[Debug] FireEvents  latency: %s for height %d\n", time.Since(fireEventsStartTime), block.Height)
 	return state, nil
 }
 

@@ -712,11 +712,10 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 
 			// TODO: Same thing for app - but we would need a way to get the hash
 			// without persisting the state.
-			r.logger.Info(fmt.Sprintf("[Debug] Requesting block %d from peer took %s", first.Height, time.Since(lastApplyBlockTime)))
+			r.logger.Info(fmt.Sprintf("[Debug] Requested block %d from peer took %s", first.Height, time.Since(lastApplyBlockTime)))
 			startTime := time.Now()
 			state, err = r.blockExec.ApplyBlock(ctx, state, firstID, first, nil)
 			r.logger.Info(fmt.Sprintf("[Debug] ApplyBlock %d took %s", first.Height, time.Since(startTime)))
-			r.logger.Info(fmt.Sprintf("[Debug] Time since last apply took %s for block %d", time.Since(lastApplyBlockTime), first.Height))
 
 			lastApplyBlockTime = time.Now()
 			if err != nil {
