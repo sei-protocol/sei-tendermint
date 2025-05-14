@@ -318,7 +318,6 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 		Data:   data,
 		Events: events,
 	}:
-		fmt.Printf("[Debug] Enqeued %d events with queue size %d\n", len(events), len(s.queue))
 		return nil
 	}
 }
@@ -344,7 +343,6 @@ func (s *Server) run(ctx context.Context) {
 
 		// Sender: Service the queue and forward messages to subscribers.
 		for it := range queue {
-			fmt.Printf("[Debug] Dequeue and sending %d events with queue size %d\n", len(it.Events), len(queue))
 			if err := s.send(it.Data, it.Events); err != nil {
 				s.logger.Error("error sending event", "err", err)
 			}
