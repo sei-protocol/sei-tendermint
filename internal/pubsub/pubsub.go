@@ -37,14 +37,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
-	"time"
-
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
+	"sync"
 )
 
 var (
@@ -321,12 +319,7 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 		Events: events,
 	}:
 		return nil
-	default:
-		fmt.Printf("[Debug] failed to enque %d events, queue size %d\n", len(events), len(s.queue))
-		time.Sleep(100 * time.Millisecond)
-		return nil
 	}
-
 }
 
 func (s *Server) run(ctx context.Context) {
@@ -350,6 +343,7 @@ func (s *Server) run(ctx context.Context) {
 
 		// Sender: Service the queue and forward messages to subscribers.
 		for it := range queue {
+			fmt.Printf("[Debug] Sending %d events\n", len(it.Events))
 			if err := s.send(it.Data, it.Events); err != nil {
 				s.logger.Error("error sending event", "err", err)
 			}
