@@ -328,6 +328,7 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 	default:
 		fmt.Printf("[Debug] failed to enque %d events, queue size %d\n", len(events), len(s.queue))
 		time.Sleep(100 * time.Millisecond)
+		return nil
 	}
 
 }
