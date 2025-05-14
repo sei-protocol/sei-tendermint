@@ -331,6 +331,7 @@ func (s *Server) run(ctx context.Context) {
 	// calls to exit, then close the queue to signal the sender to exit.
 	go func() {
 		<-ctx.Done()
+		fmt.Printf("[Debug] Going to close pubsub queue.\n")
 		s.pubs.Lock()
 		defer s.pubs.Unlock()
 		close(s.queue)
@@ -348,6 +349,7 @@ func (s *Server) run(ctx context.Context) {
 				s.logger.Error("error sending event", "err", err)
 			}
 		}
+		fmt.Printf("[Debug] Pubsub terminated unexpectedly\n")
 		// Terminate all subscribers before exit.
 		s.subs.Lock()
 		defer s.subs.Unlock()
