@@ -155,7 +155,7 @@ func (b *EventBus) PublishEventTx(data types.EventDataTx) error {
 			},
 		},
 	})
-
+	fmt.Printf("[Debug] Publishing %d events at height %d\n", len(events), data.Height)
 	return b.pubsub.PublishWithEvents(data, events)
 }
 

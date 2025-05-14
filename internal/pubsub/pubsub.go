@@ -10,28 +10,27 @@
 //
 // Example:
 //
-//     q, err := query.New(`account.name='John'`)
-//     if err != nil {
-//         return err
-//     }
-//     sub, err := pubsub.SubscribeWithArgs(ctx, pubsub.SubscribeArgs{
-//         ClientID: "johns-transactions",
-//         Query:    q,
-//     })
-//     if err != nil {
-//         return err
-//     }
+//	q, err := query.New(`account.name='John'`)
+//	if err != nil {
+//	    return err
+//	}
+//	sub, err := pubsub.SubscribeWithArgs(ctx, pubsub.SubscribeArgs{
+//	    ClientID: "johns-transactions",
+//	    Query:    q,
+//	})
+//	if err != nil {
+//	    return err
+//	}
 //
-//     for {
-//         next, err := sub.Next(ctx)
-//         if err == pubsub.ErrTerminated {
-//            return err // terminated by publisher
-//         } else if err != nil {
-//            return err // timed out, client unsubscribed, etc.
-//         }
-//         process(next)
-//     }
-//
+//	for {
+//	    next, err := sub.Next(ctx)
+//	    if err == pubsub.ErrTerminated {
+//	       return err // terminated by publisher
+//	    } else if err != nil {
+//	       return err // timed out, client unsubscribed, etc.
+//	    }
+//	    process(next)
+//	}
 package pubsub
 
 import (
@@ -313,6 +312,7 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 	s.pubs.RLock()
 	defer s.pubs.RUnlock()
 
+	fmt.Printf("[Debug] publish Acquired Rlock at for %d events\n", len(events))
 	select {
 	case <-s.done:
 		return ErrServerStopped
@@ -320,6 +320,7 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 		Data:   data,
 		Events: events,
 	}:
+		fmt.Printf("[Debug] publish enqued at for %d events\n", len(events))
 		return nil
 	}
 }
