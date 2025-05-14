@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
@@ -64,6 +65,12 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 // respective attribute's key delimited by a "." (eg. "account.number").
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) Index(results []*abci.TxResult) error {
+	startTime := time.Now()
+	defer func() {
+		if len(results) > 0 {
+			fmt.Printf("[Debug] TxIndex index height %d took %s to write %d results\n", results[0].Height, time.Since(startTime), len(results))
+		}
+	}()
 	b := txi.store.NewBatch()
 	defer b.Close()
 

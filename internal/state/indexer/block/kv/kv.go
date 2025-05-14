@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/orderedcode"
 	dbm "github.com/tendermint/tm-db"
@@ -50,6 +51,10 @@ func (idx *BlockerIndexer) Has(height int64) (bool, error) {
 // primary key: encode(block.height | height) => encode(height)
 // FinalizeBlock events: encode(eventType.eventAttr|eventValue|height|finalize_block) => encode(height)
 func (idx *BlockerIndexer) Index(bh types.EventDataNewBlockHeader) error {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("[Debug] BlockerIndexer index block %d took %s\n", bh.Header.Height, time.Since(startTime))
+	}()
 	batch := idx.store.NewBatch()
 	defer batch.Close()
 
