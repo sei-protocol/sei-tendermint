@@ -318,7 +318,7 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 		Data:   data,
 		Events: events,
 	}:
-		fmt.Printf("[Debug] Enqeuued %d events with queue size %d\n", len(events), len(s.queue))
+		fmt.Printf("[Debug] Enqeued %d events with queue size %d\n", len(events), len(s.queue))
 		return nil
 	}
 }
@@ -377,8 +377,8 @@ func (s *Server) send(data types.EventData, events []abci.Event) error {
 	defer func() {
 		if len(evict) != 0 {
 			s.subs.Lock()
-			defer s.subs.Unlock()
 			s.removeSubs(evict, ErrTerminated)
+			s.subs.Unlock()
 		}
 	}()
 
@@ -391,6 +391,7 @@ func (s *Server) send(data types.EventData, events []abci.Event) error {
 	// If an observer is defined, give it control of the message before
 	// attempting to deliver it to any matching subscribers. If the observer
 	// fails, the message will not be forwarded.
+
 	if s.subs.observe != nil {
 		err := s.subs.observe(Message{
 			data:   data,

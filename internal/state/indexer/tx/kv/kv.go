@@ -66,11 +66,6 @@ func (txi *TxIndex) Get(hash []byte) (*abci.TxResult, error) {
 // Any event with an empty type is not indexed.
 func (txi *TxIndex) Index(results []*abci.TxResult) error {
 	startTime := time.Now()
-	defer func() {
-		if len(results) > 0 {
-			fmt.Printf("[Debug] TxIndex index height %d took %s to write %d results\n", results[0].Height, time.Since(startTime), len(results))
-		}
-	}()
 	b := txi.store.NewBatch()
 	defer b.Close()
 
@@ -99,8 +94,10 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 			return err
 		}
 	}
-
-	return b.WriteSync()
+	fmt.Printf("[Debug] Start writesync for %d results\n", len(results))
+	err := b.WriteSync()
+	fmt.Printf("[Debug] Writesync took %s to finish", time.Since(startTime))
+	return err
 }
 
 func (txi *TxIndex) indexEvents(result *abci.TxResult, hash []byte, store dbm.Batch) error {
