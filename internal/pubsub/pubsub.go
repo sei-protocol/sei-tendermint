@@ -38,6 +38,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
@@ -322,9 +323,13 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 		Data:   data,
 		Events: events,
 	}:
-		fmt.Printf("[Debug] publish enqued at for %d events, queue size %d\n", len(events), len(s.queue))
+		fmt.Printf("[Debug] publish enqued for %d events, queue size %d\n", len(events), len(s.queue))
 		return nil
+	default:
+		fmt.Printf("[Debug] failed to enque %d events, queue size %d\n", len(events), len(s.queue))
+		time.Sleep(100 * time.Millisecond)
 	}
+
 }
 
 func (s *Server) run(ctx context.Context) {
