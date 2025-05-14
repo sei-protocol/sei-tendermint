@@ -96,7 +96,7 @@ func (txi *TxIndex) Index(results []*abci.TxResult) error {
 	}
 	fmt.Printf("[Debug] Start writesync for %d results\n", len(results))
 	err := b.WriteSync()
-	fmt.Printf("[Debug] Writesync took %s to finish", time.Since(startTime))
+	fmt.Printf("[Debug] Writesync took %s to finish\n", time.Since(startTime))
 	return err
 }
 
