@@ -250,7 +250,6 @@ func DefaultBaseConfig() BaseConfig {
 		FilterPeers: false,
 		DBBackend:   "goleveldb",
 		DBPath:      "data",
-		RootDir:     "/root/.sei",
 	}
 }
 
@@ -692,7 +691,7 @@ type P2PConfig struct { //nolint: maligned
 	// with the default being "priority".
 	QueueType string `mapstructure:"queue-type"`
 
-	// List of node IDs, to which a connection will be (re)established ignoring any existing limits
+	// List of node IDs, to which a connection will be (re)established, dropping an existing peer if any existing limit has been reached
 	UnconditionalPeerIDs string `mapstructure:"unconditional-peer-ids"`
 }
 
