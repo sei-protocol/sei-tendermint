@@ -491,6 +491,10 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		gasEstimated := totalGasEstimated + txGasEstimate
 		maxGasWantedExceeded := maxGasWanted > -1 && gasWanted > maxGasWanted
 		maxGasEstimatedExceeded := maxGasEstimated > -1 && gasEstimated > maxGasEstimated
+		if wtx.gasWanted > 0 {
+			nonzeroGasTxCnt++
+		}
+
 		if nonzeroGasTxCnt >= minTxsInBlock && (maxGasWantedExceeded || maxGasEstimatedExceeded) {
 			return false
 		}
@@ -499,9 +503,6 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		totalGasEstimated = gasEstimated
 
 		txs = append(txs, wtx.tx)
-		if wtx.gasWanted > 0 {
-			nonzeroGasTxCnt++
-		}
 		return true
 	})
 
