@@ -28,7 +28,7 @@ func (tx Tx) Hash() []byte { return crypto.Checksum(tx) }
 // String returns the hex-encoded transaction as a string.
 func (tx Tx) String() string { return fmt.Sprintf("Tx{%X}", []byte(tx)) }
 
-// Txs is a slice of Tx.
+// Txs is a slice of Tx
 type Txs []Tx
 
 // Hash returns the Merkle root hash of the transaction hashes.
