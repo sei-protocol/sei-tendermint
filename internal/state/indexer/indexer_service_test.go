@@ -13,14 +13,17 @@ import (
 	"github.com/ory/dockertest/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	"github.com/tendermint/tendermint/internal/state/indexer"
+
 	"github.com/tendermint/tendermint/internal/state/indexer/sink/kv"
 	"github.com/tendermint/tendermint/internal/state/indexer/sink/psql"
 	tmlog "github.com/tendermint/tendermint/libs/log"
+
 	"github.com/tendermint/tendermint/types"
 
 	// Register the Postgre database driver.
@@ -54,6 +57,7 @@ func TestIndexerServiceIndexesBlocks(t *testing.T) {
 	assert.False(t, indexer.IndexingEnabled([]indexer.EventSink{}))
 
 	// event sink setup
+	// setupDB(t)
 	pool := setupDB(t)
 
 	store := dbm.NewMemDB()
@@ -140,16 +144,32 @@ func setupDB(t *testing.T) *dockertest.Pool {
 		t.Skipf("WARNING: Docker is not available: %v [skipping this test]", err)
 	}
 
+	// Clean up any existing containers first
+	containers, err := pool.Client.ListContainers(docker.ListContainersOptions{All: true})
+	if err == nil {
+		for _, container := range containers {
+			for _, name := range container.Names {
+				if name == "/postgres-test" {
+					_ = pool.Client.RemoveContainer(docker.RemoveContainerOptions{
+						ID:    container.ID,
+						Force: true,
+					})
+				}
+			}
+		}
+	}
+
 	resource, err = pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "postgres",
 		Tag:        "13",
+		Name:       "postgres-test",
 		Env: []string{
 			"POSTGRES_USER=" + user,
 			"POSTGRES_PASSWORD=" + password,
 			"POSTGRES_DB=" + dbName,
 			"listen_addresses = '*'",
 		},
-		ExposedPorts: []string{port},
+		ExposedPorts: []string{"5432/tcp"}, // Use the default PostgreSQL port inside container
 	}, func(config *docker.HostConfig) {
 		// set AutoRemove to true so that stopped container goes away by itself
 		config.AutoRemove = true
@@ -157,14 +177,24 @@ func setupDB(t *testing.T) *dockertest.Pool {
 			Name: "no",
 		}
 	})
-
 	assert.NoError(t, err)
 
 	// Set the container to expire in a minute to avoid orphaned containers
-	// hanging around
 	_ = resource.Expire(60)
 
-	conn := fmt.Sprintf(dsn, user, password, resource.GetPort(port+"/tcp"), dbName)
+	// Wait for the container to be ready
+	err = pool.Retry(func() error {
+		conn := fmt.Sprintf(dsn, user, password, resource.GetPort("5432/tcp"), dbName)
+		db, err := sql.Open("postgres", conn)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		return db.Ping()
+	})
+	assert.NoError(t, err, "Container failed to start")
+
+	conn := fmt.Sprintf(dsn, user, password, resource.GetPort("5432/tcp"), dbName)
 
 	assert.NoError(t, pool.Retry(func() error {
 		sink, err := psql.NewEventSink(conn, "test-chainID")
