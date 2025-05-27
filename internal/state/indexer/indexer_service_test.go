@@ -143,7 +143,6 @@ func setupDB(t *testing.T) *dockertest.Pool {
 	resource, err = pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "postgres",
 		Tag:        "13",
-		Name:       "postgres-test",
 		Env: []string{
 			"POSTGRES_USER=" + user,
 			"POSTGRES_PASSWORD=" + password,
@@ -162,18 +161,6 @@ func setupDB(t *testing.T) *dockertest.Pool {
 
 	// Set the container to expire in a minute to avoid orphaned containers
 	_ = resource.Expire(60)
-
-	// Wait for the container to be ready
-	err = pool.Retry(func() error {
-		conn := fmt.Sprintf(dsn, user, password, resource.GetPort("5432/tcp"), dbName)
-		db, err := sql.Open("postgres", conn)
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		return db.Ping()
-	})
-	assert.NoError(t, err, "Container failed to start")
 
 	conn := fmt.Sprintf(dsn, user, password, resource.GetPort("5432/tcp"), dbName)
 
