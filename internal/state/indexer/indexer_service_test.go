@@ -13,17 +13,14 @@ import (
 	"github.com/ory/dockertest/docker"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	dbm "github.com/tendermint/tm-db"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/eventbus"
 	"github.com/tendermint/tendermint/internal/state/indexer"
-
 	"github.com/tendermint/tendermint/internal/state/indexer/sink/kv"
 	"github.com/tendermint/tendermint/internal/state/indexer/sink/psql"
 	tmlog "github.com/tendermint/tendermint/libs/log"
-
 	"github.com/tendermint/tendermint/types"
 
 	// Register the Postgre database driver.
@@ -57,7 +54,6 @@ func TestIndexerServiceIndexesBlocks(t *testing.T) {
 	assert.False(t, indexer.IndexingEnabled([]indexer.EventSink{}))
 
 	// event sink setup
-	// setupDB(t)
 	pool := setupDB(t)
 
 	store := dbm.NewMemDB()
@@ -142,21 +138,6 @@ func setupDB(t *testing.T) *dockertest.Pool {
 	assert.NoError(t, err)
 	if _, err := pool.Client.Info(); err != nil {
 		t.Skipf("WARNING: Docker is not available: %v [skipping this test]", err)
-	}
-
-	// Clean up any existing containers first
-	containers, err := pool.Client.ListContainers(docker.ListContainersOptions{All: true})
-	if err == nil {
-		for _, container := range containers {
-			for _, name := range container.Names {
-				if name == "/postgres-test" {
-					_ = pool.Client.RemoveContainer(docker.RemoveContainerOptions{
-						ID:    container.ID,
-						Force: true,
-					})
-				}
-			}
-		}
 	}
 
 	resource, err = pool.RunWithOptions(&dockertest.RunOptions{
