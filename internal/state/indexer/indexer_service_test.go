@@ -157,6 +157,7 @@ func setupDB(t *testing.T) *dockertest.Pool {
 			Name: "no",
 		}
 	})
+
 	assert.NoError(t, err)
 
 	// Set the container to expire in a minute to avoid orphaned containers
