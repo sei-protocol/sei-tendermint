@@ -227,6 +227,12 @@ func NewReactor(
 		restartCh:                     restartCh,
 		restartNoAvailablePeersWindow: time.Duration(selfRemediationConfig.StatesyncNoPeersRestartWindowSeconds) * time.Second,
 	}
+	fmt.Printf("[Debug] Going to list local snapshots\n")
+	snapshotList, _ := r.recentSnapshots(context.Background(), 10)
+	for _, snap := range snapshotList {
+		fmt.Printf("[Debug] Adding local snapshots for height %d\n", snap.Height)
+		r.syncer.AddSnapshot("self", snap)
+	}
 
 	r.BaseService = *service.NewBaseService(logger, "StateSync", r)
 	return r
@@ -335,14 +341,6 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	})
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
 	fmt.Printf("[Debug] Start fetching local snapshots\n")
-	snapshotList, err := r.recentSnapshots(ctx, 10)
-	if err != nil {
-		return err
-	}
-	for _, snap := range snapshotList {
-		fmt.Printf("[Debug] Adding local snapshots for height %d\n", snap.Height)
-		r.syncer.AddSnapshot("self", snap)
-	}
 
 	if r.needsStateSync {
 		r.logger.Info("starting state sync")
