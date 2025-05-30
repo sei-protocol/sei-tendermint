@@ -227,11 +227,6 @@ func NewReactor(
 		restartCh:                     restartCh,
 		restartNoAvailablePeersWindow: time.Duration(selfRemediationConfig.StatesyncNoPeersRestartWindowSeconds) * time.Second,
 	}
-	fmt.Printf("[Debug] Going to list local snapshots\n")
-	snapshotList, _ := r.recentSnapshots(context.Background(), 10)
-	for _, snap := range snapshotList {
-		fmt.Printf("[Debug] Adding local snapshots for height %d\n", snap.Height)
-	}
 
 	r.BaseService = *service.NewBaseService(logger, "StateSync", r)
 	return r
@@ -265,16 +260,17 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	// ideal.
 	r.initSyncer = func() *syncer {
 		return &syncer{
-			logger:        r.logger,
-			stateProvider: r.stateProvider,
-			conn:          r.conn,
-			snapshots:     newSnapshotPool(),
-			snapshotCh:    r.snapshotChannel,
-			chunkCh:       r.chunkChannel,
-			tempDir:       r.tempDir,
-			fetchers:      r.cfg.Fetchers,
-			retryTimeout:  r.cfg.ChunkRequestTimeout,
-			metrics:       r.metrics,
+			logger:           r.logger,
+			stateProvider:    r.stateProvider,
+			conn:             r.conn,
+			snapshots:        newSnapshotPool(),
+			snapshotCh:       r.snapshotChannel,
+			chunkCh:          r.chunkChannel,
+			tempDir:          r.tempDir,
+			fetchers:         r.cfg.Fetchers,
+			retryTimeout:     r.cfg.ChunkRequestTimeout,
+			metrics:          r.metrics,
+			useLocalSnapshot: r.cfg.UseLocalSnapshot,
 		}
 	}
 	r.dispatcher = light.NewDispatcher(r.lightBlockChannel, func(height uint64) proto.Message {
@@ -284,10 +280,13 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	})
 	r.requestSnaphot = func() error {
 		// request snapshots from all currently connected peers
-		return r.snapshotChannel.Send(ctx, p2p.Envelope{
-			Broadcast: true,
-			Message:   &ssproto.SnapshotsRequest{},
-		})
+		if !r.cfg.UseLocalSnapshot {
+			return r.snapshotChannel.Send(ctx, p2p.Envelope{
+				Broadcast: true,
+				Message:   &ssproto.SnapshotsRequest{},
+			})
+		}
+		return nil
 	}
 	r.sendBlockError = r.lightBlockChannel.SendError
 
@@ -339,10 +338,8 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		ParamsChannel:     r.paramsChannel,
 	})
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
-	fmt.Printf("[Debug] Start fetching local snapshots\n")
 
 	if r.needsStateSync {
-		r.logger.Info("starting state sync")
 		if _, err := r.Sync(ctx); err != nil {
 			r.logger.Error("state sync failed; shutting down this node", "err", err)
 			return err
@@ -374,13 +371,6 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		}
 	}
 
-	// We need at least two peers (for cross-referencing of light blocks) before we can
-	// begin state sync
-	if err := r.waitForEnoughPeers(ctx, 2); err != nil {
-		return sm.State{}, err
-	}
-	r.logger.Info("Finished waiting for 2 peers to start state sync")
-
 	r.mtx.Lock()
 	if r.syncer != nil {
 		r.mtx.Unlock()
@@ -402,6 +392,23 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		r.stateProvider = nil
 		r.mtx.Unlock()
 	}()
+
+	r.logger.Info("starting state sync")
+
+	if r.cfg.UseLocalSnapshot {
+		snapshotList, _ := r.recentSnapshots(context.Background(), 10)
+		for _, snap := range snapshotList {
+			fmt.Printf("[Debug] Adding local snapshots for height %d\n", snap.Height)
+			r.syncer.AddSnapshot("self", snap)
+		}
+	} else {
+		// We need at least two peers (for cross-referencing of light blocks) before we can
+		// begin state sync
+		if err := r.waitForEnoughPeers(ctx, 2); err != nil {
+			return sm.State{}, err
+		}
+		r.logger.Info("Finished waiting for 2 peers to start state sync")
+	}
 
 	state, commit, err := r.syncer.SyncAny(ctx, r.cfg.DiscoveryTime, r.requestSnaphot)
 	if err != nil {
