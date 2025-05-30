@@ -231,7 +231,6 @@ func NewReactor(
 	snapshotList, _ := r.recentSnapshots(context.Background(), 10)
 	for _, snap := range snapshotList {
 		fmt.Printf("[Debug] Adding local snapshots for height %d\n", snap.Height)
-		r.syncer.AddSnapshot("self", snap)
 	}
 
 	r.BaseService = *service.NewBaseService(logger, "StateSync", r)
