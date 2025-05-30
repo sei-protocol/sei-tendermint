@@ -465,6 +465,8 @@ discovery-time = "{{ .StateSync.DiscoveryTime }}"
 # and remove it when the sync is complete.
 temp-dir = "{{ .StateSync.TempDir }}"
 
+use-local-snapshot = {{ .StateSync.UseLocalSnapshot }}
+
 # The timeout duration before re-requesting a chunk, possibly from a different
 # peer (default: 15 seconds).
 chunk-request-timeout = "{{ .StateSync.ChunkRequestTimeout }}"

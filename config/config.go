@@ -937,6 +937,8 @@ type StateSyncConfig struct {
 
 	// Time before which a blacklisted witness can not be added back as a provider
 	BlacklistTTL time.Duration `mapstructure:"blacklist-ttl"`
+
+	UseLocalSnapshot bool `mapstructure:"use-local-snapshot"`
 }
 
 func (cfg *StateSyncConfig) TrustHashBytes() []byte {
