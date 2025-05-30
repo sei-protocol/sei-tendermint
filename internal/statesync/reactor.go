@@ -337,7 +337,10 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		LightBlockChannel: r.lightBlockChannel,
 		ParamsChannel:     r.paramsChannel,
 	})
-	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
+
+	if !r.cfg.UseLocalSnapshot {
+		go r.processPeerUpdates(ctx, r.peerEvents(ctx))
+	}
 
 	if r.needsStateSync {
 		if _, err := r.Sync(ctx); err != nil {
