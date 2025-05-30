@@ -343,6 +343,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	}
 
 	if r.needsStateSync {
+		fmt.Printf("[Debug] This node needs state sync, going to perform a state sync\n")
 		if _, err := r.Sync(ctx); err != nil {
 			r.logger.Error("state sync failed; shutting down this node", "err", err)
 			return err
