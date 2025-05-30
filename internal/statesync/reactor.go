@@ -415,6 +415,7 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 	}
 
 	state, commit, err := r.syncer.SyncAny(ctx, r.cfg.DiscoveryTime, r.requestSnaphot)
+	r.logger.Info("Finished state sync, fetching state and commit to bootstrap the node")
 	if err != nil {
 		return sm.State{}, err
 	}
@@ -441,6 +442,7 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 	}
 
 	if r.postSyncHook != nil {
+		r.logger.Info("Executing post tate sync hook")
 		if err := r.postSyncHook(ctx, state); err != nil {
 			return sm.State{}, err
 		}
