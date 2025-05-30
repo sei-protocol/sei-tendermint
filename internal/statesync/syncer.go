@@ -459,7 +459,7 @@ func (s *syncer) fetchLocalChunks(ctx context.Context, snapshot *snapshot, chunk
 				return
 			}
 		}
-		s.logger.Info("Fetching local snapshot chunk", "height", snapshot.Height, "chunk", index, "total", chunks.Size())
+		s.logger.Info("Fetching local snapshot chunks", "height", snapshot.Height, "chunk", index, "total", chunks.Size())
 		msg, err := s.conn.LoadSnapshotChunk(ctx, &abci.RequestLoadSnapshotChunk{
 			Height: snapshot.Height,
 			Format: snapshot.Format,
