@@ -428,8 +428,10 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		return sm.State{}, fmt.Errorf("failed to store last seen commit: %w", err)
 	}
 
-	if err := r.Backfill(ctx, state); err != nil {
-		r.logger.Error("backfill failed. Proceeding optimistically...", "err", err)
+	if !r.cfg.UseLocalSnapshot {
+		if err := r.Backfill(ctx, state); err != nil {
+			r.logger.Error("backfill failed. Proceeding optimistically...", "err", err)
+		}
 	}
 
 	if r.eventBus != nil {
