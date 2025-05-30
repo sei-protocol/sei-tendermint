@@ -334,6 +334,15 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 		ParamsChannel:     r.paramsChannel,
 	})
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx))
+	fmt.Printf("[Debug] Start fetching local snapshots\n")
+	snapshotList, err := r.recentSnapshots(ctx, 10)
+	if err != nil {
+		return err
+	}
+	for _, snap := range snapshotList {
+		fmt.Printf("[Debug] Adding local snapshots for height %d\n", snap.Height)
+		r.syncer.AddSnapshot("self", snap)
+	}
 
 	if r.needsStateSync {
 		r.logger.Info("starting state sync")
