@@ -923,7 +923,7 @@ func (c *Client) backwards(
 		interimHeader  *types.Header
 	)
 
-	if verifiedHeader.Height-newHeader.Height > 1000 {
+	if verifiedHeader.Height-newHeader.Height > 10000 {
 		c.logger.Info(fmt.Sprintf("skipping the backward verification process from %d to %d", newHeader.Height, verifiedHeader.Height))
 		return nil
 	}
