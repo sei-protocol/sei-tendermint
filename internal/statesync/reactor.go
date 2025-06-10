@@ -375,6 +375,15 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		}
 	}
 
+	if !r.cfg.UseLocalSnapshot {
+		// We need at least two peers (for cross-referencing of light blocks) before we can
+		// begin state sync
+		if err := r.waitForEnoughPeers(ctx, 2); err != nil {
+			return sm.State{}, err
+		}
+		r.logger.Info("Finished waiting for 2 peers to start state sync")
+	}
+
 	r.mtx.Lock()
 	if r.syncer != nil {
 		r.mtx.Unlock()
@@ -404,13 +413,6 @@ func (r *Reactor) Sync(ctx context.Context) (sm.State, error) {
 		for _, snap := range snapshotList {
 			r.syncer.AddSnapshot("self", snap)
 		}
-	} else {
-		// We need at least two peers (for cross-referencing of light blocks) before we can
-		// begin state sync
-		if err := r.waitForEnoughPeers(ctx, 2); err != nil {
-			return sm.State{}, err
-		}
-		r.logger.Info("Finished waiting for 2 peers to start state sync")
 	}
 
 	state, commit, err := r.syncer.SyncAny(ctx, r.cfg.DiscoveryTime, r.requestSnaphot)
