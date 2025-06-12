@@ -271,7 +271,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
-	fmt.Printf("[Debug] finalizeBlockStartTime latency is %s\n")
+	fmt.Printf("[Debug] finalizeBlockStartTime latency is %s\n", time.Since(finalizeBlockStartTime))
 	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
