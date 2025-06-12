@@ -271,6 +271,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
+	fmt.Printf("[Debug] finalizeBlockStartTime latency is %s\n")
 	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
@@ -297,6 +298,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		// but not for saving it to the state store
 		return state, err
 	}
+	fmt.Printf("[Debug] saveBlockResponseTime latency is %s\n", time.Since(saveBlockResponseTime))
 
 	// validate the validator updates and convert to tendermint types
 	err = validateValidatorUpdates(fBlockRes.ValidatorUpdates, state.ConsensusParams.Validator)
@@ -346,6 +348,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			"duration", time.Since(commitStart),
 			"height", block.Height)
 	}
+	fmt.Printf("[Debug] blockExec.Commit latency is %s\n", time.Since(commitStart))
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
@@ -357,6 +360,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, err
 	}
 	blockExec.metrics.SaveBlockLatency.Observe(float64(time.Since(saveBlockTime).Milliseconds()))
+	fmt.Printf("[Debug] blockExec.store.Save latency is %s\n", time.Since(saveBlockTime))
 	// Prune old heights, if requested by ABCI app.
 	pruneBlockTime := time.Now()
 	if retainHeight > 0 {
@@ -368,6 +372,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		}
 	}
 	blockExec.metrics.PruneBlockLatency.Observe(float64(time.Since(pruneBlockTime).Milliseconds()))
+	fmt.Printf("[Debug] Pruneblock latency is %s\n", time.Since(pruneBlockTime))
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
@@ -376,6 +381,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
+	fmt.Printf("[Debug] FireEvents latency is %s\n", time.Since(fireEventsStartTime))
 	return state, nil
 }
 
