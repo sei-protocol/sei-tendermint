@@ -438,6 +438,7 @@ func (blockExec *BlockExecutor) Commit(
 		return 0, err
 	}
 	blockExec.metrics.FlushAppConnectionTime.Observe(float64(time.Since(start)))
+	fmt.Printf("[Debug] FlushAppConn latency is %s\n", time.Since(start))
 
 	// Commit block, get hash back
 	start = time.Now()
@@ -447,6 +448,7 @@ func (blockExec *BlockExecutor) Commit(
 		return 0, err
 	}
 	blockExec.metrics.ApplicationCommitTime.Observe(float64(time.Since(start)))
+	fmt.Printf("[Debug] appClient.Commit latency is %s\n", time.Since(start))
 
 	// ResponseCommit has no error code - just data
 	blockExec.logger.Info(
@@ -469,7 +471,7 @@ func (blockExec *BlockExecutor) Commit(
 		state.ConsensusParams.ABCI.RecheckTx,
 	)
 	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(start)))
-
+	fmt.Printf("[Debug] Update mempool latency is %s\n", time.Since(start))
 	return res.RetainHeight, err
 }
 
