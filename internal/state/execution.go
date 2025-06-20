@@ -271,7 +271,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
-	fmt.Printf("[Debug] finalizeBlockStartTime latency is %s\n", time.Since(finalizeBlockStartTime))
+	fmt.Printf("[Debug] finalizeBlock latency is %s\n", time.Since(finalizeBlockStartTime))
 	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
@@ -348,7 +348,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			"duration", time.Since(commitStart),
 			"height", block.Height)
 	}
-	fmt.Printf("[Debug] blockExec.Commit latency is %s\n", time.Since(commitStart))
 
 	// Update evpool with the latest state.
 	blockExec.evpool.Update(ctx, state, block.Evidence)
@@ -372,12 +371,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		}
 	}
 	blockExec.metrics.PruneBlockLatency.Observe(float64(time.Since(pruneBlockTime).Milliseconds()))
-	fmt.Printf("[Debug] Pruneblock latency is %s\n", time.Since(pruneBlockTime))
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
 	// Events are fired after everything else.
-	// NOTE: if we crash between Commit and Save, events wont be fired during replay
+	// NOTE: if we crash between Commit and Save, events won't be fired during replay
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
@@ -438,7 +436,6 @@ func (blockExec *BlockExecutor) Commit(
 		return 0, err
 	}
 	blockExec.metrics.FlushAppConnectionTime.Observe(float64(time.Since(start)))
-	fmt.Printf("[Debug] FlushAppConn latency is %s\n", time.Since(start))
 
 	// Commit block, get hash back
 	start = time.Now()
@@ -448,7 +445,6 @@ func (blockExec *BlockExecutor) Commit(
 		return 0, err
 	}
 	blockExec.metrics.ApplicationCommitTime.Observe(float64(time.Since(start)))
-	fmt.Printf("[Debug] appClient.Commit latency is %s\n", time.Since(start))
 
 	// ResponseCommit has no error code - just data
 	blockExec.logger.Info(
@@ -460,7 +456,7 @@ func (blockExec *BlockExecutor) Commit(
 	)
 
 	// Update mempool.
-	start = time.Now()
+	updateStart := time.Now()
 	err = blockExec.mempool.Update(
 		ctx,
 		block.Height,
@@ -470,8 +466,8 @@ func (blockExec *BlockExecutor) Commit(
 		TxPostCheckForState(state),
 		state.ConsensusParams.ABCI.RecheckTx,
 	)
-	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(start)))
-	fmt.Printf("[Debug] Update mempool latency is %s\n", time.Since(start))
+	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(updateStart)))
+	fmt.Printf("[Debug] Update mempool latency is %s\n", time.Since(updateStart))
 	return res.RetainHeight, err
 }
 
