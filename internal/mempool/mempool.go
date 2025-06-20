@@ -597,7 +597,7 @@ func (txmp *TxMempool) Update(
 	if txmp.Size() > 0 {
 		if recheck {
 			txmp.updateReCheckTxs(ctx)
-			fmt.Printf("[Debug] updateReCheckTxs took %s\n", time.Since(startTime))
+			fmt.Printf("[Debug] RecheckTx %d txs took %s\n", txmp.Size(), time.Since(startTime))
 		} else {
 			txmp.notifyTxsAvailable()
 			fmt.Printf("[Debug] notifyTxsAvailable took %s\n", time.Since(startTime))
@@ -859,6 +859,7 @@ func (txmp *TxMempool) updateReCheckTxs(ctx context.Context) {
 	txmp.recheckCursor = txmp.gossipIndex.Front()
 	txmp.recheckEnd = txmp.gossipIndex.Back()
 
+	startTime := time.Now()
 	for e := txmp.gossipIndex.Front(); e != nil; e = e.Next() {
 		wtx := e.Value.(*WrappedTx)
 
@@ -877,6 +878,7 @@ func (txmp *TxMempool) updateReCheckTxs(ctx context.Context) {
 			txmp.handleRecheckResult(wtx.tx, res)
 		}
 	}
+	fmt.Printf("[Debug] Gossip took %s\n", time.Since(startTime))
 
 	if err := txmp.proxyAppConn.Flush(ctx); err != nil {
 		txmp.logger.Error("failed to flush transactions during rechecking", "err", err)
