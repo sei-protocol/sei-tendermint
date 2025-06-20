@@ -596,17 +596,13 @@ func (txmp *TxMempool) Update(
 	startTime = time.Now()
 	if txmp.Size() > 0 {
 		if recheck {
-			txmp.logger.Debug(
-				"executing re-CheckTx for all remaining transactions",
-				"num_txs", txmp.Size(),
-				"height", blockHeight,
-			)
 			txmp.updateReCheckTxs(ctx)
+			fmt.Printf("[Debug] updateReCheckTxs took %s\n", time.Since(startTime))
 		} else {
 			txmp.notifyTxsAvailable()
+			fmt.Printf("[Debug] notifyTxsAvailable took %s\n", time.Since(startTime))
 		}
 	}
-	fmt.Printf("[Debug] recheck+notifyTxsAvailable took %s\n", time.Since(startTime))
 
 	txmp.metrics.Size.Set(float64(txmp.NumTxsNotPending()))
 	txmp.metrics.TotalTxsSizeBytes.Set(float64(txmp.TotalTxsBytesSize()))
