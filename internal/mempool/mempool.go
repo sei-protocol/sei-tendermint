@@ -558,6 +558,7 @@ func (txmp *TxMempool) Update(
 		txmp.postCheck = newPostFn
 	}
 
+	startTime := time.Now()
 	for i, tx := range blockTxs {
 		if execTxResult[i].Code == abci.CodeTypeOK {
 			// add the valid committed transaction to the cache (if missing)
@@ -582,13 +583,17 @@ func (txmp *TxMempool) Update(
 			}
 		}
 	}
+	fmt.Printf("[Debug] Total %d txs push+remove took %s\n", len(blockTxs), time.Since(startTime))
 
+	startTime = time.Now()
 	txmp.purgeExpiredTxs(blockHeight)
 	txmp.handlePendingTransactions()
+	fmt.Printf("[Debug] Pusge+handlingPendingTx took %s\n", time.Since(startTime))
 
 	// If there any uncommitted transactions left in the mempool, we either
 	// initiate re-CheckTx per remaining transaction or notify that remaining
 	// transactions are left.
+	startTime = time.Now()
 	if txmp.Size() > 0 {
 		if recheck {
 			txmp.logger.Debug(
@@ -601,6 +606,7 @@ func (txmp *TxMempool) Update(
 			txmp.notifyTxsAvailable()
 		}
 	}
+	fmt.Printf("[Debug] recheck+notifyTxsAvailable took %s\n", time.Since(startTime))
 
 	txmp.metrics.Size.Set(float64(txmp.NumTxsNotPending()))
 	txmp.metrics.TotalTxsSizeBytes.Set(float64(txmp.TotalTxsBytesSize()))
