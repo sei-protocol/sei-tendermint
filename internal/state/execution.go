@@ -298,8 +298,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		// but not for saving it to the state store
 		return state, err
 	}
-	fmt.Printf("[Debug] saveBlockResponseTime latency is %s\n", time.Since(saveBlockResponseTime))
-
 	// validate the validator updates and convert to tendermint types
 	err = validateValidatorUpdates(fBlockRes.ValidatorUpdates, state.ConsensusParams.Validator)
 	if err != nil {
@@ -359,7 +357,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		return state, err
 	}
 	blockExec.metrics.SaveBlockLatency.Observe(float64(time.Since(saveBlockTime).Milliseconds()))
-	fmt.Printf("[Debug] blockExec.store.Save latency is %s\n", time.Since(saveBlockTime))
 	// Prune old heights, if requested by ABCI app.
 	pruneBlockTime := time.Now()
 	if retainHeight > 0 {
@@ -379,7 +376,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
-	fmt.Printf("[Debug] FireEvents latency is %s\n", time.Since(fireEventsStartTime))
 	return state, nil
 }
 
