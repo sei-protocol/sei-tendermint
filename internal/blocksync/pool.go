@@ -797,6 +797,8 @@ OUTER_LOOP:
 			case <-bpr.timeoutTicker.C:
 				if bpr.reset(false) {
 					continue OUTER_LOOP
+				} else {
+					continue WAIT_LOOP
 				}
 			case <-bpr.gotBlockCh:
 				// We got a block!
