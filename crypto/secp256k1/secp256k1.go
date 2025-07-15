@@ -197,35 +197,30 @@ func (privKey PrivKey) Sign(msg []byte) ([]byte, error) {
 }
 
 // VerifySignature verifies a signature of the form R || S.
-// It rejects signatures which are not in lower-S form.
-//
-// This implementation constructs an ecdsa.Signature object directly from the
-// raw R || S bytes and uses the standard verification method, which is more
-// efficient than the public key recovery approach.
+// It rejects signatures that are not in lower-S form to prevent malleability.
 func (pubKey PubKey) VerifySignature(msg []byte, sigStr []byte) bool {
 	if len(sigStr) != 64 {
 		return false
 	}
 
-	// Parse the public key
 	p, err := secp256k1.ParsePubKey(pubKey)
 	if err != nil {
 		return false
 	}
 
-	// Extract R and S from the 64-byte signature
-	r := new(big.Int).SetBytes(sigStr[:32])
-	s := new(big.Int).SetBytes(sigStr[32:64])
-
-	// Convert to ModNScalar format required by btcec/v2
 	var rScalar, sScalar secp256k1.ModNScalar
-	rScalar.SetByteSlice(r.Bytes())
-	sScalar.SetByteSlice(s.Bytes())
+	// Check for overflow: SetByteSlice returns true if the value >= curve order N
+	if rScalar.SetByteSlice(sigStr[:32]) || sScalar.SetByteSlice(sigStr[32:]) {
+		return false
+	}
+	// Enforce low-S: reject S > N/2 to prevent signature malleability
+	if sScalar.IsOverHalfOrder() {
+		return false
+	}
 
-	// Construct the signature object
 	signature := ecdsa.NewSignature(&rScalar, &sScalar)
 
-	// Hash the message and verify the signature
+	// Hash the message and verify the signature.
 	seed := sha256.Sum256(msg)
 	return signature.Verify(seed[:], p)
 }
