@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -533,6 +534,9 @@ func (n *nodeImpl) OnStart(ctx context.Context) error {
 	// Start Internal Services
 
 	if n.config.RPC.PprofListenAddress != "" {
+		// runtime block profile rate
+		runtime.SetBlockProfileRate(1_000_000) // profile anything that blocks more than 1ms
+
 		signal := make(chan struct{})
 		srv := &http.Server{Addr: n.config.RPC.PprofListenAddress, Handler: nil}
 		go func() {
