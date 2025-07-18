@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/google/orderedcode"
@@ -481,7 +482,9 @@ func (store dbStore) saveFinalizeBlockResponses(height int64, finalizeBlockRespo
 		return ErrNoFinalizeBlockResponsesForHeight{height}
 	}
 
-	return store.db.SetSync(finalizeBlockResponsesKey(height), bz)
+	err = store.db.SetSync(finalizeBlockResponsesKey(height), bz)
+	fmt.Printf("[Debug] %s save finalizeBlockResponses for height %d with %d txs\n", time.Now().Format("2006-01-02 15:04:05.000"), height, len(finalizeBlockResponses.TxResults))
+	return err
 }
 
 // SaveValidatorSets is used to save the validator set over multiple heights.
