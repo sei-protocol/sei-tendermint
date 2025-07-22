@@ -349,7 +349,7 @@ func newConsensusStateForReplay(
 	}
 
 	mempool, evpool := emptyMempool{}, sm.EmptyEvidencePool{}
-	blockExec := sm.NewBlockExecutor(stateStore, logger, proxyApp, mempool, evpool, blockStore, eventBus, sm.NopMetrics())
+	blockExec := sm.NewBlockExecutor(stateStore, logger, proxyApp, mempool, evpool, blockStore, eventBus, sm.NopMetrics(), csConfig)
 
 	consensusState, err := NewState(logger, csConfig, stateStore, blockExec,
 		blockStore, mempool, evpool, eventBus, []trace.TracerProviderOption{})

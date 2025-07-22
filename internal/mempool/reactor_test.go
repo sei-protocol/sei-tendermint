@@ -12,6 +12,7 @@ import (
 
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/require"
+	"gotest.tools/assert"
 
 	abciclient "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
@@ -415,4 +416,104 @@ func TestBroadcastTxForPeerStopsWhenPeerStops(t *testing.T) {
 	require.Equal(t, 4, len(txs))
 	require.Equal(t, 4, rts.mempools[primary].Size())
 	require.Equal(t, 0, rts.mempools[secondary].Size())
+}
+
+func TestReactor_IsolatedMode(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	logger := log.NewNopLogger()
+
+	// Create mempool config with broadcast disabled (isolated mode)
+	cfg := config.TestMempoolConfig()
+	cfg.Broadcast = false
+
+	// Create a real mempool for testing
+	client := abciclient.NewLocalClient(logger, kvstore.NewApplication())
+	require.NoError(t, client.Start(ctx))
+	t.Cleanup(func() {
+		client.Stop()
+		client.Wait()
+	})
+
+	mempool := setup(t, client, 0)
+
+	// Create reactor with isolated mode
+	peerUpdates := make(chan p2p.PeerUpdate, 1)
+	reactor := NewReactor(logger, cfg, mempool, func(ctx context.Context) *p2p.PeerUpdates {
+		return p2p.NewPeerUpdates(peerUpdates, 1)
+	})
+
+	// Record initial mempool size
+	initialSize := mempool.Size()
+
+	// Create a mock envelope with transactions
+	mockTx := []byte("test-transaction-isolated")
+	envelope := &p2p.Envelope{
+		From: types.NodeID("test-peer"),
+		Message: &protomem.Txs{
+			Txs: [][]byte{mockTx},
+		},
+	}
+
+	// In isolated mode, handleMempoolMessage should ignore the transactions
+	err := reactor.handleMempoolMessage(ctx, envelope)
+	require.NoError(t, err)
+
+	// Verify that the mempool size hasn't changed (transaction was ignored)
+	assert.Equal(t, initialSize, mempool.Size(),
+		"Mempool size should not change in isolated mode when receiving peer transactions")
+}
+
+func TestReactor_NormalMode(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	logger := log.NewNopLogger()
+
+	// Create mempool config with broadcast enabled (normal mode)
+	cfg := config.TestMempoolConfig()
+	cfg.Broadcast = true
+
+	// Create a real mempool for testing
+	client := abciclient.NewLocalClient(logger, kvstore.NewApplication())
+	require.NoError(t, client.Start(ctx))
+	t.Cleanup(func() {
+		client.Stop()
+		client.Wait()
+	})
+
+	mempool := setup(t, client, 0)
+
+	// Create reactor with normal mode
+	peerUpdates := make(chan p2p.PeerUpdate, 1)
+	reactor := NewReactor(logger, cfg, mempool, func(ctx context.Context) *p2p.PeerUpdates {
+		return p2p.NewPeerUpdates(peerUpdates, 1)
+	})
+
+	// Set up IDs for peer tracking
+	reactor.ids.ReserveForPeer(types.NodeID("test-peer"))
+
+	// Record initial mempool size
+	initialSize := mempool.Size()
+
+	// Create a valid transaction
+	mockTx := []byte("test-tx-normal-mode")
+	envelope := &p2p.Envelope{
+		From: types.NodeID("test-peer"),
+		Message: &protomem.Txs{
+			Txs: [][]byte{mockTx},
+		},
+	}
+
+	// In normal mode, handleMempoolMessage should process the transactions
+	err := reactor.handleMempoolMessage(ctx, envelope)
+	require.NoError(t, err)
+
+	// Wait a bit for processing
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify that the mempool size increased (transaction was processed)
+	assert.Equal(t, initialSize+1, mempool.Size(),
+		"Mempool size should increase in normal mode when receiving valid peer transactions")
 }

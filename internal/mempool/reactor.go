@@ -103,7 +103,9 @@ func GetChannelDescriptor(cfg *config.MempoolConfig) *p2p.ChannelDescriptor {
 // OnStop to ensure the outbound p2p Channels are closed.
 func (r *Reactor) OnStart(ctx context.Context) error {
 	if !r.cfg.Broadcast {
-		r.logger.Info("tx broadcasting is disabled")
+		r.logger.Info("mempool running in isolated mode - transaction broadcasting and receiving disabled")
+	} else {
+		r.logger.Info("mempool running in normal mode - transaction broadcasting and receiving enabled")
 	}
 
 	if r.channel == nil {
@@ -125,6 +127,13 @@ func (r *Reactor) OnStop() {}
 // message type.
 func (r *Reactor) handleMempoolMessage(ctx context.Context, envelope *p2p.Envelope) error {
 	logger := r.logger.With("peer", envelope.From)
+
+	// If broadcasting is disabled, ignore incoming transactions to create an isolated mempool
+	if !r.cfg.Broadcast {
+		logger.Debug("ignoring received transactions due to isolated mempool mode (broadcast=false)",
+			"peer", envelope.From)
+		return nil
+	}
 
 	switch msg := envelope.Message.(type) {
 	case *protomem.Txs:

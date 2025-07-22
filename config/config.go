@@ -1087,6 +1087,12 @@ type ConsensusConfig struct {
 	// as soon as the node has gathered votes from all of the validators on the network.
 	UnsafeBypassCommitTimeoutOverride *bool `mapstructure:"unsafe-bypass-commit-timeout-override"`
 
+	// UnsafeIgnoreAppHashValidation provides an unsafe override to skip app hash
+	// validation during block validation. When enabled, the node will ignore app hash
+	// mismatches with other nodes. This should only be used in testing scenarios or
+	// when debugging app hash calculation issues.
+	UnsafeIgnoreAppHashValidation bool `mapstructure:"unsafe-ignore-app-hash-validation"`
+
 	// Deprecated timeout parameters. These parameters are present in this struct
 	// so that they can be parsed so that validation can check if they have erroneously
 	// been included and provide a helpful error message.
@@ -1110,7 +1116,8 @@ func DefaultConsensusConfig() *ConsensusConfig {
 		CreateEmptyBlocksInterval:   0 * time.Second,
 		PeerGossipSleepDuration:     100 * time.Millisecond,
 		PeerQueryMaj23SleepDuration: 2000 * time.Millisecond,
-		DoubleSignCheckHeight:       int64(0),
+		DoubleSignCheckHeight:          int64(0),
+		UnsafeIgnoreAppHashValidation:  false,
 		// Sei Configurations
 		GossipTransactionKeyOnly: true,
 	}

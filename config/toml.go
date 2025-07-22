@@ -505,6 +505,11 @@ gossip-tx-key-only = "{{ .Consensus.GossipTransactionKeyOnly }}"
 peer-gossip-sleep-duration = "{{ .Consensus.PeerGossipSleepDuration }}"
 peer-query-maj23-sleep-duration = "{{ .Consensus.PeerQueryMaj23SleepDuration }}"
 
+# UNSAFE: Skip app hash validation during block validation.
+# This should only be used in testing scenarios or when debugging app hash calculation issues.
+# Setting this to true will cause the node to ignore app hash mismatches with other nodes.
+unsafe-ignore-app-hash-validation = {{ .Consensus.UnsafeIgnoreAppHashValidation }}
+
 ### Unsafe Timeout Overrides ###
 
 # These fields provide temporary overrides for the Timeout consensus parameters.

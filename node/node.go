@@ -309,6 +309,7 @@ func makeNode(
 		blockStore,
 		eventBus,
 		nodeMetrics.state,
+		cfg.Consensus,
 	)
 
 	// Determine whether we should attempt state sync.

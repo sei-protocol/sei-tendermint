@@ -10,6 +10,7 @@ import (
 
 	abciclient "github.com/tendermint/tendermint/abci/client"
 	abci "github.com/tendermint/tendermint/abci/types"
+	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/crypto/encoding"
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/internal/eventbus"
@@ -47,6 +48,9 @@ type BlockExecutor struct {
 	logger  log.Logger
 	metrics *Metrics
 
+	// consensus configuration for validation settings  
+	config *config.ConsensusConfig
+
 	// cache the verification results over a single height
 	cache map[string]struct{}
 }
@@ -61,6 +65,7 @@ func NewBlockExecutor(
 	blockStore BlockStore,
 	eventBus *eventbus.EventBus,
 	metrics *Metrics,
+	config *config.ConsensusConfig,
 ) *BlockExecutor {
 	return &BlockExecutor{
 		eventBus:   eventBus,
@@ -70,6 +75,7 @@ func NewBlockExecutor(
 		evpool:     evpool,
 		logger:     logger,
 		metrics:    metrics,
+		config:     config,
 		cache:      make(map[string]struct{}),
 		blockStore: blockStore,
 	}
@@ -204,7 +210,7 @@ func (blockExec *BlockExecutor) ValidateBlock(ctx context.Context, state State, 
 		return nil
 	}
 
-	err := validateBlock(state, block)
+	err := validateBlock(state, block, blockExec.config)
 	if err != nil {
 		return err
 	}
