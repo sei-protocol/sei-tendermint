@@ -27,6 +27,7 @@ func NewBitArray(bits int) *BitArray {
 	if bits <= 0 {
 		return nil
 	}
+
 	bA := &BitArray{}
 	bA.reset(bits)
 	return bA
@@ -466,6 +467,7 @@ func (bA *BitArray) FromProto(protoBitArray *tmprotobits.BitArray) error {
 	if protoBitArray.Bits > math.MaxInt32 { // prevent overflow on 32bit systems
 		return errors.New("too many Bits")
 	}
+
 	if got, exp := len(protoBitArray.Elems), numElems(int(protoBitArray.Bits)); got != exp {
 		return fmt.Errorf("invalid number of Elems: got %d, but exp %d", got, exp)
 	}

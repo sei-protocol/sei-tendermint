@@ -192,3 +192,37 @@ func TestPartProtoBuf(t *testing.T) {
 		}
 	}
 }
+
+func TestNewPartSetFromHeader(t *testing.T) {
+	// Test that NewPartSetFromHeader rejects headers with excessive Total values
+	testCases := []struct {
+		name      string
+		total     uint32
+		expectNil bool
+	}{
+		{"valid total", 1, false},
+		{"max valid total", MaxBlockPartsCount, false},
+		{"over max total", MaxBlockPartsCount + 1, true},
+		{"DoS attack value", 4294967295, true}, // max uint32
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			header := PartSetHeader{
+				Total: tc.total,
+				Hash:  []byte("test-hash"),
+			}
+
+			partSet := NewPartSetFromHeader(header)
+
+			if tc.expectNil {
+				require.Nil(t, partSet, "Expected nil for invalid header")
+			} else {
+				require.NotNil(t, partSet, "Expected valid PartSet")
+				require.Equal(t, tc.total, partSet.total)
+				require.NotNil(t, partSet.parts)
+				require.NotNil(t, partSet.partsBitArray)
+			}
+		})
+	}
+}

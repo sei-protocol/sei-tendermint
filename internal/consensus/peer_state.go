@@ -9,8 +9,8 @@ import (
 
 	cstypes "github.com/tendermint/tendermint/internal/consensus/types"
 	"github.com/tendermint/tendermint/libs/bits"
-	"github.com/tendermint/tendermint/libs/log"
 	tmjson "github.com/tendermint/tendermint/libs/json"
+	"github.com/tendermint/tendermint/libs/log"
 	tmtime "github.com/tendermint/tendermint/libs/time"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 	"github.com/tendermint/tendermint/types"
@@ -108,29 +108,59 @@ func (ps *PeerState) GetHeight() int64 {
 }
 
 // SetHasProposal sets the given proposal as known for the peer.
-func (ps *PeerState) SetHasProposal(proposal *types.Proposal) {
+func (ps *PeerState) SetHasProposal(proposal *types.Proposal) error {
+	// Validate input
+	if proposal == nil {
+		return ErrPeerStateSetNilVote // Reuse existing error for nil proposal
+	}
+
+	// Perform basic validation on the proposal
+	if err := proposal.ValidateBasic(); err != nil {
+		ps.logger.Debug("invalid proposal received", "error", err, "proposal", proposal)
+		return fmt.Errorf("invalid proposal: %w", err)
+	}
+
+	// Validate POLRound bounds
+	if proposal.POLRound < -1 || (proposal.POLRound >= 0 && proposal.POLRound >= proposal.Round) {
+		ps.logger.Debug("invalid POLRound in proposal", "pol_round", proposal.POLRound, "round", proposal.Round)
+		return fmt.Errorf("invalid POLRound: %d (must be -1 or in range [0, %d))", proposal.POLRound, proposal.Round)
+	}
+
+	// Validate PartSetHeader.Total is within reasonable bounds
+	if proposal.BlockID.PartSetHeader.Total <= 0 {
+		ps.logger.Debug("invalid PartSetHeader.Total", "total", proposal.BlockID.PartSetHeader.Total)
+		return fmt.Errorf("invalid PartSetHeader.Total: %d (must be > 0)", proposal.BlockID.PartSetHeader.Total)
+	}
+
+	if proposal.BlockID.PartSetHeader.Total > types.MaxBlockPartsCount {
+		ps.logger.Debug("PartSetHeader.Total exceeds maximum", "total", proposal.BlockID.PartSetHeader.Total, "max", types.MaxBlockPartsCount)
+		return fmt.Errorf("PartSetHeader.Total too large: %d (max: %d)", proposal.BlockID.PartSetHeader.Total, types.MaxBlockPartsCount)
+	}
+
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
 	if ps.PRS.Height != proposal.Height || ps.PRS.Round != proposal.Round {
-		return
+		return nil
 	}
 
 	if ps.PRS.Proposal {
-		return
+		return nil
 	}
 
 	ps.PRS.Proposal = true
 
 	// ps.PRS.ProposalBlockParts is set due to NewValidBlockMessage
 	if ps.PRS.ProposalBlockParts != nil {
-		return
+		return nil
 	}
 
 	ps.PRS.ProposalBlockPartSetHeader = proposal.BlockID.PartSetHeader
 	ps.PRS.ProposalBlockParts = bits.NewBitArray(int(proposal.BlockID.PartSetHeader.Total))
 	ps.PRS.ProposalPOLRound = proposal.POLRound
 	ps.PRS.ProposalPOL = nil // Nil until ProposalPOLMessage received.
+
+	return nil
 }
 
 // InitProposalBlockParts initializes the peer's proposal block parts header
@@ -140,6 +170,12 @@ func (ps *PeerState) InitProposalBlockParts(partSetHeader types.PartSetHeader) {
 	defer ps.mtx.Unlock()
 
 	if ps.PRS.ProposalBlockParts != nil {
+		return
+	}
+
+	// Apply the same memory exhaustion protection as in SetHasProposal
+	if partSetHeader.Total > types.MaxBlockPartsCount {
+		ps.logger.Debug("InitProposalBlockParts: PartSetHeader.Total exceeds maximum", "total", partSetHeader.Total, "max", types.MaxBlockPartsCount)
 		return
 	}
 
