@@ -558,6 +558,7 @@ func (txmp *TxMempool) Update(
 		txmp.postCheck = newPostFn
 	}
 
+	startTime := time.Now()
 	for i, tx := range blockTxs {
 		if execTxResult[i].Code == abci.CodeTypeOK {
 			// add the valid committed transaction to the cache (if missing)
@@ -582,23 +583,24 @@ func (txmp *TxMempool) Update(
 			}
 		}
 	}
+	fmt.Printf("[Debug] Total %d txs push+remove took %s\n", len(blockTxs), time.Since(startTime))
 
+	startTime = time.Now()
 	txmp.purgeExpiredTxs(blockHeight)
 	txmp.handlePendingTransactions()
+	fmt.Printf("[Debug] Pusge+handlingPendingTx took %s\n", time.Since(startTime))
 
 	// If there any uncommitted transactions left in the mempool, we either
 	// initiate re-CheckTx per remaining transaction or notify that remaining
 	// transactions are left.
+	startTime = time.Now()
 	if txmp.Size() > 0 {
 		if recheck {
-			txmp.logger.Debug(
-				"executing re-CheckTx for all remaining transactions",
-				"num_txs", txmp.Size(),
-				"height", blockHeight,
-			)
 			txmp.updateReCheckTxs(ctx)
+			fmt.Printf("[Debug] RecheckTx %d txs took %s\n", txmp.Size(), time.Since(startTime))
 		} else {
 			txmp.notifyTxsAvailable()
+			fmt.Printf("[Debug] notifyTxsAvailable took %s\n", time.Since(startTime))
 		}
 	}
 
@@ -857,6 +859,7 @@ func (txmp *TxMempool) updateReCheckTxs(ctx context.Context) {
 	txmp.recheckCursor = txmp.gossipIndex.Front()
 	txmp.recheckEnd = txmp.gossipIndex.Back()
 
+	startTime := time.Now()
 	for e := txmp.gossipIndex.Front(); e != nil; e = e.Next() {
 		wtx := e.Value.(*WrappedTx)
 
@@ -875,6 +878,7 @@ func (txmp *TxMempool) updateReCheckTxs(ctx context.Context) {
 			txmp.handleRecheckResult(wtx.tx, res)
 		}
 	}
+	fmt.Printf("[Debug] Gossip took %s\n", time.Since(startTime))
 
 	if err := txmp.proxyAppConn.Flush(ctx); err != nil {
 		txmp.logger.Error("failed to flush transactions during rechecking", "err", err)
