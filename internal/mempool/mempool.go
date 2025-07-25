@@ -1059,7 +1059,7 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 	}
 
 	for _, wtx := range expiredTxs {
-		txmp.expire(blockHeight, wtx)
+		txmp.removeTx(wtx, !txmp.config.KeepInvalidTxsInCache, false, true)
 	}
 
 	// remove pending txs that have expired
