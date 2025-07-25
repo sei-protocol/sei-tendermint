@@ -310,3 +310,144 @@ func TestInitProposalBlockPartsMemoryLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestInitProposalBlockPartsAlreadySet(t *testing.T) {
+	logger := log.NewTestingLogger(t)
+	peerID := types.NodeID("test-peer")
+	ps := NewPeerState(logger, peerID)
+
+	// Set up initial proposal block parts
+	initialHeader := types.PartSetHeader{
+		Total: 5,
+		Hash:  []byte("initial-hash"),
+	}
+	ps.InitProposalBlockParts(initialHeader)
+	require.NotNil(t, ps.PRS.ProposalBlockParts)
+	require.Equal(t, 5, ps.PRS.ProposalBlockParts.Size())
+
+	// Try to set again with different header - should be ignored
+	newHeader := types.PartSetHeader{
+		Total: 10,
+		Hash:  []byte("new-hash"),
+	}
+	ps.InitProposalBlockParts(newHeader)
+
+	// Should still have the original values
+	require.NotNil(t, ps.PRS.ProposalBlockParts)
+	require.Equal(t, 5, ps.PRS.ProposalBlockParts.Size())
+	require.Equal(t, initialHeader, ps.PRS.ProposalBlockPartSetHeader)
+}
+
+func TestSetHasProposalEdgeCases(t *testing.T) {
+	logger := log.NewTestingLogger(t)
+	peerID := types.NodeID("test-peer")
+
+	testCases := []struct {
+		name           string
+		setupPeerState func(ps *PeerState)
+		proposal       *types.Proposal
+		expectError    bool
+		expectProposal bool
+	}{
+		{
+			name: "nil proposal",
+			setupPeerState: func(ps *PeerState) {
+				ps.PRS.Height = 1
+				ps.PRS.Round = 0
+			},
+			proposal:       nil,
+			expectError:    true,
+			expectProposal: false,
+		},
+		{
+			name: "zero PartSetHeader.Total",
+			setupPeerState: func(ps *PeerState) {
+				ps.PRS.Height = 1
+				ps.PRS.Round = 0
+			},
+			proposal: &types.Proposal{
+				Type:     tmproto.ProposalType,
+				Height:   1,
+				Round:    0,
+				POLRound: -1,
+				BlockID: types.BlockID{
+					Hash: make([]byte, 32),
+					PartSetHeader: types.PartSetHeader{
+						Total: 0, // Invalid: must be > 0
+						Hash:  make([]byte, 32),
+					},
+				},
+				Timestamp: time.Now(),
+				Signature: []byte("test-signature"),
+			},
+			expectError:    true,
+			expectProposal: false,
+		},
+		{
+			name: "wrong height",
+			setupPeerState: func(ps *PeerState) {
+				ps.PRS.Height = 1
+				ps.PRS.Round = 0
+			},
+			proposal: &types.Proposal{
+				Type:     tmproto.ProposalType,
+				Height:   2, // Wrong height
+				Round:    0,
+				POLRound: -1,
+				BlockID: types.BlockID{
+					Hash: make([]byte, 32),
+					PartSetHeader: types.PartSetHeader{
+						Total: 1,
+						Hash:  make([]byte, 32),
+					},
+				},
+				Timestamp: time.Now(),
+				Signature: []byte("test-signature"),
+			},
+			expectError:    false,
+			expectProposal: false,
+		},
+		{
+			name: "already has proposal",
+			setupPeerState: func(ps *PeerState) {
+				ps.PRS.Height = 1
+				ps.PRS.Round = 0
+				ps.PRS.Proposal = true // Already has proposal
+			},
+			proposal: &types.Proposal{
+				Type:     tmproto.ProposalType,
+				Height:   1,
+				Round:    0,
+				POLRound: -1,
+				BlockID: types.BlockID{
+					Hash: make([]byte, 32),
+					PartSetHeader: types.PartSetHeader{
+						Total: 1,
+						Hash:  make([]byte, 32),
+					},
+				},
+				Timestamp: time.Now(),
+				Signature: []byte("test-signature"),
+			},
+			expectError:    false,
+			expectProposal: true, // Should remain true
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ps := NewPeerState(logger, peerID)
+			tc.setupPeerState(ps)
+
+			err := ps.SetHasProposal(tc.proposal)
+
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, tc.expectProposal, ps.PRS.Proposal)
+		})
+	}
+}
