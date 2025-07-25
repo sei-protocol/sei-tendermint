@@ -108,51 +108,34 @@ func (ps *PeerState) GetHeight() int64 {
 }
 
 // SetHasProposal sets the given proposal as known for the peer.
-func (ps *PeerState) SetHasProposal(proposal *types.Proposal) error {
-	// Validate input
+func (ps *PeerState) SetHasProposal(proposal *types.Proposal) {
+	// ignore nil proposals
 	if proposal == nil {
-		return ErrPeerStateSetNilVote // Reuse existing error for nil proposal
+		return
 	}
 
-	// Perform basic validation on the proposal
-	if err := proposal.ValidateBasic(); err != nil {
-		ps.logger.Debug("invalid proposal received", "error", err, "proposal", proposal)
-		return fmt.Errorf("invalid proposal: %w", err)
-	}
-
-	// Validate POLRound bounds
-	if proposal.POLRound < -1 || (proposal.POLRound >= 0 && proposal.POLRound >= proposal.Round) {
-		ps.logger.Debug("invalid POLRound in proposal", "pol_round", proposal.POLRound, "round", proposal.Round)
-		return fmt.Errorf("invalid POLRound: %d (must be -1 or in range [0, %d))", proposal.POLRound, proposal.Round)
-	}
-
-	// Validate PartSetHeader.Total is within reasonable bounds
-	if proposal.BlockID.PartSetHeader.Total <= 0 {
-		ps.logger.Debug("invalid PartSetHeader.Total", "total", proposal.BlockID.PartSetHeader.Total)
-		return fmt.Errorf("invalid PartSetHeader.Total: %d (must be > 0)", proposal.BlockID.PartSetHeader.Total)
-	}
-
+	// Check memory limits before acquiring lock or setting any state
 	if proposal.BlockID.PartSetHeader.Total > types.MaxBlockPartsCount {
 		ps.logger.Debug("PartSetHeader.Total exceeds maximum", "total", proposal.BlockID.PartSetHeader.Total, "max", types.MaxBlockPartsCount)
-		return fmt.Errorf("PartSetHeader.Total too large: %d (max: %d)", proposal.BlockID.PartSetHeader.Total, types.MaxBlockPartsCount)
+		return
 	}
 
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
 
 	if ps.PRS.Height != proposal.Height || ps.PRS.Round != proposal.Round {
-		return nil
+		return
 	}
 
 	if ps.PRS.Proposal {
-		return nil
+		return
 	}
 
 	ps.PRS.Proposal = true
 
 	// ps.PRS.ProposalBlockParts is set due to NewValidBlockMessage
 	if ps.PRS.ProposalBlockParts != nil {
-		return nil
+		return
 	}
 
 	ps.PRS.ProposalBlockPartSetHeader = proposal.BlockID.PartSetHeader
@@ -160,7 +143,7 @@ func (ps *PeerState) SetHasProposal(proposal *types.Proposal) error {
 	ps.PRS.ProposalPOLRound = proposal.POLRound
 	ps.PRS.ProposalPOL = nil // Nil until ProposalPOLMessage received.
 
-	return nil
+	return
 }
 
 // InitProposalBlockParts initializes the peer's proposal block parts header

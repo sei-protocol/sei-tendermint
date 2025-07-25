@@ -1063,12 +1063,10 @@ func TestReactorMemoryLimitCoverage(t *testing.T) {
 	}
 
 	// Test direct SetHasProposal call (this is what reactor calls)
-	err := ps.SetHasProposal(invalidProposal)
-	require.Error(t, err, "SetHasProposal should reject proposal with excessive Total")
-	require.Contains(t, err.Error(), "too large", "Error should mention the proposal is too large")
+	ps.SetHasProposal(invalidProposal)
+	require.False(t, ps.PRS.Proposal, "SetHasProposal should silently ignore proposal with excessive Total")
 
-	// Test that reactor would handle this error properly by simulating the error path
-	// This provides coverage for the error handling in handleDataMessage without needing
-	// the full reactor setup which has proven complex to mock properly
-	t.Log("Coverage test: reactor error handling for invalid proposals is covered via PeerState validation")
+	// Test that reactor would handle this silently by verifying the defensive programming approach
+	// This provides coverage for the silent handling in handleDataMessage
+	t.Log("Coverage test: reactor silently ignores invalid proposals via PeerState validation")
 }

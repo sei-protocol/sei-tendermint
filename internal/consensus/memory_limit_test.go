@@ -30,6 +30,8 @@ func TestPeerStateMemoryLimits(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				ps := NewPeerState(logger, peerID)
+				ps.PRS.Height = 1
+				ps.PRS.Round = 0
 				blockID := types.BlockID{
 					Hash: make([]byte, 32),
 					PartSetHeader: types.PartSetHeader{
@@ -47,12 +49,11 @@ func TestPeerStateMemoryLimits(t *testing.T) {
 					Timestamp: time.Now(),
 					Signature: []byte("test-signature"),
 				}
-				err := ps.SetHasProposal(proposal)
+				ps.SetHasProposal(proposal)
 				if tc.expectError {
-					require.Error(t, err, "Expected error for excessive Total")
-					require.Contains(t, err.Error(), "too large")
+					require.False(t, ps.PRS.Proposal, "Expected proposal to be silently ignored for excessive Total")
 				} else {
-					require.NoError(t, err, "Expected no error for valid Total")
+					require.True(t, ps.PRS.Proposal, "Expected proposal to be accepted for valid Total")
 				}
 			})
 		}

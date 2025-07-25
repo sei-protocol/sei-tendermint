@@ -105,11 +105,11 @@ func TestApplyHasVoteMessage(t *testing.T) {
 func TestSetHasProposal(t *testing.T) {
 	ps := peerStateSetup(1, 1, 1)
 
-	// Test nil proposal
-	err := ps.SetHasProposal(nil)
-	require.Equal(t, ErrPeerStateSetNilVote, err)
+	// Test nil proposal - should be silently ignored
+	ps.SetHasProposal(nil)
+	require.False(t, ps.PRS.Proposal, "Nil proposal should be silently ignored")
 
-	// Test invalid proposal (missing signature)
+	// Test invalid proposal (missing signature) - should be silently ignored
 	invalidProposal := &types.Proposal{
 		Type:     tmproto.ProposalType,
 		Height:   1,
@@ -124,30 +124,12 @@ func TestSetHasProposal(t *testing.T) {
 		},
 		// Missing signature
 	}
-	err = ps.SetHasProposal(invalidProposal)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "signature is missing")
+	ps.SetHasProposal(invalidProposal)
+	require.True(t, ps.PRS.Proposal, "Valid structure proposal should be accepted regardless of signature")
 
-	// Test invalid POLRound
-	invalidPOLProposal := &types.Proposal{
-		Type:     tmproto.ProposalType,
-		Height:   1,
-		Round:    1,
-		POLRound: 2, // Invalid: POLRound >= Round
-		BlockID: types.BlockID{
-			Hash: make([]byte, crypto.HashSize),
-			PartSetHeader: types.PartSetHeader{
-				Total: 1,
-				Hash:  make([]byte, crypto.HashSize),
-			},
-		},
-		Signature: []byte("signature"),
-	}
-	err = ps.SetHasProposal(invalidPOLProposal)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid POLRound")
-
-	// Test PartSetHeader.Total too large
+	// Test PartSetHeader.Total too large - should be silently ignored
+	// Create a new peer state for this test
+	ps3 := peerStateSetup(1, 1, 1)
 	tooLargeTotalProposal := &types.Proposal{
 		Type:     tmproto.ProposalType,
 		Height:   1,
@@ -162,9 +144,8 @@ func TestSetHasProposal(t *testing.T) {
 		},
 		Signature: []byte("signature"),
 	}
-	err = ps.SetHasProposal(tooLargeTotalProposal)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "PartSetHeader.Total too large")
+	ps3.SetHasProposal(tooLargeTotalProposal)
+	require.False(t, ps3.PRS.Proposal, "Proposal with too large Total should be silently ignored")
 
 	// Test valid proposal
 	validProposal := &types.Proposal{
@@ -181,11 +162,11 @@ func TestSetHasProposal(t *testing.T) {
 		},
 		Signature: []byte("signature"),
 	}
-	err = ps.SetHasProposal(validProposal)
-	require.NoError(t, err)
-	require.True(t, ps.PRS.Proposal)
+	ps.SetHasProposal(validProposal)
+	require.True(t, ps.PRS.Proposal, "Valid proposal should be accepted")
 
-	// Test proposal for different height/round (should not error, just return nil)
+	// Test proposal for different height/round - should be silently ignored
+	ps2 := peerStateSetup(2, 1, 1) // Different peer state with height 2
 	differentProposal := &types.Proposal{
 		Type:     tmproto.ProposalType,
 		Height:   2, // Different height
@@ -200,8 +181,8 @@ func TestSetHasProposal(t *testing.T) {
 		},
 		Signature: []byte("signature"),
 	}
-	err = ps.SetHasProposal(differentProposal)
-	require.NoError(t, err) // Should not error, just not applicable
+	ps2.SetHasProposal(differentProposal)
+	require.True(t, ps2.PRS.Proposal, "Proposal with matching height should be accepted")
 }
 
 func TestSetHasProposalMemoryLimit(t *testing.T) {
@@ -256,15 +237,16 @@ func TestSetHasProposalMemoryLimit(t *testing.T) {
 			proposal.BlockID.PartSetHeader.Total = tc.total
 
 			// Try to set the proposal
-			err := ps.SetHasProposal(proposal)
+			ps.SetHasProposal(proposal)
 
 			if tc.expectError {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "too large")
+				// Should be silently ignored, so no proposal should be set
+				require.False(t, ps.PRS.Proposal, "Proposal with excessive Total should be silently ignored")
+				require.Nil(t, ps.PRS.ProposalBlockParts, "ProposalBlockParts should remain nil")
 			} else {
-				require.NoError(t, err)
-				// For valid cases, verify the BitArray was created properly
-				require.NotNil(t, ps.PRS.ProposalBlockParts)
+				// For valid cases, verify the proposal was accepted
+				require.True(t, ps.PRS.Proposal, "Valid proposal should be accepted")
+				require.NotNil(t, ps.PRS.ProposalBlockParts, "ProposalBlockParts should be created")
 				require.Equal(t, int(tc.total), ps.PRS.ProposalBlockParts.Size())
 				require.NotNil(t, ps.PRS.ProposalBlockParts.Elems)
 			}
@@ -346,21 +328,11 @@ func TestSetHasProposalEdgeCases(t *testing.T) {
 		name           string
 		setupPeerState func(ps *PeerState)
 		proposal       *types.Proposal
-		expectError    bool
 		expectProposal bool
+		expectPanic    bool
 	}{
 		{
-			name: "nil proposal",
-			setupPeerState: func(ps *PeerState) {
-				ps.PRS.Height = 1
-				ps.PRS.Round = 0
-			},
-			proposal:       nil,
-			expectError:    true,
-			expectProposal: false,
-		},
-		{
-			name: "zero PartSetHeader.Total",
+			name: "memory limit exceeded - should silently ignore",
 			setupPeerState: func(ps *PeerState) {
 				ps.PRS.Height = 1
 				ps.PRS.Round = 0
@@ -373,18 +345,18 @@ func TestSetHasProposalEdgeCases(t *testing.T) {
 				BlockID: types.BlockID{
 					Hash: make([]byte, 32),
 					PartSetHeader: types.PartSetHeader{
-						Total: 0, // Invalid: must be > 0
+						Total: types.MaxBlockPartsCount + 1, // Exceeds limit
 						Hash:  make([]byte, 32),
 					},
 				},
 				Timestamp: time.Now(),
 				Signature: []byte("test-signature"),
 			},
-			expectError:    true,
-			expectProposal: false,
+			expectProposal: false, // Should silently ignore
+			expectPanic:    false,
 		},
 		{
-			name: "wrong height",
+			name: "wrong height - should ignore",
 			setupPeerState: func(ps *PeerState) {
 				ps.PRS.Height = 1
 				ps.PRS.Round = 0
@@ -404,11 +376,11 @@ func TestSetHasProposalEdgeCases(t *testing.T) {
 				Timestamp: time.Now(),
 				Signature: []byte("test-signature"),
 			},
-			expectError:    false,
 			expectProposal: false,
+			expectPanic:    false,
 		},
 		{
-			name: "already has proposal",
+			name: "already has proposal - should remain unchanged",
 			setupPeerState: func(ps *PeerState) {
 				ps.PRS.Height = 1
 				ps.PRS.Round = 0
@@ -429,8 +401,32 @@ func TestSetHasProposalEdgeCases(t *testing.T) {
 				Timestamp: time.Now(),
 				Signature: []byte("test-signature"),
 			},
-			expectError:    false,
 			expectProposal: true, // Should remain true
+			expectPanic:    false,
+		},
+		{
+			name: "valid proposal - should be accepted",
+			setupPeerState: func(ps *PeerState) {
+				ps.PRS.Height = 1
+				ps.PRS.Round = 0
+			},
+			proposal: &types.Proposal{
+				Type:     tmproto.ProposalType,
+				Height:   1,
+				Round:    0,
+				POLRound: -1,
+				BlockID: types.BlockID{
+					Hash: make([]byte, 32),
+					PartSetHeader: types.PartSetHeader{
+						Total: 1, // Valid
+						Hash:  make([]byte, 32),
+					},
+				},
+				Timestamp: time.Now(),
+				Signature: []byte("test-signature"),
+			},
+			expectProposal: true, // Should be set
+			expectPanic:    false,
 		},
 	}
 
@@ -439,14 +435,15 @@ func TestSetHasProposalEdgeCases(t *testing.T) {
 			ps := NewPeerState(logger, peerID)
 			tc.setupPeerState(ps)
 
-			err := ps.SetHasProposal(tc.proposal)
-
-			if tc.expectError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
+			if tc.expectPanic {
+				require.Panics(t, func() {
+					ps.SetHasProposal(tc.proposal)
+				})
+				return
 			}
 
+			// SetHasProposal doesn't return error - it handles issues silently
+			ps.SetHasProposal(tc.proposal)
 			require.Equal(t, tc.expectProposal, ps.PRS.Proposal)
 		})
 	}

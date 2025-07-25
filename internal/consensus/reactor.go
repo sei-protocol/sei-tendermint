@@ -615,10 +615,7 @@ OUTER_LOOP:
 
 				// NOTE: A peer might have received a different proposal message, so
 				// this Proposal msg will be rejected!
-				if err := ps.SetHasProposal(rs.Proposal); err != nil {
-					logger.Error("our own proposal failed validation - serious internal error", "error", err, "proposal", rs.Proposal)
-					return // Stop processing if our own proposal is invalid
-				}
+				ps.SetHasProposal(rs.Proposal)
 			}
 
 			// ProposalPOL: lets peer know which POL votes we have so far. The peer
@@ -1144,10 +1141,8 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 	case *tmcons.Proposal:
 		pMsg := msgI.(*ProposalMessage)
 
-		if err := ps.SetHasProposal(pMsg.Proposal); err != nil {
-			logger.Debug("rejecting invalid proposal", "error", err, "peer", envelope.From)
-			return err // Stop processing invalid proposals
-		}
+		ps.SetHasProposal(pMsg.Proposal)
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
