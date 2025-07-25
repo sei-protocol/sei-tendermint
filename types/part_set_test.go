@@ -193,17 +193,17 @@ func TestPartProtoBuf(t *testing.T) {
 	}
 }
 
-func TestNewPartSetFromHeader(t *testing.T) {
-	// Test that NewPartSetFromHeader rejects headers with excessive Total values
+func TestNewPartSetFromHeaderMemoryLimit(t *testing.T) {
+	// Test that NewPartSetFromHeader handles headers with excessive Total values safely
 	testCases := []struct {
-		name      string
-		total     uint32
-		expectNil bool
+		name       string
+		total      uint32
+		expectSafe bool // true if we expect a safe minimal PartSet
 	}{
-		{"valid total", 1, false},
+		{"valid small total", 1, false},
 		{"max valid total", MaxBlockPartsCount, false},
-		{"over max total", MaxBlockPartsCount + 1, true},
-		{"DoS attack value", 4294967295, true}, // max uint32
+		{"over max limit", MaxBlockPartsCount + 1, true},
+		{"very large total", 4294967295, true},
 	}
 
 	for _, tc := range testCases {
@@ -215,13 +215,23 @@ func TestNewPartSetFromHeader(t *testing.T) {
 
 			partSet := NewPartSetFromHeader(header)
 
-			if tc.expectNil {
-				require.Nil(t, partSet, "Expected nil for invalid header")
+			require.NotNil(t, partSet, "PartSet should never be nil")
+
+			if tc.expectSafe {
+				// For memory protection, expect a minimal safe PartSet
+				require.Equal(t, uint32(1), partSet.total, "Protected PartSet should have total=1")
+				require.Equal(t, len(header.Hash), len(partSet.hash), "Hash should be preserved")
+				require.NotNil(t, partSet.parts, "Parts array should be allocated")
+				require.NotNil(t, partSet.partsBitArray, "BitArray should be allocated")
+				require.Equal(t, 1, len(partSet.parts), "Parts array should have length 1")
+				require.Equal(t, 1, partSet.partsBitArray.Size(), "BitArray should have size 1")
 			} else {
-				require.NotNil(t, partSet, "Expected valid PartSet")
+				// For normal cases, expect exact match
 				require.Equal(t, tc.total, partSet.total)
 				require.NotNil(t, partSet.parts)
 				require.NotNil(t, partSet.partsBitArray)
+				require.Equal(t, int(tc.total), len(partSet.parts))
+				require.Equal(t, int(tc.total), partSet.partsBitArray.Size())
 			}
 		})
 	}

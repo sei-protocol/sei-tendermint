@@ -271,3 +271,42 @@ func TestSetHasProposalMemoryLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestInitProposalBlockPartsMemoryLimit(t *testing.T) {
+	logger := log.NewTestingLogger(t)
+	peerID := types.NodeID("test-peer")
+	ps := NewPeerState(logger, peerID)
+
+	testCases := []struct {
+		name           string
+		total          uint32
+		expectBitArray bool
+	}{
+		{"valid small total", 1, true},
+		{"max valid total", types.MaxBlockPartsCount, true},
+		{"over max limit", types.MaxBlockPartsCount + 1, false},
+		{"large total value", 4294967295, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Reset peer state for each test
+			ps = NewPeerState(logger, peerID)
+
+			header := types.PartSetHeader{
+				Total: tc.total,
+				Hash:  []byte("test-hash"),
+			}
+
+			ps.InitProposalBlockParts(header)
+
+			if tc.expectBitArray {
+				require.NotNil(t, ps.PRS.ProposalBlockParts, "Expected ProposalBlockParts to be created")
+				require.Equal(t, int(tc.total), ps.PRS.ProposalBlockParts.Size())
+				require.Equal(t, header, ps.PRS.ProposalBlockPartSetHeader)
+			} else {
+				require.Nil(t, ps.PRS.ProposalBlockParts, "Expected ProposalBlockParts to be nil for excessive Total")
+			}
+		})
+	}
+}
