@@ -1086,6 +1086,7 @@ func TestMempoolExpiration(t *testing.T) {
 
 	txmp := setup(t, client, 0)
 	txmp.config.TTLDuration = time.Nanosecond // we want tx to expire immediately
+	txmp.config.RemoveExpiredTxsFromQueue = true
 	txs := checkTxs(ctx, t, txmp, 100, 0)
 	require.Equal(t, len(txs), txmp.priorityIndex.Len())
 	require.Equal(t, len(txs), txmp.heightIndex.Size())
