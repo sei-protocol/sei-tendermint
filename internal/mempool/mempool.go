@@ -1039,6 +1039,7 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 		purgeIdx := -1
 		for i, wtx := range txmp.heightIndex.txs {
 			if (blockHeight - wtx.height) > txmp.config.TTLNumBlocks {
+				txmp.logger.Info("MEMPOOL: transaction expired (number of blocks) ", "height", blockHeight, "tx_height", wtx.height, "tx", fmt.Sprintf("%X", wtx.tx.Hash()))
 				expiredTxs[wtx.tx.Key()] = wtx
 				purgeIdx = i
 			} else {
@@ -1056,6 +1057,7 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 		purgeIdx := -1
 		for i, wtx := range txmp.timestampIndex.txs {
 			if now.Sub(wtx.timestamp) > txmp.config.TTLDuration {
+				txmp.logger.Info("MEMPOOL: transaction expired (ttl) ", "height", blockHeight, "age", now.Sub(wtx.timestamp), "tx_height", wtx.height, "tx", fmt.Sprintf("%X", wtx.tx.Hash()))
 				expiredTxs[wtx.tx.Key()] = wtx
 				purgeIdx = i
 			} else {
