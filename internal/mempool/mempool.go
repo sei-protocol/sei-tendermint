@@ -594,7 +594,7 @@ func (txmp *TxMempool) Update(
 		}
 	}
 
-	txmp.purgeExpiredTxs(blockHeight)
+	//txmp.purgeExpiredTxs(blockHeight)
 	txmp.handlePendingTransactions()
 
 	// If there any uncommitted transactions left in the mempool, we either
@@ -687,6 +687,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 	}
 
 	if err := txmp.canAddTx(wtx); err != nil {
+		txmp.logger.Error("mempool is full, trying eviction", "err", err.Error())
 		evictTxs := txmp.priorityIndex.GetEvictableTxs(
 			priority,
 			int64(wtx.Size()),
@@ -713,7 +714,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		//   reCheckTx callback is being executed for the same transaction.
 		for _, toEvict := range evictTxs {
 			txmp.removeTx(toEvict, true, true, true)
-			txmp.logger.Debug(
+			txmp.logger.Info(
 				"evicted existing good transaction; mempool full",
 				"old_tx", fmt.Sprintf("%X", toEvict.tx.Hash()),
 				"old_priority", toEvict.priority,
