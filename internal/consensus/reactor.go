@@ -535,6 +535,7 @@ OUTER_LOOP:
 		// Send proposal Block parts?
 		if rs.ProposalBlockParts.HasHeader(prs.ProposalBlockPartSetHeader) {
 			if index, ok := rs.ProposalBlockParts.BitArray().Sub(prs.ProposalBlockParts.Copy()).PickRandom(); ok {
+				blockPartSendStartTime := time.Now()
 				part := rs.ProposalBlockParts.GetPart(index)
 				partProto, err := part.ToProto()
 				if err != nil {
@@ -543,6 +544,8 @@ OUTER_LOOP:
 				}
 
 				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
+				logger.Debug("DEBUG: Starting block part broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "start_time", blockPartSendStartTime)
+				
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.BlockPart{
@@ -551,8 +554,13 @@ OUTER_LOOP:
 						Part:   *partProto,
 					},
 				}); err != nil {
+					blockPartSendDuration := time.Since(blockPartSendStartTime)
+					logger.Debug("DEBUG: Block part broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "duration", blockPartSendDuration, "error", err)
 					return
 				}
+
+				blockPartSendDuration := time.Since(blockPartSendStartTime)
+				logger.Debug("DEBUG: Block part broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "duration", blockPartSendDuration)
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
 				continue OUTER_LOOP
@@ -561,6 +569,7 @@ OUTER_LOOP:
 
 		// if the peer is on a previous height that we have, help catch up
 		blockStoreBase := r.state.blockStore.Base()
+
 		if blockStoreBase > 0 && 0 < prs.Height && prs.Height < rs.Height && prs.Height >= blockStoreBase {
 			heightLogger := logger.With("height", prs.Height)
 
@@ -601,17 +610,25 @@ OUTER_LOOP:
 		if rs.Proposal != nil && !prs.Proposal {
 			// Proposal: share the proposal metadata with peer.
 			{
+				proposalSendStartTime := time.Now()
 				propProto := rs.Proposal.ToProto()
 
 				logger.Debug("sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
+				logger.Debug("DEBUG: Starting proposal broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "start_time", proposalSendStartTime)
+				
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.Proposal{
 						Proposal: *propProto,
 					},
 				}); err != nil {
+					proposalSendDuration := time.Since(proposalSendStartTime)
+					logger.Debug("DEBUG: Proposal broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", proposalSendDuration, "error", err)
 					return
 				}
+
+				proposalSendDuration := time.Since(proposalSendStartTime)
+				logger.Debug("DEBUG: Proposal broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", proposalSendDuration)
 
 				// NOTE: A peer might have received a different proposal message, so
 				// this Proposal msg will be rejected!
@@ -623,10 +640,13 @@ OUTER_LOOP:
 			// so rs.Proposal.POLRound <= rs.Round, so we definitely have
 			// rs.Votes.Prevotes(rs.Proposal.POLRound).
 			if 0 <= rs.Proposal.POLRound {
+				polSendStartTime := time.Now()
 				pPol := rs.Votes.Prevotes(rs.Proposal.POLRound).BitArray()
 				pPolProto := pPol.ToProto()
 
 				logger.Debug("sending POL", "height", prs.Height, "round", prs.Round)
+				logger.Debug("DEBUG: Starting POL broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "pol_round", rs.Proposal.POLRound)
+				
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
 					Message: &tmcons.ProposalPOL{
@@ -635,8 +655,13 @@ OUTER_LOOP:
 						ProposalPol:      *pPolProto,
 					},
 				}); err != nil {
+					polSendDuration := time.Since(polSendStartTime)
+					logger.Debug("DEBUG: POL broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", polSendDuration, "error", err)
 					return
 				}
+				
+				polSendDuration := time.Since(polSendStartTime)
+				logger.Debug("DEBUG: POL broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", polSendDuration)
 			}
 		}
 	}
@@ -1083,6 +1108,7 @@ func (r *Reactor) handleStateMessage(ctx context.Context, envelope *p2p.Envelope
 		// Respond with a VoteSetBitsMessage showing which votes we have and
 		// consequently shows which we don't have.
 		var ourVotes *bits.BitArray
+
 		switch vsmMsg.Type {
 		case tmproto.PrevoteType:
 			ourVotes = votes.Prevotes(msg.Round).BitArrayByBlockID(vsmMsg.BlockID)

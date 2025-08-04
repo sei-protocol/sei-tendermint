@@ -93,41 +93,54 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	proposerAddr []byte,
 ) (*types.Block, error) {
 
+	// DEBUG: Start timing for overall block creation
+	blockCreationStartTime := time.Now()
+	blockExec.logger.Debug("DEBUG: Starting block creation", "height", height, "start_time", blockCreationStartTime)
+
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
-	maxGasWanted := state.ConsensusParams.Block.MaxGasWanted
 
 	evidence, evSize := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxBytes)
 
 	// Fetch a limited amount of valid txs
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
-	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGasWanted, maxGas)
+	// DEBUG: Start timing for transaction retrieval from mempool
+	txRetrievalStartTime := time.Now()
+	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
+	txRetrievalDuration := time.Since(txRetrievalStartTime)
+	blockExec.logger.Debug("DEBUG: Transaction retrieval from mempool completed", "height", height, "duration", txRetrievalDuration, "tx_count", len(txs), "max_data_bytes", maxDataBytes)
+
+	// DEBUG: Start timing for commit creation
+	commitCreationStartTime := time.Now()
 	commit := lastExtCommit.ToCommit()
+	commitCreationDuration := time.Since(commitCreationStartTime)
+	blockExec.logger.Debug("DEBUG: Commit creation completed", "height", height, "duration", commitCreationDuration)
+
+	// DEBUG: Start timing for block creation from state
+	stateBlockCreationStartTime := time.Now()
 	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
+	stateBlockCreationDuration := time.Since(stateBlockCreationStartTime)
+	blockExec.logger.Debug("DEBUG: Block creation from state completed", "height", height, "duration", stateBlockCreationDuration, "block_hash", block.Hash())
+
+	// DEBUG: Start timing for ABCI PrepareProposal call
+	prepareProposalStartTime := time.Now()
 	rpp, err := blockExec.appClient.PrepareProposal(
 		ctx,
 		&abci.RequestPrepareProposal{
-			MaxTxBytes:            maxDataBytes,
-			Txs:                   block.Txs.ToSliceOfBytes(),
-			LocalLastCommit:       buildExtendedCommitInfo(lastExtCommit, blockExec.store, state.InitialHeight, state.ConsensusParams.ABCI),
-			ByzantineValidators:   block.Evidence.ToABCI(),
-			Height:                block.Height,
-			Time:                  block.Time,
-			NextValidatorsHash:    block.NextValidatorsHash,
-			ProposerAddress:       block.ProposerAddress,
-			AppHash:               block.AppHash,
-			ValidatorsHash:        block.ValidatorsHash,
-			ConsensusHash:         block.ConsensusHash,
-			DataHash:              block.DataHash,
-			EvidenceHash:          block.EvidenceHash,
-			LastBlockHash:         block.LastBlockID.Hash,
-			LastBlockPartSetTotal: int64(block.LastBlockID.PartSetHeader.Total),
-			LastBlockPartSetHash:  block.LastBlockID.Hash,
-			LastCommitHash:        block.LastCommitHash,
-			LastResultsHash:       block.LastResultsHash,
+			MaxTxBytes:         maxDataBytes,
+			Txs:                txs.ToSliceOfBytes(),
+			LocalLastCommit:    buildExtendedCommitInfo(lastExtCommit, blockExec.store, state.InitialHeight, state.ConsensusParams.ABCI),
+			ByzantineValidators: block.Evidence.ToABCI(),
+			Height:             height,
+			Time:               block.Header.Time,
+			NextValidatorsHash: block.NextValidatorsHash,
+			ProposerAddress:    proposerAddr,
 		},
 	)
+	prepareProposalDuration := time.Since(prepareProposalStartTime)
+	blockExec.logger.Debug("DEBUG: ABCI PrepareProposal call completed", "height", height, "duration", prepareProposalDuration, "tx_records_count", len(rpp.TxRecords))
+
 	if err != nil {
 		// The App MUST ensure that only valid (and hence 'processable') transactions
 		// enter the mempool. Hence, at this point, we can't have any non-processable
@@ -135,23 +148,65 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		//
 		// Also, the App can simply skip any transaction that could cause any kind of trouble.
 		// Either way, we cannot recover in a meaningful way, unless we skip proposing
-		// this block, repair what caused the error and try again. Hence, we return an
+		// this block, meaning we empty the current mempool (which could work as a
+		// last resort).
+		//
+		// Hence, we panic on purpose, so that the ABCI app is forced to fix the
+		// underlying issue.
+		//
+		// TODO: We should introduce a new consensus parameter that would allow the
+		// ABCI app to return an error and skip the block proposal, meaning we would
+		// empty the mempool. This would give the ABCI app more flexibility in
+		// handling errors.
+		//
+		// For now, we just panic here, as this is the safest thing to do. The ABCI
+		// app should ensure that this never happens.
+		//
+		// We don't use the 'panic' function directly, as we want to wrap the error
+		// and provide more context. Instead, we use the 'fmt.Errorf' function and
+		// return the error. The caller of this function is expected to handle the
 		// error for now (the production code calling this function is expected to panic).
+		blockCreationDuration := time.Since(blockCreationStartTime)
+		blockExec.logger.Debug("DEBUG: Block creation failed during PrepareProposal", "height", height, "total_duration", blockCreationDuration, "error", err)
 		return nil, err
 	}
+	
+	// DEBUG: Start timing for transaction record set creation and validation
+	txSetCreationStartTime := time.Now()
 	txrSet := types.NewTxRecordSet(rpp.TxRecords)
 
 	if err := txrSet.Validate(maxDataBytes, block.Txs); err != nil {
+		txSetCreationDuration := time.Since(txSetCreationStartTime)
+		blockCreationDuration := time.Since(blockCreationStartTime)
+		blockExec.logger.Debug("DEBUG: Block creation failed during tx set validation", "height", height, "tx_set_duration", txSetCreationDuration, "total_duration", blockCreationDuration, "error", err)
 		return nil, err
 	}
 
+	// DEBUG: Start timing for mempool cleanup
+	mempoolCleanupStartTime := time.Now()
 	for _, rtx := range txrSet.RemovedTxs() {
 		if err := blockExec.mempool.RemoveTxByKey(rtx.Key()); err != nil {
 			blockExec.logger.Debug("error removing transaction from the mempool", "error", err, "tx hash", rtx.Hash())
 		}
 	}
+	mempoolCleanupDuration := time.Since(mempoolCleanupStartTime)
+	blockExec.logger.Debug("DEBUG: Mempool cleanup completed", "height", height, "duration", mempoolCleanupDuration, "removed_tx_count", len(txrSet.RemovedTxs()))
+
+	txSetCreationDuration := time.Since(txSetCreationStartTime)
+	blockExec.logger.Debug("DEBUG: Transaction record set processing completed", "height", height, "duration", txSetCreationDuration)
+
 	itxs := txrSet.IncludedTxs()
-	return state.MakeBlock(height, itxs, commit, evidence, proposerAddr), nil
+	
+	// DEBUG: Start timing for final block creation with included transactions
+	finalBlockCreationStartTime := time.Now()
+	finalBlock := state.MakeBlock(height, itxs, commit, evidence, proposerAddr)
+	finalBlockCreationDuration := time.Since(finalBlockCreationStartTime)
+	blockExec.logger.Debug("DEBUG: Final block creation completed", "height", height, "duration", finalBlockCreationDuration, "included_tx_count", len(itxs), "final_block_hash", finalBlock.Hash())
+
+	totalBlockCreationDuration := time.Since(blockCreationStartTime)
+	blockExec.logger.Debug("DEBUG: Block creation process completed", "height", height, "total_duration", totalBlockCreationDuration, "final_block_size", finalBlock.Size())
+
+	return finalBlock, nil
 }
 
 func (blockExec *BlockExecutor) GetTxsForKeys(txKeys []types.TxKey) types.Txs {
