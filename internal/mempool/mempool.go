@@ -511,9 +511,6 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 
 	txmp.logger.Info("MEMPOOL: reaped txs",
 		"num_txs", len(txs),
-		"max_bytes", maxBytes,
-		"max_gas_wanted", maxGasWanted,
-		"max_gas_estimated", maxGasEstimated,
 		"duration_ms", time.Since(startTime).Milliseconds())
 
 	return txs
