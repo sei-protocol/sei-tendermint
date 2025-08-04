@@ -95,11 +95,10 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	// DEBUG: Start timing for overall block creation
 	blockCreationStartTime := time.Now()
-	blockExec.logger.Info("DEBUG: Starting block creation", "height", height, "start_time", blockCreationStartTime)
+	blockExec.logger.Debug("DEBUG: Starting block creation", "height", height, "start_time", blockCreationStartTime)
 
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
-	maxGasWanted := state.ConsensusParams.Block.MaxGasWanted
 
 	evidence, evSize := blockExec.evpool.PendingEvidence(state.ConsensusParams.Evidence.MaxBytes)
 
@@ -108,21 +107,21 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 
 	// DEBUG: Start timing for transaction retrieval from mempool
 	txRetrievalStartTime := time.Now()
-	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGasWanted, maxGas)
+	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGas)
 	txRetrievalDuration := time.Since(txRetrievalStartTime)
-	blockExec.logger.Info("DEBUG: Transaction retrieval from mempool completed", "height", height, "duration", txRetrievalDuration, "tx_count", len(txs), "max_data_bytes", maxDataBytes)
+	blockExec.logger.Debug("DEBUG: Transaction retrieval from mempool completed", "height", height, "duration", txRetrievalDuration, "tx_count", len(txs), "max_data_bytes", maxDataBytes)
 
 	// DEBUG: Start timing for commit creation
 	commitCreationStartTime := time.Now()
 	commit := lastExtCommit.ToCommit()
 	commitCreationDuration := time.Since(commitCreationStartTime)
-	blockExec.logger.Info("DEBUG: Commit creation completed", "height", height, "duration", commitCreationDuration)
+	blockExec.logger.Debug("DEBUG: Commit creation completed", "height", height, "duration", commitCreationDuration)
 
 	// DEBUG: Start timing for block creation from state
 	stateBlockCreationStartTime := time.Now()
 	block := state.MakeBlock(height, txs, commit, evidence, proposerAddr)
 	stateBlockCreationDuration := time.Since(stateBlockCreationStartTime)
-	blockExec.logger.Info("DEBUG: Block creation from state completed", "height", height, "duration", stateBlockCreationDuration, "block_hash", block.Hash())
+	blockExec.logger.Debug("DEBUG: Block creation from state completed", "height", height, "duration", stateBlockCreationDuration, "block_hash", block.Hash())
 
 	// DEBUG: Start timing for ABCI PrepareProposal call
 	prepareProposalStartTime := time.Now()
@@ -140,7 +139,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		},
 	)
 	prepareProposalDuration := time.Since(prepareProposalStartTime)
-	blockExec.logger.Info("DEBUG: ABCI PrepareProposal call completed", "height", height, "duration", prepareProposalDuration, "tx_records_count", len(rpp.TxRecords))
+	blockExec.logger.Debug("DEBUG: ABCI PrepareProposal call completed", "height", height, "duration", prepareProposalDuration, "tx_records_count", len(rpp.TxRecords))
 
 	if err != nil {
 		// The App MUST ensure that only valid (and hence 'processable') transactions
@@ -168,7 +167,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		// return the error. The caller of this function is expected to handle the
 		// error for now (the production code calling this function is expected to panic).
 		blockCreationDuration := time.Since(blockCreationStartTime)
-		blockExec.logger.Info("DEBUG: Block creation failed during PrepareProposal", "height", height, "total_duration", blockCreationDuration, "error", err)
+		blockExec.logger.Debug("DEBUG: Block creation failed during PrepareProposal", "height", height, "total_duration", blockCreationDuration, "error", err)
 		return nil, err
 	}
 	
@@ -179,7 +178,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	if err := txrSet.Validate(maxDataBytes, block.Txs); err != nil {
 		txSetCreationDuration := time.Since(txSetCreationStartTime)
 		blockCreationDuration := time.Since(blockCreationStartTime)
-		blockExec.logger.Info("DEBUG: Block creation failed during tx set validation", "height", height, "tx_set_duration", txSetCreationDuration, "total_duration", blockCreationDuration, "error", err)
+		blockExec.logger.Debug("DEBUG: Block creation failed during tx set validation", "height", height, "tx_set_duration", txSetCreationDuration, "total_duration", blockCreationDuration, "error", err)
 		return nil, err
 	}
 
@@ -191,10 +190,10 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		}
 	}
 	mempoolCleanupDuration := time.Since(mempoolCleanupStartTime)
-	blockExec.logger.Info("DEBUG: Mempool cleanup completed", "height", height, "duration", mempoolCleanupDuration, "removed_tx_count", len(txrSet.RemovedTxs()))
+	blockExec.logger.Debug("DEBUG: Mempool cleanup completed", "height", height, "duration", mempoolCleanupDuration, "removed_tx_count", len(txrSet.RemovedTxs()))
 
 	txSetCreationDuration := time.Since(txSetCreationStartTime)
-	blockExec.logger.Info("DEBUG: Transaction record set processing completed", "height", height, "duration", txSetCreationDuration)
+	blockExec.logger.Debug("DEBUG: Transaction record set processing completed", "height", height, "duration", txSetCreationDuration)
 
 	itxs := txrSet.IncludedTxs()
 	
@@ -202,10 +201,10 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	finalBlockCreationStartTime := time.Now()
 	finalBlock := state.MakeBlock(height, itxs, commit, evidence, proposerAddr)
 	finalBlockCreationDuration := time.Since(finalBlockCreationStartTime)
-	blockExec.logger.Info("DEBUG: Final block creation completed", "height", height, "duration", finalBlockCreationDuration, "included_tx_count", len(itxs), "final_block_hash", finalBlock.Hash())
+	blockExec.logger.Debug("DEBUG: Final block creation completed", "height", height, "duration", finalBlockCreationDuration, "included_tx_count", len(itxs), "final_block_hash", finalBlock.Hash())
 
 	totalBlockCreationDuration := time.Since(blockCreationStartTime)
-	blockExec.logger.Info("DEBUG: Block creation process completed", "height", height, "total_duration", totalBlockCreationDuration, "final_block_size", finalBlock.Size())
+	blockExec.logger.Debug("DEBUG: Block creation process completed", "height", height, "total_duration", totalBlockCreationDuration, "final_block_size", finalBlock.Size())
 
 	return finalBlock, nil
 }
