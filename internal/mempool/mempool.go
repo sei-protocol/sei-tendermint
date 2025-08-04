@@ -456,6 +456,7 @@ func (txmp *TxMempool) Flush() {
 //   - Transactions returned are not removed from the mempool transaction
 //     store or indexes.
 func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimated int64) types.Txs {
+	startTime := time.Now()
 	txmp.mtx.Lock()
 	defer txmp.mtx.Unlock()
 
@@ -474,6 +475,8 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
 		if maxBytes > -1 && totalSize+size > maxBytes {
+			txmp.logger.Info("MEMPOOL: reached max bytes",
+				"max_bytes", maxBytes, "total_size", totalSize, "tx_size", size)
 			return false
 		}
 
@@ -492,6 +495,10 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		maxGasEstimatedExceeded := maxGasEstimated > -1 && gasEstimated > maxGasEstimated
 
 		if maxGasWantedExceeded || maxGasEstimatedExceeded {
+			txmp.logger.Info("MEMPOOL: reached max gas",
+				"max_gas_wanted", maxGasWantedExceeded,
+				"max_gas_estimated", maxGasEstimatedExceeded,
+				"gas_wanted", gasWanted, "gas_estimated", gasEstimated)
 			return false
 		}
 
@@ -501,6 +508,13 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		txs = append(txs, wtx.tx)
 		return true
 	})
+
+	txmp.logger.Debug("MEMPOOL: reaped txs",
+		"num_txs", len(txs),
+		"max_bytes", maxBytes,
+		"max_gas_wanted", maxGasWanted,
+		"max_gas_estimated", maxGasEstimated,
+		"duration_ms", time.Since(startTime).Milliseconds())
 
 	return txs
 }
