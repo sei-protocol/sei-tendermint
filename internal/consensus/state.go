@@ -946,9 +946,7 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 				// TODO(creachadair): In ordinary operation, the WAL autofile should
 				// never be closed. This only happens during shutdown and production
 				// nodes usually halt by panicking. Many existing tests, however,
-				// assume a clean shutdown is possible. Prior to #8111, we were
-				// swallowing the panic in receiveRoutine, making that appear to
-				// work. Filtering this specific error is slightly risky, but should
+				// assume a clean shutdown is possible. Filtering this specific error is slightly risky, but should
 				// affect only unit tests. In any case, not re-panicking here only
 				// preserves the pre-existing behavior for this one error type.
 				if errors.Is(err, autofile.ErrAutoFileClosed) {
@@ -1469,7 +1467,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 	var blockParts *types.PartSet
 
 	proposalStartTime := time.Now()
-	cs.logger.Debug("DEBUG: Starting proposal decision", "height", height, "round", round, "start_time", proposalStartTime)
+	cs.logger.Info("DEBUG: Starting proposal decision", "height", height, "round", round, "start_time", proposalStartTime)
 
 	// Decide on block
 	if cs.roundState.ValidBlock() != nil {
@@ -1477,14 +1475,14 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 		validBlockStartTime := time.Now()
 		block, blockParts = cs.roundState.ValidBlock(), cs.roundState.ValidBlockParts()
 		validBlockDuration := time.Since(validBlockStartTime)
-		cs.logger.Debug("DEBUG: Used existing valid block", "height", height, "round", round, "duration", validBlockDuration)
+		cs.logger.Info("DEBUG: Used existing valid block", "height", height, "round", round, "duration", validBlockDuration)
 	} else {
 		// Create a new proposal block from state/txs from the mempool.
 		blockCreationStartTime := time.Now()
 		var err error
 		block, err = cs.createProposalBlock(ctx)
 		blockCreationDuration := time.Since(blockCreationStartTime)
-		cs.logger.Debug("DEBUG: Created new proposal block", "height", height, "round", round, "duration", blockCreationDuration)
+		cs.logger.Info("DEBUG: Created new proposal block", "height", height, "round", round, "duration", blockCreationDuration)
 		
 		if err != nil {
 			cs.logger.Error("unable to create proposal block", "error", err)
@@ -1497,7 +1495,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 		partSetStartTime := time.Now()
 		blockParts, err = block.MakePartSet(types.BlockPartSizeBytes)
 		partSetDuration := time.Since(partSetStartTime)
-		cs.logger.Debug("DEBUG: Created block part set", "height", height, "round", round, "duration", partSetDuration, "total_parts", blockParts.Total())
+		cs.logger.Info("DEBUG: Created block part set", "height", height, "round", round, "duration", partSetDuration, "total_parts", blockParts.Total())
 		
 		if err != nil {
 			cs.logger.Error("unable to create proposal block part set", "error", err)
@@ -1512,7 +1510,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 		cs.logger.Error("failed flushing WAL to disk")
 	}
 	walFlushDuration := time.Since(walFlushStartTime)
-	cs.logger.Debug("DEBUG: WAL flush completed", "height", height, "round", round, "duration", walFlushDuration)
+	cs.logger.Info("DEBUG: WAL flush completed", "height", height, "round", round, "duration", walFlushDuration)
 
 	// Make proposal
 	proposalCreationStartTime := time.Now()
@@ -1520,7 +1518,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 	proposal := types.NewProposal(height, round, cs.roundState.ValidRound(), propBlockID, block.Header.Time, block.GetTxKeys(), block.Header, block.LastCommit, block.Evidence, cs.privValidatorPubKey.Address())
 	p := proposal.ToProto()
 	proposalCreationDuration := time.Since(proposalCreationStartTime)
-	cs.logger.Debug("DEBUG: Proposal object created", "height", height, "round", round, "duration", proposalCreationDuration)
+	cs.logger.Info("DEBUG: Proposal object created", "height", height, "round", round, "duration", proposalCreationDuration)
 
 	// wait the max amount we would wait for a proposal
 	signingStartTime := time.Now()
@@ -1528,7 +1526,7 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 	defer cancel()
 	if err := cs.privValidator.SignProposal(ctxto, cs.state.ChainID, p); err == nil {
 		signingDuration := time.Since(signingStartTime)
-		cs.logger.Debug("DEBUG: Proposal signed successfully", "height", height, "round", round, "signing_duration", signingDuration)
+		cs.logger.Info("DEBUG: Proposal signed successfully", "height", height, "round", round, "signing_duration", signingDuration)
 		
 		proposal.Signature = p.Signature
 
@@ -1541,16 +1539,17 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 			cs.sendInternalMessage(ctx, msgInfo{&BlockPartMessage{cs.roundState.Height(), cs.roundState.Round(), part}, "", tmtime.Now()})
 		}
 		messageSendDuration := time.Since(messageSendStartTime)
-		cs.logger.Debug("DEBUG: Proposal and block parts sent to internal queue", "height", height, "round", round, "duration", messageSendDuration, "total_parts", blockParts.Total())
+		cs.logger.Info("DEBUG: Proposal and block parts sent to internal queue", "height", height, "round", round, "duration", messageSendDuration, "total_parts", blockParts.Total())
 
 		totalProposalDuration := time.Since(proposalStartTime)
-		cs.logger.Debug("DEBUG: Proposal decision completed", "height", height, "round", round, "total_duration", totalProposalDuration)
-		cs.logger.Debug("signed proposal", "height", height, "round", round, "proposal", proposal)
+		cs.logger.Info("DEBUG: Proposal decision completed", "height", height, "round", round, "total_duration", totalProposalDuration)
+		cs.logger.Info("signed proposal", "height", height, "round", round, "proposal", proposal)
 	} else if !cs.replayMode {
 		signingDuration := time.Since(signingStartTime)
-		cs.logger.Debug("DEBUG: Proposal signing failed", "height", height, "round", round, "signing_duration", signingDuration, "error", err)
+		cs.logger.Info("DEBUG: Proposal signing failed", "height", height, "round", round, "signing_duration", signingDuration, "error", err)
 		cs.logger.Error("propose step; failed signing proposal", "height", height, "round", round, "err", err)
 	}
+
 }
 
 func (cs *State) enterPrevote(ctx context.Context, height int64, round int32, entryLabel string) {
@@ -2768,7 +2767,9 @@ func (cs *State) addVote(
 	switch vote.Type {
 	case tmproto.PrevoteType:
 		prevotes := cs.roundState.Votes().Prevotes(vote.Round)
-		cs.logger.Debug("added vote to prevote", "vote", vote, "prevotes", prevotes.StringShort())
+		cs.logger.Debug("added vote to prevote",
+			"vote", vote,
+			"prevotes", prevotes.LogString())
 
 		// Check to see if >2/3 of the voting power on the network voted for any non-nil block.
 		if blockID, ok := prevotes.TwoThirdsMajority(); ok && !blockID.IsNil() {
@@ -3014,26 +3015,10 @@ func (cs *State) checkDoubleSigningRisk(height int64) error {
 }
 
 func (cs *State) calculatePrevoteMessageDelayMetrics() {
-	if cs.roundState.Proposal() == nil {
-		return
-	}
-	ps := cs.roundState.Votes().Prevotes(cs.roundState.Round())
-	pl := ps.List()
-
-	sort.Slice(pl, func(i, j int) bool {
-		return pl[i].Timestamp.Before(pl[j].Timestamp)
-	})
-
-	var votingPowerSeen int64
-	for _, v := range pl {
-		_, val := cs.roundState.Validators().GetByAddress(v.ValidatorAddress)
-		votingPowerSeen += val.VotingPower
-		if votingPowerSeen >= cs.roundState.Validators().TotalVotingPower()*2/3+1 {
-			cs.metrics.QuorumPrevoteDelay.With("proposer_address", cs.roundState.Validators().GetProposer().Address.String()).Set(v.Timestamp.Sub(cs.roundState.Proposal().Timestamp).Seconds())
-			break
-		}
-	}
-	if ps.HasAll() {
-		cs.metrics.FullPrevoteDelay.With("proposer_address", cs.roundState.Validators().GetProposer().Address.String()).Set(pl[len(pl)-1].Timestamp.Sub(cs.roundState.Proposal().Timestamp).Seconds())
+	if cs.roundState.Proposal() != nil && cs.roundState.Proposal().POLRound == -1 {
+		sp := cs.state.ConsensusParams.Synchrony.SynchronyParamsOrDefaults()
+		isTimely := cs.roundState.Proposal().IsTimely(cs.roundState.ProposalReceiveTime(), sp, cs.roundState.Round())
+		cs.metrics.ProposalTimestampDifference.With("is_timely", fmt.Sprintf("%t", isTimely)).
+			Observe(cs.roundState.ProposalReceiveTime().Sub(cs.roundState.Proposal().Timestamp).Seconds())
 	}
 }

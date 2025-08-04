@@ -489,7 +489,7 @@ func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundSta
 			return
 		}
 
-		logger.Debug("sending block part for catchup", "round", prs.Round, "index", index)
+		logger.Info("sending block part for catchup", "round", prs.Round, "index", index)
 		err = dataCh.Send(ctx, p2p.Envelope{
 			To: ps.peerID,
 			Message: &tmcons.BlockPart{
@@ -543,8 +543,8 @@ OUTER_LOOP:
 					return
 				}
 
-				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
-				logger.Debug("DEBUG: Starting block part broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "start_time", blockPartSendStartTime)
+				logger.Info("sending block part", "height", prs.Height, "round", prs.Round, "txkeys", partProto.TxKeys)
+				logger.Info("DEBUG: Starting block part broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "start_time", blockPartSendStartTime)
 				
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
@@ -555,12 +555,12 @@ OUTER_LOOP:
 					},
 				}); err != nil {
 					blockPartSendDuration := time.Since(blockPartSendStartTime)
-					logger.Debug("DEBUG: Block part broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "duration", blockPartSendDuration, "error", err)
+					logger.Info("DEBUG: Block part broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "duration", blockPartSendDuration, "error", err)
 					return
 				}
 
 				blockPartSendDuration := time.Since(blockPartSendStartTime)
-				logger.Debug("DEBUG: Block part broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "duration", blockPartSendDuration)
+				logger.Info("DEBUG: Block part broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "part_index", index, "duration", blockPartSendDuration)
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
 				continue OUTER_LOOP
@@ -613,8 +613,8 @@ OUTER_LOOP:
 				proposalSendStartTime := time.Now()
 				propProto := rs.Proposal.ToProto()
 
-				logger.Debug("sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
-				logger.Debug("DEBUG: Starting proposal broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "start_time", proposalSendStartTime)
+				logger.Info("sending proposal", "height", prs.Height, "round", prs.Round, "txkeys", propProto.TxKeys)
+				logger.Info("DEBUG: Starting proposal broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "start_time", proposalSendStartTime)
 				
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
@@ -623,12 +623,12 @@ OUTER_LOOP:
 					},
 				}); err != nil {
 					proposalSendDuration := time.Since(proposalSendStartTime)
-					logger.Debug("DEBUG: Proposal broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", proposalSendDuration, "error", err)
+					logger.Info("DEBUG: Proposal broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", proposalSendDuration, "error", err)
 					return
 				}
 
 				proposalSendDuration := time.Since(proposalSendStartTime)
-				logger.Debug("DEBUG: Proposal broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", proposalSendDuration)
+				logger.Info("DEBUG: Proposal broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", proposalSendDuration)
 
 				// NOTE: A peer might have received a different proposal message, so
 				// this Proposal msg will be rejected!
@@ -644,8 +644,8 @@ OUTER_LOOP:
 				pPol := rs.Votes.Prevotes(rs.Proposal.POLRound).BitArray()
 				pPolProto := pPol.ToProto()
 
-				logger.Debug("sending POL", "height", prs.Height, "round", prs.Round)
-				logger.Debug("DEBUG: Starting POL broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "pol_round", rs.Proposal.POLRound)
+				logger.Info("sending POL", "height", prs.Height, "round", prs.Round)
+				logger.Info("DEBUG: Starting POL broadcast to peer", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "pol_round", rs.Proposal.POLRound)
 				
 				if err := dataCh.Send(ctx, p2p.Envelope{
 					To: ps.peerID,
@@ -656,12 +656,12 @@ OUTER_LOOP:
 					},
 				}); err != nil {
 					polSendDuration := time.Since(polSendStartTime)
-					logger.Debug("DEBUG: POL broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", polSendDuration, "error", err)
+					logger.Info("DEBUG: POL broadcast failed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", polSendDuration, "error", err)
 					return
 				}
 				
 				polSendDuration := time.Since(polSendStartTime)
-				logger.Debug("DEBUG: POL broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", polSendDuration)
+				logger.Info("DEBUG: POL broadcast completed", "peer", ps.peerID, "height", prs.Height, "round", prs.Round, "duration", polSendDuration)
 			}
 		}
 	}
@@ -711,7 +711,7 @@ func (r *Reactor) gossipVotesForHeight(
 		if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
 			return false, err
 		} else if ok {
-			logger.Debug("picked rs.LastCommit to send")
+			logger.Info("picked rs.LastCommit to send")
 			return true, nil
 
 		}
@@ -723,7 +723,7 @@ func (r *Reactor) gossipVotesForHeight(
 			if ok, err := r.pickSendVote(ctx, ps, polPrevotes, voteCh); err != nil {
 				return false, err
 			} else if ok {
-				logger.Debug("picked rs.Prevotes(prs.ProposalPOLRound) to send", "round", prs.ProposalPOLRound)
+				logger.Info("picked rs.Prevotes(prs.ProposalPOLRound) to send", "round", prs.ProposalPOLRound)
 				return true, nil
 			}
 		}
@@ -734,7 +734,7 @@ func (r *Reactor) gossipVotesForHeight(
 		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Prevotes(prs.Round), voteCh); err != nil {
 			return false, err
 		} else if ok {
-			logger.Debug("picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
+			logger.Info("picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true, nil
 		}
 	}
@@ -744,7 +744,7 @@ func (r *Reactor) gossipVotesForHeight(
 		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Precommits(prs.Round), voteCh); err != nil {
 			return false, err
 		} else if ok {
-			logger.Debug("picked rs.Precommits(prs.Round) to send", "round", prs.Round)
+			logger.Info("picked rs.Precommits(prs.Round) to send", "round", prs.Round)
 			return true, nil
 		}
 	}
@@ -754,7 +754,7 @@ func (r *Reactor) gossipVotesForHeight(
 		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Prevotes(prs.Round), voteCh); err != nil {
 			return false, err
 		} else if ok {
-			logger.Debug("picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
+			logger.Info("picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
 			return true, nil
 		}
 	}
@@ -765,7 +765,7 @@ func (r *Reactor) gossipVotesForHeight(
 			if ok, err := r.pickSendVote(ctx, ps, polPrevotes, voteCh); err != nil {
 				return false, err
 			} else if ok {
-				logger.Debug("picked rs.Prevotes(prs.ProposalPOLRound) to send", "round", prs.ProposalPOLRound)
+				logger.Info("picked rs.Prevotes(prs.ProposalPOLRound) to send", "round", prs.ProposalPOLRound)
 				return true, nil
 			}
 		}
@@ -808,7 +808,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
 				return
 			} else if ok {
-				logger.Debug("picked rs.LastCommit to send", "height", prs.Height)
+				logger.Info("picked rs.LastCommit to send", "height", prs.Height)
 				continue
 			}
 		}
@@ -833,7 +833,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			if ok, err := r.pickSendVote(ctx, ps, ec, voteCh); err != nil {
 				return
 			} else if ok {
-				logger.Debug("picked Catchup commit to send", "height", prs.Height)
+				logger.Info("picked Catchup commit to send", "height", prs.Height)
 				continue
 			}
 		}
