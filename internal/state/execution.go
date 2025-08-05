@@ -93,6 +93,11 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	proposerAddr []byte,
 ) (*types.Block, error) {
 
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL: CreateProposalBlock took %v (height=%d)\n", time.Since(startTime), height)
+	}()
+
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
 	maxGasWanted := state.ConsensusParams.Block.MaxGasWanted
@@ -163,6 +168,11 @@ func (blockExec *BlockExecutor) ProcessProposal(
 	block *types.Block,
 	state State,
 ) (bool, error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL ProcessProposal took %v (height=%d)\n", time.Since(startTime), block.Height)
+	}()
+
 	txs := block.Data.Txs.ToSliceOfBytes()
 	resp, err := blockExec.appClient.ProcessProposal(ctx, &abci.RequestProcessProposal{
 		Hash:                  block.Header.Hash(),
@@ -199,6 +209,11 @@ func (blockExec *BlockExecutor) ProcessProposal(
 // Validation does not mutate state, but does require historical information from the stateDB,
 // ie. to verify evidence from a validator at an old height.
 func (blockExec *BlockExecutor) ValidateBlock(ctx context.Context, state State, block *types.Block) error {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL ValidateBlock took %v (height=%d)\n", time.Since(startTime), block.Height)
+	}()
+
 	hash := block.Hash()
 	if _, ok := blockExec.cache[hash.String()]; ok {
 		return nil
@@ -239,6 +254,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 	startTime := time.Now()
 	defer func() {
+		fmt.Printf("DEBUG MEMPOOL ApplyBlock took %v (height=%d)\n", time.Since(startTime), block.Height)
 		blockExec.metrics.BlockProcessingTime.Observe(time.Since(startTime).Seconds())
 	}()
 	var finalizeBlockSpan otrace.Span = nil
@@ -380,6 +396,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 }
 
 func (blockExec *BlockExecutor) ExtendVote(ctx context.Context, vote *types.Vote) ([]byte, error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL ExtendVote took %v (height=%d)\n", time.Since(startTime), vote.Height)
+	}()
+
 	resp, err := blockExec.appClient.ExtendVote(ctx, &abci.RequestExtendVote{
 		Hash:   vote.BlockID.Hash,
 		Height: vote.Height,
@@ -391,6 +412,11 @@ func (blockExec *BlockExecutor) ExtendVote(ctx context.Context, vote *types.Vote
 }
 
 func (blockExec *BlockExecutor) VerifyVoteExtension(ctx context.Context, vote *types.Vote) error {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL VerifyVoteExtension took %v (height=%d)\n", time.Since(startTime), vote.Height)
+	}()
+
 	resp, err := blockExec.appClient.VerifyVoteExtension(ctx, &abci.RequestVerifyVoteExtension{
 		Hash:             vote.BlockID.Hash,
 		ValidatorAddress: vote.ValidatorAddress,
@@ -420,6 +446,11 @@ func (blockExec *BlockExecutor) Commit(
 	block *types.Block,
 	txResults []*abci.ExecTxResult,
 ) (int64, error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL Commit took %v (height=%d)\n", time.Since(startTime), block.Height)
+	}()
+
 	blockExec.mempool.Lock()
 	defer blockExec.mempool.Unlock()
 
@@ -468,6 +499,11 @@ func (blockExec *BlockExecutor) Commit(
 }
 
 func (blockExec *BlockExecutor) GetMissingTxs(txKeys []types.TxKey) []types.TxKey {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL GetMissingTxs took %v\n", time.Since(startTime))
+	}()
+
 	var missingTxKeys []types.TxKey
 	for _, txKey := range txKeys {
 		if !blockExec.mempool.HasTx(txKey) {
@@ -639,7 +675,10 @@ func (state State) Update(
 	consensusParamUpdates *tmtypes.ConsensusParams,
 	validatorUpdates []*types.Validator,
 ) (State, error) {
-
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL Update took %v (height=%d)\n", time.Since(startTime), header.Height)
+	}()
 	// Copy the valset so we can apply changes from FinalizeBlock
 	// and update s.LastValidators and s.Validators.
 	nValSet := state.NextValidators.Copy()
@@ -782,6 +821,11 @@ func ExecCommitBlock(
 	initialHeight int64,
 	s State,
 ) ([]byte, error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL ExecCommitBlock took %v (height=%d)\n", time.Since(startTime), block.Height)
+	}()
+
 	finalizeBlockResponse, err := appConn.FinalizeBlock(
 		ctx,
 		&abci.RequestFinalizeBlock{
@@ -844,6 +888,11 @@ func ExecCommitBlock(
 }
 
 func (blockExec *BlockExecutor) pruneBlocks(retainHeight int64) (uint64, error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("DEBUG MEMPOOL pruneBlocks took %v (retainHeight=%d)\n", time.Since(startTime), retainHeight)
+	}()
+
 	base := blockExec.blockStore.Base()
 	if retainHeight <= base {
 		return 0, nil

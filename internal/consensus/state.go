@@ -1022,7 +1022,9 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 func (cs *State) fsyncAndCompleteProposal(ctx context.Context, fsyncUponCompletion bool, height int64, span otrace.Span, onPropose bool) {
 	cs.metrics.ProposalBlockCreatedOnPropose.With("success", strconv.FormatBool(onPropose)).Add(1)
 	if fsyncUponCompletion {
-		if err := cs.wal.FlushAndSync(); err != nil { // fsync
+		startFlush := time.Now()
+		if err := cs.wal.FlushAndSync(); err != nil {
+			cs.logger.Info("WAL flush duration", "duration_ms", time.Since(startFlush).Milliseconds()) // fsync
 			cs.logger.Error("Error flushing wal after receiving all block parts", "error", err)
 		}
 	}
@@ -1497,7 +1499,9 @@ func (cs *State) defaultDecideProposal(ctx context.Context, height int64, round 
 
 	// Flush the WAL. Otherwise, we may not recompute the same proposal to sign,
 	// and the privValidator will refuse to sign anything.
+	startFlush := time.Now()
 	if err := cs.wal.FlushAndSync(); err != nil {
+		cs.logger.Info("WAL flush duration", "duration_ms", time.Since(startFlush).Milliseconds())
 		cs.logger.Error("failed flushing WAL to disk")
 	}
 
@@ -2113,6 +2117,9 @@ func (cs *State) tryFinalizeCommit(ctx context.Context, height int64) {
 
 // Increment height and goto cstypes.RoundStepNewHeight
 func (cs *State) finalizeCommit(ctx context.Context, height int64) {
+	cs.logger.Info("Starting ApplyBlock", "height", height)
+	startTime := time.Now()
+
 	spanCtx, span := cs.tracer.Start(ctx, "cs.state.finalizeCommit")
 	defer span.End()
 	logger := cs.logger.With("height", height)
@@ -2123,6 +2130,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 			"current", fmt.Sprintf("%v/%v/%v", cs.roundState.Height(), cs.roundState.Round(), cs.roundState.Step()),
 			"time", time.Now().UnixMilli(),
 		)
+		cs.logger.Info("Finished ApplyBlock", "height", height, "duration_ms", time.Since(startTime).Milliseconds())
 		return
 	}
 
@@ -2202,7 +2210,6 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 
 	// Execute and commit the block, update and save the state, and update the mempool.
 	// NOTE The block.AppHash won't reflect these txs until the next block.
-	startTime := time.Now()
 	stateCopy, err := cs.blockExec.ApplyBlock(spanCtx,
 		stateCopy,
 		types.BlockID{
@@ -2845,7 +2852,9 @@ func (cs *State) signVote(
 ) (*types.Vote, error) {
 	// Flush the WAL. Otherwise, we may not recompute the same vote to sign,
 	// and the privValidator will refuse to sign anything.
+	startFlush := time.Now()
 	if err := cs.wal.FlushAndSync(); err != nil {
+		cs.logger.Info("WAL flush duration", "duration_ms", time.Since(startFlush).Milliseconds())
 		return nil, err
 	}
 
