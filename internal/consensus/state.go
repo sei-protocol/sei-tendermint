@@ -3,9 +3,9 @@ package consensus
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"io"
 	"os"
 	"runtime/debug"

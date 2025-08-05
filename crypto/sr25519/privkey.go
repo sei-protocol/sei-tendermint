@@ -3,8 +3,8 @@ package sr25519
 import (
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"io"
 
 	"github.com/oasisprotocol/curve25519-voi/primitives/sr25519"

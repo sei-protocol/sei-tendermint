@@ -2,9 +2,9 @@ package server
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"net/http"
 	"strconv"
 	"strings"

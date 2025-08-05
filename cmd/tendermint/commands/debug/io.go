@@ -2,8 +2,8 @@ package debug
 
 import (
 	"archive/zip"
-	"encoding/json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"io"
 	"os"
 	"path"

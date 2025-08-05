@@ -1,8 +1,8 @@
 package bytes
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"strconv"
 	"testing"
 

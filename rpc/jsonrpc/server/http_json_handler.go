@@ -2,8 +2,8 @@ package server
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"html/template"
 	"io"
 	"net/http"

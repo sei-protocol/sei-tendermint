@@ -245,6 +245,7 @@ require (
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.1.3
 	github.com/creachadair/tomledit v0.0.22
+	github.com/goccy/go-json v0.10.5
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.8
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.2.0

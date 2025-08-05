@@ -3,8 +3,8 @@ package coretypes
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"github.com/goccy/go-json"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"

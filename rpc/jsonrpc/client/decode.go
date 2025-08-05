@@ -1,8 +1,8 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/goccy/go-json"
 
 	tmjson "github.com/tendermint/tendermint/libs/json"
 	rpctypes "github.com/tendermint/tendermint/rpc/jsonrpc/types"

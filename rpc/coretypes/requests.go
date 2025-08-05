@@ -1,7 +1,7 @@
 package coretypes
 
 import (
-	"encoding/json"
+	"github.com/goccy/go-json"
 	"strconv"
 	"time"
 

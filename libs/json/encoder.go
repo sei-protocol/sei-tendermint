@@ -2,9 +2,9 @@ package json
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"io"
 	"reflect"
 	"strconv"

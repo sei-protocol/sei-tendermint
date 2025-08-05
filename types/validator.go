@@ -3,9 +3,9 @@ package types
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"strings"
 
 	"github.com/tendermint/tendermint/crypto"
@@ -211,7 +211,6 @@ func ValidatorFromProto(vp *tmproto.Validator) (*Validator, error) {
 
 	return v, nil
 }
-
 
 //----------------------------------------
 // RandValidator

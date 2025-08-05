@@ -2,7 +2,7 @@ package types
 
 import (
 	"bytes"
-	"encoding/json"
+	"github.com/goccy/go-json"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/tendermint/tendermint/crypto"

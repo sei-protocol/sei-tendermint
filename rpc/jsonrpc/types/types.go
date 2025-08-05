@@ -3,9 +3,9 @@ package types
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"net/http"
 	"regexp"
 	"strconv"

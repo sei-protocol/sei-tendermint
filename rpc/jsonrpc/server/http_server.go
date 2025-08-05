@@ -3,9 +3,9 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"net"
 	"net/http"
 	"runtime/debug"

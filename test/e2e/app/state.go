@@ -1,12 +1,12 @@
-//nolint: gosec
+// nolint: gosec
 package app
 
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"os"
 	"path/filepath"
 	"sort"

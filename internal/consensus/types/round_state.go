@@ -1,10 +1,11 @@
 package types
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/goccy/go-json"
 
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/types"
