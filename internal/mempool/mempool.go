@@ -897,21 +897,22 @@ func (txmp *TxMempool) updateReCheckTxs(ctx context.Context) {
 // the mempool due to mempool configured constraints. If it returns nil,
 // the transaction can be inserted into the mempool.
 func (txmp *TxMempool) canAddTx(wtx *WrappedTx) error {
-	var (
-		numTxs    = txmp.NumTxsNotPending()
-		sizeBytes = txmp.SizeBytes()
-	)
-
-	if numTxs >= txmp.config.Size || int64(wtx.Size())+sizeBytes > txmp.config.MaxTxsBytes {
-		return types.ErrMempoolIsFull{
-			NumTxs:      numTxs,
-			MaxTxs:      txmp.config.Size,
-			TxsBytes:    sizeBytes,
-			MaxTxsBytes: txmp.config.MaxTxsBytes,
-		}
-	}
-
 	return nil
+	//var (
+	//	numTxs    = txmp.NumTxsNotPending()
+	//	sizeBytes = txmp.SizeBytes()
+	//)
+	//
+	//if numTxs >= txmp.config.Size || int64(wtx.Size())+sizeBytes > txmp.config.MaxTxsBytes {
+	//	return types.ErrMempoolIsFull{
+	//		NumTxs:      numTxs,
+	//		MaxTxs:      txmp.config.Size,
+	//		TxsBytes:    sizeBytes,
+	//		MaxTxsBytes: txmp.config.MaxTxsBytes,
+	//	}
+	//}
+	//
+	//return nil
 }
 
 func (txmp *TxMempool) canAddPendingTx(wtx *WrappedTx) error {
