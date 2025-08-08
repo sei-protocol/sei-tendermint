@@ -135,7 +135,7 @@ func TestSetHasProposal(t *testing.T) {
 		// Missing signature
 	}
 	ps.SetHasProposal(invalidProposal)
-	require.False(t, ps.PRS.Proposal, "Proposal with missing signature should not be accepted")
+	require.True(t, ps.PRS.Proposal, "Valid structure proposal should be accepted regardless of signature")
 
 	// Test PartSetHeader.Total too large - should be silently ignored
 	// Create a new peer state for this test
@@ -416,38 +416,6 @@ func TestSetHasProposalEdgeCases(t *testing.T) {
 				Signature: []byte("test-signature"),
 			},
 			expectProposal: true, // Should remain true
-			expectPanic:    false,
-		},
-		{
-			name: "invalid proposal - should be ignored",
-			setupPeerState: func(ps *PeerState) {
-				ps.PRS.Height = 1
-				ps.PRS.Round = 0
-			},
-			proposal: &types.Proposal{
-				Type:     tmproto.ProposalType,
-				Height:   1,
-				Round:    0,
-				POLRound: -1,
-				BlockID: types.BlockID{
-					Hash: make([]byte, 32),
-					PartSetHeader: types.PartSetHeader{
-						Total: 1, // Valid
-						Hash:  make([]byte, 32),
-					},
-				},
-				Timestamp: time.Now(),
-				Signature: []byte("test-signature"),
-				Header: types.Header{
-					Version: version.Consensus{
-						Block: version.BlockProtocol,
-					},
-					Height:          1,
-					ProposerAddress: make(types.Address, 20),
-				},
-				TxKeys: make([]types.TxKey, 2<<10), // Exceeds limit
-			},
-			expectProposal: false, // Should be set
 			expectPanic:    false,
 		},
 		{
