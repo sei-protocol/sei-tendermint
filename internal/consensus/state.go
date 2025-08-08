@@ -1055,10 +1055,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 		span.SetAttributes(attribute.Int("round", int(msg.Proposal.Round)))
 		defer span.End()
 
-		if err = msg.Proposal.ValidateBasic(); err != nil {
-			err = fmt.Errorf("invalid proposal msg: %w", err)
-			break
-		}
 		// will not cause transition.
 		// once proposal is set, we can receive block parts
 		if err = cs.setProposal(msg.Proposal, mi.ReceiveTime); err == nil {

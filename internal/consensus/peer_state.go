@@ -114,11 +114,6 @@ func (ps *PeerState) SetHasProposal(proposal *types.Proposal) {
 		return
 	}
 
-	if err := proposal.ValidateBasic(); err != nil {
-		// Never accept proposals that do not pass basic validation.
-		return
-	}
-
 	// Check memory limits before acquiring lock or setting any state
 	if proposal.BlockID.PartSetHeader.Total > types.MaxBlockPartsCount {
 		ps.logger.Debug("PartSetHeader.Total exceeds maximum", "total", proposal.BlockID.PartSetHeader.Total, "max", types.MaxBlockPartsCount)
