@@ -2,10 +2,11 @@ package types
 
 import (
 	"context"
-	"github.com/tendermint/tendermint/version"
 	"math"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/version"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -185,6 +186,10 @@ func TestProposalValidateBasic(t *testing.T) {
 		{"Too big Signature", func(p *Proposal) {
 			p.Signature = make([]byte, MaxSignatureSize+1)
 		}, true},
+		{"Invalid LastCommit", func(p *Proposal) { p.LastCommit = &Commit{Height: -1} }, true},
+		{"Invalid EvidenceList", func(p *Proposal) { p.Evidence = []Evidence{nil} }, true},
+		{"Invalid Header", func(p *Proposal) { p.Header = Header{ChainID: string(make([]byte, 100))} }, true},
+		{"Too many TxKeys", func(p *Proposal) { p.TxKeys = make([]TxKey, maxTxKeysPerProposal+1) }, true},
 	}
 	blockID := makeBlockID(crypto.Checksum([]byte("blockhash")), math.MaxInt32, crypto.Checksum([]byte("partshash")))
 

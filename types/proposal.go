@@ -12,6 +12,12 @@ import (
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
 
+// maxTxKeysPerProposal is the maximum number of transaction keys that can be
+// included in a proposal. The limit is determined such that the proposal should
+// hit the gas limit before ever reaching the max transaction keys in order to
+// cap the maximum.
+const maxTxKeysPerProposal = 1_000
+
 var (
 	ErrInvalidBlockPartSignature = errors.New("error invalid block part signature")
 	ErrInvalidBlockPartHash      = errors.New("error invalid block part hash")
@@ -86,6 +92,22 @@ func (p *Proposal) ValidateBasic() error {
 
 	if len(p.Signature) > MaxSignatureSize {
 		return fmt.Errorf("signature is too big (max: %d)", MaxSignatureSize)
+	}
+
+	if err := p.LastCommit.ValidateBasic(); err != nil {
+		return fmt.Errorf("invalid LastCommit: %w", err)
+	}
+
+	if err := p.Evidence.ValidateBasic(); err != nil {
+		return fmt.Errorf("invalid Evidence: %w", err)
+	}
+
+	if err := p.Header.ValidateBasic(); err != nil {
+		return fmt.Errorf("invalid Header: %w", err)
+	}
+
+	if len(p.TxKeys) > maxTxKeysPerProposal {
+		return fmt.Errorf("invalid number of TxKeys: must be at most %d, got %d", maxTxKeysPerProposal, len(p.TxKeys))
 	}
 	return nil
 }

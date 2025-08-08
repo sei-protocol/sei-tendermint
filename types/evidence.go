@@ -705,6 +705,18 @@ func (evl EvidenceList) ToABCI() []abci.Misbehavior {
 	return el
 }
 
+func (evl EvidenceList) ValidateBasic() error {
+	for at, evidence := range evl {
+		if evidence == nil {
+			return fmt.Errorf("nil evidence in evidence list at index %d", at)
+		}
+		if err := evidence.ValidateBasic(); err != nil {
+			return fmt.Errorf("invalid evidence at index %d: %v: %w", at, evidence, err)
+		}
+	}
+	return nil
+}
+
 //------------------------------------------ PROTO --------------------------------------
 
 // EvidenceToProto is a generalized function for encoding evidence that conforms to the
