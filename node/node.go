@@ -324,7 +324,7 @@ func makeNode(
 
 	// Determine whether we should do block sync. This must happen after the handshake, since the
 	// app may modify the validator set, specifying ourself as the only validator.
-	blockSync := !onlyValidatorIsUs(state, pubKey)
+	blockSync := !stateSync  // Enable blocksync whenever statesync is not enabled
 	waitSync := stateSync || blockSync || shoulddbsync
 
 	csState, err := consensus.NewState(logger.With("module", "consensus"),

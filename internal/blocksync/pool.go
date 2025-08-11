@@ -206,17 +206,18 @@ func (pool *BlockPool) GetStatus() (height int64, numPending int32, lenRequester
 
 // IsCaughtUp returns true if this node is caught up, false - otherwise.
 func (pool *BlockPool) IsCaughtUp() bool {
-	pool.mtx.RLock()
-	defer pool.mtx.RUnlock()
-
-	// Need at least 2 peers to be considered caught up.
-	if len(pool.peers) <= 1 {
-		return false
-	}
-
-	// NOTE: we use maxPeerHeight - 1 because to sync block H requires block H+1
-	// to verify the LastCommit.
-	return pool.height >= (pool.maxPeerHeight - 1)
+	return false
+	//pool.mtx.RLock()
+	//defer pool.mtx.RUnlock()
+	//
+	//// Need at least 2 peers to be considered caught up.
+	//if len(pool.peers) <= 1 {
+	//	return false
+	//}
+	//
+	//// NOTE: we use maxPeerHeight - 1 because to sync block H requires block H+1
+	//// to verify the LastCommit.
+	//return pool.height >= (pool.maxPeerHeight - 1)
 }
 
 // PeekTwoBlocks returns blocks at pool.height and pool.height+1. We need to
