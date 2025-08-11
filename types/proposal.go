@@ -259,9 +259,14 @@ func ProposalFromProto(pp *tmproto.Proposal) (*Proposal, error) {
 	}
 	p.Header = header
 	lastCommit, err := CommitFromProto(pp.LastCommit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate last commit: %w", err)
+	}
 	p.LastCommit = lastCommit
 	eviD := new(EvidenceList)
-	eviD.FromProto(pp.Evidence)
+	if err := eviD.FromProto(pp.Evidence); err != nil {
+		return nil, fmt.Errorf("faield to instantiate evidence list: %w", err)
+	}
 	p.Evidence = *eviD
 	p.ProposerAddress = pp.ProposerAddress
 
