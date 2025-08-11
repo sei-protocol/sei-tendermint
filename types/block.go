@@ -89,11 +89,9 @@ func (b *Block) ValidateBasic() error {
 		return fmt.Errorf("wrong Header.DataHash. Expected %X, got %X. Len of txs %d", w, g, len(b.Data.Txs))
 	}
 
-	// NOTE: b.Evidence may be nil, but we're just looping.
-	for i, ev := range b.Evidence {
-		if err := ev.ValidateBasic(); err != nil {
-			return fmt.Errorf("invalid evidence (#%d): %v", i, err)
-		}
+	// NOTE: b.Evidence may be nil, which is handled by Evidence.ValidateBasic.
+	if err := b.Evidence.ValidateBasic(); err != nil {
+		return fmt.Errorf("invalid evidence: %w", err)
 	}
 
 	if w, g := b.Evidence.Hash(), b.EvidenceHash; !bytes.Equal(w, g) {
