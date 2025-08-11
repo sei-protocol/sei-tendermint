@@ -278,6 +278,15 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
+	return nil
+}
+
+func (txmp *TxMempool) CheckTx_old(
+	ctx context.Context,
+	tx types.Tx,
+	cb func(*abci.ResponseCheckTx),
+	txInfo TxInfo,
+) error {
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
