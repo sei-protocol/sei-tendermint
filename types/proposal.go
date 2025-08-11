@@ -6,6 +6,7 @@ import (
 	"math/bits"
 	"time"
 
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmtime "github.com/tendermint/tendermint/libs/time"
@@ -109,6 +110,14 @@ func (p *Proposal) ValidateBasic() error {
 	if len(p.TxKeys) > maxTxKeysPerProposal {
 		return fmt.Errorf("invalid number of TxKeys: must be at most %d, got %d", maxTxKeysPerProposal, len(p.TxKeys))
 	}
+
+	if len(p.ProposerAddress) != crypto.AddressSize {
+		return fmt.Errorf(
+			"invalid ProposerAddress length; got: %d, expected: %d",
+			len(p.ProposerAddress), crypto.AddressSize,
+		)
+	}
+
 	return nil
 }
 
