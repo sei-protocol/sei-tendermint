@@ -616,7 +616,7 @@ func (evl *EvidenceList) FromProto(eviList *tmproto.EvidenceList) error {
 		eviBzs[i] = evi
 	}
 	*evl = eviBzs
-	return nil
+	return evl.ValidateBasic()
 }
 
 // ToProto converts EvidenceList to protobuf
