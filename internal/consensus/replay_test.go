@@ -136,7 +136,7 @@ func TestWALCrash(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			consensusReplayConfig, err := ResetConfig(t.TempDir(), tc.name)
@@ -596,7 +596,7 @@ func setupSimulator(ctx context.Context, t *testing.T) *simulatorTestSuite {
 
 // Sync from scratch
 func TestHandshakeReplayAll(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sim := setupSimulator(ctx, t)
@@ -613,7 +613,7 @@ func TestHandshakeReplayAll(t *testing.T) {
 
 // Sync many, not from scratch
 func TestHandshakeReplaySome(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sim := setupSimulator(ctx, t)
@@ -630,7 +630,7 @@ func TestHandshakeReplaySome(t *testing.T) {
 
 // Sync from lagging by one
 func TestHandshakeReplayOne(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sim := setupSimulator(ctx, t)
@@ -645,7 +645,7 @@ func TestHandshakeReplayOne(t *testing.T) {
 
 // Sync from caught up
 func TestHandshakeReplayNone(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sim := setupSimulator(ctx, t)

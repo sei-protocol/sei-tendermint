@@ -40,7 +40,7 @@ func getHTTPClient(t *testing.T, logger log.Logger, conf *config.Config) *rpchtt
 	rpcAddr := conf.RPC.ListenAddress
 	c, err := rpchttp.NewWithClient(rpcAddr, http.DefaultClient)
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	require.NoError(t, c.Start(ctx))
 
 	c.Logger = logger
@@ -60,7 +60,7 @@ func getHTTPClientWithTimeout(t *testing.T, logger log.Logger, conf *config.Conf
 	tclient := &http.Client{Timeout: timeout}
 	c, err := rpchttp.NewWithClient(rpcAddr, tclient)
 	require.NoError(t, err)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	require.NoError(t, c.Start(ctx))
 
 	c.Logger = logger
@@ -90,7 +90,7 @@ func GetClients(t *testing.T, ns service.Service, conf *config.Config) []client.
 }
 
 func TestClientOperations(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewTestingLogger(t)
@@ -189,7 +189,7 @@ func TestClientOperations(t *testing.T) {
 
 // Make sure info is correct (we connect properly)
 func TestClientMethodCalls(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewTestingLogger(t)
 
@@ -409,7 +409,7 @@ func TestClientMethodCalls(t *testing.T) {
 				// XXX Test proof
 			})
 			t.Run("BlockchainInfo", func(t *testing.T) {
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 
 				err := client.WaitForHeight(ctx, c, 10, nil)
@@ -523,7 +523,7 @@ func TestClientMethodCalls(t *testing.T) {
 			})
 			t.Run("Evidence", func(t *testing.T) {
 				t.Run("BroadcastDuplicateVote", func(t *testing.T) {
-					ctx, cancel := context.WithCancel(context.Background())
+					ctx, cancel := context.WithCancel(t.Context())
 					defer cancel()
 
 					chainID := conf.ChainID()
@@ -589,7 +589,7 @@ func getMempool(t *testing.T, srv service.Service) mempool.Mempool {
 // so making a separate suite makes more sense, though isn't strictly
 // speaking desirable.
 func TestClientMethodCallsAdvanced(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewTestingLogger(t)

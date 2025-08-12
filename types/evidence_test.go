@@ -142,7 +142,7 @@ func TestDuplicateVoteEvidenceValidation(t *testing.T) {
 }
 
 func TestLightClientAttackEvidenceBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	height := int64(5)

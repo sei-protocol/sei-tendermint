@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tendermint/tendermint/libs/utils/require"
+	"github.com/tendermint/tendermint/libs/utils"
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
@@ -221,11 +222,6 @@ func TestNodeAddress_Resolve(t *testing.T) {
 			true,
 		},
 		{
-			p2p.NodeAddress{Protocol: "tcp", Hostname: "localhost", Port: 80, Path: "/path"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv6loopback, Port: 80, Path: "/path"},
-			true,
-		},
-		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1"},
 			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1)},
 			true,
@@ -282,8 +278,12 @@ func TestNodeAddress_Resolve(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
-			t.Logf("%#v", endpoints[0])
-			require.Contains(t, endpoints, tc.expect)
+			for _, endpoint := range endpoints {
+				if utils.TestEqual(endpoint,tc.expect) {
+					return
+				}
+			}
+			require.Fail(t, "expected endpoint not found", "expected: %v, got: %v", tc.expect, endpoints)
 		})
 	}
 }

@@ -5,13 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
 	dbm "github.com/tendermint/tm-db"
-	"strings"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
@@ -107,7 +108,7 @@ func makePeerManager(peers map[types.NodeID]testPeer) *p2p.PeerManager {
 	return peerManager
 }
 func TestBlockPoolBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	start := int64(42)
@@ -163,7 +164,7 @@ func TestBlockPoolBasic(t *testing.T) {
 }
 
 func TestBlockPoolTimeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	start := int64(42)
@@ -213,7 +214,7 @@ func TestBlockPoolTimeout(t *testing.T) {
 }
 
 func TestBlockPoolRemovePeer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peers := make(testPeers, 10)

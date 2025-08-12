@@ -398,7 +398,7 @@ func TestInvalidVotes(t *testing.T) {
 }
 
 func TestInvalidPrevotes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	privVal := NewMockPV()
 

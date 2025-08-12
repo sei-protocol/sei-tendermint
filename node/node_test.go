@@ -45,7 +45,7 @@ func TestNodeStartStop(t *testing.T) {
 
 	defer os.RemoveAll(cfg.RootDir)
 
-	ctx, bcancel := context.WithCancel(context.Background())
+	ctx, bcancel := context.WithCancel(t.Context())
 	defer bcancel()
 
 	logger := log.NewNopLogger()
@@ -84,7 +84,7 @@ func TestNodeStartStop(t *testing.T) {
 
 func getTestNode(ctx context.Context, t *testing.T, conf *config.Config, logger log.Logger) *nodeImpl {
 	t.Helper()
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	ns, err := newDefaultNode(ctx, conf, logger, make(chan struct{}))
@@ -112,7 +112,7 @@ func TestNodeDelayedStart(t *testing.T) {
 	defer os.RemoveAll(cfg.RootDir)
 	now := tmtime.Now()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -132,7 +132,7 @@ func TestNodeSetAppVersion(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(cfg.RootDir)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -195,7 +195,7 @@ func TestNodeSetPrivValTCP(t *testing.T) {
 
 // address without a protocol must result in error
 func TestPrivValidatorListenAddrNoProtocol(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	addrNoPrefix := testFreeAddr(t)
@@ -221,7 +221,7 @@ func TestNodeSetPrivValIPC(t *testing.T) {
 	tmpfile := "/tmp/kms." + tmrand.Str(6) + ".sock"
 	defer os.Remove(tmpfile) // clean up
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cfg, err := config.ResetTestRoot(t.TempDir(), "node_priv_val_tcp_test")
@@ -268,7 +268,7 @@ func testFreeAddr(t *testing.T) string {
 // create a proposal block using real and full
 // mempool and evidence pool and validate it.
 func TestCreateProposalBlock(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cfg, err := config.ResetTestRoot(t.TempDir(), "node_create_proposal")
@@ -369,7 +369,7 @@ func TestCreateProposalBlock(t *testing.T) {
 }
 
 func TestMaxTxsProposalBlockSize(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cfg, err := config.ResetTestRoot(t.TempDir(), "node_create_proposal")
@@ -443,7 +443,7 @@ func TestMaxTxsProposalBlockSize(t *testing.T) {
 }
 
 func TestMaxProposalBlockSize(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cfg, err := config.ResetTestRoot(t.TempDir(), "node_create_proposal")
@@ -634,7 +634,7 @@ func TestNodeSetEventSink(t *testing.T) {
 
 	defer os.RemoveAll(cfg.RootDir)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -756,7 +756,7 @@ func state(t *testing.T, nVals int, height int64) (sm.State, dbm.DB, []types.Pri
 }
 
 func TestLoadStateFromGenesis(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	_ = loadStatefromGenesis(ctx, t)
