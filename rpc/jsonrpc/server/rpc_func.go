@@ -57,7 +57,7 @@ type argInfo struct {
 // Call parses the given JSON parameters and calls the function wrapped by rf
 // with the resulting argument value. It reports an error if parameter parsing
 // fails, otherwise it returns the result from the wrapped function.
-func (rf *RPCFunc) Call(ctx context.Context, params json.RawMessage) (interface{}, error) {
+func (rf *RPCFunc) Call(ctx context.Context, params json.RawMessage) (any, error) {
 	// If ctx has its own deadline we will respect it; otherwise use rf.timeout.
 	if _, ok := ctx.Deadline(); !ok && rf.timeout > 0 {
 		var cancel context.CancelFunc
@@ -108,11 +108,11 @@ func (rf *RPCFunc) parseParams(ctx context.Context, params json.RawMessage) ([]r
 	}
 	bits, err := rf.adjustParams(params)
 	if err != nil {
-		return nil, invalidParamsError(err.Error())
+		return nil, invalidParamsError("%s",err.Error())
 	}
 	arg := reflect.New(rf.param)
 	if err := json.Unmarshal(bits, arg.Interface()); err != nil {
-		return nil, invalidParamsError(err.Error())
+		return nil, invalidParamsError("%s",err.Error())
 	}
 	return []reflect.Value{reflect.ValueOf(ctx), arg}, nil
 }
@@ -152,7 +152,7 @@ func (rf *RPCFunc) adjustParams(data []byte) (json.RawMessage, error) {
 // not have one of these forms.  A newly-constructed RPCFunc has a default
 // timeout of DefaultRPCTimeout; use the Timeout method to adjust this as
 // needed.
-func NewRPCFunc(f interface{}) *RPCFunc {
+func NewRPCFunc(f any) *RPCFunc {
 	rf, err := newRPCFunc(f)
 	if err != nil {
 		panic("invalid RPC function: " + err.Error())
@@ -162,7 +162,7 @@ func NewRPCFunc(f interface{}) *RPCFunc {
 
 // NewWSRPCFunc behaves as NewRPCFunc, but marks the resulting function for use
 // via websocket.
-func NewWSRPCFunc(f interface{}) *RPCFunc {
+func NewWSRPCFunc(f any) *RPCFunc {
 	rf := NewRPCFunc(f)
 	rf.ws = true
 	return rf
@@ -174,7 +174,7 @@ var (
 )
 
 // newRPCFunc constructs an RPCFunc for f. See the comment at NewRPCFunc.
-func newRPCFunc(f interface{}) (*RPCFunc, error) {
+func newRPCFunc(f any) (*RPCFunc, error) {
 	if f == nil {
 		return nil, errors.New("nil function")
 	}
@@ -247,7 +247,7 @@ func newRPCFunc(f interface{}) (*RPCFunc, error) {
 
 // invalidParamsError returns an RPC invalid parameters error with the given
 // detail message.
-func invalidParamsError(msg string, args ...interface{}) error {
+func invalidParamsError(msg string, args ...any) error {
 	return &rpctypes.RPCError{
 		Code:    int(rpctypes.CodeInvalidParams),
 		Message: rpctypes.CodeInvalidParams.String(),

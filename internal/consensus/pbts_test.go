@@ -338,7 +338,7 @@ func (hr heightResult) isComplete() bool {
 // until after the genesis time has passed. The test sets the genesis time in the
 // future and then ensures that the observed validator waits to propose a block.
 func TestProposerWaitsForGenesisTime(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// create a genesis time far (enough) in the future.
@@ -369,7 +369,7 @@ func TestProposerWaitsForGenesisTime(t *testing.T) {
 // and then verifies that the observed validator waits until after the block time
 // of height 4 to propose a block at height 5.
 func TestProposerWaitsForPreviousBlock(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	initialTime := time.Now().Add(time.Millisecond * 50)
 	cfg := pbtsTestConfiguration{
@@ -436,7 +436,7 @@ func TestProposerWaitTime(t *testing.T) {
 }
 
 func TestTimelyProposal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	initialTime := time.Now()
@@ -458,7 +458,7 @@ func TestTimelyProposal(t *testing.T) {
 }
 
 func TestTooFarInThePastProposal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// localtime > proposedBlockTime + MsgDelay + Precision
@@ -479,7 +479,7 @@ func TestTooFarInThePastProposal(t *testing.T) {
 }
 
 func TestTooFarInTheFutureProposal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// localtime < proposedBlockTime - Precision

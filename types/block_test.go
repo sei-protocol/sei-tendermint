@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestBlockAddEvidence(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	txs := []Tx{Tx("foo"), Tx("bar")}
@@ -56,7 +56,7 @@ func TestBlockAddEvidence(t *testing.T) {
 }
 
 func TestBlockValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	require.Error(t, (*Block)(nil).ValidateBasic())
@@ -145,7 +145,7 @@ func TestBlockMakePartSet(t *testing.T) {
 }
 
 func TestBlockMakePartSetWithEvidence(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	bps, err := (*Block)(nil).MakePartSet(2)
@@ -171,7 +171,7 @@ func TestBlockMakePartSetWithEvidence(t *testing.T) {
 }
 
 func TestBlockHashesTo(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	assert.False(t, (*Block)(nil).HashesTo(nil))
@@ -256,7 +256,7 @@ func TestNilDataHashDoesntCrash(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	lastID := makeBlockIDRandom()
@@ -293,7 +293,7 @@ func TestCommitValidateBasic(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			com := randCommit(ctx, t, time.Now())
@@ -577,7 +577,7 @@ func TestVoteSetToExtendedCommit(t *testing.T) {
 
 		t.Run(testCase.name, func(t *testing.T) {
 			blockID := makeBlockIDRandom()
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			valSet, vals := randValidatorPrivValSet(ctx, t, 10, 1)
@@ -648,7 +648,7 @@ func TestExtendedCommitToVoteSet(t *testing.T) {
 			lastID := makeBlockIDRandom()
 			h := int64(3)
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			voteSet, valSet, vals := randVoteSet(ctx, t, h-1, 1, tmproto.PrecommitType, 10, 1)
@@ -699,7 +699,7 @@ func TestCommitToVoteSetWithVotesForNilBlock(t *testing.T) {
 		round  = 0
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	type commitVoteTest struct {
@@ -791,7 +791,7 @@ func TestBlockIDValidateBasic(t *testing.T) {
 }
 
 func TestBlockProtoBuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	h := mrand.Int63()
@@ -946,7 +946,7 @@ func TestBlockIDProtoBuf(t *testing.T) {
 }
 
 func TestSignedHeaderProtoBuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	commit := randCommit(ctx, t, time.Now())

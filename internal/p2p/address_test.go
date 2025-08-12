@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tendermint/libs/utils/require"
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
@@ -28,7 +28,6 @@ func TestNewNodeID(t *testing.T) {
 		{"00112233445566778899aabbccddeeff0011223g", "", false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			id, err := types.NewNodeID(tc.input)
 			if !tc.ok {
@@ -61,7 +60,6 @@ func TestNodeID_Bytes(t *testing.T) {
 		{"01g0", nil, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(string(tc.nodeID), func(t *testing.T) {
 			bz, err := tc.nodeID.Bytes()
 			if tc.ok {
@@ -87,7 +85,6 @@ func TestNodeID_Validate(t *testing.T) {
 		{"00112233445566778899AABBCCDDEEFF00112233", false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(string(tc.nodeID), func(t *testing.T) {
 			err := tc.nodeID.Validate()
 			if tc.ok {
@@ -189,7 +186,6 @@ func TestParseNodeAddress(t *testing.T) {
 		{"mconn://" + user + "@:80", p2p.NodeAddress{}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.url, func(t *testing.T) {
 			address, err := p2p.ParseNodeAddress(tc.url)
 			if !tc.ok {
@@ -205,7 +201,7 @@ func TestParseNodeAddress(t *testing.T) {
 func TestNodeAddress_Resolve(t *testing.T) {
 	id := types.NodeID("00112233445566778899aabbccddeeff00112233")
 
-	bctx, bcancel := context.WithCancel(context.Background())
+	bctx, bcancel := context.WithCancel(t.Context())
 	defer bcancel()
 
 	testcases := []struct {
@@ -277,7 +273,6 @@ func TestNodeAddress_Resolve(t *testing.T) {
 		{p2p.NodeAddress{Protocol: "tcp", Hostname: "💥"}, &p2p.Endpoint{}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.address.String(), func(t *testing.T) {
 			ctx, cancel := context.WithCancel(bctx)
 			defer cancel()
@@ -287,6 +282,7 @@ func TestNodeAddress_Resolve(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
+			t.Logf("%#v", endpoints[0])
 			require.Contains(t, endpoints, tc.expect)
 		})
 	}
@@ -348,7 +344,6 @@ func TestNodeAddress_String(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.address.String(), func(t *testing.T) {
 			require.Equal(t, tc.expect, tc.address.String())
 		})
@@ -375,7 +370,6 @@ func TestNodeAddress_Validate(t *testing.T) {
 		{p2p.NodeAddress{Protocol: "mconn", NodeID: id, Port: 80, Path: "path"}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.address.String(), func(t *testing.T) {
 			err := tc.address.Validate()
 			if tc.ok {

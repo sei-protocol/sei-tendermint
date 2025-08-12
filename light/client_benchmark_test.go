@@ -66,7 +66,7 @@ func (impl *providerBenchmarkImpl) ReportEvidence(_ context.Context, _ types.Evi
 func (impl *providerBenchmarkImpl) ID() string { return "ip-not-defined.com" }
 
 func BenchmarkSequence(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	headers, vals, _ := genLightBlocksWithKeys(b, 1000, 100, 1, bTime)
@@ -104,7 +104,7 @@ func BenchmarkSequence(b *testing.B) {
 }
 
 func BenchmarkBisection(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	headers, vals, _ := genLightBlocksWithKeys(b, 1000, 100, 1, bTime)
@@ -141,7 +141,7 @@ func BenchmarkBisection(b *testing.B) {
 }
 
 func BenchmarkBackwards(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	headers, vals, _ := genLightBlocksWithKeys(b, 1000, 100, 1, bTime)

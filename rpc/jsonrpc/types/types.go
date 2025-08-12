@@ -117,7 +117,7 @@ func (req RPCRequest) String() string {
 
 // MakeResponse constructs a success response to req with the given result.  If
 // there is an error marshaling result to JSON, it returns an error response.
-func (req RPCRequest) MakeResponse(result interface{}) RPCResponse {
+func (req RPCRequest) MakeResponse(result any) RPCResponse {
 	data, err := tmjson.Marshal(result)
 	if err != nil {
 		return req.MakeErrorf(CodeInternalError, "marshaling result: %v", err)
@@ -127,7 +127,7 @@ func (req RPCRequest) MakeResponse(result interface{}) RPCResponse {
 
 // MakeErrorf constructs an error response to req with the given code and a
 // message constructed by formatting msg with args.
-func (req RPCRequest) MakeErrorf(code ErrorCode, msg string, args ...interface{}) RPCResponse {
+func (req RPCRequest) MakeErrorf(code ErrorCode, msg string, args ...any) RPCResponse {
 	return RPCResponse{
 		id: req.id,
 		Error: &RPCError{
@@ -140,7 +140,7 @@ func (req RPCRequest) MakeErrorf(code ErrorCode, msg string, args ...interface{}
 
 // MakeError constructs an error response to req from the given error value.
 // This function will panic if err == nil.
-func (req RPCRequest) MakeError(result interface{}, err error) RPCResponse {
+func (req RPCRequest) MakeError(result any, err error) RPCResponse {
 	if err == nil {
 		panic("cannot construct an error response for nil")
 	}
@@ -177,7 +177,7 @@ func (req RPCRequest) MakeError(result interface{}, err error) RPCResponse {
 
 // SetMethodAndParams updates the method and parameters of req with the given
 // values, leaving the ID unchanged.
-func (req *RPCRequest) SetMethodAndParams(method string, params interface{}) error {
+func (req *RPCRequest) SetMethodAndParams(method string, params any) error {
 	payload, err := json.Marshal(params)
 	if err != nil {
 		return err

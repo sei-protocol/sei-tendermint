@@ -21,7 +21,7 @@ import (
 var defaultVoteTime = time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func TestEvidenceList(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	ev := randomDuplicateVoteEvidence(ctx, t)
@@ -34,7 +34,7 @@ func TestEvidenceList(t *testing.T) {
 
 // TestEvidenceListProtoBuf to ensure parity in protobuf output and input
 func TestEvidenceListProtoBuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	const chainID = "mychain"
@@ -87,7 +87,7 @@ func randomDuplicateVoteEvidence(ctx context.Context, t *testing.T) *DuplicateVo
 
 func TestDuplicateVoteEvidence(t *testing.T) {
 	const height = int64(13)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	ev, err := NewMockDuplicateVoteEvidence(ctx, height, time.Now(), "mock-chain-id")
@@ -103,7 +103,7 @@ func TestDuplicateVoteEvidenceValidation(t *testing.T) {
 	blockID2 := makeBlockID(crypto.Checksum([]byte("blockhash2")), math.MaxInt32, crypto.Checksum([]byte("partshash")))
 	const chainID = "mychain"
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	testCases := []struct {
@@ -207,7 +207,7 @@ func TestLightClientAttackEvidenceBasic(t *testing.T) {
 }
 
 func TestLightClientAttackEvidenceValidation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	height := int64(5)
@@ -288,7 +288,7 @@ func TestLightClientAttackEvidenceValidation(t *testing.T) {
 }
 
 func TestMockEvidenceValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	goodEvidence, err := NewMockDuplicateVoteEvidence(ctx, int64(1), time.Now(), "mock-chain-id")
@@ -348,7 +348,7 @@ func makeHeaderRandom() *Header {
 }
 
 func TestEvidenceProto(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// -------- Votes --------
@@ -392,7 +392,7 @@ func TestEvidenceProto(t *testing.T) {
 }
 
 func TestEvidenceVectors(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Votes for duplicateEvidence

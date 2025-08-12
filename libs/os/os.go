@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"syscall"
@@ -53,7 +52,7 @@ func CopyFile(src, dst string) error {
 }
 
 type logger interface {
-	Info(msg string, keyvals ...interface{})
+	Info(msg string, keyvals ...any)
 }
 
 // TrapSignal catches the SIGTERM/SIGINT and executes cb function. After that it exits
@@ -82,16 +81,16 @@ func Kill() error {
 }
 
 func Exit(s string) {
-	fmt.Printf(s + "\n")
+	fmt.Print(s + "\n")
 	os.Exit(1)
 }
 
 func ReadFile(filePath string) ([]byte, error) {
-	return ioutil.ReadFile(filePath)
+	return os.ReadFile(filePath)
 }
 
 func MustReadFile(filePath string) []byte {
-	fileBytes, err := ioutil.ReadFile(filePath)
+	fileBytes, err := os.ReadFile(filePath)
 	if err != nil {
 		Exit(fmt.Sprintf("MustReadFile failed: %v", err))
 		return nil
@@ -100,7 +99,7 @@ func MustReadFile(filePath string) []byte {
 }
 
 func WriteFile(filePath string, contents []byte, mode os.FileMode) error {
-	return ioutil.WriteFile(filePath, contents, mode)
+	return os.WriteFile(filePath, contents, mode)
 }
 
 func MustWriteFile(filePath string, contents []byte, mode os.FileMode) {

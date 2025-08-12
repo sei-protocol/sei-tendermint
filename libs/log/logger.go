@@ -32,11 +32,11 @@ const (
 
 // Logger defines a generic logging interface compatible with Tendermint.
 type Logger interface {
-	Debug(msg string, keyVals ...interface{})
-	Info(msg string, keyVals ...interface{})
-	Error(msg string, keyVals ...interface{})
+	Debug(msg string, keyVals ...any)
+	Info(msg string, keyVals ...any)
+	Error(msg string, keyVals ...any)
 
-	With(keyVals ...interface{}) Logger
+	With(keyVals ...any) Logger
 }
 
 // syncWriter wraps an io.Writer that can be used in a Logger that is safe for
