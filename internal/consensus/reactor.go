@@ -206,9 +206,6 @@ func (r *Reactor) SetVoteSetChannel(ch *p2p.Channel) {
 // OnStop to ensure the outbound p2p Channels are closed.
 func (r *Reactor) OnStart(ctx context.Context) error {
 	r.logger.Debug("consensus wait sync", "wait_sync", r.WaitSync())
-
-
-
 	ctx,cancel := context.WithCancel(context.Background())
 	r.cancel = cancel
 	peerUpdates := r.peerEvents(ctx)
@@ -276,12 +273,6 @@ func (r *Reactor) SwitchToConsensus(ctx context.Context) {
 
 	r.Metrics.BlockSyncing.Set(0)
 	r.Metrics.StateSyncing.Set(0)
-
-	/*
-	d := types.EventDataBlockSyncStatus{Complete: true, Height: state.LastBlockHeight}
-	if err := r.eventBus.PublishEventBlockSyncStatus(d); err != nil {
-		r.logger.Error("failed to emit the blocksync complete event", "err", err)
-	}*/
 }
 
 // String returns a string representation of the Reactor.

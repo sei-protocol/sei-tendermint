@@ -405,7 +405,10 @@ func (cs *State) OnStart(ctx context.Context) error {
 	if err := cs.updateStateFromStore(); err != nil {
 		return err
 	}
-
+	d := types.EventDataBlockSyncStatus{Complete: true, Height: cs.state.LastBlockHeight}
+	if err := cs.eventBus.PublishEventBlockSyncStatus(d); err != nil {
+		cs.logger.Error("failed to emit the blocksync complete event", "err", err)
+	}
 	// We may set the WAL in testing before calling Start, so only OpenWAL if its
 	// still the nilWAL.
 	if _, ok := cs.wal.(nilWAL); ok {

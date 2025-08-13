@@ -17,6 +17,8 @@ import (
 	dbm "github.com/tendermint/tm-db"
 	"go.opentelemetry.io/otel/sdk/trace"
 
+	"github.com/tendermint/tendermint/libs/utils/scope"
+	"github.com/tendermint/tendermint/libs/utils"
 	abciclient "github.com/tendermint/tendermint/abci/client"
 	"github.com/tendermint/tendermint/abci/example/kvstore"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -164,7 +166,7 @@ func validateBlock(block *types.Block, activeVals map[string]struct{}) error {
 }
 
 func waitForAndValidateBlock(
-	bctx context.Context,
+	ctx context.Context,
 	t *testing.T,
 	n int,
 	activeVals map[string]struct{},
@@ -174,7 +176,7 @@ func waitForAndValidateBlock(
 ) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancel()
 
 	fn := func(j int) {
@@ -206,33 +208,32 @@ func waitForAndValidateBlock(
 	}
 
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
-		go func(j int) {
+		go func() {
 			defer wg.Done()
-			fn(j)
-		}(i)
+			fn(i)
+		}()
 	}
 
 	wg.Wait()
 
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal("encountered timeout")
+	if err := utils.IgnoreCancel(ctx.Err()); err!=nil {
+		t.Fatal(err)
 	}
 }
 
 func waitForAndValidateBlockWithTx(
-	bctx context.Context,
+	ctx context.Context,
 	t *testing.T,
 	n int,
 	activeVals map[string]struct{},
 	blocksSubs []eventbus.Subscription,
-	states []*State,
 	txs ...[]byte,
 ) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	fn := func(j int) {
@@ -280,13 +281,13 @@ func waitForAndValidateBlockWithTx(
 	}
 
 	wg.Wait()
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal("encountered timeout")
+	if err := utils.IgnoreCancel(ctx.Err()); err!=nil {
+		t.Fatal(err)
 	}
 }
 
 func waitForBlockWithUpdatedValsAndValidateIt(
-	bctx context.Context,
+	ctx context.Context,
 	t *testing.T,
 	n int,
 	updatedVals map[string]struct{},
@@ -294,7 +295,7 @@ func waitForBlockWithUpdatedValsAndValidateIt(
 	css []*State,
 ) {
 	t.Helper()
-	ctx, cancel := context.WithCancel(bctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	fn := func(j int) {
@@ -332,22 +333,13 @@ func waitForBlockWithUpdatedValsAndValidateIt(
 	}
 
 	wg.Wait()
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal("encountered timeout")
+	if err := utils.IgnoreCancel(ctx.Err()); err!=nil {
+		t.Fatal(err)
 	}
 }
 
-func ensureBlockSyncStatus(t *testing.T, msg tmpubsub.Message, complete bool, height int64) {
-	t.Helper()
-	status, ok := msg.Data().(types.EventDataBlockSyncStatus)
-
-	require.True(t, ok)
-	require.Equal(t, complete, status.Complete)
-	require.Equal(t, height, status.Height)
-}
-
 func TestReactorBasic(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -358,80 +350,44 @@ func TestReactorBasic(t *testing.T) {
 		newMockTickerFunc(true))
 	t.Cleanup(cleanup)
 
+	t.Logf("setup")
 	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
 
+	t.Logf("SwitchToConsensus()")
 	for _, reactor := range rts.reactors {
 		reactor.SwitchToConsensus(ctx)
 	}
 
-	var wg sync.WaitGroup
-	errCh := make(chan error, len(rts.subs))
-
-	for _, sub := range rts.subs {
-		wg.Add(1)
-
-		// wait till everyone makes the first new block
-		go func(s eventbus.Subscription) {
-			defer wg.Done()
-			_, err := s.Next(ctx)
-			switch {
-			case errors.Is(err, context.DeadlineExceeded):
-				return
-			case errors.Is(err, context.Canceled):
-				return
-			case err != nil:
-				errCh <- err
-				cancel() // terminate other workers
-				return
-			}
-		}(sub)
-	}
-
-	wg.Wait()
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal("encountered timeout")
-	}
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatal(err)
+	t.Logf("wait till everyone makes the first new block")
+	if err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		for _, sub := range rts.subs {
+			s.Spawn(func() error {
+				_, err := sub.Next(ctx)
+				return err
+			})
 		}
-	default:
+		return nil
+	}); err!=nil {
+		t.Fatal(err)
 	}
 
-	errCh = make(chan error, len(rts.blocksyncSubs))
-	for _, sub := range rts.blocksyncSubs {
-		wg.Add(1)
-
-		// wait till everyone makes the consensus switch
-		go func(s eventbus.Subscription) {
-			defer wg.Done()
-			msg, err := s.Next(ctx)
-			switch {
-			case errors.Is(err, context.DeadlineExceeded):
-				return
-			case errors.Is(err, context.Canceled):
-				return
-			case err != nil:
-				errCh <- err
-				cancel() // terminate other workers
-				return
-			}
-			ensureBlockSyncStatus(t, msg, true, 0)
-		}(sub)
-	}
-
-	wg.Wait()
-	if err := ctx.Err(); errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal("encountered timeout")
-	}
-
-	select {
-	case err := <-errCh:
-		if err != nil {
-			t.Fatal(err)
+	t.Logf("wait till everyone makes the consensus switch")
+	if err:=scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		for _, sub := range rts.blocksyncSubs {
+			s.Spawn(func() error {
+				msg, err := sub.Next(ctx)
+				if err!=nil { return fmt.Errorf("s.Next(): %w", err) }
+				status, ok := msg.Data().(types.EventDataBlockSyncStatus)
+				if !ok { return fmt.Errorf("expected EventDataBlockSyncStatus, got %T", msg.Data()) }
+				return utils.TestDiff(status, types.EventDataBlockSyncStatus{
+					Complete: true,
+					Height:   0,
+				})
+			})
 		}
-	default:
+		return nil
+	}); err!=nil {
+		t.Fatal(err)
 	}
 }
 
