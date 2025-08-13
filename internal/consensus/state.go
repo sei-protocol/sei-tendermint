@@ -318,8 +318,7 @@ func (cs *State) GetLastHeight() int64 {
 
 // GetRoundState returns a shallow copy of the internal consensus state.
 func (cs *State) GetRoundState() *cstypes.RoundState {
-	rs := cs.roundState.CopyInternal()
-	return rs
+	return cs.roundState.CopyInternal()
 }
 
 // GetRoundStateJSON returns a json of RoundState.
