@@ -420,7 +420,7 @@ func (r *Reactor) getRoundState() *cstypes.RoundState {
 	return r.rs
 }
 
-func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundState, prs *cstypes.PeerRoundState, ps *PeerState, dataCh *p2p.Channel) {
+func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundState, prs *cstypes.PeerRoundState, ps *PeerState) {
 	logger := r.logger.With("height", prs.Height).With("peer", ps.peerID)
 
 	if index, ok := prs.ProposalBlockParts.Not().PickRandom(); ok {
@@ -469,7 +469,7 @@ func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundSta
 		}
 
 		logger.Debug("sending block part for catchup", "round", prs.Round, "index", index)
-		err = dataCh.Send(ctx, p2p.Envelope{
+		err = r.channels.data.Send(ctx, p2p.Envelope{
 			To: ps.peerID,
 			Message: &tmcons.BlockPart{
 				Height: prs.Height, // not our height, so it does not matter.
@@ -553,7 +553,7 @@ OUTER_LOOP:
 				continue OUTER_LOOP
 			}
 
-			r.gossipDataForCatchup(ctx, rs, prs, ps, dataCh)
+			r.gossipDataForCatchup(ctx, rs, prs, ps)
 			continue OUTER_LOOP
 		}
 
@@ -614,7 +614,7 @@ OUTER_LOOP:
 
 // pickSendVote picks a vote and sends it to the peer. It will return true if
 // there is a vote to send and false otherwise.
-func (r *Reactor) pickSendVote(ctx context.Context, ps *PeerState, votes types.VoteSetReader, voteCh *p2p.Channel) (bool, error) {
+func (r *Reactor) pickSendVote(ctx context.Context, ps *PeerState, votes types.VoteSetReader) (bool, error) {
 	vote, ok := ps.PickVoteToSend(votes)
 	if !ok {
 		return false, nil
@@ -626,7 +626,7 @@ func (r *Reactor) pickSendVote(ctx context.Context, ps *PeerState, votes types.V
 			r.logger.Debug("sending vote message", "ps", string(psJson), "vote", vote)
 		}
 	}
-	if err := voteCh.Send(ctx, p2p.Envelope{
+	if err := r.channels.vote.Send(ctx, p2p.Envelope{
 		To: ps.peerID,
 		Message: &tmcons.Vote{
 			Vote: vote.ToProto(),
@@ -647,13 +647,12 @@ func (r *Reactor) gossipVotesForHeight(
 	rs *cstypes.RoundState,
 	prs *cstypes.PeerRoundState,
 	ps *PeerState,
-	voteCh *p2p.Channel,
 ) (bool, error) {
 	logger := r.logger.With("height", prs.Height).With("peer", ps.peerID)
 
 	// if there are lastCommits to send...
 	if prs.Step == cstypes.RoundStepNewHeight {
-		if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
+		if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit); err != nil {
 			return false, err
 		} else if ok {
 			logger.Debug("picked rs.LastCommit to send")
@@ -664,7 +663,7 @@ func (r *Reactor) gossipVotesForHeight(
 	// if there are POL prevotes to send...
 	if prs.Step <= cstypes.RoundStepPropose && prs.Round != -1 && prs.Round <= rs.Round && prs.ProposalPOLRound != -1 {
 		if polPrevotes := rs.Votes.Prevotes(prs.ProposalPOLRound); polPrevotes != nil {
-			if ok, err := r.pickSendVote(ctx, ps, polPrevotes, voteCh); err != nil {
+			if ok, err := r.pickSendVote(ctx, ps, polPrevotes); err != nil {
 				return false, err
 			} else if ok {
 				logger.Debug("picked rs.Prevotes(prs.ProposalPOLRound) to send", "round", prs.ProposalPOLRound)
@@ -675,7 +674,7 @@ func (r *Reactor) gossipVotesForHeight(
 
 	// if there are prevotes to send...
 	if prs.Step <= cstypes.RoundStepPrevoteWait && prs.Round != -1 && prs.Round <= rs.Round {
-		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Prevotes(prs.Round), voteCh); err != nil {
+		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Prevotes(prs.Round)); err != nil {
 			return false, err
 		} else if ok {
 			logger.Debug("picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
@@ -685,7 +684,7 @@ func (r *Reactor) gossipVotesForHeight(
 
 	// if there are precommits to send...
 	if prs.Step <= cstypes.RoundStepPrecommitWait && prs.Round != -1 && prs.Round <= rs.Round {
-		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Precommits(prs.Round), voteCh); err != nil {
+		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Precommits(prs.Round)); err != nil {
 			return false, err
 		} else if ok {
 			logger.Debug("picked rs.Precommits(prs.Round) to send", "round", prs.Round)
@@ -695,7 +694,7 @@ func (r *Reactor) gossipVotesForHeight(
 
 	// if there are prevotes to send...(which are needed because of validBlock mechanism)
 	if prs.Round != -1 && prs.Round <= rs.Round {
-		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Prevotes(prs.Round), voteCh); err != nil {
+		if ok, err := r.pickSendVote(ctx, ps, rs.Votes.Prevotes(prs.Round)); err != nil {
 			return false, err
 		} else if ok {
 			logger.Debug("picked rs.Prevotes(prs.Round) to send", "round", prs.Round)
@@ -706,7 +705,7 @@ func (r *Reactor) gossipVotesForHeight(
 	// if there are POLPrevotes to send...
 	if prs.ProposalPOLRound != -1 {
 		if polPrevotes := rs.Votes.Prevotes(prs.ProposalPOLRound); polPrevotes != nil {
-			if ok, err := r.pickSendVote(ctx, ps, polPrevotes, voteCh); err != nil {
+			if ok, err := r.pickSendVote(ctx, ps, polPrevotes); err != nil {
 				return false, err
 			} else if ok {
 				logger.Debug("picked rs.Prevotes(prs.ProposalPOLRound) to send", "round", prs.ProposalPOLRound)
@@ -719,7 +718,6 @@ func (r *Reactor) gossipVotesForHeight(
 }
 
 func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState) error {
-	voteCh := r.channels.vote
 	logger := r.logger.With("peer", ps.peerID)
 
 	timer := time.NewTimer(0)
@@ -732,7 +730,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState) error {
 
 		// if height matches, then send LastCommit, Prevotes, and Precommits
 		if rs.Height == prs.Height {
-			if ok, err := r.gossipVotesForHeight(ctx, rs, prs, ps, voteCh); err != nil {
+			if ok, err := r.gossipVotesForHeight(ctx, rs, prs, ps); err != nil {
 				return fmt.Errorf("r.gossipVotesForeHeight(): %w", err)
 			} else if ok {
 				continue
@@ -741,7 +739,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState) error {
 
 		// special catchup logic -- if peer is lagging by height 1, send LastCommit
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
-			if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
+			if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit); err != nil {
 				return fmt.Errorf("r.pickSendVote(): %w", err)
 			} else if ok {
 				logger.Debug("picked rs.LastCommit to send", "height", prs.Height)
@@ -766,7 +764,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState) error {
 			if ec == nil {
 				continue
 			}
-			if ok, err := r.pickSendVote(ctx, ps, ec, voteCh); err != nil {
+			if ok, err := r.pickSendVote(ctx, ps, ec); err != nil {
 				return fmt.Errorf("r.pickSendVote(): %w", err)
 			} else if ok {
 				logger.Debug("picked Catchup commit to send", "height", prs.Height)

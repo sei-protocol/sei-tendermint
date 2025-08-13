@@ -361,9 +361,7 @@ func TestReactorBasic(t *testing.T) {
 	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
-		state := reactor.state.GetState()
-		reactor.StopWaitSync()
-		reactor.SwitchToConsensus(ctx, state, false)
+		reactor.SwitchToConsensus(ctx)
 	}
 
 	var wg sync.WaitGroup
@@ -518,9 +516,7 @@ func TestReactorWithEvidence(t *testing.T) {
 	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
-		state := reactor.state.GetState()
-		reactor.StopWaitSync()
-		reactor.SwitchToConsensus(ctx, state, false)
+		reactor.SwitchToConsensus(ctx)
 	}
 
 	var wg sync.WaitGroup
@@ -567,9 +563,7 @@ func TestReactorCreatesBlockWhenEmptyBlocksFalse(t *testing.T) {
 	rts := setup(ctx, t, n, states, 1048576) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
-		state := reactor.state.GetState()
-		reactor.StopWaitSync()
-		reactor.SwitchToConsensus(ctx, state, false)
+		reactor.SwitchToConsensus(ctx)
 	}
 
 	// send a tx
@@ -704,11 +698,11 @@ func TestSwitchToConsensusVoteExtensions(t *testing.T) {
 			if testCase.shouldPanic {
 				assert.Panics(t, func() {
 					reactor.StopWaitSync()
-					reactor.SwitchToConsensus(ctx, cs.state, false)
+					reactor.SwitchToConsensus(ctx)
 				})
 			} else {
 				reactor.StopWaitSync()
-				reactor.SwitchToConsensus(ctx, cs.state, false)
+				reactor.SwitchToConsensus(ctx)
 			}
 		})
 	}
@@ -729,9 +723,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
-		state := reactor.state.GetState()
-		reactor.StopWaitSync()
-		reactor.SwitchToConsensus(ctx, state, false)
+		reactor.SwitchToConsensus(ctx)
 	}
 
 	var wg sync.WaitGroup
@@ -929,9 +921,7 @@ func TestReactorValidatorSetChanges(t *testing.T) {
 	rts := setup(ctx, t, nPeers, states, 1024) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
-		state := reactor.state.GetState()
-		reactor.StopWaitSync()
-		reactor.SwitchToConsensus(ctx, state, false)
+		reactor.SwitchToConsensus(ctx)
 	}
 
 	// map of active validators

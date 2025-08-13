@@ -40,9 +40,8 @@ func TestReactorInvalidPrecommit(t *testing.T) {
 	rts := setup(ctx, t, n, states, 100) // buffer must be large enough to not deadlock
 
 	for _, reactor := range rts.reactors {
-		state := reactor.state.GetState()
 		reactor.StopWaitSync()
-		reactor.SwitchToConsensus(ctx, state, false)
+		reactor.SwitchToConsensus(ctx)
 	}
 
 	// this val sends a random precommit at each height

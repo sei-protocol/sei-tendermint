@@ -54,7 +54,7 @@ func GetChannelDescriptor() *p2p.ChannelDescriptor {
 type consensusReactor interface {
 	// For when we switch from block sync reactor to the consensus
 	// machine.
-	SwitchToConsensus(ctx context.Context, state sm.State, skipWAL bool)
+	SwitchToConsensus(ctx context.Context)
 }
 
 type peerError struct {
@@ -196,7 +196,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			s.Spawn(func() error { return r.processBlockSyncCh(ctx) })
 			s.Spawn(func() error { return r.processPeerUpdates(ctx, r.peerEvents(ctx)) })
 			if r.consReactor != nil {
-				r.consReactor.SwitchToConsensus(ctx, state, false)
+				r.consReactor.SwitchToConsensus(ctx)
 			}
 			return nil
 		})

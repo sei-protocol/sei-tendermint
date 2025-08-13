@@ -92,8 +92,8 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 
 	if env.BlockSyncReactor != nil {
 		result.SyncInfo.MaxPeerBlockHeight = env.BlockSyncReactor.GetMaxPeerBlockHeight()
-		result.SyncInfo.TotalSyncedTime = env.BlockSyncReactor.GetTotalSyncedTime()
-		result.SyncInfo.RemainingTime = env.BlockSyncReactor.GetRemainingSyncTime()
+		//result.SyncInfo.TotalSyncedTime = env.BlockSyncReactor.GetTotalSyncedTime()
+		//result.SyncInfo.RemainingTime = env.BlockSyncReactor.GetRemainingSyncTime()
 	}
 
 	if env.StateSyncMetricer != nil {
