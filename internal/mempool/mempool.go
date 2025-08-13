@@ -310,7 +310,7 @@ func (txmp *TxMempool) CheckTx(
 
 	// Check if mempool is full before executing CheckTx
 	numTxs := txmp.NumTxsNotPending()
-	if numTxs >= txmp.config.Size-1 {
+	if numTxs >= txmp.config.Size-1 && txmp.config.Size > 5000 {
 		return types.ErrMempoolIsFull{
 			NumTxs:      numTxs,
 			MaxTxs:      txmp.config.Size,
