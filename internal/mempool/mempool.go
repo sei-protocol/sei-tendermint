@@ -308,6 +308,16 @@ func (txmp *TxMempool) CheckTx(
 		return types.ErrTxInCache
 	}
 
+	// Check if mempool is full before executing CheckTx
+	numTxs := txmp.NumTxsNotPending()
+	if numTxs >= txmp.config.Size-1 {
+		return types.ErrMempoolIsFull{
+			NumTxs:      numTxs,
+			MaxTxs:      txmp.config.Size,
+			MaxTxsBytes: txmp.config.MaxTxsBytes,
+		}
+	}
+
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 
 	// when a transaction is removed/expired/rejected, this should be called
