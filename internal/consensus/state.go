@@ -1014,9 +1014,7 @@ func (cs *State) receiveRoutine(ctx context.Context, maxSteps int) {
 		case <-ctx.Done():
 			onExit(cs)
 			return
-
 		}
-		// TODO should we handle context cancels here?
 	}
 }
 func (cs *State) fsyncAndCompleteProposal(ctx context.Context, fsyncUponCompletion bool, height int64, span otrace.Span, onPropose bool) {
@@ -1163,7 +1161,6 @@ func (cs *State) handleMsg(ctx context.Context, mi msgInfo, fsyncUponCompletion 
 			"err", err,
 		)
 	}
-	return
 }
 
 func (cs *State) handleTimeout(
@@ -1218,8 +1215,6 @@ func (cs *State) handleTimeout(
 	default:
 		panic(fmt.Sprintf("invalid timeout step: %v", ti.Step))
 	}
-
-	return
 }
 
 func (cs *State) handleTxsAvailable(ctx context.Context) {
@@ -1245,7 +1240,6 @@ func (cs *State) handleTxsAvailable(ctx context.Context) {
 	case cstypes.RoundStepNewRound: // after timeoutCommit
 		cs.enterPropose(ctx, cs.roundState.Height(), 0, "post-timeout-commit")
 	}
-	return
 }
 
 func (cs *State) getTracingCtx(defaultCtx context.Context) context.Context {

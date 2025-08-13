@@ -221,14 +221,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 			if _,_,err := utils.RecvOrClosed(ctx, r.readySignal); err!=nil {
 				return nil
 			}
-			// start routine that computes peer statistics for evaluating peer quality
-			//
-			// TODO: Evaluate if we need this to be synchronized via WaitGroup as to not
-			// leak the goroutine when stopping the reactor.
 			s.Spawn(func() error { return r.peerStatsRoutine(ctx, peerUpdates) })
-			if err := r.state.updateStateFromStore(); err != nil {
-				return err
-			}
 			if err := r.state.Start(ctx); err != nil {
 				return err
 			}
