@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/tendermint/tendermint/libs/utils/require"
-	"github.com/tendermint/tendermint/libs/utils/service"
+	"github.com/tendermint/tendermint/libs/utils/scope"
 	"github.com/tendermint/tendermint/libs/utils"
 )
 
@@ -17,7 +17,7 @@ func TestAtomicWatch(t *testing.T) {
 	require.Equal(t, 5, *w.Load())
 
 	want := 10
-	if err := service.Run(ctx, func(ctx context.Context, s service.Scope) error {
+	if err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.Spawn(func() error {
 			for i := 0; i <= want; i++ {
 				w.Store(&i)

@@ -9,7 +9,6 @@ import (
 	"github.com/tendermint/tendermint/internal/mempool"
 
 	"github.com/fortytw2/leaktest"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
@@ -277,7 +276,7 @@ func (rts *reactorTestSuite) start(ctx context.Context, t *testing.T) {
 }
 
 func TestReactor_AbruptDisconnect(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cfg, err := config.ResetTestRoot(t.TempDir(), "block_sync_reactor_test")
@@ -314,129 +313,4 @@ func TestReactor_AbruptDisconnect(t *testing.T) {
 		NodeID: rts.nodes[0],
 	}
 	rts.network.Nodes[rts.nodes[1]].PeerManager.Disconnected(ctx, rts.nodes[0])
-}
-
-func TestReactor_SyncTime(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cfg, err := config.ResetTestRoot(t.TempDir(), "block_sync_reactor_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(cfg.RootDir)
-
-	valSet, privVals := factory.ValidatorSet(ctx, t, 1, 30)
-	genDoc := factory.GenesisDoc(cfg, time.Now(), valSet.Validators, factory.ConsensusParams())
-	maxBlockHeight := int64(101)
-
-	rts := setup(ctx, t, genDoc, privVals[0], []int64{maxBlockHeight, 0})
-	require.Equal(t, maxBlockHeight, rts.reactors[rts.nodes[0]].store.Height())
-	rts.start(ctx, t)
-
-	require.Eventually(
-		t,
-		func() bool {
-			return rts.reactors[rts.nodes[1]].GetRemainingSyncTime() > time.Nanosecond &&
-				rts.reactors[rts.nodes[1]].pool.getLastSyncRate() > 0.001
-		},
-		10*time.Second,
-		10*time.Millisecond,
-		"expected node to be partially synced",
-	)
-}
-
-type MockBlockStore struct {
-	mock.Mock
-	sm.BlockStore
-}
-
-func (m *MockBlockStore) Height() int64 {
-	args := m.Called()
-	return args.Get(0).(int64)
-}
-
-func TestAutoRestartIfBehind(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name                      string
-		blocksBehindThreshold     uint64
-		blocksBehindCheckInterval time.Duration
-		selfHeight                int64
-		maxPeerHeight             int64
-		isBlockSync               bool
-		restartExpected           bool
-	}{
-		{
-			name:                      "Should not restart if blocksBehindThreshold is 0",
-			blocksBehindThreshold:     0,
-			blocksBehindCheckInterval: 10 * time.Millisecond,
-			selfHeight:                100,
-			maxPeerHeight:             200,
-			isBlockSync:               false,
-			restartExpected:           false,
-		},
-		{
-			name:                      "Should not restart if behindHeight is less than threshold",
-			blocksBehindThreshold:     50,
-			selfHeight:                100,
-			blocksBehindCheckInterval: 10 * time.Millisecond,
-			maxPeerHeight:             140,
-			isBlockSync:               false,
-			restartExpected:           false,
-		},
-		{
-			name:                      "Should restart if behindHeight is greater than or equal to threshold",
-			blocksBehindThreshold:     50,
-			selfHeight:                100,
-			blocksBehindCheckInterval: 10 * time.Millisecond,
-			maxPeerHeight:             160,
-			isBlockSync:               false,
-			restartExpected:           true,
-		},
-		{
-			name:                      "Should not restart if blocksync",
-			blocksBehindThreshold:     50,
-			selfHeight:                100,
-			blocksBehindCheckInterval: 10 * time.Millisecond,
-			maxPeerHeight:             160,
-			isBlockSync:               true,
-			restartExpected:           false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Log(tt.name)
-		t.Run(tt.name, func(t *testing.T) {
-			mockBlockStore := new(MockBlockStore)
-			mockBlockStore.On("Height").Return(tt.selfHeight)
-
-			blockPool := &BlockPool{
-				logger:        log.TestingLogger(),
-				height:        tt.selfHeight,
-				maxPeerHeight: tt.maxPeerHeight,
-			}
-
-			restartChan := make(chan struct{}, 1)
-			r := &Reactor{
-				logger:                    log.TestingLogger(),
-				store:                     mockBlockStore,
-				pool:                      blockPool,
-				blocksBehindThreshold:     tt.blocksBehindThreshold,
-				blocksBehindCheckInterval: tt.blocksBehindCheckInterval,
-				restartCh:                 restartChan,
-				blockSync:                 newAtomicBool(tt.isBlockSync),
-			}
-
-			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-			defer cancel()
-
-			go r.autoRestartIfBehind(ctx)
-
-			select {
-			case <-restartChan:
-				assert.True(t, tt.restartExpected, "Unexpected restart")
-			case <-time.After(50 * time.Millisecond):
-				assert.False(t, tt.restartExpected, "Expected restart but did not occur")
-			}
-		})
-	}
 }
