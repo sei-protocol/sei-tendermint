@@ -143,15 +143,14 @@ func (cs *State) catchupReplay(ctx context.Context, csHeight int64) error {
 
 	cs.logger.Info("Catchup by replaying consensus messages", "height", csHeight)
 
-	var msg *TimedWALMessage
 	dec := WALDecoder{gr}
 
-LOOP:
 	for {
-		msg, err = dec.Decode()
+		msg, err := dec.Decode()
 		switch {
 		case err == io.EOF:
-			break LOOP
+			cs.logger.Info("Replay: Done")
+			return nil
 		case IsDataCorruptionError(err):
 			cs.logger.Error("data has been corrupted in last height of consensus WAL", "err", err, "height", csHeight)
 			return err
@@ -166,35 +165,9 @@ LOOP:
 			return err
 		}
 	}
-	cs.logger.Info("Replay: Done")
-	return nil
 }
 
 //--------------------------------------------------------------------------------
-
-// Parses marker lines of the form:
-// #ENDHEIGHT: 12345
-/*
-func makeHeightSearchFunc(height int64) auto.SearchFunc {
-	return func(line string) (int, error) {
-		line = strings.TrimRight(line, "\n")
-		parts := strings.Split(line, " ")
-		if len(parts) != 2 {
-			return -1, errors.New("line did not have 2 parts")
-		}
-		i, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return -1, errors.New("failed to parse INFO: " + err.Error())
-		}
-		if height < i {
-			return 1, nil
-		} else if height == i {
-			return 0, nil
-		} else {
-			return -1, nil
-		}
-	}
-}*/
 
 //---------------------------------------------------
 // 2. Recover from failure while applying the block.
