@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/tendermint/tendermint/libs/utils/scope"
+	"github.com/tendermint/tendermint/libs/utils"
 	cstypes "github.com/tendermint/tendermint/internal/consensus/types"
 	"github.com/tendermint/tendermint/libs/bits"
 	tmjson "github.com/tendermint/tendermint/libs/json"
@@ -70,23 +72,26 @@ func (ps *PeerState) Start(ctx context.Context, r *Reactor) {
 	if ps.running { return }
 	ps.running = true
 	ctx, ps.cancel = context.WithCancel(ctx)
-
-	// start goroutines for this peer
-	go r.gossipDataRoutine(ctx, ps, r.channels.data)
-	go r.gossipVotesRoutine(ctx, ps, r.channels.vote)
-	go r.queryMaj23Routine(ctx, ps, r.channels.state)
-	// Send our state to the peer. If we're block-syncing, broadcast a
-	// RoundStepMessage later upon SwitchToConsensus().
-	go r.sendNewRoundStepMessage(ctx, ps.peerID, r.channels.state)
+	go func() {
+		err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+			s.Spawn(func() error { return r.gossipDataRoutine(ctx, ps) })
+			s.Spawn(func() error { return r.gossipVotesRoutine(ctx, ps) })
+			s.Spawn(func() error { return r.queryMaj23Routine(ctx, ps) })
+			s.Spawn(func() error { return r.sendNewRoundStepMessage(ctx, ps.peerID) })
+			return nil
+		})
+		if utils.IgnoreCancel(err)!=nil {
+			r.logger.Debug("PeerState()","err",err)
+		}
+		ps.mtx.Lock()
+		defer ps.mtx.Unlock()
+		ps.running = false
+	}()
 }
 
 func (ps *PeerState) Stop() {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-	if !ps.running {
-		return // already stopped
-	}
-	ps.running = false
 	if ps.cancel != nil {
 		ps.cancel() // cancel all goroutines
 	}

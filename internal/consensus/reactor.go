@@ -422,8 +422,8 @@ func makeRoundStepMessage(rs *cstypes.RoundState) *tmcons.NewRoundStep {
 	}
 }
 
-func (r *Reactor) sendNewRoundStepMessage(ctx context.Context, peerID types.NodeID, stateCh *p2p.Channel) error {
-	return stateCh.Send(ctx, p2p.Envelope{
+func (r *Reactor) sendNewRoundStepMessage(ctx context.Context, peerID types.NodeID) error {
+	return r.channels.state.Send(ctx, p2p.Envelope{
 		To:      peerID,
 		Message: makeRoundStepMessage(r.getRoundState()),
 	})
@@ -516,7 +516,8 @@ func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundSta
 	time.Sleep(r.state.config.PeerGossipSleepDuration)
 }
 
-func (r *Reactor) gossipDataRoutine(ctx context.Context, ps *PeerState, dataCh *p2p.Channel) {
+func (r *Reactor) gossipDataRoutine(ctx context.Context, ps *PeerState) error {
+	dataCh := r.channels.data
 	logger := r.logger.With("peer", ps.peerID)
 	timer := time.NewTimer(0)
 
@@ -524,7 +525,7 @@ OUTER_LOOP:
 	for {
 		timer.Reset(r.state.config.PeerGossipSleepDuration)
 		if _,err := utils.Recv(ctx,timer.C); err!=nil {
-			return
+			return nil
 		}
 
 		rs := r.getRoundState()
@@ -536,8 +537,7 @@ OUTER_LOOP:
 				part := rs.ProposalBlockParts.GetPart(index)
 				partProto, err := part.ToProto()
 				if err != nil {
-					logger.Error("failed to convert block part to proto", "err", err)
-					return
+					return fmt.Errorf("failed to convert block part to proto: %w",err)
 				}
 
 				logger.Debug("sending block part", "height", prs.Height, "round", prs.Round)
@@ -549,7 +549,7 @@ OUTER_LOOP:
 						Part:   *partProto,
 					},
 				}); err != nil {
-					return
+					return err
 				}
 
 				ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
@@ -608,7 +608,7 @@ OUTER_LOOP:
 						Proposal: *propProto,
 					},
 				}); err != nil {
-					return
+					return err
 				}
 
 				// NOTE: A peer might have received a different proposal message, so
@@ -633,7 +633,7 @@ OUTER_LOOP:
 						ProposalPol:      *pPolProto,
 					},
 				}); err != nil {
-					return
+					return err
 				}
 			}
 		}
@@ -686,7 +686,6 @@ func (r *Reactor) gossipVotesForHeight(
 		} else if ok {
 			logger.Debug("picked rs.LastCommit to send")
 			return true, nil
-
 		}
 	}
 
@@ -747,20 +746,22 @@ func (r *Reactor) gossipVotesForHeight(
 	return false, nil
 }
 
-func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh *p2p.Channel) {
+func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState) error {
+	voteCh := r.channels.vote
 	logger := r.logger.With("peer", ps.peerID)
 
 	timer := time.NewTimer(0)
-	defer timer.Stop()
-
-	for ctx.Err() == nil {
+	for {
+		if _,err := utils.Recv(ctx,timer.C); err!=nil {
+			return nil
+		}
 		rs := r.getRoundState()
 		prs := ps.GetRoundState()
 
 		// if height matches, then send LastCommit, Prevotes, and Precommits
 		if rs.Height == prs.Height {
 			if ok, err := r.gossipVotesForHeight(ctx, rs, prs, ps, voteCh); err != nil {
-				return
+				return fmt.Errorf("r.gossipVotesForeHeight(): %w", err)
 			} else if ok {
 				continue
 			}
@@ -769,7 +770,7 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 		// special catchup logic -- if peer is lagging by height 1, send LastCommit
 		if prs.Height != 0 && rs.Height == prs.Height+1 {
 			if ok, err := r.pickSendVote(ctx, ps, rs.LastCommit, voteCh); err != nil {
-				return
+				return fmt.Errorf("r.pickSendVote(): %w", err)
 			} else if ok {
 				logger.Debug("picked rs.LastCommit to send", "height", prs.Height)
 				continue
@@ -794,134 +795,104 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 				continue
 			}
 			if ok, err := r.pickSendVote(ctx, ps, ec, voteCh); err != nil {
-				return
+				return fmt.Errorf("r.pickSendVote(): %w", err)
 			} else if ok {
 				logger.Debug("picked Catchup commit to send", "height", prs.Height)
 				continue
 			}
 		}
-
 		timer.Reset(r.state.config.PeerGossipSleepDuration)
-		if _,err := utils.Recv(ctx,timer.C); err!=nil {
-			return
-		}
 	}
 }
 
 // NOTE: `queryMaj23Routine` has a simple crude design since it only comes
 // into play for liveness when there's a signature DDoS attack happening.
-func (r *Reactor) queryMaj23Routine(ctx context.Context, ps *PeerState, stateCh *p2p.Channel) {
+func (r *Reactor) queryMaj23Routine(ctx context.Context, ps *PeerState) error {
+	stateCh := r.channels.state
 	timer := time.NewTimer(0)
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	for {
 		if _,err := utils.Recv(ctx,timer.C); err!=nil {
-			return
+			return nil
 		}
 
-		// TODO create more reliable copies of these
-		// structures so the following go routines don't race
-		rs := r.getRoundState()
-		prs := ps.GetRoundState()
-
-		wg := &sync.WaitGroup{}
-
-		if rs.Height == prs.Height {
-			wg.Add(1)
-			go func(rs *cstypes.RoundState, prs *cstypes.PeerRoundState) {
-				defer wg.Done()
-
+		err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+			// TODO create more reliable copies of these
+			// structures so the following go routines don't race
+			rs := r.getRoundState()
+			prs := ps.GetRoundState()
+			if rs.Height == prs.Height {
 				// maybe send Height/Round/Prevotes
 				if maj23, ok := rs.Votes.Prevotes(prs.Round).TwoThirdsMajority(); ok {
-					if err := stateCh.Send(ctx, p2p.Envelope{
-						To: ps.peerID,
-						Message: &tmcons.VoteSetMaj23{
-							Height:  prs.Height,
-							Round:   prs.Round,
-							Type:    tmproto.PrevoteType,
-							BlockID: maj23.ToProto(),
-						},
-					}); err != nil {
-						cancel()
-					}
-				}
-			}(rs, prs)
-
-			if prs.ProposalPOLRound >= 0 {
-				wg.Add(1)
-				go func(rs *cstypes.RoundState, prs *cstypes.PeerRoundState) {
-					defer wg.Done()
-
-					// maybe send Height/Round/ProposalPOL
-					if maj23, ok := rs.Votes.Prevotes(prs.ProposalPOLRound).TwoThirdsMajority(); ok {
-						if err := stateCh.Send(ctx, p2p.Envelope{
+					s.Spawn(func() error {
+						return stateCh.Send(ctx, p2p.Envelope{
 							To: ps.peerID,
 							Message: &tmcons.VoteSetMaj23{
 								Height:  prs.Height,
-								Round:   prs.ProposalPOLRound,
+								Round:   prs.Round,
 								Type:    tmproto.PrevoteType,
 								BlockID: maj23.ToProto(),
 							},
-						}); err != nil {
-							cancel()
-						}
-					}
-				}(rs, prs)
-			}
+						})
+					})
+				}
 
-			wg.Add(1)
-			go func(rs *cstypes.RoundState, prs *cstypes.PeerRoundState) {
-				defer wg.Done()
+				if prs.ProposalPOLRound >= 0 {
+					// maybe send Height/Round/ProposalPOL
+					if maj23, ok := rs.Votes.Prevotes(prs.ProposalPOLRound).TwoThirdsMajority(); ok {
+						s.Spawn(func() error {
+							return stateCh.Send(ctx, p2p.Envelope{
+								To: ps.peerID,
+								Message: &tmcons.VoteSetMaj23{
+									Height:  prs.Height,
+									Round:   prs.ProposalPOLRound,
+									Type:    tmproto.PrevoteType,
+									BlockID: maj23.ToProto(),
+								},
+							})
+						})
+					}
+				}
 
 				// maybe send Height/Round/Precommits
 				if maj23, ok := rs.Votes.Precommits(prs.Round).TwoThirdsMajority(); ok {
-					if err := stateCh.Send(ctx, p2p.Envelope{
-						To: ps.peerID,
-						Message: &tmcons.VoteSetMaj23{
-							Height:  prs.Height,
-							Round:   prs.Round,
-							Type:    tmproto.PrecommitType,
-							BlockID: maj23.ToProto(),
-						},
-					}); err != nil {
-						cancel()
-					}
-				}
-			}(rs, prs)
-		}
-
-		// Little point sending LastCommitRound/LastCommit, these are fleeting and
-		// non-blocking.
-		if prs.CatchupCommitRound != -1 && prs.Height > 0 {
-			wg.Add(1)
-			go func(rs *cstypes.RoundState, prs *cstypes.PeerRoundState) {
-				defer wg.Done()
-
-				if prs.Height <= r.state.blockStore.Height() && prs.Height >= r.state.blockStore.Base() {
-					// maybe send Height/CatchupCommitRound/CatchupCommit
-					if commit := r.state.LoadCommit(prs.Height); commit != nil {
-						if err := stateCh.Send(ctx, p2p.Envelope{
+					s.Spawn(func() error {
+						return stateCh.Send(ctx, p2p.Envelope{
 							To: ps.peerID,
 							Message: &tmcons.VoteSetMaj23{
 								Height:  prs.Height,
-								Round:   commit.Round,
+								Round:   prs.Round,
 								Type:    tmproto.PrecommitType,
-								BlockID: commit.BlockID.ToProto(),
+								BlockID: maj23.ToProto(),
 							},
-						}); err != nil {
-							cancel()
-						}
+						})
+					})
+				}
+			}
+
+			// Little point sending LastCommitRound/LastCommit, these are fleeting and
+			// non-blocking.
+			if prs.CatchupCommitRound != -1 && prs.Height > 0 {
+				if prs.Height <= r.state.blockStore.Height() && prs.Height >= r.state.blockStore.Base() {
+					// maybe send Height/CatchupCommitRound/CatchupCommit
+					if commit := r.state.LoadCommit(prs.Height); commit != nil {
+						s.Spawn(func() error {
+							return stateCh.Send(ctx, p2p.Envelope{
+								To: ps.peerID,
+								Message: &tmcons.VoteSetMaj23{
+									Height:  prs.Height,
+									Round:   commit.Round,
+									Type:    tmproto.PrecommitType,
+									BlockID: commit.BlockID.ToProto(),
+								},
+							})
+						})
 					}
 				}
-			}(rs, prs)
-		}
-
-		waitSignal := make(chan struct{})
-		go func() { defer close(waitSignal); wg.Wait() }()
-		if _,_,err := utils.RecvOrClosed(ctx, waitSignal); err != nil {
-			return
+			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 		timer.Reset(r.state.config.PeerQueryMaj23SleepDuration)
 	}
