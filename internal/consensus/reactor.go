@@ -207,14 +207,15 @@ func (r *Reactor) SetVoteSetChannel(ch *p2p.Channel) {
 func (r *Reactor) OnStart(ctx context.Context) error {
 	r.logger.Debug("consensus wait sync", "wait_sync", r.WaitSync())
 
-	peerUpdates := r.peerEvents(ctx)
 
-	if err:=r.subscribeToBroadcastEvents(ctx); err!=nil {
-		return fmt.Errorf("r.subscribeToBroadcastEvents(): %w", err)
-	}
 
 	ctx,cancel := context.WithCancel(context.Background())
 	r.cancel = cancel
+	peerUpdates := r.peerEvents(ctx)
+	if err:=r.subscribeToBroadcastEvents(ctx); err!=nil {
+		cancel()
+		return fmt.Errorf("r.subscribeToBroadcastEvents(): %w", err)
+	}
 	go func() {
 		defer cancel()
 		err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
@@ -266,27 +267,8 @@ func (r *Reactor) StopWaitSync() {
 
 // SwitchToConsensus switches from block-sync mode to consensus mode. It resets
 // the state, turns off block-sync, and starts the consensus state-machine.
-func (r *Reactor) SwitchToConsensus(ctx context.Context, state sm.State, skipWAL bool) {
+func (r *Reactor) SwitchToConsensus(ctx context.Context) {
 	r.logger.Info("switching to consensus")
-
-	// we have no votes, so reconstruct LastCommit from SeenCommit
-	if state.LastBlockHeight > 0 {
-		r.state.reconstructLastCommit(state)
-	}
-
-	// NOTE: The line below causes broadcastNewRoundStepRoutine() to broadcast a
-	// NewRoundStepMessage.
-	r.state.updateToState(state)
-	if err := r.state.Start(ctx); err != nil {
-		panic(fmt.Sprintf(`failed to start consensus state: %v
-
-conS:
-%+v
-
-conR:
-%+v`, err, r.state, r))
-	}
-
 	r.mtx.Lock()
 	r.waitSync = false
 	close(r.readySignal)
@@ -295,14 +277,11 @@ conR:
 	r.Metrics.BlockSyncing.Set(0)
 	r.Metrics.StateSyncing.Set(0)
 
-	if skipWAL {
-		r.state.doWALCatchup = false
-	}
-
+	/*
 	d := types.EventDataBlockSyncStatus{Complete: true, Height: state.LastBlockHeight}
 	if err := r.eventBus.PublishEventBlockSyncStatus(d); err != nil {
 		r.logger.Error("failed to emit the blocksync complete event", "err", err)
-	}
+	}*/
 }
 
 // String returns a string representation of the Reactor.
@@ -926,7 +905,8 @@ func (r *Reactor) processPeerUpdate(ctx context.Context, peerUpdate p2p.PeerUpda
 // If we fail to find the peer state for the envelope sender, we perform a no-op
 // and return. This can happen when we process the envelope after the peer is
 // removed.
-func (r *Reactor) handleStateMessage(ctx context.Context, envelope *p2p.Envelope, msgI Message, voteSetCh *p2p.Channel) error {
+func (r *Reactor) handleStateMessage(ctx context.Context, envelope *p2p.Envelope, msgI Message) error {
+	voteSetCh := r.channels.votSet
 	ps, ok := r.GetPeerState(envelope.From)
 	if !ok || ps == nil {
 		r.logger.Debug("failed to find peer state", "peer", envelope.From, "ch_id", "StateChannel")
@@ -996,12 +976,10 @@ func (r *Reactor) handleStateMessage(ctx context.Context, envelope *p2p.Envelope
 			eMsg.Votes = *votesProto
 		}
 
-		if err := voteSetCh.Send(ctx, p2p.Envelope{
+		return voteSetCh.Send(ctx, p2p.Envelope{
 			To:      envelope.From,
 			Message: eMsg,
-		}); err != nil {
-			return err
-		}
+		})
 
 	default:
 		return fmt.Errorf("received unknown message on StateChannel: %T", msg)
@@ -1015,29 +993,18 @@ func (r *Reactor) handleStateMessage(ctx context.Context, envelope *p2p.Envelope
 // return. This can happen when we process the envelope after the peer is
 // removed.
 func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope, msgI Message) error {
-	logger := r.logger.With("peer", envelope.From, "ch_id", "DataChannel")
-
 	ps, ok := r.GetPeerState(envelope.From)
 	if !ok || ps == nil {
 		r.logger.Debug("failed to find peer state")
 		return nil
 	}
 
-	if r.WaitSync() {
-		logger.Debug("ignoring message received during sync", "msg", fmt.Sprintf("%T", msgI))
-		return nil
-	}
-
 	switch msg := envelope.Message.(type) {
 	case *tmcons.Proposal:
 		pMsg := msgI.(*ProposalMessage)
-
 		ps.SetHasProposal(pMsg.Proposal)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case r.state.peerMsgQueue <- msgInfo{pMsg, envelope.From, tmtime.Now()}:
+		if err:=utils.Send(ctx, r.state.peerMsgQueue, msgInfo{pMsg, envelope.From, tmtime.Now()}); err!=nil {
+			return err
 		}
 	case *tmcons.ProposalPOL:
 		ps.ApplyProposalPOLMessage(msgI.(*ProposalPOLMessage))
@@ -1046,13 +1013,9 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 
 		ps.SetHasProposalBlockPart(bpMsg.Height, bpMsg.Round, int(bpMsg.Part.Index))
 		r.Metrics.BlockParts.With("peer_id", string(envelope.From)).Add(1)
-		select {
-		case r.state.peerMsgQueue <- msgInfo{bpMsg, envelope.From, tmtime.Now()}:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
+		if err:=utils.Send(ctx, r.state.peerMsgQueue, msgInfo{bpMsg, envelope.From, tmtime.Now()}); err!=nil {
+			return err
 		}
-
 	default:
 		return fmt.Errorf("received unknown message on DataChannel: %T", msg)
 	}
@@ -1065,23 +1028,18 @@ func (r *Reactor) handleDataMessage(ctx context.Context, envelope *p2p.Envelope,
 // return. This can happen when we process the envelope after the peer is
 // removed.
 func (r *Reactor) handleVoteMessage(ctx context.Context, envelope *p2p.Envelope, msgI Message) error {
-	logger := r.logger.With("peer", envelope.From, "ch_id", "VoteChannel")
-
 	ps, ok := r.GetPeerState(envelope.From)
 	if !ok || ps == nil {
 		r.logger.Debug("failed to find peer state")
 		return nil
 	}
 
-	if r.WaitSync() {
-		logger.Debug("ignoring message received during sync", "msg", msgI)
-		return nil
-	}
-
 	switch msg := envelope.Message.(type) {
 	case *tmcons.Vote:
 		r.state.mtx.RLock()
-		height, valSize, lastCommitSize := r.state.roundState.Height(), r.state.roundState.Validators().Size(), r.state.roundState.LastCommit().Size()
+		height := r.state.roundState.Height()
+		valSize := r.state.roundState.Validators().Size()
+		lastCommitSize := r.state.roundState.LastCommit().Size()
 		r.state.mtx.RUnlock()
 
 		vMsg := msgI.(*VoteMessage)
@@ -1091,13 +1049,7 @@ func (r *Reactor) handleVoteMessage(ctx context.Context, envelope *p2p.Envelope,
 		if err := ps.SetHasVote(vMsg.Vote); err != nil {
 			return err
 		}
-
-		select {
-		case r.state.peerMsgQueue <- msgInfo{vMsg, envelope.From, tmtime.Now()}:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+		return utils.Send(ctx, r.state.peerMsgQueue,  msgInfo{vMsg, envelope.From, tmtime.Now()})
 	default:
 		return fmt.Errorf("received unknown message on VoteChannel: %T", msg)
 	}
@@ -1108,16 +1060,9 @@ func (r *Reactor) handleVoteMessage(ctx context.Context, envelope *p2p.Envelope,
 // we perform a no-op and return. This can happen when we process the envelope
 // after the peer is removed.
 func (r *Reactor) handleVoteSetBitsMessage(envelope *p2p.Envelope, msgI Message) error {
-	logger := r.logger.With("peer", envelope.From, "ch_id", "VoteSetBitsChannel")
-
 	ps, ok := r.GetPeerState(envelope.From)
 	if !ok || ps == nil {
 		r.logger.Debug("failed to find peer state")
-		return nil
-	}
-
-	if r.WaitSync() {
-		logger.Debug("ignoring message received during sync", "msg", msgI)
 		return nil
 	}
 
@@ -1197,7 +1142,7 @@ func (r *Reactor) handleMessage(ctx context.Context, envelope *p2p.Envelope) (er
 
 	switch envelope.ChannelID {
 	case StateChannel:
-		err = r.handleStateMessage(ctx, envelope, msgI, r.channels.votSet)
+		err = r.handleStateMessage(ctx, envelope, msgI)
 	case DataChannel:
 		err = r.handleDataMessage(ctx, envelope, msgI)
 	case VoteChannel:
