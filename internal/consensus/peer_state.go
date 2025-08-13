@@ -64,21 +64,32 @@ func NewPeerState(logger log.Logger, peerID types.NodeID) *PeerState {
 	}
 }
 
-// SetRunning sets the running state of the peer.
-func (ps *PeerState) SetRunning(v bool) {
+func (ps *PeerState) Start(ctx context.Context, r *Reactor) {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
+	if ps.running { return }
+	ps.running = true
+	ctx, ps.cancel = context.WithCancel(ctx)
 
-	ps.running = v
+	// start goroutines for this peer
+	go r.gossipDataRoutine(ctx, ps, r.channels.data)
+	go r.gossipVotesRoutine(ctx, ps, r.channels.vote)
+	go r.queryMaj23Routine(ctx, ps, r.channels.state)
+	// Send our state to the peer. If we're block-syncing, broadcast a
+	// RoundStepMessage later upon SwitchToConsensus().
+	go r.sendNewRoundStepMessage(ctx, ps.peerID, r.channels.state)
 }
 
-// IsRunning returns true if a PeerState is considered running where multiple
-// broadcasting goroutines exist for the peer.
-func (ps *PeerState) IsRunning() bool {
-	ps.mtx.RLock()
-	defer ps.mtx.RUnlock()
-
-	return ps.running
+func (ps *PeerState) Stop() {
+	ps.mtx.Lock()
+	defer ps.mtx.Unlock()
+	if !ps.running {
+		return // already stopped
+	}
+	ps.running = false
+	if ps.cancel != nil {
+		ps.cancel() // cancel all goroutines
+	}
 }
 
 // GetRoundState returns a shallow copy of the PeerRoundState. There's no point
@@ -86,7 +97,6 @@ func (ps *PeerState) IsRunning() bool {
 func (ps *PeerState) GetRoundState() *cstypes.PeerRoundState {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-
 	prs := ps.PRS.Copy()
 	return &prs
 }
@@ -103,7 +113,6 @@ func (ps *PeerState) ToJSON() ([]byte, error) {
 func (ps *PeerState) GetHeight() int64 {
 	ps.mtx.Lock()
 	defer ps.mtx.Unlock()
-
 	return ps.PRS.Height
 }
 

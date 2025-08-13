@@ -452,7 +452,7 @@ func TestReactorWithEvidence(t *testing.T) {
 	states := make([]*State, n)
 	logger := consensusLogger()
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		stateDB := dbm.NewMemDB() // each state needs its own db
 		stateStore := sm.NewStore(stateDB)
 		state, err := sm.MakeGenesisState(genDoc)
@@ -936,7 +936,7 @@ func TestReactorValidatorSetChanges(t *testing.T) {
 
 	// map of active validators
 	activeVals := make(map[string]struct{})
-	for i := 0; i < nVals; i++ {
+	for i := range nVals {
 		pubKey, err := states[i].privValidator.GetPubKey(ctx)
 		require.NoError(t, err)
 
