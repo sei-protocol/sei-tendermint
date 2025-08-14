@@ -94,7 +94,7 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "block_interval_seconds",
 			Help:      "Time in seconds between this and the last block.",
 
-			Buckets: []float64{.3, .5, 1, 1.5, 2, 5, 10},
+			Buckets: stdprometheus.ExponentialBuckets(0.1, 1.3, 20),
 		}, labels).With(labelsAndValues...),
 		NumTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
