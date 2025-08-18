@@ -38,6 +38,18 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "total_txs_size_bytes",
 			Help:      "Total current mempool uncommitted txs bytes",
 		}, labels).With(labelsAndValues...),
+		TotalSeenTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "total_seen_txs",
+			Help:      "Total number of transactions seen before within TTL",
+		}, labels).With(labelsAndValues...),
+		MaxSeenTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "max_seen_txs",
+			Help:      "Maximum number of transactions seen before within TTL",
+		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -89,6 +101,8 @@ func NopMetrics() *Metrics {
 		PendingSize:       discard.NewGauge(),
 		TxSizeBytes:       discard.NewCounter(),
 		TotalTxsSizeBytes: discard.NewGauge(),
+		TotalSeenTxs:      discard.NewGauge(),
+		MaxSeenTxs:        discard.NewGauge(),
 		FailedTxs:         discard.NewCounter(),
 		RejectedTxs:       discard.NewCounter(),
 		EvictedTxs:        discard.NewCounter(),

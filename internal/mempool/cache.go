@@ -2,8 +2,11 @@ package mempool
 
 import (
 	"container/list"
+	"fmt"
 	"sync"
+	"time"
 
+	"github.com/patrickmn/go-cache"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -105,3 +108,115 @@ var _ TxCache = (*NopTxCache)(nil)
 func (NopTxCache) Reset()             {}
 func (NopTxCache) Push(types.Tx) bool { return true }
 func (NopTxCache) Remove(types.Tx)    {}
+
+// NopTxCacheWithTTL defines a no-op TTL transaction cache.
+type NopTxCacheWithTTL struct{}
+
+var _ TxCacheWithTTL = (*NopTxCacheWithTTL)(nil)
+
+func (NopTxCacheWithTTL) Set(txKey types.TxKey, counter int)              {}
+func (NopTxCacheWithTTL) Get(txKey types.TxKey) (counter int, found bool) { return 0, false }
+func (NopTxCacheWithTTL) Increment(txKey types.TxKey) int                 { return 1 }
+func (NopTxCacheWithTTL) Reset()                                          {}
+func (NopTxCacheWithTTL) GetTotalCounters() int                           { return 0 }
+func (NopTxCacheWithTTL) GetMaxCounter() int                              { return 0 }
+
+// TxCacheWithTTL defines an interface for TTL-based transaction caching
+type TxCacheWithTTL interface {
+	// Set adds a transaction to the cache with TTL
+	Set(txKey types.TxKey, counter int)
+
+	// Get retrieves the counter for a transaction key
+	Get(txKey types.TxKey) (counter int, found bool)
+
+	// Increment increments the counter for a transaction key, extending TTL
+	Increment(txKey types.TxKey) int
+
+	// GetTotalCounters returns the total aggregated number of counters for all transactions
+	GetTotalCounters() int
+
+	// GetMaxCounter returns the maximum counter value across all transactions
+	GetMaxCounter() int
+
+	// Reset clears the cache
+	Reset()
+}
+
+// TTLTxCache implements TxCacheWithTTL using go-cache
+type TTLTxCache struct {
+	cache *cache.Cache
+}
+
+// NewTTLTxCache creates a new TTL transaction cache
+func NewTTLTxCache(defaultExpiration, cleanupInterval time.Duration) *TTLTxCache {
+	return &TTLTxCache{
+		cache: cache.New(defaultExpiration, cleanupInterval),
+	}
+}
+
+// Set adds a transaction to the cache with TTL
+func (t *TTLTxCache) Set(txKey types.TxKey, counter int) {
+	t.cache.SetDefault(txKeyToString(txKey), counter)
+}
+
+// Get retrieves the counter for a transaction key
+func (t *TTLTxCache) Get(txKey types.TxKey) (counter int, found bool) {
+	if value, exists := t.cache.Get(txKeyToString(txKey)); exists {
+		if counter, ok := value.(int); ok {
+			return counter, true
+		}
+	}
+	return 0, false
+}
+
+// Increment increments the counter for a transaction key, extending TTL
+func (t *TTLTxCache) Increment(txKey types.TxKey) int {
+	key := txKeyToString(txKey)
+
+	if value, exists := t.cache.Get(key); exists {
+		if currentCounter, ok := value.(int); ok {
+			newCounter := currentCounter + 1
+			t.cache.SetDefault(key, newCounter)
+			return newCounter
+		}
+	}
+
+	// If not found, start with counter = 1
+	newCounter := 1
+	t.cache.SetDefault(key, newCounter)
+	return newCounter
+}
+
+// Reset clears the cache
+func (t *TTLTxCache) Reset() {
+	t.cache.Flush()
+}
+
+// GetTotalCounters returns the total aggregated number of counters for all seen transactions
+func (t *TTLTxCache) GetTotalCounters() int {
+	total := 0
+	for _, v := range t.cache.Items() {
+		if counter, ok := v.Object.(int); ok && counter > 1 {
+			total += counter
+		}
+	}
+	return total
+}
+
+// GetMaxCounter returns the maximum counter value across all transactions
+func (t *TTLTxCache) GetMaxCounter() int {
+	var maxCount = 0
+	for _, v := range t.cache.Items() {
+		if counter, ok := v.Object.(int); ok {
+			if counter > maxCount {
+				maxCount = counter
+			}
+		}
+	}
+	return maxCount
+}
+
+// txKeyToString converts a TxKey (byte array) to a stable hex string.
+func txKeyToString(txKey types.TxKey) string {
+	return fmt.Sprintf("%x", txKey)
+}

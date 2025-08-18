@@ -769,6 +769,9 @@ type MempoolConfig struct {
 	// Size of the cache (used to filter transactions we saw earlier) in transactions
 	CacheSize int `mapstructure:"cache-size"`
 
+	// TTL of the olds txs cache TTL (used to track seen transactions)
+	SeenTxsCacheTTL time.Duration `mapstructure:"seen-txs-cache-ttl"`
+
 	// Do not remove invalid transactions from the cache (default: false)
 	// Set to true if it's not possible for any invalid transaction to become
 	// valid again in the future.
@@ -830,6 +833,7 @@ func DefaultMempoolConfig() *MempoolConfig {
 		Size:                         5000,
 		MaxTxsBytes:                  1024 * 1024 * 1024, // 1GB
 		CacheSize:                    10000,
+		SeenTxsCacheTTL:              120 * time.Second,
 		MaxTxBytes:                   1024 * 1024, // 1MB
 		TTLDuration:                  0 * time.Second,
 		TTLNumBlocks:                 0,

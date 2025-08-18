@@ -375,6 +375,9 @@ max-txs-bytes = {{ .Mempool.MaxTxsBytes }}
 # Size of the cache (used to filter transactions we saw earlier) in transactions
 cache-size = {{ .Mempool.CacheSize }}
 
+# TTL to keep the olds txs that we have run checkTx before (to track seen transactions)
+seen-txs-cache-ttl = {{ .Mempool.SeenTxsCacheTTL }}
+
 # Do not remove invalid transactions from the cache (default: false)
 # Set to true if it's not possible for any invalid transaction to become valid
 # again in the future.

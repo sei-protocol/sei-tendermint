@@ -50,6 +50,10 @@ type TxMempool struct {
 	// reduces pressure on the proxyApp.
 	cache TxCache
 
+	// A TTL cache which keeps all txs that we have seen before over the TTL window.
+	// Currently can be used for tracking whether checkTx is always serving the same tx or not.
+	seenTxsCache TxCacheWithTTL
+
 	// txStore defines the main storage of valid transactions. Indexes are built
 	// on top of this store.
 	txStore *TxStore
@@ -117,6 +121,7 @@ func NewTxMempool(
 		proxyAppConn:  proxyAppConn,
 		height:        -1,
 		cache:         NopTxCache{},
+		seenTxsCache:  NopTxCacheWithTTL{}, // Default to NOP implementation
 		metrics:       NopMetrics(),
 		txStore:       NewTxStore(),
 		gossipIndex:   clist.New(),
@@ -134,6 +139,10 @@ func NewTxMempool(
 
 	if cfg.CacheSize > 0 {
 		txmp.cache = NewLRUTxCache(cfg.CacheSize)
+	}
+
+	if cfg.SeenTxsCacheTTL > 0 {
+		txmp.seenTxsCache = NewTTLTxCache(cfg.SeenTxsCacheTTL, cfg.SeenTxsCacheTTL)
 	}
 
 	for _, opt := range options {
@@ -307,6 +316,21 @@ func (txmp *TxMempool) CheckTx(
 		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
 		return types.ErrTxInCache
 	}
+
+	// Check TTL cache to see if we've recently processed this transaction
+	if _, found := txmp.seenTxsCache.Get(txHash); found {
+		// Transaction was seen recently, increment counter and extend TTL
+		newCounter := txmp.seenTxsCache.Increment(txHash)
+		// If counter is too high, reject the transaction to prevent spam
+		if newCounter >= 3 {
+			txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
+		}
+	} else {
+		// First time seeing this transaction, add to TTL cache
+		txmp.seenTxsCache.Set(txHash, 1)
+	}
+	txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
+	txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 
