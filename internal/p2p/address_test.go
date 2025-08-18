@@ -292,14 +292,13 @@ func TestNodeAddress_Resolve(t *testing.T) {
 		endpoints, err := addr.Resolve(t.Context())
 		require.NoError(t, err)
 
-		want := []*p2p.Endpoint{
-			{Protocol: "tcp", IP: net.IPv6loopback, Port: 80, Path: "/path"},
-			{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1), Port: 80, Path: "/path"},
-		}
-
+		want := &p2p.Endpoint{Protocol: "tcp", Port: 80, Path: "/path"}
 		require.True(t, len(endpoints)>0)
 		for _, got := range endpoints {
-			require.Contains(t, want, got)
+			require.True(t, got.IP.IsLoopback())
+			// Any loopback address is acceptable, so ignore it in comparison.
+			want.IP = got.IP
+			require.Equal(t, want, got)
 		}
 	})
 }
