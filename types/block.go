@@ -94,10 +94,7 @@ func (b *Block) ValidateBasic() error {
 		return fmt.Errorf("wrong Header.DataHash. Expected %X, got %X. Len of txs %d", w, g, len(b.Data.Txs))
 	}
 
-	// NOTE: b.Evidence may be nil, which is handled by Evidence.ValidateBasic.
-	if err := b.Evidence.ValidateBasic(); err != nil {
-		return fmt.Errorf("invalid evidence: %w", err)
-	}
+	// Evidence is validated as part of proto decoding. See EvidenceList.FromProto.
 
 	if w, g := b.Evidence.Hash(), b.EvidenceHash; !bytes.Equal(w, g) {
 		return fmt.Errorf("wrong Header.EvidenceHash. Expected %X, got %X", w, g)

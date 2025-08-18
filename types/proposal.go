@@ -99,9 +99,7 @@ func (p *Proposal) ValidateBasic() error {
 		return fmt.Errorf("invalid LastCommit: %w", err)
 	}
 
-	if err := p.Evidence.ValidateBasic(); err != nil {
-		return fmt.Errorf("invalid Evidence: %w", err)
-	}
+	// Evidence is validated as part of proto decoding. See EvidenceList.FromProto.
 
 	if err := p.Header.ValidateBasic(); err != nil {
 		return fmt.Errorf("invalid Header: %w", err)
