@@ -27,11 +27,11 @@ type Metrics struct {
 	// Total current mempool uncommitted txs bytes
 	TotalTxsSizeBytes metrics.Gauge
 
-	// Total number of transactions seen before within TTL
-	TotalSeenTxs metrics.Gauge
+	// Track the number of transactions we have seen
+	SeenTxs metrics.Gauge
 
-	// Maximum number of transactions seen before within TTL
-	MaxSeenTxs metrics.Gauge
+	// Track the number of transactions that are new and we have not seen before
+	NewTxs metrics.Gauge
 
 	// Number of failed transactions.
 	FailedTxs metrics.Counter

@@ -119,6 +119,7 @@ func (NopTxCacheWithTTL) Get(txKey types.TxKey) (counter int, found bool) { retu
 func (NopTxCacheWithTTL) Increment(txKey types.TxKey) int                 { return 1 }
 func (NopTxCacheWithTTL) Reset()                                          {}
 func (NopTxCacheWithTTL) GetTotalCounters() int                           { return 0 }
+func (NopTxCacheWithTTL) GetOneCounters() int                             { return 0 }
 func (NopTxCacheWithTTL) GetMaxCounter() int                              { return 0 }
 
 // TxCacheWithTTL defines an interface for TTL-based transaction caching
@@ -134,6 +135,9 @@ type TxCacheWithTTL interface {
 
 	// GetTotalCounters returns the total aggregated number of counters for all transactions
 	GetTotalCounters() int
+
+	// GetOneCounters returns the total number of transactions that has seen counter = 1
+	GetOneCounters() int
 
 	// GetMaxCounter returns the maximum counter value across all transactions
 	GetMaxCounter() int
@@ -197,6 +201,17 @@ func (t *TTLTxCache) GetTotalCounters() int {
 	total := 0
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok && counter > 1 {
+			total += counter
+		}
+	}
+	return total
+}
+
+// GetOneCounters returns the total number of transactions that has seen counter = 1
+func (t *TTLTxCache) GetOneCounters() int {
+	total := 0
+	for _, v := range t.cache.Items() {
+		if counter, ok := v.Object.(int); ok && counter == 1 {
 			total += counter
 		}
 	}

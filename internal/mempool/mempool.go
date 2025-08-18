@@ -329,8 +329,9 @@ func (txmp *TxMempool) CheckTx(
 		// First time seeing this transaction, add to TTL cache
 		txmp.seenTxsCache.Set(txHash, 1)
 	}
-	txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
-	txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
+	txmp.metrics.SeenTxs.With("max_count").Set(float64(txmp.seenTxsCache.GetMaxCounter()))
+	txmp.metrics.SeenTxs.With("total_count").Set(float64(txmp.seenTxsCache.GetTotalCounters()))
+	txmp.metrics.NewTxs.With("total_count").Set(float64(txmp.seenTxsCache.GetOneCounters()))
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 
