@@ -100,7 +100,6 @@ func TestPeerManagerOptions_Validate(t *testing.T) {
 		}, false},
 	}
 	for name, tc := range testcases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			err := tc.options.Validate()
 			if tc.ok {

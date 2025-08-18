@@ -119,7 +119,6 @@ func TestTransport_DialEndpoints(t *testing.T) {
 		// Tests for networked endpoints (with IP).
 		if len(endpoint.IP) > 0 && endpoint.Protocol != p2p.MemoryProtocol {
 			for _, tc := range ipTestCases {
-				tc := tc
 				t.Run(tc.ip.String(), func(t *testing.T) {
 					e := endpoint
 					require.NotNil(t, e)
@@ -470,7 +469,6 @@ func TestEndpoint_NodeAddress(t *testing.T) {
 		{p2p.Endpoint{Path: "path"}, p2p.NodeAddress{Path: "path"}},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.endpoint.String(), func(t *testing.T) {
 			// Without NodeID.
 			expect := tc.expect
@@ -522,7 +520,6 @@ func TestEndpoint_String(t *testing.T) {
 		{p2p.Endpoint{Path: "foo"}, "/foo"},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.expect, func(t *testing.T) {
 			require.Equal(t, tc.expect, tc.endpoint.String())
 		})
@@ -556,7 +553,6 @@ func TestEndpoint_Validate(t *testing.T) {
 		{p2p.Endpoint{Protocol: "tcp", Port: 8080, Path: "path"}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.endpoint.String(), func(t *testing.T) {
 			err := tc.endpoint.Validate()
 			if tc.expectValid {

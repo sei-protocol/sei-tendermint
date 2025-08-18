@@ -124,7 +124,6 @@ func TestDuplicateVoteEvidenceValidation(t *testing.T) {
 		}, true},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			vote1 := makeVote(ctx, t, val, chainID, math.MaxInt32, math.MaxInt64, math.MaxInt32, 0x02, blockID, defaultVoteTime)
 			vote2 := makeVote(ctx, t, val, chainID, math.MaxInt32, math.MaxInt64, math.MaxInt32, 0x02, blockID2, defaultVoteTime)
@@ -255,7 +254,6 @@ func TestLightClientAttackEvidenceValidation(t *testing.T) {
 		}, true},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			lcae := &LightClientAttackEvidence{
 				ConflictingBlock: &LightBlock{
@@ -456,7 +454,6 @@ func TestEvidenceVectors(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		hash := tc.evList.Hash()
 		require.Equal(t, tc.expBytes, hex.EncodeToString(hash), tc.testName)
 	}

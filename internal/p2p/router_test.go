@@ -366,7 +366,6 @@ func TestRouter_AcceptPeers(t *testing.T) {
 	}
 
 	for name, tc := range testcases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctx := t.Context()
 
@@ -562,7 +561,6 @@ func TestRouter_DialPeers(t *testing.T) {
 	}
 
 	for name, tc := range testcases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 			ctx := t.Context()

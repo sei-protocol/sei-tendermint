@@ -151,7 +151,6 @@ func TestAddExpiredEvidence(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 
 		t.Run(tc.evDescription, func(t *testing.T) {
 			ctx := t.Context()

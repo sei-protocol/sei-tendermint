@@ -187,7 +187,6 @@ func TestPruneStates(t *testing.T) {
 		"prune across checkpoint":    {99900, 100002, 100002, false, 100000, 99995},
 	}
 	for name, tc := range testcases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			db := dbm.NewMemDB()
 

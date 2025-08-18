@@ -145,7 +145,6 @@ func TestMConnTransport_Listen(t *testing.T) {
 		{&p2p.Endpoint{Protocol: p2p.MConnProtocol, IP: net.IPv4zero, Path: "foo"}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.endpoint.String(), func(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 
