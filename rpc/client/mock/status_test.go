@@ -1,7 +1,6 @@
 package mock_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -14,8 +13,7 @@ import (
 )
 
 func TestStatus(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	m := &mock.StatusMock{
 		Call: mock.Call{

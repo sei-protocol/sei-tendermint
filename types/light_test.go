@@ -1,7 +1,6 @@
 package types
 
 import (
-	"context"
 	"math"
 	"testing"
 	"time"
@@ -13,8 +12,7 @@ import (
 )
 
 func TestLightBlockValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	header := MakeRandHeader()
 	commit := randCommit(ctx, t, time.Now())
@@ -63,8 +61,7 @@ func TestLightBlockValidateBasic(t *testing.T) {
 }
 
 func TestLightBlockProtobuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 	header := MakeRandHeader()
 	commit := randCommit(ctx, t, time.Now())
 	vals, _ := randValidatorPrivValSet(ctx, t, 5, 1)
@@ -119,8 +116,7 @@ func TestLightBlockProtobuf(t *testing.T) {
 }
 
 func TestSignedHeaderValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	commit := randCommit(ctx, t, time.Now())
 

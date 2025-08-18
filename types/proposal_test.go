@@ -1,7 +1,6 @@
 package types
 
 import (
-	"context"
 	"math"
 	"testing"
 	"time"
@@ -75,8 +74,7 @@ func TestProposalString(t *testing.T) {
 }
 
 func TestProposalVerifySignature(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	privVal := NewMockPV()
 	pubKey, err := privVal.GetPubKey(ctx)
@@ -188,10 +186,8 @@ func TestProposalValidateBasic(t *testing.T) {
 	blockID := makeBlockID(crypto.Checksum([]byte("blockhash")), math.MaxInt32, crypto.Checksum([]byte("partshash")))
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
+			ctx := t.Context()
 
 			txKeys := make([]TxKey, 0)
 			pubKey, err := privVal.GetPubKey(ctx)

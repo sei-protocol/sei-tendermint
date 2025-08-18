@@ -105,7 +105,6 @@ func TestConcurrent(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
 	var wg sync.WaitGroup
 
 	// Publisher: Add events and handle expirations.

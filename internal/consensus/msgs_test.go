@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"github.com/tendermint/tendermint/version"
@@ -26,8 +25,7 @@ import (
 )
 
 func TestMsgToProto(t *testing.T) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	psh := types.PartSetHeader{
 		Total: 1,

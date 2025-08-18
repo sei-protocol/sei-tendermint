@@ -103,6 +103,7 @@ func BenchmarkSequence(b *testing.B) {
 }
 
 func BenchmarkBisection(b *testing.B) {
+	ctx := b.Context()
 	headers, vals, _ := genLightBlocksWithKeys(b, 1000, 100, 1, bTime)
 	benchmarkFullNode := newProviderBenchmarkImpl(headers, vals)
 	genesisBlock, _ := benchmarkFullNode.LightBlock(ctx, 1)

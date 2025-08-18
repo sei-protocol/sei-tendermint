@@ -144,8 +144,7 @@ func TestBlockFuncs(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
+			ctx := t.Context()
 
 			results, err := indexer.SearchBlockEvents(ctx, tc.q)
 			require.NoError(t, err)

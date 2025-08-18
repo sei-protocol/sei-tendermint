@@ -104,8 +104,7 @@ func TestWSClientReconnectsAfterWriteFailure(t *testing.T) {
 	s := httptest.NewServer(h)
 	defer s.Close()
 
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	c := startClient(ctx, t, "//"+s.Listener.Addr().String())
 
@@ -133,8 +132,7 @@ func TestWSClientReconnectFailure(t *testing.T) {
 	h := &myTestHandler{t: t}
 	s := httptest.NewServer(h)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := t.Context()
 
 	c := startClient(ctx, t, "//"+s.Listener.Addr().String())
 
