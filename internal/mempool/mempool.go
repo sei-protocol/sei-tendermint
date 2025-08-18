@@ -326,14 +326,19 @@ func (txmp *TxMempool) CheckTx(
 			txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
 		}
 	} else {
-		// First time seeing this transaction, add to TTL cache
+		// First time seeing this transaction, add to TTL cache with default TTL
 		txmp.seenTxsCache.Set(txHash, 1)
 	}
-	txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
-	txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
-	txmp.metrics.NewTxs.Set(float64(txmp.seenTxsCache.GetOneCounters()))
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
+
+	// Update TTL cache metrics after CheckTx to avoid interfering with critical path
+	// Only update if we're using a real TTL cache (not NOP)
+	if _, ok := txmp.seenTxsCache.(*TTLTxCache); ok {
+		txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
+		txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
+		txmp.metrics.NewTxs.Set(float64(txmp.seenTxsCache.GetOneCounters()))
+	}
 
 	// when a transaction is removed/expired/rejected, this should be called
 	// The expire tx handler unreserves the pending nonce

@@ -121,6 +121,7 @@ func (NopTxCacheWithTTL) Reset()                                          {}
 func (NopTxCacheWithTTL) GetTotalCounters() int                           { return 0 }
 func (NopTxCacheWithTTL) GetOneCounters() int                             { return 0 }
 func (NopTxCacheWithTTL) GetMaxCounter() int                              { return 0 }
+func (NopTxCacheWithTTL) Stop()                                           {}
 
 // TxCacheWithTTL defines an interface for TTL-based transaction caching
 type TxCacheWithTTL interface {
@@ -144,6 +145,9 @@ type TxCacheWithTTL interface {
 
 	// Reset clears the cache
 	Reset()
+
+	// Stop stops the cache and cleans up background goroutines
+	Stop()
 }
 
 // TTLTxCache implements TxCacheWithTTL using go-cache
@@ -153,6 +157,12 @@ type TTLTxCache struct {
 
 // NewTTLTxCache creates a new TTL transaction cache
 func NewTTLTxCache(defaultExpiration, cleanupInterval time.Duration) *TTLTxCache {
+	// If defaultExpiration is 0 (no expiration), don't create a cleanup interval
+	// to avoid starting background janitor goroutines that can cause leaks
+	if defaultExpiration == 0 {
+		cleanupInterval = 0
+	}
+
 	return &TTLTxCache{
 		cache: cache.New(defaultExpiration, cleanupInterval),
 	}
@@ -193,6 +203,14 @@ func (t *TTLTxCache) Increment(txKey types.TxKey) int {
 
 // Reset clears the cache
 func (t *TTLTxCache) Reset() {
+	t.cache.Flush()
+}
+
+// Stop stops the cache and cleans up background goroutines
+func (t *TTLTxCache) Stop() {
+	// go-cache doesn't have a Stop method, but we can flush it
+	// The janitor goroutine will be cleaned up by the garbage collector
+	// when the cache object is no longer referenced
 	t.cache.Flush()
 }
 
