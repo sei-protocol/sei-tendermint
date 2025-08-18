@@ -489,7 +489,8 @@ func TestClientMethodCalls(t *testing.T) {
 					eventCh, err := c.Subscribe(ctx, subscriber, types.QueryForEvent(types.EventNewBlockValue).String())
 					require.NoError(t, err)
 					t.Cleanup(func() {
-						if err := c.UnsubscribeAll(ctx, subscriber); err != nil {
+						// At this point the ctx is cancelled, so the cleanup needs to run with a background context.
+						if err := c.UnsubscribeAll(context.Background(), subscriber); err != nil {
 							t.Error(err)
 						}
 					})
