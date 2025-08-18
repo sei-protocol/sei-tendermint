@@ -8,7 +8,7 @@
 #
 if ! which mockery ; then
   mockery() {
-    docker run --rm -v "$PWD":/w --workdir=/w vektra/mockery:v2.12.3
+    docker run --rm -v "$PWD":/w --workdir=/w vektra/mockery:v2.53.4
   }
 fi
 
