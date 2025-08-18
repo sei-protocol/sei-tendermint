@@ -1042,7 +1042,7 @@ func CommitFromProto(cp *tmproto.Commit) (*Commit, error) {
 	}
 
 	if len(cp.Signatures) > MaxCommitSignatures {
-		return nil, fmt.Errorf("too many signatures in commit: %d (max: 1000)", len(cp.Signatures))
+		return nil, fmt.Errorf("too many signatures in commit: %d (max: %d)", len(cp.Signatures), MaxCommitSignatures)
 	}
 
 	sigs := make([]CommitSig, len(cp.Signatures))
