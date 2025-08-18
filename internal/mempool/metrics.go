@@ -27,8 +27,11 @@ type Metrics struct {
 	// Total current mempool uncommitted txs bytes
 	TotalTxsSizeBytes metrics.Gauge
 
-	// Track the number of transactions we have seen
-	SeenTxs metrics.Gauge
+	// Track the total number of transactions we have seen
+	TotalSeenTxs metrics.Gauge
+
+	// Track the max occurrences of the single we have seen
+	MaxSeenTxs metrics.Gauge
 
 	// Track the number of transactions that are new and we have not seen before
 	NewTxs metrics.Gauge
