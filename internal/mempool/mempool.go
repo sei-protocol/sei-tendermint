@@ -330,8 +330,6 @@ func (txmp *TxMempool) CheckTx(
 		txmp.seenTxsCache.Set(txHash, 1)
 	}
 
-	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
-
 	// Update TTL cache metrics after CheckTx to avoid interfering with critical path
 	// Only update if we're using a real TTL cache (not NOP)
 	if _, ok := txmp.seenTxsCache.(*TTLTxCache); ok {
@@ -339,6 +337,8 @@ func (txmp *TxMempool) CheckTx(
 		txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
 		txmp.metrics.NewTxs.Set(float64(txmp.seenTxsCache.GetOneCounters()))
 	}
+
+	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 
 	// when a transaction is removed/expired/rejected, this should be called
 	// The expire tx handler unreserves the pending nonce
