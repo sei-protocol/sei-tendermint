@@ -2,10 +2,11 @@ package types
 
 import (
 	"context"
-	"github.com/tendermint/tendermint/version"
 	"math"
 	"testing"
 	"time"
+
+	"github.com/tendermint/tendermint/version"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
@@ -128,8 +129,7 @@ func BenchmarkProposalWriteSignBytes(b *testing.B) {
 }
 
 func BenchmarkProposalSign(b *testing.B) {
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := b.Context()
 
 	privVal := NewMockPV()
 
@@ -147,8 +147,7 @@ func BenchmarkProposalSign(b *testing.B) {
 func BenchmarkProposalVerifySignature(b *testing.B) {
 	testProposal := getTestProposal(b)
 	pbp := testProposal.ToProto()
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
+	ctx := b.Context()
 
 	privVal := NewMockPV()
 	err := privVal.SignProposal(ctx, "test_chain_id", pbp)

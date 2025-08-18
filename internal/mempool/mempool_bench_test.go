@@ -15,7 +15,7 @@ import (
 )
 
 func BenchmarkTxMempool_CheckTx(b *testing.B) {
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), kvstore.NewApplication())

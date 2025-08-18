@@ -105,7 +105,7 @@ func BenchmarkEcho(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	// Start server

@@ -1,7 +1,6 @@
 package kv
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"testing"

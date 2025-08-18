@@ -366,7 +366,7 @@ func TestProposerSelection3(t *testing.T) {
 		got := vset.GetProposer().Address
 		expected := proposerOrder[j%4].Address
 		if !bytes.Equal(got, expected) {
-			t.Fatalf(fmt.Sprintf("vset.Proposer (%X) does not match expected proposer (%X) for (%d, %d)", got, expected, i, j))
+			t.Fatalf("vset.Proposer (%X) does not match expected proposer (%X) for (%d, %d)", got, expected, i, j)
 		}
 
 		// serialize, deserialize, check proposer
@@ -377,13 +377,11 @@ func TestProposerSelection3(t *testing.T) {
 		if i != 0 {
 			if !bytes.Equal(got, computed.Address) {
 				t.Fatalf(
-					fmt.Sprintf(
-						"vset.Proposer (%X) does not match computed proposer (%X) for (%d, %d)",
-						got,
-						computed.Address,
-						i,
-						j,
-					),
+					"vset.Proposer (%X) does not match computed proposer (%X) for (%d, %d)",
+					got,
+					computed.Address,
+					i,
+					j,
 				)
 			}
 		}
@@ -1557,7 +1555,7 @@ func BenchmarkUpdates(b *testing.B) {
 }
 
 func BenchmarkValidatorSet_VerifyCommit_Ed25519(b *testing.B) { // nolint
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	for _, n := range []int{1, 8, 64, 1024} {
@@ -1585,7 +1583,7 @@ func BenchmarkValidatorSet_VerifyCommit_Ed25519(b *testing.B) { // nolint
 }
 
 func BenchmarkValidatorSet_VerifyCommitLight_Ed25519(b *testing.B) { // nolint
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	for _, n := range []int{1, 8, 64, 1024} {
@@ -1614,7 +1612,7 @@ func BenchmarkValidatorSet_VerifyCommitLight_Ed25519(b *testing.B) { // nolint
 }
 
 func BenchmarkValidatorSet_VerifyCommitLightTrusting_Ed25519(b *testing.B) {
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	for _, n := range []int{1, 8, 64, 1024} {

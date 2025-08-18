@@ -545,7 +545,7 @@ func BenchmarkVoteSignBytes(b *testing.B) {
 }
 
 func BenchmarkCommitVoteSignBytes(b *testing.B) {
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	sampleCommit := getSampleCommit(ctx, b)
