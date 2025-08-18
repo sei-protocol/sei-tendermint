@@ -606,9 +606,11 @@ func TestNodeNewSeedNode(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, n.pexReactor.IsRunning())
 
-	n.Wait()
+	t.Cleanup(func() {
+		n.Wait()
 
-	assert.False(t, n.pexReactor.IsRunning())
+		assert.False(t, n.pexReactor.IsRunning())
+	})
 }
 
 func TestNodeSetEventSink(t *testing.T) {

@@ -111,6 +111,9 @@ func TestServeTLS(t *testing.T) {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	c := &http.Client{Transport: tr}
+	// We need this, because http.Transport is trying to be smart and keeps the connection open
+	// after res.Body.Close().
+	defer c.CloseIdleConnections()
 	res, err := c.Get("https://" + ln.Addr().String())
 	require.NoError(t, err)
 	defer res.Body.Close()
