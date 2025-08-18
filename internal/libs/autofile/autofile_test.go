@@ -13,7 +13,7 @@ import (
 )
 
 func TestSIGHUP(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	origDir, err := os.Getwd()
@@ -102,7 +102,7 @@ func TestSIGHUP(t *testing.T) {
 // }
 
 func TestAutoFileSize(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// First, create an AutoFile writing to a tempfile dir

@@ -26,7 +26,7 @@ func TestCloseWhileDequeueFull(t *testing.T) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	go pqueue.process(ctx)

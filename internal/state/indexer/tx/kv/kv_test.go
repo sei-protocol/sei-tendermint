@@ -131,7 +131,7 @@ func TestTxSearch(t *testing.T) {
 		{"tx.height = 1", 1},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, tc := range testCases {
 		tc := tc
@@ -160,7 +160,7 @@ func TestTxSearchWithCancelation(t *testing.T) {
 	err := indexer.Index([]*abci.TxResult{txResult})
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	results, err := indexer.Search(ctx, query.MustCompile(`account.number = 1`))
 	assert.NoError(t, err)
@@ -230,7 +230,7 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		{"sender = 'addr1'", []*abci.TxResult{txResult2}},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, tc := range testCases {
 		tc := tc
@@ -257,7 +257,7 @@ func TestTxSearchOneTxWithMultipleSameTagsButDifferentValues(t *testing.T) {
 	err := indexer.Index([]*abci.TxResult{txResult})
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	results, err := indexer.Search(ctx, query.MustCompile(`account.number >= 1`))
 	assert.NoError(t, err)
@@ -314,7 +314,7 @@ func TestTxSearchMultipleTxs(t *testing.T) {
 	err = indexer.Index([]*abci.TxResult{txResult4})
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	results, err := indexer.Search(ctx, query.MustCompile(`account.number >= 1`))
 	assert.NoError(t, err)

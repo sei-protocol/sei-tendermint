@@ -18,7 +18,7 @@ import (
 )
 
 func TestSetupEnv(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cases := []struct {
@@ -73,7 +73,7 @@ func writeConfigVals(dir string, vals map[string]string) error {
 }
 
 func TestSetupConfig(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// we pre-create two config files we can refer to in the rest of
@@ -134,7 +134,7 @@ type DemoConfig struct {
 }
 
 func TestSetupUnmarshal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// we pre-create two config files we can refer to in the rest of
@@ -208,7 +208,7 @@ func TestSetupUnmarshal(t *testing.T) {
 }
 
 func TestSetupTrace(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cases := []struct {

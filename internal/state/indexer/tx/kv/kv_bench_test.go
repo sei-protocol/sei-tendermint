@@ -60,7 +60,7 @@ func BenchmarkTxSearch(b *testing.B) {
 
 	b.ResetTimer()
 
-	ctx := context.Background()
+	ctx := b.Context()
 
 	for i := 0; i < b.N; i++ {
 		if _, err := indexer.Search(ctx, txQuery); err != nil {

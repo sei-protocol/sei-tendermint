@@ -19,7 +19,7 @@ import (
 
 func TestLast_FirstLightBlockHeight(t *testing.T) {
 	dbStore := New(dbm.NewMemDB())
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Empty store
@@ -46,7 +46,7 @@ func TestLast_FirstLightBlockHeight(t *testing.T) {
 
 func Test_SaveLightBlock(t *testing.T) {
 	dbStore := New(dbm.NewMemDB())
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Empty store
@@ -78,7 +78,7 @@ func Test_SaveLightBlock(t *testing.T) {
 
 func Test_LightBlockBefore(t *testing.T) {
 	dbStore := New(dbm.NewMemDB())
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	assert.Panics(t, func() {
@@ -101,7 +101,7 @@ func Test_LightBlockBefore(t *testing.T) {
 
 func Test_Prune(t *testing.T) {
 	dbStore := New(dbm.NewMemDB())
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Empty store
@@ -141,7 +141,7 @@ func Test_Prune(t *testing.T) {
 func Test_Concurrency(t *testing.T) {
 	dbStore := New(dbm.NewMemDB())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	var wg sync.WaitGroup

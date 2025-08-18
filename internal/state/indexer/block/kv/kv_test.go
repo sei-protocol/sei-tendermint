@@ -133,7 +133,7 @@ func TestBlockIndexer(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			results, err := indexer.Search(ctx, tc.q)

@@ -50,7 +50,7 @@ func TestMConnTransport_AcceptBeforeListen(t *testing.T) {
 	t.Cleanup(func() {
 		_ = transport.Close()
 	})
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	_, err := transport.Accept(ctx)
@@ -59,7 +59,7 @@ func TestMConnTransport_AcceptBeforeListen(t *testing.T) {
 }
 
 func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	transport := p2p.NewMConnTransport(
@@ -129,7 +129,7 @@ func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 }
 
 func TestMConnTransport_Listen(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	testcases := []struct {
@@ -195,7 +195,7 @@ func TestMConnTransport_Listen(t *testing.T) {
 			go func() {
 				// Dialing the endpoint should work.
 				var err error
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 
 				peerConn, err = transport.Dial(ctx, endpoint)

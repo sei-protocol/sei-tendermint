@@ -57,7 +57,7 @@ func (t *testService) isMultiStopped() bool {
 
 func TestBaseService(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -114,7 +114,7 @@ func TestBaseService(t *testing.T) {
 			require.False(t, ts.isMultiStopped())
 		})
 		t.Run("MultiThreaded", func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			ts := &testService{}

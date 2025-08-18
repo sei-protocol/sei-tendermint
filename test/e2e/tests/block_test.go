@@ -12,7 +12,7 @@ import (
 
 // Tests that block headers are identical across nodes where present.
 func TestBlock_Header(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	blocks := fetchBlockChain(ctx, t)

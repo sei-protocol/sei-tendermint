@@ -19,7 +19,7 @@ import (
 )
 
 func TestABCIMock(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	key, value := []byte("foo"), []byte("bar")
@@ -80,7 +80,7 @@ func TestABCIMock(t *testing.T) {
 }
 
 func TestABCIRecorder(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// This mock returns errors on everything but Query
@@ -165,7 +165,7 @@ func TestABCIApp(t *testing.T) {
 	app := kvstore.NewApplication()
 	m := mock.ABCIApp{app}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// get some info

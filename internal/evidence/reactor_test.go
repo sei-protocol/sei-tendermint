@@ -231,7 +231,7 @@ func createEvidenceList(
 }
 
 func TestReactorMultiDisconnect(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	val := types.NewMockPV()
@@ -271,7 +271,7 @@ func TestReactorMultiDisconnect(t *testing.T) {
 func TestReactorBroadcastEvidence(t *testing.T) {
 	numPeers := 7
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// create a stateDB for all test suites (nodes)
@@ -335,7 +335,7 @@ func TestReactorBroadcastEvidence_Lagging(t *testing.T) {
 	height1 := int64(numEvidence) + 10
 	height2 := int64(numEvidence) / 2
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// stateDB1 is ahead of stateDB2, where stateDB1 has all heights (1-20) and
@@ -371,7 +371,7 @@ func TestReactorBroadcastEvidence_Pending(t *testing.T) {
 	val := types.NewMockPV()
 	height := int64(10)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	stateDB1 := initializeValidatorState(ctx, t, val, height)
@@ -412,7 +412,7 @@ func TestReactorBroadcastEvidence_Committed(t *testing.T) {
 	val := types.NewMockPV()
 	height := int64(10)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	stateDB1 := initializeValidatorState(ctx, t, val, height)
@@ -467,7 +467,7 @@ func TestReactorBroadcastEvidence_FullyConnected(t *testing.T) {
 	stateDBs := make([]sm.Store, numPeers)
 	val := types.NewMockPV()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// We need all validators saved for heights at least as high as we have

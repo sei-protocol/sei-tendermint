@@ -33,7 +33,7 @@ func testChannel(size int) (*channelInternal, *Channel) {
 func TestChannel(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	bctx, bcancel := context.WithCancel(context.Background())
+	bctx, bcancel := context.WithCancel(t.Context())
 	defer bcancel()
 
 	testCases := []struct {

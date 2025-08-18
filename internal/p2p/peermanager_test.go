@@ -194,7 +194,7 @@ func TestNewPeerManager_Persistence(t *testing.T) {
 	}, peerManager.Scores())
 
 	// Introduce a dial failure and persistent peer score should be reduced by one
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, _ := context.WithCancel(t.Context())
 	peerManager.DialFailed(ctx, bAddresses[0])
 	require.Equal(t, map[types.NodeID]p2p.PeerScore{
 		aID: 0,
@@ -344,7 +344,7 @@ func TestPeerManager_Add(t *testing.T) {
 }
 
 func TestPeerManager_DialNext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -370,7 +370,7 @@ func TestPeerManager_DialNext(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_Retry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -405,7 +405,7 @@ func TestPeerManager_DialNext_Retry(t *testing.T) {
 }
 
 func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -444,7 +444,7 @@ func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_WakeOnDialFailed(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
@@ -489,7 +489,7 @@ func TestPeerManager_DialNext_WakeOnDialFailed(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	options := p2p.PeerManagerOptions{MinRetryTime: 200 * time.Millisecond}
@@ -519,7 +519,7 @@ func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_WakeOnDisconnected(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -588,7 +588,7 @@ func TestPeerManager_TryDialNext_MaxConnected(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_MaxConnectedUpgrade(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -759,7 +759,7 @@ func TestPeerManager_TryDialNext_DialingConnected(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_Multiple(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	aID := types.NodeID(strings.Repeat("a", 40))
@@ -811,7 +811,7 @@ func TestPeerManager_DialFailed(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, added)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Dialing and then calling DialFailed with a different address (same
@@ -838,7 +838,7 @@ func TestPeerManager_DialFailed(t *testing.T) {
 }
 
 func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1059,7 +1059,7 @@ func TestPeerManager_Dialed_Upgrade(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1116,7 +1116,7 @@ func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_UpgradeNoEvict(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1287,7 +1287,7 @@ func TestPeerManager_Accepted_MaxConnectedUpgrade(t *testing.T) {
 }
 
 func TestPeerManager_Accepted_Upgrade(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1383,7 +1383,7 @@ func TestPeerManager_Ready(t *testing.T) {
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -1417,7 +1417,7 @@ func TestPeerManager_Ready(t *testing.T) {
 }
 
 func TestPeerManager_Ready_Channels(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	pm, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -1441,7 +1441,7 @@ func TestPeerManager_Ready_Channels(t *testing.T) {
 
 // See TryEvictNext for most tests, this just tests blocking behavior.
 func TestPeerManager_EvictNext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1477,7 +1477,7 @@ func TestPeerManager_EvictNext(t *testing.T) {
 }
 
 func TestPeerManager_EvictNext_WakeOnError(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1506,7 +1506,7 @@ func TestPeerManager_EvictNext_WakeOnError(t *testing.T) {
 }
 
 func TestPeerManager_EvictNext_WakeOnUpgradeDialed(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1547,7 +1547,7 @@ func TestPeerManager_EvictNext_WakeOnUpgradeDialed(t *testing.T) {
 }
 
 func TestPeerManager_EvictNext_WakeOnUpgradeAccepted(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1581,7 +1581,7 @@ func TestPeerManager_EvictNext_WakeOnUpgradeAccepted(t *testing.T) {
 	require.Equal(t, a.NodeID, evict)
 }
 func TestPeerManager_TryEvictNext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1625,7 +1625,7 @@ func TestPeerManager_Disconnected(t *testing.T) {
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sub := peerManager.Subscribe(ctx)
@@ -1676,7 +1676,7 @@ func TestPeerManager_Disconnected(t *testing.T) {
 }
 
 func TestPeerManager_Errored(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1715,7 +1715,7 @@ func TestPeerManager_Errored(t *testing.T) {
 }
 
 func TestPeerManager_Subscribe(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1778,7 +1778,7 @@ func TestPeerManager_Subscribe(t *testing.T) {
 }
 
 func TestPeerManager_Subscribe_Close(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -1805,7 +1805,7 @@ func TestPeerManager_Subscribe_Close(t *testing.T) {
 }
 
 func TestPeerManager_Subscribe_Broadcast(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Cleanup(leaktest.Check(t))
@@ -1855,7 +1855,7 @@ func TestPeerManager_Close(t *testing.T) {
 	// leaktest will check that spawned goroutines are closed.
 	t.Cleanup(leaktest.CheckTimeout(t, 1*time.Second))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}

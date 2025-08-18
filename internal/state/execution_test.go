@@ -43,7 +43,7 @@ func TestApplyBlock(t *testing.T) {
 	cc := abciclient.NewLocalClient(logger, app)
 	proxyApp := proxy.New(cc, logger, proxy.NopMetrics())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	require.NoError(t, proxyApp.Start(ctx))
@@ -86,7 +86,7 @@ func TestApplyBlock(t *testing.T) {
 // DecidedLastCommit properly reflects which validators signed the preceding
 // block.
 func TestFinalizeBlockDecidedLastCommit(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -162,7 +162,7 @@ func TestFinalizeBlockDecidedLastCommit(t *testing.T) {
 
 // TestFinalizeBlockByzantineValidators ensures we send byzantine validators list.
 func TestFinalizeBlockByzantineValidators(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	app := &testApp{}
@@ -283,7 +283,7 @@ func TestFinalizeBlockByzantineValidators(t *testing.T) {
 func TestProcessProposal(t *testing.T) {
 	const height = 2
 	txs := factory.MakeNTxs(height, 10)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	app := abcimocks.NewApplication(t)
@@ -506,7 +506,7 @@ func TestUpdateValidators(t *testing.T) {
 
 // TestFinalizeBlockValidatorUpdates ensures we update validator set and send an event.
 func TestFinalizeBlockValidatorUpdates(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	app := &testApp{}
@@ -592,7 +592,7 @@ func TestFinalizeBlockValidatorUpdates(t *testing.T) {
 // TestFinalizeBlockValidatorUpdatesResultingInEmptySet checks that processing validator updates that
 // would result in empty set causes no panic, an error is raised and NextValidators is not updated
 func TestFinalizeBlockValidatorUpdatesResultingInEmptySet(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	app := &testApp{}
@@ -640,7 +640,7 @@ func TestFinalizeBlockValidatorUpdatesResultingInEmptySet(t *testing.T) {
 
 func TestEmptyPrepareProposal(t *testing.T) {
 	const height = 2
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -694,7 +694,7 @@ func TestEmptyPrepareProposal(t *testing.T) {
 //	a transaction as REMOVED that was not present in the original proposal.
 func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 	const height = 2
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -751,7 +751,7 @@ func TestPrepareProposalErrorOnNonExistingRemoved(t *testing.T) {
 // in the order matching the order they are returned from PrepareProposal.
 func TestPrepareProposalReorderTxs(t *testing.T) {
 	const height = 2
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -808,7 +808,7 @@ func TestPrepareProposalReorderTxs(t *testing.T) {
 // an error if the ResponsePrepareProposal returned from the application is invalid.
 func TestPrepareProposalErrorOnTooManyTxs(t *testing.T) {
 	const height = 2
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -865,7 +865,7 @@ func TestPrepareProposalErrorOnTooManyTxs(t *testing.T) {
 // upon calling PrepareProposal on it.
 func TestPrepareProposalErrorOnPrepareProposalError(t *testing.T) {
 	const height = 2
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -953,7 +953,7 @@ func TestCreateProposalAbsentVoteExtensions(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			logger := log.NewNopLogger()

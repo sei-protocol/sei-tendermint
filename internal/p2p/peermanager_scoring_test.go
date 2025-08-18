@@ -31,7 +31,7 @@ func TestPeerScoring(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, added)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Run("Synchronous", func(t *testing.T) {

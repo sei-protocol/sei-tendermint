@@ -41,7 +41,7 @@ func echoReactor(ctx context.Context, channel *p2p.Channel) {
 }
 
 func TestRouter_Network(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Cleanup(leaktest.Check(t))
@@ -98,7 +98,7 @@ func TestRouter_Network(t *testing.T) {
 func TestRouter_Channel_Basic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Set up a router with no transports (so no peers).
@@ -163,7 +163,7 @@ func TestRouter_Channel_Basic(t *testing.T) {
 
 // Channel tests are hairy to mock, so we use an in-memory network instead.
 func TestRouter_Channel_SendReceive(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Cleanup(leaktest.Check(t))
@@ -227,7 +227,7 @@ func TestRouter_Channel_SendReceive(t *testing.T) {
 func TestRouter_Channel_Broadcast(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Create a test network and open a channel on all nodes.
@@ -258,7 +258,7 @@ func TestRouter_Channel_Broadcast(t *testing.T) {
 func TestRouter_Channel_Wrapper(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Create a test network and open a channel on all nodes.
@@ -328,7 +328,7 @@ func (w *wrapperMessage) Unwrap() (proto.Message, error) {
 func TestRouter_Channel_Error(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Create a test network and open a channel on all nodes.
@@ -371,7 +371,7 @@ func TestRouter_AcceptPeers(t *testing.T) {
 		},
 	}
 
-	bctx, bcancel := context.WithCancel(context.Background())
+	bctx, bcancel := context.WithCancel(t.Context())
 	defer bcancel()
 
 	for name, tc := range testcases {
@@ -383,7 +383,7 @@ func TestRouter_AcceptPeers(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 
 			// Set up a mock transport that handshakes.
-			connCtx, connCancel := context.WithCancel(context.Background())
+			connCtx, connCancel := context.WithCancel(t.Context())
 			mockConnection := &mocks.Connection{}
 			mockConnection.On("String").Maybe().Return("mock")
 			mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
@@ -450,7 +450,7 @@ func TestRouter_AcceptPeers_Errors(t *testing.T) {
 		t.Run(err.Error(), func(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			// Set up a mock transport that returns io.EOF once, which should prevent
@@ -492,7 +492,7 @@ func TestRouter_AcceptPeers_Errors(t *testing.T) {
 func TestRouter_AcceptPeers_HeadOfLineBlocking(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Set up a mock transport that returns a connection that blocks during the
@@ -573,7 +573,7 @@ func TestRouter_DialPeers(t *testing.T) {
 		},
 	}
 
-	bctx, bcancel := context.WithCancel(context.Background())
+	bctx, bcancel := context.WithCancel(t.Context())
 	defer bcancel()
 
 	for name, tc := range testcases {
@@ -587,7 +587,7 @@ func TestRouter_DialPeers(t *testing.T) {
 			endpoint := &p2p.Endpoint{Protocol: "mock", Path: string(tc.dialID)}
 
 			// Set up a mock transport that handshakes.
-			connCtx, connCancel := context.WithCancel(context.Background())
+			connCtx, connCancel := context.WithCancel(t.Context())
 			defer connCancel()
 			mockConnection := &mocks.Connection{}
 			mockConnection.On("String").Maybe().Return("mock")
@@ -665,7 +665,7 @@ func TestRouter_DialPeers(t *testing.T) {
 func TestRouter_DialPeers_Parallel(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	a := p2p.NodeAddress{Protocol: "mock", NodeID: types.NodeID(strings.Repeat("a", 40))}
@@ -754,7 +754,7 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 func TestRouter_EvictPeers(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Set up a mock transport that we can evict.
@@ -820,7 +820,7 @@ func TestRouter_EvictPeers(t *testing.T) {
 
 func TestRouter_ChannelCompatability(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	incompatiblePeer := types.NodeInfo{
@@ -872,7 +872,7 @@ func TestRouter_ChannelCompatability(t *testing.T) {
 
 func TestRouter_DontSendOnInvalidChannel(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peer := types.NodeInfo{
@@ -940,7 +940,7 @@ func TestRouter_Channel_FilterByID(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
 	// Set up a mock transport that handshakes.
-	connCtx, connCancel := context.WithCancel(context.Background())
+	connCtx, connCancel := context.WithCancel(t.Context())
 	defer connCancel()
 	peer := types.NodeInfo{
 		NodeID:     peerID,

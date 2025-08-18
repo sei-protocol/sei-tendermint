@@ -22,7 +22,7 @@ import (
 )
 
 func TestSyncer_SyncAny(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	state := sm.State{
@@ -223,7 +223,7 @@ func TestSyncer_SyncAny_noSnapshots(t *testing.T) {
 	stateProvider := &mocks.StateProvider{}
 	stateProvider.On("AppHash", mock.Anything, mock.Anything).Return([]byte("app_hash"), nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	rts := setup(ctx, t, nil, stateProvider, 2)
@@ -236,7 +236,7 @@ func TestSyncer_SyncAny_abort(t *testing.T) {
 	stateProvider := &mocks.StateProvider{}
 	stateProvider.On("AppHash", mock.Anything, mock.Anything).Return([]byte("app_hash"), nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	rts := setup(ctx, t, nil, stateProvider, 2)
@@ -260,7 +260,7 @@ func TestSyncer_SyncAny_reject(t *testing.T) {
 	stateProvider := &mocks.StateProvider{}
 	stateProvider.On("AppHash", mock.Anything, mock.Anything).Return([]byte("app_hash"), nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	rts := setup(ctx, t, nil, stateProvider, 2)
@@ -302,7 +302,7 @@ func TestSyncer_SyncAny_reject_format(t *testing.T) {
 	stateProvider := &mocks.StateProvider{}
 	stateProvider.On("AppHash", mock.Anything, mock.Anything).Return([]byte("app_hash"), nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	rts := setup(ctx, t, nil, stateProvider, 2)
@@ -340,7 +340,7 @@ func TestSyncer_SyncAny_reject_sender(t *testing.T) {
 	stateProvider := &mocks.StateProvider{}
 	stateProvider.On("AppHash", mock.Anything, mock.Anything).Return([]byte("app_hash"), nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	rts := setup(ctx, t, nil, stateProvider, 2)
@@ -389,7 +389,7 @@ func TestSyncer_SyncAny_abciError(t *testing.T) {
 	stateProvider := &mocks.StateProvider{}
 	stateProvider.On("AppHash", mock.Anything, mock.Anything).Return([]byte("app_hash"), nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	rts := setup(ctx, t, nil, stateProvider, 2)
@@ -430,7 +430,7 @@ func TestSyncer_offerSnapshot(t *testing.T) {
 		"unknown non-zero": {9, nil, unknownErr},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for name, tc := range testcases {
@@ -483,7 +483,7 @@ func TestSyncer_applyChunks_Results(t *testing.T) {
 		"unknown non-zero": {9, nil, unknownErr},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for name, tc := range testcases {
@@ -543,7 +543,7 @@ func TestSyncer_applyChunks_RefetchChunks(t *testing.T) {
 		"retry_snapshot":  {abci.ResponseApplySnapshotChunk_RETRY_SNAPSHOT},
 		"reject_snapshot": {abci.ResponseApplySnapshotChunk_REJECT_SNAPSHOT},
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for name, tc := range testcases {
@@ -614,7 +614,7 @@ func TestSyncer_applyChunks_RejectSenders(t *testing.T) {
 		"retry_snapshot":  {abci.ResponseApplySnapshotChunk_RETRY_SNAPSHOT},
 		"reject_snapshot": {abci.ResponseApplySnapshotChunk_REJECT_SNAPSHOT},
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for name, tc := range testcases {
@@ -750,7 +750,7 @@ func TestSyncer_verifyApp(t *testing.T) {
 		}, nil, errVerifyFailed},
 		"error": {nil, boom, boom},
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for name, tc := range testcases {

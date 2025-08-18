@@ -19,7 +19,7 @@ import (
 )
 
 func TestEventBusPublishEventTx(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
@@ -73,7 +73,7 @@ func TestEventBusPublishEventTx(t *testing.T) {
 }
 
 func TestEventBusPublishEventNewBlock(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
 	err := eventBus.Start(ctx)
@@ -127,7 +127,7 @@ func TestEventBusPublishEventNewBlock(t *testing.T) {
 }
 
 func TestEventBusPublishEventTxDuplicateKeys(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
 	err := eventBus.Start(ctx)
@@ -244,7 +244,7 @@ func TestEventBusPublishEventTxDuplicateKeys(t *testing.T) {
 }
 
 func TestEventBusPublishEventNewBlockHeader(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
@@ -294,7 +294,7 @@ func TestEventBusPublishEventNewBlockHeader(t *testing.T) {
 }
 
 func TestEventBusPublishEventEvidenceValidated(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
@@ -336,7 +336,7 @@ func TestEventBusPublishEventEvidenceValidated(t *testing.T) {
 
 }
 func TestEventBusPublishEventNewEvidence(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
@@ -378,7 +378,7 @@ func TestEventBusPublishEventNewEvidence(t *testing.T) {
 }
 
 func TestEventBusPublish(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	eventBus := eventbus.NewDefault(log.NewNopLogger())
@@ -397,7 +397,7 @@ func TestEventBusPublish(t *testing.T) {
 	count := make(chan int, 1)
 	go func() {
 		defer close(count)
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
 		defer cancel()
 
 		for n := 0; ; n++ {
@@ -464,7 +464,7 @@ func benchmarkEventBus(numClients int, randQueries bool, randEvents bool, b *tes
 	// for random* functions
 	mrand.Seed(time.Now().Unix())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(b.Context())
 	defer cancel()
 
 	eventBus := eventbus.NewDefault(log.NewNopLogger()) // set buffer capacity to 0 so we are not testing cache

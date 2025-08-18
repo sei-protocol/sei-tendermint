@@ -23,7 +23,7 @@ func TestWSClientReconnectWithJitter(t *testing.T) {
 	const maxReconnectAttempts = 3
 	const maxSleepTime = time.Duration(((1<<maxReconnectAttempts)-1)+maxReconnectAttempts) * time.Second
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	failDialer := func(net, addr string) (net.Conn, error) {

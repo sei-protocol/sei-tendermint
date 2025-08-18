@@ -41,7 +41,7 @@ func withTransports(ctx context.Context, t *testing.T, tester func(context.Conte
 
 func TestTransport_AcceptClose(t *testing.T) {
 	// Just test accept unblock on close, happy path is tested widely elsewhere.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -82,7 +82,7 @@ func TestTransport_DialEndpoints(t *testing.T) {
 		{[]byte{1, 2, 3, 4, 5}, false},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -160,7 +160,7 @@ func TestTransport_DialEndpoints(t *testing.T) {
 }
 
 func TestTransport_Dial(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Most just tests dial failures, happy path is tested widely elsewhere.
@@ -205,7 +205,7 @@ func TestTransport_Dial(t *testing.T) {
 }
 
 func TestTransport_Endpoints(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -237,7 +237,7 @@ func TestTransport_Endpoints(t *testing.T) {
 }
 
 func TestTransport_Protocols(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -253,7 +253,7 @@ func TestTransport_Protocols(t *testing.T) {
 }
 
 func TestTransport_String(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -263,7 +263,7 @@ func TestTransport_String(t *testing.T) {
 }
 
 func TestConnection_Handshake(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -317,7 +317,7 @@ func TestConnection_Handshake(t *testing.T) {
 }
 
 func TestConnection_HandshakeCancel(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -347,7 +347,7 @@ func TestConnection_HandshakeCancel(t *testing.T) {
 }
 
 func TestConnection_FlushClose(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -368,7 +368,7 @@ func TestConnection_FlushClose(t *testing.T) {
 }
 
 func TestConnection_LocalRemoteEndpoint(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -385,7 +385,7 @@ func TestConnection_LocalRemoteEndpoint(t *testing.T) {
 }
 
 func TestConnection_SendReceive(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {
@@ -446,7 +446,7 @@ func TestConnection_SendReceive(t *testing.T) {
 }
 
 func TestConnection_String(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	withTransports(ctx, t, func(ctx context.Context, t *testing.T, makeTransport transportFactory) {

@@ -15,7 +15,7 @@ import (
 )
 
 func TestWaitForHeight(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// test with error result - immediate failure

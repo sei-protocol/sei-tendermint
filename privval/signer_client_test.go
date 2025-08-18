@@ -65,7 +65,7 @@ func getSignerTestCases(ctx context.Context, t *testing.T, logger log.Logger) []
 func TestSignerClose(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	bctx, bcancel := context.WithCancel(context.Background())
+	bctx, bcancel := context.WithCancel(t.Context())
 	defer bcancel()
 
 	logger := log.NewNopLogger()
@@ -88,7 +88,7 @@ func TestSignerClose(t *testing.T) {
 func TestSignerPing(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -102,7 +102,7 @@ func TestSignerPing(t *testing.T) {
 func TestSignerGetPubKey(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -132,7 +132,7 @@ func TestSignerGetPubKey(t *testing.T) {
 func TestSignerProposal(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -172,7 +172,7 @@ func TestSignerProposal(t *testing.T) {
 func TestSignerVote(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -215,7 +215,7 @@ func TestSignerVote(t *testing.T) {
 func TestSignerVoteResetDeadline(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -266,7 +266,7 @@ func TestSignerVoteResetDeadline(t *testing.T) {
 func TestSignerVoteKeepAlive(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -316,7 +316,7 @@ func TestSignerVoteKeepAlive(t *testing.T) {
 func TestSignerSignProposalErrors(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -357,7 +357,7 @@ func TestSignerSignProposalErrors(t *testing.T) {
 func TestSignerSignVoteErrors(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -423,7 +423,7 @@ func brokenHandler(ctx context.Context, privVal types.PrivValidator, request pri
 func TestSignerUnexpectedResponse(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()

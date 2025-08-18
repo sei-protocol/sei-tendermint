@@ -61,7 +61,7 @@ func testNode(t *testing.T, testFunc func(context.Context, *testing.T, e2e.Node)
 		}
 
 		t.Run(node.Name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			testFunc(ctx, t, node)

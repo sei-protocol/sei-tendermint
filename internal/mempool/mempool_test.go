@@ -233,7 +233,7 @@ func (e *TestPeerEvictor) Errored(peerID types.NodeID, err error) {
 }
 
 func TestTxMempool_TxsAvailable(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -296,7 +296,7 @@ func TestTxMempool_TxsAvailable(t *testing.T) {
 }
 
 func TestTxMempool_Size(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -330,7 +330,7 @@ func TestTxMempool_Size(t *testing.T) {
 }
 
 func TestTxMempool_Flush(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -364,7 +364,7 @@ func TestTxMempool_Flush(t *testing.T) {
 }
 
 func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	gasEstimated := int64(1) // gas estimated set to 1
@@ -460,7 +460,7 @@ func TestTxMempool_ReapMaxBytesMaxGas(t *testing.T) {
 }
 
 func TestTxMempool_ReapMaxBytesMaxGas_FallbackToGasWanted(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	gasEstimated := int64(0) // gas estimated not set so fallback to gas wanted
@@ -509,7 +509,7 @@ func TestTxMempool_ReapMaxBytesMaxGas_FallbackToGasWanted(t *testing.T) {
 }
 
 func TestTxMempool_ReapMaxTxs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -583,7 +583,7 @@ func TestTxMempool_ReapMaxTxs(t *testing.T) {
 }
 
 func TestTxMempool_CheckTxExceedsMaxSize(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -608,7 +608,7 @@ func TestTxMempool_CheckTxExceedsMaxSize(t *testing.T) {
 }
 
 func TestTxMempool_Prioritization(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -677,7 +677,7 @@ func TestTxMempool_Prioritization(t *testing.T) {
 }
 
 func TestTxMempool_PendingStoreSize(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -699,7 +699,7 @@ func TestTxMempool_PendingStoreSize(t *testing.T) {
 }
 
 func TestTxMempool_RemoveCacheWhenPendingTxIsFull(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -721,7 +721,7 @@ func TestTxMempool_RemoveCacheWhenPendingTxIsFull(t *testing.T) {
 }
 
 func TestTxMempool_EVMEviction(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -764,7 +764,7 @@ func TestTxMempool_EVMEviction(t *testing.T) {
 }
 
 func TestTxMempool_CheckTxSamePeer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -788,7 +788,7 @@ func TestTxMempool_CheckTxSamePeer(t *testing.T) {
 }
 
 func TestTxMempool_CheckTxSameSender(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -819,7 +819,7 @@ func TestTxMempool_CheckTxSameSender(t *testing.T) {
 }
 
 func TestTxMempool_ConcurrentTxs(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -892,7 +892,7 @@ func TestTxMempool_ConcurrentTxs(t *testing.T) {
 }
 
 func TestTxMempool_ExpiredTxs_NumBlocks(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -951,7 +951,7 @@ func TestTxMempool_ExpiredTxs_NumBlocks(t *testing.T) {
 }
 
 func TestTxMempool_CheckTxPostCheckError(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	cases := []struct {
@@ -1008,7 +1008,7 @@ func TestTxMempool_CheckTxPostCheckError(t *testing.T) {
 }
 
 func TestTxMempool_FailedCheckTxCount(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -1050,7 +1050,7 @@ func TestTxMempool_FailedCheckTxCount(t *testing.T) {
 
 func TestAppendCheckTxErr(t *testing.T) {
 	// Setup
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})
@@ -1075,7 +1075,7 @@ func TestAppendCheckTxErr(t *testing.T) {
 }
 
 func TestMempoolExpiration(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication()})

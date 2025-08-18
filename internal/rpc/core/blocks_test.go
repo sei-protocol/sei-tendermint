@@ -104,7 +104,7 @@ func TestBlockResults(t *testing.T) {
 		}},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	for _, tc := range testCases {
 		res, err := env.BlockResults(ctx, &coretypes.RequestBlockInfo{
 			Height: (*coretypes.Int64)(&tc.height),

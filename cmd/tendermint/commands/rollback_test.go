@@ -17,7 +17,7 @@ import (
 func TestRollbackIntegration(t *testing.T) {
 	var height int64
 	dir := t.TempDir()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	cfg, err := rpctest.CreateConfig(t, t.Name())
 	require.NoError(t, err)

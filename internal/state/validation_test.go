@@ -31,7 +31,7 @@ import (
 const validationTestsStopHeight int64 = 10
 
 func TestValidateBlockHeader(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 	proxyApp := proxy.New(abciclient.NewLocalClient(logger, &testApp{}), logger, proxy.NopMetrics())
@@ -138,7 +138,7 @@ func TestValidateBlockHeader(t *testing.T) {
 }
 
 func TestValidateBlockCommit(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -288,7 +288,7 @@ func TestValidateBlockCommit(t *testing.T) {
 }
 
 func TestValidateBlockEvidence(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()

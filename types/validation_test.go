@@ -60,7 +60,7 @@ func TestValidatorSet_VerifyCommit_All(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.description, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			_, valSet, vals := randVoteSet(ctx, t, tc.height, round, tmproto.PrecommitType, tc.valSize, 10)
@@ -147,7 +147,7 @@ func TestValidatorSet_VerifyCommit_CheckAllSignatures(t *testing.T) {
 		blockID = makeBlockIDRandom()
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	voteSet, valSet, vals := randVoteSet(ctx, t, h, 0, tmproto.PrecommitType, 4, 10)
@@ -178,7 +178,7 @@ func TestValidatorSet_VerifyCommitLight_ReturnsAsSoonAsMajorityOfVotingPowerSign
 		blockID = makeBlockIDRandom()
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	voteSet, valSet, vals := randVoteSet(ctx, t, h, 0, tmproto.PrecommitType, 4, 10)
@@ -206,7 +206,7 @@ func TestValidatorSet_VerifyCommitLightTrusting_ReturnsAsSoonAsTrustLevelOfVotin
 		h       = int64(3)
 		blockID = makeBlockIDRandom()
 	)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	voteSet, valSet, vals := randVoteSet(ctx, t, h, 0, tmproto.PrecommitType, 4, 10)
@@ -229,7 +229,7 @@ func TestValidatorSet_VerifyCommitLightTrusting_ReturnsAsSoonAsTrustLevelOfVotin
 }
 
 func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	var (
@@ -274,7 +274,7 @@ func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
 }
 
 func TestValidatorSet_VerifyCommitLightTrustingErrorsOnOverflow(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	var (

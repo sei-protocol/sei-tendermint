@@ -53,7 +53,7 @@ func TestInspectRun(t *testing.T) {
 		logger := testLogger.With(t.Name())
 		d, err := inspect.NewFromConfig(logger, cfg)
 		require.NoError(t, err)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		stoppedWG := &sync.WaitGroup{}
 		stoppedWG.Add(1)
 		go func() {
@@ -86,7 +86,7 @@ func TestBlock(t *testing.T) {
 	rpcConfig := config.TestRPCConfig()
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -133,7 +133,7 @@ func TestTxSearch(t *testing.T) {
 	rpcConfig := config.TestRPCConfig()
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -180,7 +180,7 @@ func TestTx(t *testing.T) {
 	rpcConfig := config.TestRPCConfig()
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -229,7 +229,7 @@ func TestConsensusParams(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -280,7 +280,7 @@ func TestBlockResults(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -328,7 +328,7 @@ func TestCommit(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -382,7 +382,7 @@ func TestBlockByHash(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -435,7 +435,7 @@ func TestBlockchain(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -488,7 +488,7 @@ func TestValidators(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
@@ -547,7 +547,7 @@ func TestBlockSearch(t *testing.T) {
 	l := log.NewNopLogger()
 	d := inspect.New(rpcConfig, blockStoreMock, stateStoreMock, []indexer.EventSink{eventSinkMock}, l)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 

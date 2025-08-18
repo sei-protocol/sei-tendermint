@@ -81,7 +81,7 @@ func TestValidatorSetBasic(t *testing.T) {
 }
 
 func TestValidatorSetValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	val, _, err := randValidator(ctx, false, 1)
@@ -1322,7 +1322,7 @@ func verifyValSetUpdatePriorityOrder(t *testing.T, valSet *ValidatorSet, cfg tes
 }
 
 func TestNewValidatorSetFromExistingValidators(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	size := 5
@@ -1441,7 +1441,7 @@ func TestSafeMul(t *testing.T) {
 }
 
 func TestValidatorSetProtoBuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	valset, _ := randValidatorPrivValSet(ctx, t, 10, 100)
@@ -1557,7 +1557,7 @@ func BenchmarkUpdates(b *testing.B) {
 }
 
 func BenchmarkValidatorSet_VerifyCommit_Ed25519(b *testing.B) { // nolint
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for _, n := range []int{1, 8, 64, 1024} {
@@ -1585,7 +1585,7 @@ func BenchmarkValidatorSet_VerifyCommit_Ed25519(b *testing.B) { // nolint
 }
 
 func BenchmarkValidatorSet_VerifyCommitLight_Ed25519(b *testing.B) { // nolint
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for _, n := range []int{1, 8, 64, 1024} {
@@ -1614,7 +1614,7 @@ func BenchmarkValidatorSet_VerifyCommitLight_Ed25519(b *testing.B) { // nolint
 }
 
 func BenchmarkValidatorSet_VerifyCommitLightTrusting_Ed25519(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	for _, n := range []int{1, 8, 64, 1024} {

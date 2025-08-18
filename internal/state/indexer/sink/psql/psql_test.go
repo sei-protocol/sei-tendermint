@@ -152,7 +152,7 @@ func TestType(t *testing.T) {
 }
 
 func TestIndexing(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Run("IndexBlockEvents", func(t *testing.T) {

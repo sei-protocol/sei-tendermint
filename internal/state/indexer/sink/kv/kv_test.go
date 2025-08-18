@@ -144,7 +144,7 @@ func TestBlockFuncs(t *testing.T) {
 	for name, tc := range testCases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
 			results, err := indexer.SearchBlockEvents(ctx, tc.q)
@@ -169,7 +169,7 @@ func TestTxSearchWithCancelation(t *testing.T) {
 	assert.Nil(t, e)
 	assert.Equal(t, r, txResult)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	results, err := indexer.SearchTxEvents(ctx, query.MustCompile(`account.number = 1`))
 	assert.NoError(t, err)
@@ -240,7 +240,7 @@ func TestTxSearchDeprecatedIndexing(t *testing.T) {
 		{"sender = 'addr1'", []*abci.TxResult{txResult2}},
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	for _, tc := range testCases {
 		tc := tc
@@ -267,7 +267,7 @@ func TestTxSearchOneTxWithMultipleSameTagsButDifferentValues(t *testing.T) {
 	err := indexer.IndexTxEvents([]*abci.TxResult{txResult})
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	results, err := indexer.SearchTxEvents(ctx, query.MustCompile(`account.number >= 1`))
 	assert.NoError(t, err)
@@ -324,7 +324,7 @@ func TestTxSearchMultipleTxs(t *testing.T) {
 	err = indexer.IndexTxEvents([]*abci.TxResult{txResult4})
 	require.NoError(t, err)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	results, err := indexer.SearchTxEvents(ctx, query.MustCompile(`account.number >= 1`))
 	assert.NoError(t, err)

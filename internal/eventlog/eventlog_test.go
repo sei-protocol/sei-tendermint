@@ -104,7 +104,7 @@ func TestConcurrent(t *testing.T) {
 		t.Fatalf("New unexpectedly failed: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var wg sync.WaitGroup
 

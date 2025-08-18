@@ -13,7 +13,7 @@ import (
 )
 
 func TestConnectionFiltering(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 

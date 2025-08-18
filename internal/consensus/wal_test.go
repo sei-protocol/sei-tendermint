@@ -28,7 +28,7 @@ func TestWALTruncate(t *testing.T) {
 	walFile := filepath.Join(walDir, "wal")
 	logger := log.NewNopLogger()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// this magic number 4K can truncate the content when RotateFile.
@@ -105,7 +105,7 @@ func TestWALWrite(t *testing.T) {
 	walDir := t.TempDir()
 	walFile := filepath.Join(walDir, "wal")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	wal, err := NewWAL(ctx, log.NewNopLogger(), walFile)
@@ -138,7 +138,7 @@ func TestWALWrite(t *testing.T) {
 }
 
 func TestWALSearchForEndHeight(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -170,7 +170,7 @@ func TestWALSearchForEndHeight(t *testing.T) {
 }
 
 func TestWALPeriodicSync(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	walDir := t.TempDir()

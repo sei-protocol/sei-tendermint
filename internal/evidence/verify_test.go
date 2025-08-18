@@ -33,7 +33,7 @@ func TestVerifyLightClientAttack_Lunatic(t *testing.T) {
 		totalVals          = 10
 		byzVals            = 4
 	)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	attackTime := defaultEvidenceTime.Add(1 * time.Hour)
@@ -74,7 +74,7 @@ func TestVerify_LunaticAttackAgainstState(t *testing.T) {
 		totalVals          = 10
 		byzVals            = 4
 	)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 
@@ -149,7 +149,7 @@ func TestVerify_ForwardLunaticAttack(t *testing.T) {
 	)
 	attackTime := defaultEvidenceTime.Add(1 * time.Hour)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -205,7 +205,7 @@ func TestVerify_ForwardLunaticAttack(t *testing.T) {
 }
 
 func TestVerifyLightClientAttack_Equivocation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -307,7 +307,7 @@ func TestVerifyLightClientAttack_Equivocation(t *testing.T) {
 }
 
 func TestVerifyLightClientAttack_Amnesia(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -407,7 +407,7 @@ type voteData struct {
 }
 
 func TestVerifyDuplicateVoteEvidence(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()

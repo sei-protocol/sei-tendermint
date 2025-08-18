@@ -118,7 +118,7 @@ func TestMigrations(t *testing.T) {
 	})
 
 	t.Run("GetSeenCommits", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		db := dbm.NewMemDB()
@@ -135,7 +135,7 @@ func TestMigrations(t *testing.T) {
 		}
 	})
 	t.Run("Integration", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
 
 		db := dbm.NewMemDB()

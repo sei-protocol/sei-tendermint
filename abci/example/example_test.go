@@ -28,7 +28,7 @@ func init() {
 }
 
 func TestKVStore(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 
@@ -37,7 +37,7 @@ func TestKVStore(t *testing.T) {
 }
 
 func TestBaseApp(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 
@@ -46,7 +46,7 @@ func TestBaseApp(t *testing.T) {
 }
 
 func TestGRPC(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()

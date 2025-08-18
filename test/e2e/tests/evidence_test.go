@@ -10,7 +10,7 @@ import (
 // assert that all nodes that have blocks at the height of a misbehavior has evidence
 // for that misbehavior
 func TestEvidence_Misbehavior(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	blocks := fetchBlockChain(ctx, t)

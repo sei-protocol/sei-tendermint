@@ -28,7 +28,7 @@ const (
 func TestStoreBootstrap(t *testing.T) {
 	stateDB := dbm.NewMemDB()
 	stateStore := sm.NewStore(stateDB)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	val, _, err := factory.Validator(ctx, 10+int64(rand.Uint32()))
 	require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestStoreBootstrap(t *testing.T) {
 func TestStoreLoadValidators(t *testing.T) {
 	stateDB := dbm.NewMemDB()
 	stateStore := sm.NewStore(stateDB)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	val, _, err := factory.Validator(ctx, 10+int64(rand.Uint32()))
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func BenchmarkLoadValidators(b *testing.B) {
 }
 
 func TestStoreLoadConsensusParams(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	stateDB := dbm.NewMemDB()

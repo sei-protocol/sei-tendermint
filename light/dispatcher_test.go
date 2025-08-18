@@ -39,7 +39,7 @@ func TestDispatcherBasic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 	const numPeers = 5
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	chans, ch := testChannel(100)
@@ -75,7 +75,7 @@ func TestDispatcherBasic(t *testing.T) {
 func TestDispatcherReturnsNoBlock(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	chans, ch := testChannel(100)
@@ -104,7 +104,7 @@ func TestDispatcherReturnsNoBlock(t *testing.T) {
 func TestDispatcherTimeOutWaitingOnLightBlock(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	_, ch := testChannel(100)
@@ -130,7 +130,7 @@ func TestDispatcherProviders(t *testing.T) {
 
 	chainID := "test-chain"
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	chans, ch := testChannel(100)
@@ -160,7 +160,7 @@ func TestDispatcherProviders(t *testing.T) {
 func TestPeerListBasic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peerList := NewPeerList()
@@ -207,7 +207,7 @@ func TestPeerListBlocksWhenEmpty(t *testing.T) {
 	peerList := NewPeerList()
 	require.Zero(t, peerList.Len())
 	doneCh := make(chan struct{})
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	go func() {
 		peerList.Pop(ctx)
@@ -226,7 +226,7 @@ func TestEmptyPeerListReturnsWhenContextCanceled(t *testing.T) {
 	require.Zero(t, peerList.Len())
 	doneCh := make(chan struct{})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	wrapped, cancel := context.WithCancel(ctx)
@@ -251,7 +251,7 @@ func TestEmptyPeerListReturnsWhenContextCanceled(t *testing.T) {
 
 func TestPeerListConcurrent(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peerList := NewPeerList()

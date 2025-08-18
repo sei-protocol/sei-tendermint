@@ -101,7 +101,7 @@ func TestMinPollTime(t *testing.T) {
 
 	// Waiting for an item on a log with no matching events incurs a minimum
 	// wait time and reports no events.
-	ctx := context.Background()
+	ctx := t.Context()
 	filter := &coretypes.EventFilter{Query: `tm.event = 'good'`}
 
 	t.Run("NoneMatch", func(t *testing.T) {
@@ -198,7 +198,7 @@ func newStreamTester(t *testing.T, query string, logOpts eventlog.LogSettings, s
 // start starts the stream receiver, which runs until it it terminated by
 // calling stop.
 func (s *streamTester) start() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	s.errc = make(chan error, 1)
 	s.recv = make(chan *coretypes.EventItem)
 	s.stop = cancel

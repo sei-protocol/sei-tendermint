@@ -26,7 +26,7 @@ import (
 func TestClientIntegration_Update(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	conf, err := rpctest.CreateConfig(t, t.Name())
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestClientIntegration_Update(t *testing.T) {
 // Manually getting light blocks and verifying them.
 func TestClientIntegration_VerifyLightBlockAtHeight(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	conf, err := rpctest.CreateConfig(t, t.Name())
 	require.NoError(t, err)
@@ -168,7 +168,7 @@ func waitForBlock(ctx context.Context, p provider.Provider, height int64) (*type
 }
 
 func TestClientStatusRPC(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	conf, err := rpctest.CreateConfig(t, t.Name())
 	require.NoError(t, err)

@@ -7,7 +7,7 @@ import (
 )
 
 func TestSimpleQueue(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// set up a small queue with very small buffers so we can

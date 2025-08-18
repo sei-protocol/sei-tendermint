@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -19,7 +18,7 @@ func Test_ResetAll(t *testing.T) {
 	config.SetRoot(dir)
 	logger := log.NewNopLogger()
 	cfg.EnsureRoot(dir)
-	require.NoError(t, initFilesWithConfig(context.Background(), config, logger, types.ABCIPubKeyTypeEd25519))
+	require.NoError(t, initFilesWithConfig(t.Context(), config, logger, types.ABCIPubKeyTypeEd25519))
 	pv, err := privval.LoadFilePV(config.PrivValidator.KeyFile(), config.PrivValidator.StateFile())
 	require.NoError(t, err)
 	pv.LastSignState.Height = 10
@@ -43,7 +42,7 @@ func Test_ResetState(t *testing.T) {
 	config.SetRoot(dir)
 	logger := log.NewNopLogger()
 	cfg.EnsureRoot(dir)
-	require.NoError(t, initFilesWithConfig(context.Background(), config, logger, types.ABCIPubKeyTypeEd25519))
+	require.NoError(t, initFilesWithConfig(t.Context(), config, logger, types.ABCIPubKeyTypeEd25519))
 	pv, err := privval.LoadFilePV(config.PrivValidator.KeyFile(), config.PrivValidator.StateFile())
 	require.NoError(t, err)
 	pv.LastSignState.Height = 10
@@ -67,7 +66,7 @@ func Test_UnsafeResetAll(t *testing.T) {
 	config.SetRoot(dir)
 	logger := log.NewNopLogger()
 	cfg.EnsureRoot(dir)
-	require.NoError(t, initFilesWithConfig(context.Background(), config, logger, types.ABCIPubKeyTypeEd25519))
+	require.NoError(t, initFilesWithConfig(t.Context(), config, logger, types.ABCIPubKeyTypeEd25519))
 	pv, err := privval.LoadFilePV(config.PrivValidator.KeyFile(), config.PrivValidator.StateFile())
 	require.NoError(t, err)
 	pv.LastSignState.Height = 10

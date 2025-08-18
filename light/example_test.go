@@ -18,7 +18,7 @@ import (
 
 // Manually getting light blocks and verifying them.
 func TestExampleClient(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	conf, err := rpctest.CreateConfig(t, "ExampleClient_VerifyLightBlockAtHeight")
 	if err != nil {

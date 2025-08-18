@@ -14,7 +14,7 @@ import (
 // TestAddListenerForEventFireOnce sets up an EventSwitch, subscribes a single
 // listener to an event, and sends a string "data".
 func TestAddListenerForEventFireOnce(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	evsw := NewEventSwitch()
@@ -39,7 +39,7 @@ func TestAddListenerForEventFireOnce(t *testing.T) {
 // TestAddListenerForEventFireMany sets up an EventSwitch, subscribes a single
 // listener to an event, and sends a thousand integers.
 func TestAddListenerForEventFireMany(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	evsw := NewEventSwitch()
@@ -73,7 +73,7 @@ func TestAddListenerForEventFireMany(t *testing.T) {
 // listener to three different events and sends a thousand integers for each
 // of the three events.
 func TestAddListenerForDifferentEvents(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Cleanup(leaktest.Check(t))
@@ -135,7 +135,7 @@ func TestAddListenerForDifferentEvents(t *testing.T) {
 // listener to two of those three events, and then sends a thousand integers
 // for each of the three events.
 func TestAddDifferentListenerForDifferentEvents(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	t.Cleanup(leaktest.Check(t))
@@ -229,7 +229,7 @@ func TestAddDifferentListenerForDifferentEvents(t *testing.T) {
 // NOTE: it is important to run this test with race conditions tracking on,
 // `go test -race`, to examine for possible race conditions.
 func TestManageListenersAsync(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	evsw := NewEventSwitch()

@@ -67,7 +67,7 @@ func testKVStore(ctx context.Context, t *testing.T, app types.Application, tx []
 }
 
 func TestKVStoreKV(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	kvstore := NewApplication()
@@ -82,7 +82,7 @@ func TestKVStoreKV(t *testing.T) {
 }
 
 func TestPersistentKVStoreKV(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	dir := t.TempDir()
@@ -100,7 +100,7 @@ func TestPersistentKVStoreKV(t *testing.T) {
 }
 
 func TestPersistentKVStoreInfo(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	dir := t.TempDir()
 	logger := log.NewNopLogger()
@@ -144,7 +144,7 @@ func TestPersistentKVStoreInfo(t *testing.T) {
 
 // add a validator, remove a validator, update a validator
 func TestValUpdates(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	kvstore := NewApplication()
@@ -313,7 +313,7 @@ func makeGRPCClientServer(
 }
 
 func TestClientServer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 

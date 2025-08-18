@@ -172,7 +172,7 @@ func TestVoteProposalNotEq(t *testing.T) {
 }
 
 func TestVoteVerifySignature(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal := NewMockPV()
@@ -208,7 +208,7 @@ func TestVoteVerifySignature(t *testing.T) {
 // TestVoteExtension tests that the vote verification behaves correctly in each case
 // of vote extension being set on the vote.
 func TestVoteExtension(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	testCases := []struct {
@@ -299,7 +299,7 @@ func TestIsVoteTypeValid(t *testing.T) {
 }
 
 func TestVoteVerify(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal := NewMockPV()
@@ -344,7 +344,7 @@ func signVote(ctx context.Context, t *testing.T, pv PrivValidator, chainID strin
 }
 
 func TestValidVotes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	privVal := NewMockPV()
 
@@ -366,7 +366,7 @@ func TestValidVotes(t *testing.T) {
 }
 
 func TestInvalidVotes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	privVal := NewMockPV()
 
@@ -398,7 +398,7 @@ func TestInvalidVotes(t *testing.T) {
 }
 
 func TestInvalidPrevotes(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	privVal := NewMockPV()
 
@@ -419,7 +419,7 @@ func TestInvalidPrevotes(t *testing.T) {
 }
 
 func TestInvalidPrecommitExtensions(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	privVal := NewMockPV()
 
@@ -443,7 +443,7 @@ func TestInvalidPrecommitExtensions(t *testing.T) {
 }
 
 func TestEnsureVoteExtension(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	privVal := NewMockPV()
 
@@ -473,7 +473,7 @@ func TestEnsureVoteExtension(t *testing.T) {
 }
 
 func TestVoteProtobuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal := NewMockPV()
@@ -545,7 +545,7 @@ func BenchmarkVoteSignBytes(b *testing.B) {
 }
 
 func BenchmarkCommitVoteSignBytes(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sampleCommit := getSampleCommit(ctx, b)

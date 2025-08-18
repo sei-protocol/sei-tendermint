@@ -13,7 +13,7 @@ import (
 )
 
 func TestLightBlockValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	header := MakeRandHeader()
@@ -63,7 +63,7 @@ func TestLightBlockValidateBasic(t *testing.T) {
 }
 
 func TestLightBlockProtobuf(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	header := MakeRandHeader()
 	commit := randCommit(ctx, t, time.Now())
@@ -119,7 +119,7 @@ func TestLightBlockProtobuf(t *testing.T) {
 }
 
 func TestSignedHeaderValidateBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	commit := randCommit(ctx, t, time.Now())

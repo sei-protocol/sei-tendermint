@@ -36,7 +36,7 @@ func TestGenLoadValidator(t *testing.T) {
 }
 
 func TestResetValidator(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal, _, tempStateFileName := newTestFilePV(t)
@@ -146,7 +146,7 @@ func TestUnmarshalValidatorKey(t *testing.T) {
 }
 
 func TestSignVote(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal, _, _ := newTestFilePV(t)
@@ -195,7 +195,7 @@ func TestSignVote(t *testing.T) {
 }
 
 func TestSignProposal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal, _, _ := newTestFilePV(t)
@@ -237,7 +237,7 @@ func TestSignProposal(t *testing.T) {
 }
 
 func TestDifferByTimestamp(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	tempKeyFile, err := os.CreateTemp(t.TempDir(), "priv_validator_key_")
@@ -278,7 +278,7 @@ func TestDifferByTimestamp(t *testing.T) {
 }
 
 func TestVoteExtensionsAreAlwaysSigned(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	privVal, _, _ := newTestFilePV(t)

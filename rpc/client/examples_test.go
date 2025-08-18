@@ -18,7 +18,7 @@ import (
 )
 
 func TestHTTPSimple(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Start a tendermint node (and kvstore) in the background to test against
@@ -68,7 +68,7 @@ func TestHTTPSimple(t *testing.T) {
 }
 
 func TestHTTPBatching(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Start a tendermint node (and kvstore) in the background to test against

@@ -30,7 +30,7 @@ func TestMaxOpenConnections(t *testing.T) {
 
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()
@@ -91,7 +91,7 @@ func TestServeTLS(t *testing.T) {
 		fmt.Fprint(w, "some body")
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	logger := log.NewNopLogger()

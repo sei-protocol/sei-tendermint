@@ -271,7 +271,7 @@ func testWithWSClient(ctx context.Context, t *testing.T, cl *client.WSClient) {
 //-------------
 
 func TestRPC(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	logger := log.NewNopLogger()
 

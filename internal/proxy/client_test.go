@@ -65,7 +65,7 @@ func TestEcho(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Start server
@@ -105,7 +105,7 @@ func BenchmarkEcho(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	// Start server
@@ -143,7 +143,7 @@ func BenchmarkEcho(b *testing.B) {
 }
 
 func TestInfo(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	sockPath := fmt.Sprintf("unix://%s/echo_%v.sock", t.TempDir(), tmrand.Str(6))
@@ -180,7 +180,7 @@ type noopStoppableClientImpl struct {
 func (c *noopStoppableClientImpl) Stop() { c.count++ }
 
 func TestAppConns_Start_Stop(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	clientMock := &abcimocks.Client{}
@@ -209,7 +209,7 @@ func TestAppConns_Failure(t *testing.T) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGABRT)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	clientMock := &abcimocks.Client{}

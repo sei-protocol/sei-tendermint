@@ -16,7 +16,7 @@ import (
 func TestClientServerNoAddrPrefix(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	const (
