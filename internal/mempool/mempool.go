@@ -166,6 +166,14 @@ func WithPostCheck(f PostCheckFunc) TxMempoolOption {
 	return func(txmp *TxMempool) { txmp.postCheck = f }
 }
 
+// WithNoTTLCache disables TTL cache logic completely for testing purposes.
+// This option should only be used in tests to avoid any TTL cache overhead.
+func WithNoTTLCache() TxMempoolOption {
+	return func(txmp *TxMempool) {
+		txmp.seenTxsCache = nil
+	}
+}
+
 // WithMetrics sets the mempool's metrics collector.
 func WithMetrics(metrics *Metrics) TxMempoolOption {
 	return func(txmp *TxMempool) { txmp.metrics = metrics }
@@ -318,24 +326,26 @@ func (txmp *TxMempool) CheckTx(
 	}
 
 	// Check TTL cache to see if we've recently processed this transaction
-	if _, found := txmp.seenTxsCache.Get(txHash); found {
-		// Transaction was seen recently, increment counter and extend TTL
-		newCounter := txmp.seenTxsCache.Increment(txHash)
-		// If counter is too high, reject the transaction to prevent spam
-		if newCounter >= 3 {
-			txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
+	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
+	if txmp.seenTxsCache != nil {
+		if _, ok := txmp.seenTxsCache.(*TTLTxCache); ok {
+			if _, found := txmp.seenTxsCache.Get(txHash); found {
+				// Transaction was seen recently, increment counter and extend TTL
+				newCounter := txmp.seenTxsCache.Increment(txHash)
+				// If counter is too high, reject the transaction to prevent spam
+				if newCounter >= 3 {
+					txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
+				}
+			} else {
+				// First time seeing this transaction, add to TTL cache with default TTL
+				txmp.seenTxsCache.Set(txHash, 1)
+			}
+			// Update TTL cache metrics after CheckTx to avoid interfering with critical path
+			// Only update if we're using a real TTL cache (not NOP)
+			txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
+			txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
+			txmp.metrics.NewTxs.Set(float64(txmp.seenTxsCache.GetOneCounters()))
 		}
-	} else {
-		// First time seeing this transaction, add to TTL cache with default TTL
-		txmp.seenTxsCache.Set(txHash, 1)
-	}
-
-	// Update TTL cache metrics after CheckTx to avoid interfering with critical path
-	// Only update if we're using a real TTL cache (not NOP)
-	if _, ok := txmp.seenTxsCache.(*TTLTxCache); ok {
-		txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
-		txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
-		txmp.metrics.NewTxs.Set(float64(txmp.seenTxsCache.GetOneCounters()))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
