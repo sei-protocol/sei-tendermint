@@ -3,6 +3,7 @@ package mempool
 import (
 	"container/list"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"sync"
 	"time"
 
@@ -150,31 +151,32 @@ type TxCacheWithTTL interface {
 	Stop()
 }
 
-// TTLTxCache implements TxCacheWithTTL using go-cache
-type TTLTxCache struct {
+// DuplicateTxCache implements TxCacheWithTTL using go-cache
+type DuplicateTxCache struct {
 	cache *cache.Cache
 }
 
-// NewTTLTxCache creates a new TTL transaction cache
-func NewTTLTxCache(defaultExpiration, cleanupInterval time.Duration) *TTLTxCache {
+// NewDuplicateTxCache creates a new TTL transaction cache
+func NewDuplicateTxCache(defaultExpiration, cleanupInterval time.Duration) *DuplicateTxCache {
 	// If defaultExpiration is 0 (no expiration), don't create a cleanup interval
 	// to avoid starting background janitor goroutines that can cause leaks
 	if defaultExpiration == 0 {
 		cleanupInterval = 0
+		log.Debug().Msg("TTL cache expiration disabled")
 	}
 
-	return &TTLTxCache{
+	return &DuplicateTxCache{
 		cache: cache.New(defaultExpiration, cleanupInterval),
 	}
 }
 
 // Set adds a transaction to the cache with TTL
-func (t *TTLTxCache) Set(txKey types.TxKey, counter int) {
+func (t *DuplicateTxCache) Set(txKey types.TxKey, counter int) {
 	t.cache.SetDefault(txKeyToString(txKey), counter)
 }
 
 // Get retrieves the counter for a transaction key
-func (t *TTLTxCache) Get(txKey types.TxKey) (counter int, found bool) {
+func (t *DuplicateTxCache) Get(txKey types.TxKey) (counter int, found bool) {
 	if value, exists := t.cache.Get(txKeyToString(txKey)); exists {
 		if counter, ok := value.(int); ok {
 			return counter, true
@@ -184,7 +186,7 @@ func (t *TTLTxCache) Get(txKey types.TxKey) (counter int, found bool) {
 }
 
 // Increment increments the counter for a transaction key, extending TTL
-func (t *TTLTxCache) Increment(txKey types.TxKey) int {
+func (t *DuplicateTxCache) Increment(txKey types.TxKey) int {
 	key := txKeyToString(txKey)
 
 	if value, exists := t.cache.Get(key); exists {
@@ -202,12 +204,12 @@ func (t *TTLTxCache) Increment(txKey types.TxKey) int {
 }
 
 // Reset clears the cache
-func (t *TTLTxCache) Reset() {
+func (t *DuplicateTxCache) Reset() {
 	t.cache.Flush()
 }
 
 // Stop stops the cache and cleans up background goroutines
-func (t *TTLTxCache) Stop() {
+func (t *DuplicateTxCache) Stop() {
 	// go-cache doesn't have a Stop method, but we can flush it
 	// The janitor goroutine will be cleaned up by the garbage collector
 	// when the cache object is no longer referenced
@@ -215,7 +217,7 @@ func (t *TTLTxCache) Stop() {
 }
 
 // GetTotalCounters returns the total aggregated number of counters for all seen transactions
-func (t *TTLTxCache) GetTotalCounters() int {
+func (t *DuplicateTxCache) GetTotalCounters() int {
 	total := 0
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok && counter > 1 {
@@ -226,7 +228,7 @@ func (t *TTLTxCache) GetTotalCounters() int {
 }
 
 // GetOneCounters returns the total number of transactions that has seen counter = 1
-func (t *TTLTxCache) GetOneCounters() int {
+func (t *DuplicateTxCache) GetOneCounters() int {
 	total := 0
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok && counter == 1 {
@@ -237,7 +239,7 @@ func (t *TTLTxCache) GetOneCounters() int {
 }
 
 // GetMaxCounter returns the maximum counter value across all transactions
-func (t *TTLTxCache) GetMaxCounter() int {
+func (t *DuplicateTxCache) GetMaxCounter() int {
 	var maxCount = 0
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok {

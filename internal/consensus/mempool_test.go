@@ -167,32 +167,17 @@ func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 	newBlockHeaderCh := subscribe(ctx, t, cs.eventBus, types.EventQueryNewBlockHeader)
 
 	const numTxs int64 = 50
-
-	// Send transactions SEQUENTIALLY to avoid race conditions
-	// The CounterApplication requires strict sequential ordering
-	for i := 0; i < int(numTxs); i++ {
-		txBytes := make([]byte, 8)
-		binary.BigEndian.PutUint64(txBytes, uint64(i))
-		var rCode uint32
-		err := assertMempool(t, cs.txNotifier).CheckTx(ctx, txBytes, func(r *abci.ResponseCheckTx) { rCode = r.Code }, mempool.TxInfo{})
-		require.NoError(t, err, "error after checkTx")
-		require.Equal(t, code.CodeTypeOK, rCode, "checkTx code is error, txBytes %X, index=%d", txBytes, i)
-	}
+	go checkTxsRange(ctx, t, cs, 0, int(numTxs))
 
 	startTestRound(ctx, cs, cs.roundState.Height(), cs.roundState.Round())
-
-	// Wait for all transactions to be committed
-	timeout := 60 * time.Second
-	deadline := time.Now().Add(timeout)
-
 	for n := int64(0); n < numTxs; {
 		select {
 		case msg := <-newBlockHeaderCh:
 			headerEvent := msg.Data().(types.EventDataNewBlockHeader)
 			n += headerEvent.NumTxs
-			logger.Info("new transactions", "nTxs", headerEvent.NumTxs, "total", n, "remaining", numTxs-n)
-		case <-time.After(time.Until(deadline)):
-			t.Fatalf("Timed out waiting %v to commit blocks with transactions. Progress: %d/%d", timeout, n, numTxs)
+			logger.Info("new transactions", "nTxs", headerEvent.NumTxs, "total", n)
+		case <-time.After(60 * time.Second):
+			t.Fatal("Timed out waiting 60s to commit blocks with transactions")
 		}
 	}
 }

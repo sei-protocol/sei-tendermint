@@ -8,9 +8,9 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-func TestTTLTxCache(t *testing.T) {
+func TestDuplicateTxCache(t *testing.T) {
 	// Test with default TTL (0 means no expiration)
-	cache := NewTTLTxCache(0, 0)
+	cache := NewDuplicateTxCache(0, 0)
 	require.NotNil(t, cache)
 
 	txKey1 := types.TxKey{1, 2, 3, 4}
@@ -70,36 +70,124 @@ func TestTTLTxCache(t *testing.T) {
 	}
 }
 
-func TestTTLTxCacheWithExpiration(t *testing.T) {
+func TestDuplicateTxCacheWithExpiration(t *testing.T) {
 	// Test with actual TTL
-	cache := NewTTLTxCache(100*time.Millisecond, 200*time.Millisecond)
+	cache := NewDuplicateTxCache(100*time.Millisecond, 200*time.Millisecond)
 	require.NotNil(t, cache)
 
 	txKey := types.TxKey{1, 2, 3, 4}
 
-	// Test Set and Get
+	// Test Set and Get - BEFORE EXPIRY
 	cache.Set(txKey, 5)
 	if counter, found := cache.Get(txKey); !found || counter != 5 {
-		t.Errorf("Expected counter=5, found=%d, found=%v", counter, found)
+		t.Errorf("Expected counter=5 before expiry, found=%d, found=%v", counter, found)
+	}
+
+	// Test Increment - BEFORE EXPIRY
+	newCounter := cache.Increment(txKey)
+	if newCounter != 6 {
+		t.Errorf("Expected counter=6 before expiry, got %d", newCounter)
+	}
+
+	// Test GetTotalCounters - BEFORE EXPIRY
+	if total := cache.GetTotalCounters(); total != 6 {
+		t.Errorf("Expected total=6 before expiry, got %d", total)
+	}
+
+	// Test GetOneCounters - BEFORE EXPIRY
+	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
+		t.Errorf("Expected oneCounters=0 before expiry, got %d", oneCounters)
+	}
+
+	// Test GetMaxCounter - BEFORE EXPIRY
+	if maxCounter := cache.GetMaxCounter(); maxCounter != 6 {
+		t.Errorf("Expected maxCounter=6 before expiry, got %d", maxCounter)
 	}
 
 	// Wait for expiration
 	time.Sleep(150 * time.Millisecond)
 
-	// Test that item has expired
+	// Test that item has expired - AFTER EXPIRY
 	if counter, found := cache.Get(txKey); found {
-		t.Errorf("Expected not found after expiration, got counter=%d", counter)
+		t.Errorf("Expected not found after expiry, got counter=%d", counter)
 	}
 
-	// Test that counters are 0 after expiration
+	// Test Increment on expired item - AFTER EXPIRY
+	// Should start fresh with counter = 1
+	newCounter = cache.Increment(txKey)
+	if newCounter != 1 {
+		t.Errorf("Expected counter=1 after expiry (fresh start), got %d", newCounter)
+	}
+
+	// Test that counters are updated after expiry - AFTER EXPIRY
+	if total := cache.GetTotalCounters(); total != 0 { // counter = 1, so not counted
+		t.Errorf("Expected total=0 after expiry, got %d", total)
+	}
+	if oneCounters := cache.GetOneCounters(); oneCounters != 1 {
+		t.Errorf("Expected oneCounters=1 after expiry, got %d", oneCounters)
+	}
+	if maxCounter := cache.GetMaxCounter(); maxCounter != 1 {
+		t.Errorf("Expected maxCounter=1 after expiry, got %d", maxCounter)
+	}
+}
+
+func TestDuplicateTxCacheExpiryBehavior(t *testing.T) {
+	// Test with short TTL to verify expiry behavior
+	cache := NewDuplicateTxCache(50*time.Millisecond, 100*time.Millisecond)
+	require.NotNil(t, cache)
+
+	txKey1 := types.TxKey{1, 2, 3, 4}
+	txKey2 := types.TxKey{5, 6, 7, 8}
+
+	// Add transactions
+	cache.Set(txKey1, 3)
+	cache.Set(txKey2, 1)
+
+	// Verify both are present - BEFORE EXPIRY
+	if counter, found := cache.Get(txKey1); !found || counter != 3 {
+		t.Errorf("Expected txKey1 counter=3 before expiry, found=%d, found=%v", counter, found)
+	}
+	if counter, found := cache.Get(txKey2); !found || counter != 1 {
+		t.Errorf("Expected txKey2 counter=1 before expiry, found=%d, found=%v", counter, found)
+	}
+
+	// Verify counters - BEFORE EXPIRY
+	if total := cache.GetTotalCounters(); total != 3 {
+		t.Errorf("Expected total=3 before expiry, got %d", total)
+	}
+	if oneCounters := cache.GetOneCounters(); oneCounters != 1 {
+		t.Errorf("Expected oneCounters=1 before expiry, got %d", oneCounters)
+	}
+	if maxCounter := cache.GetMaxCounter(); maxCounter != 3 {
+		t.Errorf("Expected maxCounter=3 before expiry, got %d", maxCounter)
+	}
+
+	// Wait for expiry
+	time.Sleep(75 * time.Millisecond)
+
+	// Verify both have expired - AFTER EXPIRY
+	if counter, found := cache.Get(txKey1); found {
+		t.Errorf("Expected txKey1 not found after expiry, got counter=%d", counter)
+	}
+	if counter, found := cache.Get(txKey2); found {
+		t.Errorf("Expected txKey2 not found after expiry, got counter=%d", counter)
+	}
+
+	// Verify counters are reset - AFTER EXPIRY
 	if total := cache.GetTotalCounters(); total != 0 {
-		t.Errorf("Expected total=0 after expiration, got %d", total)
+		t.Errorf("Expected total=0 after expiry, got %d", total)
 	}
 	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
-		t.Errorf("Expected oneCounters=0 after expiration, got %d", oneCounters)
+		t.Errorf("Expected oneCounters=0 after expiry, got %d", oneCounters)
 	}
 	if maxCounter := cache.GetMaxCounter(); maxCounter != 0 {
-		t.Errorf("Expected maxCounter=0 after expiration, got %d", maxCounter)
+		t.Errorf("Expected maxCounter=0 after expiry, got %d", maxCounter)
+	}
+
+	// Test that expired cache can be reused
+	cache.Set(txKey1, 2)
+	if counter, found := cache.Get(txKey1); !found || counter != 2 {
+		t.Errorf("Expected txKey1 counter=2 after reuse, found=%d, found=%v", counter, found)
 	}
 }
 
@@ -141,8 +229,8 @@ func TestNopTxCacheWithTTL(t *testing.T) {
 	cache.Reset()
 }
 
-func TestTTLTxCacheEdgeCases(t *testing.T) {
-	cache := NewTTLTxCache(0, 0)
+func TestDuplicateTxCacheEdgeCases(t *testing.T) {
+	cache := NewDuplicateTxCache(0, 0)
 
 	// Test with empty cache
 	if total := cache.GetTotalCounters(); total != 0 {
@@ -184,8 +272,8 @@ func TestTTLTxCacheEdgeCases(t *testing.T) {
 	}
 }
 
-func TestTTLTxCacheConcurrency(t *testing.T) {
-	cache := NewTTLTxCache(0, 0)
+func TestDuplicateTxCacheConcurrency(t *testing.T) {
+	cache := NewDuplicateTxCache(0, 0)
 	done := make(chan bool)
 	numGoroutines := 10
 

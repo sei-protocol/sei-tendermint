@@ -51,8 +51,8 @@ type TxMempool struct {
 	cache TxCache
 
 	// A TTL cache which keeps all txs that we have seen before over the TTL window.
-	// Currently can be used for tracking whether checkTx is always serving the same tx or not.
-	seenTxsCache TxCacheWithTTL
+	// Currently, this can be used for tracking whether checkTx is always serving the same tx or not.
+	duplicateTxsCache TxCacheWithTTL
 
 	// txStore defines the main storage of valid transactions. Indexes are built
 	// on top of this store.
@@ -116,16 +116,16 @@ func NewTxMempool(
 ) *TxMempool {
 
 	txmp := &TxMempool{
-		logger:        logger,
-		config:        cfg,
-		proxyAppConn:  proxyAppConn,
-		height:        -1,
-		cache:         NopTxCache{},
-		seenTxsCache:  NopTxCacheWithTTL{}, // Default to NOP implementation
-		metrics:       NopMetrics(),
-		txStore:       NewTxStore(),
-		gossipIndex:   clist.New(),
-		priorityIndex: NewTxPriorityQueue(),
+		logger:            logger,
+		config:            cfg,
+		proxyAppConn:      proxyAppConn,
+		height:            -1,
+		cache:             NopTxCache{},
+		duplicateTxsCache: NopTxCacheWithTTL{}, // Default to NOP implementation
+		metrics:           NopMetrics(),
+		txStore:           NewTxStore(),
+		gossipIndex:       clist.New(),
+		priorityIndex:     NewTxPriorityQueue(),
 		heightIndex: NewWrappedTxList(func(wtx1, wtx2 *WrappedTx) bool {
 			return wtx1.height >= wtx2.height
 		}),
@@ -141,8 +141,8 @@ func NewTxMempool(
 		txmp.cache = NewLRUTxCache(cfg.CacheSize)
 	}
 
-	if cfg.SeenTxsCacheTTL > 0 {
-		txmp.seenTxsCache = NewTTLTxCache(cfg.SeenTxsCacheTTL, cfg.SeenTxsCacheTTL)
+	if cfg.DuplicateTxsCacheTTL > 0 {
+		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheTTL, cfg.DuplicateTxsCacheTTL)
 	}
 
 	for _, opt := range options {
@@ -164,14 +164,6 @@ func WithPreCheck(f PreCheckFunc) TxMempoolOption {
 // to the first created block. After that, Update overwrites the existing value.
 func WithPostCheck(f PostCheckFunc) TxMempoolOption {
 	return func(txmp *TxMempool) { txmp.postCheck = f }
-}
-
-// WithNoTTLCache disables TTL cache logic completely for testing purposes.
-// This option should only be used in tests to avoid any TTL cache overhead.
-func WithNoTTLCache() TxMempoolOption {
-	return func(txmp *TxMempool) {
-		txmp.seenTxsCache = nil
-	}
 }
 
 // WithMetrics sets the mempool's metrics collector.
@@ -327,25 +319,23 @@ func (txmp *TxMempool) CheckTx(
 
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
-	if txmp.seenTxsCache != nil {
-		if _, ok := txmp.seenTxsCache.(*TTLTxCache); ok {
-			if _, found := txmp.seenTxsCache.Get(txHash); found {
-				// Transaction was seen recently, increment counter and extend TTL
-				newCounter := txmp.seenTxsCache.Increment(txHash)
-				// If counter is too high, reject the transaction to prevent spam
-				if newCounter >= 3 {
-					txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
-				}
-			} else {
-				// First time seeing this transaction, add to TTL cache with default TTL
-				txmp.seenTxsCache.Set(txHash, 1)
+	if txmp.config.DuplicateTxsCacheTTL > 0 {
+		if _, found := txmp.duplicateTxsCache.Get(txHash); found {
+			// Transaction was seen recently, increment counter and extend TTL
+			newCounter := txmp.duplicateTxsCache.Increment(txHash)
+			// If counter is too high, reject the transaction to prevent spam
+			if newCounter >= 3 {
+				txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
 			}
-			// Update TTL cache metrics after CheckTx to avoid interfering with critical path
-			// Only update if we're using a real TTL cache (not NOP)
-			txmp.metrics.MaxSeenTxs.Set(float64(txmp.seenTxsCache.GetMaxCounter()))
-			txmp.metrics.TotalSeenTxs.Set(float64(txmp.seenTxsCache.GetTotalCounters()))
-			txmp.metrics.NewTxs.Set(float64(txmp.seenTxsCache.GetOneCounters()))
+		} else {
+			// First time seeing this transaction, add to TTL cache with default TTL
+			txmp.duplicateTxsCache.Set(txHash, 1)
 		}
+		// Update TTL cache metrics after CheckTx to avoid interfering with critical path
+		// Only update if we're using a real TTL cache (not NOP)
+		txmp.metrics.MaxSeenTxs.Set(float64(txmp.duplicateTxsCache.GetMaxCounter()))
+		txmp.metrics.TotalSeenTxs.Set(float64(txmp.duplicateTxsCache.GetTotalCounters()))
+		txmp.metrics.NewTxs.Set(float64(txmp.duplicateTxsCache.GetOneCounters()))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
