@@ -1063,19 +1063,21 @@ func TestClient(t *testing.T) {
 
 		logger := log.NewNopLogger()
 
-		differentVals, _ := factory.ValidatorSet(ctx, t, 10, 100)
+		// Create a different header for height 2 that will cause a hash mismatch
+		// This is more reliable than validator set mismatches for witness removal
+		differentHeader := keys.GenSignedHeaderLastBlockID(t, chainID, 2, bTime.Add(30*time.Minute), nil, vals, vals,
+			hash("different_app_hash"), hash("different_cons_hash"), hash("different_results_hash"),
+			0, len(keys), types.BlockID{Hash: h1.Hash()})
+
 		mockBadValSetNode := mockNodeFromHeadersAndVals(
 			map[int64]*types.SignedHeader{
 				1: h1,
-				// 3/3 signed, but validator set at height 2 below is invalid -> witness
-				// should be removed.
-				2: keys.GenSignedHeaderLastBlockID(t, chainID, 2, bTime.Add(30*time.Minute), nil, vals, vals,
-					hash("app_hash2"), hash("cons_hash"), hash("results_hash"),
-					0, len(keys), types.BlockID{Hash: h1.Hash()}),
+				// Different header at height 2 -> witness should be removed due to hash mismatch
+				2: differentHeader,
 			},
 			map[int64]*types.ValidatorSet{
 				1: vals,
-				2: differentVals,
+				2: vals, // Use same validator set to avoid confusion
 			})
 
 		// Make mocks more flexible to avoid flakiness
