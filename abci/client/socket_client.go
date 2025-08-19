@@ -369,6 +369,14 @@ func (cli *socketClient) LoadLatest(ctx context.Context, req *types.RequestLoadL
 	return res.GetLoadLatest(), nil
 }
 
+func (cli *socketClient) GetTxPriority(ctx context.Context, req *types.RequestGetTxPriority) (*types.ResponseGetTxPriority, error) {
+	res, err := cli.doRequest(ctx, types.ToRequestGetTxPriority(req))
+	if err != nil {
+		return nil, err
+	}
+	return res.GetGetTxPriority(), nil
+}
+
 //----------------------------------------
 
 func resMatchesReq(req *types.Request, res *types.Response) (ok bool) {
