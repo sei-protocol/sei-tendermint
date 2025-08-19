@@ -159,6 +159,11 @@ func (app *proxyClient) LoadLatest(ctx context.Context, req *types.RequestLoadLa
 	return app.client.LoadLatest(ctx, req)
 }
 
+func (app *proxyClient) GetTxPriority(ctx context.Context, req *types.RequestGetTxPriority) (*types.ResponseGetTxPriority, error) {
+	defer addTimeSample(app.metrics.MethodTiming.With("method", "get_tx_priority", "type", "sync"))()
+	return app.client.GetTxPriority(ctx, req)
+}
+
 func (app *proxyClient) Commit(ctx context.Context) (*types.ResponseCommit, error) {
 	defer addTimeSample(app.metrics.MethodTiming.With("method", "commit", "type", "sync"))()
 	return app.client.Commit(ctx)
