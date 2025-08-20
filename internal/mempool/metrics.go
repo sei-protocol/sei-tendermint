@@ -42,6 +42,9 @@ type Metrics struct {
 	// Track the number of unique new tx transactions
 	NumberOfNonDuplicateTxs metrics.Gauge
 
+	// Track the number of checkTx calls
+	NumberOfCheckTxs metrics.Counter
+
 	// Number of failed transactions.
 	FailedTxs metrics.Counter
 
