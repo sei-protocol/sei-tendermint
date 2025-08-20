@@ -324,11 +324,12 @@ func (txmp *TxMempool) CheckTx(
 	if txmp.config.DuplicateTxsCacheTTL > 0 {
 		_ = txmp.duplicateTxsCache.Increment(txHash)
 		if txmp.totalCheckTxCount%100 == 0 {
-			// Update TTL cache metrics every 100 txs
-			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(txmp.duplicateTxsCache.GetMaxDuplicateCount()))
-			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(txmp.duplicateTxsCache.GetAggregatedDuplicateCount()))
-			txmp.metrics.NumberOfDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetDuplicateTxCount()))
-			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetNonDuplicateTxCount()))
+			// Update metrics every 100 txs
+			maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
+			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
+			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
+			txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
+			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
 		}
 	}
 
