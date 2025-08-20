@@ -38,23 +38,11 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "total_txs_size_bytes",
 			Help:      "Total current mempool uncommitted txs bytes",
 		}, labels).With(labelsAndValues...),
-		TotalSeenTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+		DuplicateTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "total_seen_txs",
+			Name:      "duplicate_txs",
 			Help:      "Track the total number of transactions we have seen",
-		}, labels).With(labelsAndValues...),
-		MaxSeenTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: MetricsSubsystem,
-			Name:      "max_seen_txs",
-			Help:      "Track the max occurrences of the single we have seen",
-		}, labels).With(labelsAndValues...),
-		NewTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
-			Namespace: namespace,
-			Subsystem: MetricsSubsystem,
-			Name:      "new_txs",
-			Help:      "Track the number of transactions that are new and we have not seen before",
 		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
@@ -107,9 +95,7 @@ func NopMetrics() *Metrics {
 		PendingSize:       discard.NewGauge(),
 		TxSizeBytes:       discard.NewCounter(),
 		TotalTxsSizeBytes: discard.NewGauge(),
-		TotalSeenTxs:      discard.NewGauge(),
-		MaxSeenTxs:        discard.NewGauge(),
-		NewTxs:            discard.NewGauge(),
+		DuplicateTxs:      discard.NewGauge(),
 		FailedTxs:         discard.NewCounter(),
 		RejectedTxs:       discard.NewCounter(),
 		EvictedTxs:        discard.NewCounter(),

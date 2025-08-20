@@ -115,14 +115,27 @@ type NopTxCacheWithTTL struct{}
 
 var _ TxCacheWithTTL = (*NopTxCacheWithTTL)(nil)
 
-func (NopTxCacheWithTTL) Set(txKey types.TxKey, counter int)              {}
-func (NopTxCacheWithTTL) Get(txKey types.TxKey) (counter int, found bool) { return 0, false }
-func (NopTxCacheWithTTL) Increment(txKey types.TxKey) int                 { return 1 }
-func (NopTxCacheWithTTL) Reset()                                          {}
-func (NopTxCacheWithTTL) GetTotalCounters() int                           { return 0 }
-func (NopTxCacheWithTTL) GetOneCounters() int                             { return 0 }
-func (NopTxCacheWithTTL) GetMaxCounter() int                              { return 0 }
-func (NopTxCacheWithTTL) Stop()                                           {}
+func (NopTxCacheWithTTL) Set(_ types.TxKey, _ int)                    {}
+func (NopTxCacheWithTTL) Get(_ types.TxKey) (counter int, found bool) { return 0, false }
+func (NopTxCacheWithTTL) Increment(_ types.TxKey) int                 { return 1 }
+func (NopTxCacheWithTTL) Reset()                                      {}
+
+func (t NopTxCacheWithTTL) GetAggregatedDuplicateCount() int {
+	return 0
+}
+
+func (t NopTxCacheWithTTL) GetMaxDuplicateCount() int {
+	return 0
+}
+
+func (t NopTxCacheWithTTL) GetDuplicateTxCount() int {
+	return 0
+}
+
+func (t NopTxCacheWithTTL) GetNonDuplicateTxCount() int {
+	return 0
+}
+func (NopTxCacheWithTTL) Stop() {}
 
 // TxCacheWithTTL defines an interface for TTL-based transaction caching
 type TxCacheWithTTL interface {
@@ -135,14 +148,17 @@ type TxCacheWithTTL interface {
 	// Increment increments the counter for a transaction key, extending TTL
 	Increment(txKey types.TxKey) int
 
-	// GetTotalCounters returns the total aggregated number of counters for all transactions
-	GetTotalCounters() int
+	// GetAggregatedDuplicateCount returns the total aggregated number of occurrences duplicated txs
+	GetAggregatedDuplicateCount() int
 
-	// GetOneCounters returns the total number of transactions that has seen counter = 1
-	GetOneCounters() int
+	// GetMaxDuplicateCount returns the max num of occurrence for duplicated tx across all transactions
+	GetMaxDuplicateCount() int
 
-	// GetMaxCounter returns the maximum counter value across all transactions
-	GetMaxCounter() int
+	// GetDuplicateTxCount returns number of txs that has occurrence counter > 1
+	GetDuplicateTxCount() int
+
+	// GetNonDuplicateTxCount returns the number of transactions that has occurrence counter = 1
+	GetNonDuplicateTxCount() int
 
 	// Reset clears the cache
 	Reset()
@@ -216,8 +232,8 @@ func (t *DuplicateTxCache) Stop() {
 	t.cache.Flush()
 }
 
-// GetTotalCounters returns the total aggregated number of counters for all seen transactions
-func (t *DuplicateTxCache) GetTotalCounters() int {
+// GetAggregatedDuplicateCount returns the total aggregated counters for all duplicated transactions
+func (t *DuplicateTxCache) GetAggregatedDuplicateCount() int {
 	total := 0
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok && counter > 1 {
@@ -227,19 +243,8 @@ func (t *DuplicateTxCache) GetTotalCounters() int {
 	return total
 }
 
-// GetOneCounters returns the total number of transactions that has seen counter = 1
-func (t *DuplicateTxCache) GetOneCounters() int {
-	total := 0
-	for _, v := range t.cache.Items() {
-		if counter, ok := v.Object.(int); ok && counter == 1 {
-			total += counter
-		}
-	}
-	return total
-}
-
-// GetMaxCounter returns the maximum counter value across all transactions
-func (t *DuplicateTxCache) GetMaxCounter() int {
+// GetMaxDuplicateCount returns the maximum counter value across all transactions
+func (t *DuplicateTxCache) GetMaxDuplicateCount() int {
 	var maxCount = 0
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok {
@@ -249,6 +254,28 @@ func (t *DuplicateTxCache) GetMaxCounter() int {
 		}
 	}
 	return maxCount
+}
+
+// GetDuplicateTxCount returns number of txs that has occurrence counter > 1
+func (t *DuplicateTxCache) GetDuplicateTxCount() int {
+	total := 0
+	for _, v := range t.cache.Items() {
+		if counter, ok := v.Object.(int); ok && counter > 1 {
+			total++
+		}
+	}
+	return total
+}
+
+// GetNonDuplicateTxCount returns the total number of transactions that has occurrence counter = 1
+func (t *DuplicateTxCache) GetNonDuplicateTxCount() int {
+	total := 0
+	for _, v := range t.cache.Items() {
+		if counter, ok := v.Object.(int); ok && counter == 1 {
+			total += counter
+		}
+	}
+	return total
 }
 
 // txKeyToString converts a TxKey (byte array) to a stable hex string.

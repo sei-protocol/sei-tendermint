@@ -333,9 +333,10 @@ func (txmp *TxMempool) CheckTx(
 		}
 		// Update TTL cache metrics after CheckTx to avoid interfering with critical path
 		// Only update if we're using a real TTL cache (not NOP)
-		txmp.metrics.MaxSeenTxs.Set(float64(txmp.duplicateTxsCache.GetMaxCounter()))
-		txmp.metrics.TotalSeenTxs.Set(float64(txmp.duplicateTxsCache.GetTotalCounters()))
-		txmp.metrics.NewTxs.Set(float64(txmp.duplicateTxsCache.GetOneCounters()))
+		txmp.metrics.DuplicateTxs.With("type", "max_occurrence").Set(float64(txmp.duplicateTxsCache.GetMaxDuplicateCount()))
+		txmp.metrics.DuplicateTxs.With("type", "total_occurrence").Set(float64(txmp.duplicateTxsCache.GetAggregatedDuplicateCount()))
+		txmp.metrics.DuplicateTxs.With("type", "num_seen_txs").Set(float64(txmp.duplicateTxsCache.GetDuplicateTxCount()))
+		txmp.metrics.DuplicateTxs.With("type", "num_new_txs").Set(float64(txmp.duplicateTxsCache.GetNonDuplicateTxCount()))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
