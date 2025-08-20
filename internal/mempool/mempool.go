@@ -101,7 +101,7 @@ type TxMempool struct {
 	postCheck PostCheckFunc
 
 	// NodeID to count of transactions failing CheckTx
-	totalCheckTxCount      uint64
+	totalCheckTxCount      atomic.Uint64
 	failedCheckTxCounts    map[types.NodeID]uint64
 	mtxFailedCheckTxCounts sync.RWMutex
 
@@ -134,6 +134,7 @@ func NewTxMempool(
 			return wtx1.timestamp.After(wtx2.timestamp) || wtx1.timestamp.Equal(wtx2.timestamp)
 		}),
 		pendingTxs:          NewPendingTxs(cfg),
+		totalCheckTxCount:   atomic.Uint64{},
 		failedCheckTxCounts: map[types.NodeID]uint64{},
 		peerManager:         peerManager,
 	}
@@ -323,18 +324,15 @@ func (txmp *TxMempool) CheckTx(
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
 	if txmp.config.DuplicateTxsCacheTTL > 0 {
 		_ = txmp.duplicateTxsCache.Increment(txHash)
-		if txmp.totalCheckTxCount%10 == 0 {
-			// Update metrics every 10 txs
-			maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
-			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
-			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
-			txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
-			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
-		}
+		maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
+		txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
+		txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
+		txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
+		txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
-	txmp.totalCheckTxCount++
+	txmp.totalCheckTxCount.Add(1)
 	txmp.metrics.NumberOfCheckTxs.Add(1)
 
 	// when a transaction is removed/expired/rejected, this should be called
