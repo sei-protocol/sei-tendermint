@@ -2,9 +2,9 @@ package service
 
 import (
 	"context"
-	"sync/atomic"
-
 	"github.com/tendermint/tendermint/libs/log"
+	"sync"
+	"sync/atomic"
 )
 
 var (
@@ -43,6 +43,7 @@ type baseService struct {
 	// It is canceled when outer context is canceled or when the service is stopped.
 	ctx    context.Context
 	cancel context.CancelFunc
+	wg     sync.WaitGroup
 	done   chan struct{}
 }
 
@@ -103,9 +104,9 @@ func NewBaseService(logger log.Logger, name string, impl Implementation) *BaseSe
 // already running.
 func (bs *BaseService) Start(ctx context.Context) error {
 	sCtx, cancel := context.WithCancel(ctx)
-	inner := &baseService{sCtx, cancel, make(chan struct{})}
+	inner := &baseService{sCtx, cancel, sync.WaitGroup{}, make(chan struct{})}
 	if !bs.inner.CompareAndSwap(nil, inner) {
-		cancel()
+		cancel() // free the context.
 		return nil
 	}
 
@@ -113,15 +114,16 @@ func (bs *BaseService) Start(ctx context.Context) error {
 	// Currently sei-tendermint services (and tests) rely on the fact that OnStart is called with
 	// exactly the same context as Start.
 	if err := bs.impl.OnStart(ctx); err != nil {
-		cancel()
+		cancel() // free the context.
 		return err
 	}
 
 	go func() {
 		<-inner.ctx.Done()
-		inner.cancel() // make sure that ctx memory is released
+		inner.cancel() // free the context.
 		bs.logger.Debug("stopping service", "service", bs.name)
 		bs.impl.OnStop()
+		inner.wg.Wait() // wait for all spawned tasks to finish
 		bs.logger.Info("stopped service", "service", bs.name)
 		close(inner.done)
 	}()
@@ -136,6 +138,28 @@ func (bs *BaseService) Stop() {
 		inner.cancel()
 		<-inner.done
 	}
+}
+
+// Spawn spawns a new goroutine executing task, which will be cancelled
+// when outer context is cancelled or when the service is stopped.
+// Both Wait and Stop calls will block until the spawned task is finished.
+// It should be called ONLY from within OnStart().
+// NOTE that the task is provided with a narrower context than the context
+// provided to OnStart(). This is intentional.
+// Panics if the service has not been started yet.
+func (bs *BaseService) Spawn(task func(ctx context.Context) error) {
+	inner := bs.inner.Load()
+	if inner == nil {
+		panic("service is not started yet")
+	}
+
+	inner.wg.Add(1)
+	go func() {
+		defer inner.wg.Done()
+		if err := task(inner.ctx); err != nil {
+			bs.logger.Error("task failed", "service", bs.name, "error", err)
+		}
+	}()
 }
 
 // IsRunning implements Service by returning true or false depending on the
