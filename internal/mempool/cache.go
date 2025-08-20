@@ -230,7 +230,7 @@ func (t *DuplicateTxCache) GetForMetrics() (int, int, int, int) {
 	for _, v := range t.cache.Items() {
 		if counter, ok := v.Object.(int); ok {
 			if counter > 1 {
-				totalCount += counter
+				totalCount += counter - 1
 				duplicateCount++
 			} else {
 				nonDuplicateCount++
