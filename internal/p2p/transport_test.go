@@ -315,6 +315,7 @@ func TestConnection_HandshakeCancel(t *testing.T) {
 		// Handshake should error on context timeout.
 		ab, ba = dialAccept(ctx, t, a, b)
 		timeoutCtx, cancel = context.WithTimeout(ctx, 200*time.Millisecond)
+		defer cancel()
 		_, _, err = ab.Handshake(timeoutCtx, types.NodeInfo{}, ed25519.GenPrivKey())
 		require.Error(t, err)
 		require.Equal(t, context.DeadlineExceeded, err)
