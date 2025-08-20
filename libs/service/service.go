@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/utils"
 	"sync"
 	"sync/atomic"
 )
@@ -140,14 +141,15 @@ func (bs *BaseService) Stop() {
 	}
 }
 
-// Spawn spawns a new goroutine executing task, which will be cancelled
+// Spawn spawns a new goroutine executing the task, which will be cancelled
 // when outer context is cancelled or when the service is stopped.
+// Error (other than ctx.Canceled) is logged after the task finishes.
 // Both Wait and Stop calls will block until the spawned task is finished.
 // It should be called ONLY from within OnStart().
-// NOTE that the task is provided with a narrower context than the context
+// Note that the task is provided with a narrower context than the context
 // provided to OnStart(). This is intentional.
 // Panics if the service has not been started yet.
-func (bs *BaseService) Spawn(task func(ctx context.Context) error) {
+func (bs *BaseService) Spawn(name string, task func(ctx context.Context) error) {
 	inner := bs.inner.Load()
 	if inner == nil {
 		panic("service is not started yet")
@@ -156,8 +158,8 @@ func (bs *BaseService) Spawn(task func(ctx context.Context) error) {
 	inner.wg.Add(1)
 	go func() {
 		defer inner.wg.Done()
-		if err := task(inner.ctx); err != nil {
-			bs.logger.Error("task failed", "service", bs.name, "error", err)
+		if err := utils.IgnoreCancel(task(inner.ctx)); err != nil {
+			bs.logger.Error("task failed", "name", name, "service", bs.name, "error", err)
 		}
 	}()
 }
