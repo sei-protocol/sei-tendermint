@@ -323,11 +323,7 @@ func (txmp *TxMempool) CheckTx(
 	if txmp.config.DuplicateTxsCacheTTL > 0 {
 		if _, found := txmp.duplicateTxsCache.Get(txHash); found {
 			// Transaction was seen recently, increment counter and extend TTL
-			newCounter := txmp.duplicateTxsCache.Increment(txHash)
-			// If counter is too high, reject the transaction to prevent spam
-			if newCounter >= 3 {
-				txmp.logger.Info(fmt.Sprintf("Transaction %X processed too many times: %d", txHash, newCounter))
-			}
+			_ = txmp.duplicateTxsCache.Increment(txHash)
 		} else {
 			// First time seeing this transaction, add to TTL cache with default TTL
 			txmp.duplicateTxsCache.Set(txHash, 1)
