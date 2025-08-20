@@ -2,17 +2,12 @@ package service
 
 import (
 	"context"
-	"errors"
-	"sync"
+	"sync/atomic"
 
 	"github.com/tendermint/tendermint/libs/log"
 )
 
 var (
-	// errAlreadyStopped is returned when somebody tries to stop an already
-	// stopped service (without resetting it).
-	errAlreadyStopped = errors.New("already stopped")
-
 	_ Service = (*BaseService)(nil)
 )
 
@@ -41,6 +36,14 @@ type Implementation interface {
 
 	// Called when the service's context is canceled.
 	OnStop()
+}
+
+type baseService struct {
+	// This is the context that (structured concurrency) service tasks will be executed with.
+	// It is canceled when outer context is canceled or when the service is stopped.
+	ctx    context.Context
+	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 /*
@@ -81,12 +84,9 @@ Typical usage:
 type BaseService struct {
 	logger log.Logger
 	name   string
-	mtx    sync.Mutex
-	quit   <-chan (struct{})
-	cancel context.CancelFunc
-
 	// The "subclass" of BaseService
-	impl Implementation
+	impl  Implementation
+	inner atomic.Pointer[baseService]
 }
 
 // NewBaseService creates a new BaseService.
@@ -102,102 +102,63 @@ func NewBaseService(logger log.Logger, name string, impl Implementation) *BaseSe
 // will be returned if the service is stopped, but not if it is
 // already running.
 func (bs *BaseService) Start(ctx context.Context) error {
-	bs.mtx.Lock()
-	defer bs.mtx.Unlock()
-
-	if bs.quit != nil {
+	sCtx, cancel := context.WithCancel(ctx)
+	inner := &baseService{sCtx, cancel, make(chan struct{})}
+	if !bs.inner.CompareAndSwap(nil, inner) {
+		cancel()
 		return nil
 	}
 
-	select {
-	case <-bs.quit:
-		return errAlreadyStopped
-	default:
-		bs.logger.Debug("starting service", "service", bs.name, "impl", bs.name)
-		if err := bs.impl.OnStart(ctx); err != nil {
-			return err
-		}
-
-		// we need a separate context to ensure that we start
-		// a thread that will get cleaned up and that the
-		// Stop/Wait functions work as expected.
-		srvCtx, cancel := context.WithCancel(context.Background())
-		bs.cancel = cancel
-		bs.quit = srvCtx.Done()
-
-		go func(ctx context.Context) {
-			select {
-			case <-srvCtx.Done():
-				// this means stop was called manually
-				return
-			case <-ctx.Done():
-				bs.Stop()
-			}
-
-			bs.logger.Info("stopped service",
-				"service", bs.name)
-		}(ctx)
-
-		return nil
+	bs.logger.Debug("starting service", "service", bs.name, "impl", bs.name)
+	// Currently sei-tendermint services (and tests) rely on the fact that OnStart is called with
+	// exactly the same context as Start.
+	if err := bs.impl.OnStart(ctx); err != nil {
+		cancel()
+		return err
 	}
+
+	go func() {
+		<-inner.ctx.Done()
+		inner.cancel() // make sure that ctx memory is released
+		bs.logger.Debug("stopping service", "service", bs.name)
+		bs.impl.OnStop()
+		bs.logger.Info("stopped service", "service", bs.name)
+		close(inner.done)
+	}()
+	return nil
 }
 
 // Stop manually terminates the service by calling OnStop method from
 // the implementation and releases all resources related to the
 // service.
 func (bs *BaseService) Stop() {
-	bs.mtx.Lock()
-	defer bs.mtx.Unlock()
-
-	if bs.quit == nil {
-		return
-	}
-
-	select {
-	case <-bs.quit:
-		return
-	default:
-		bs.logger.Debug("stopping service", "service", bs.name)
-		bs.impl.OnStop()
-		bs.cancel()
-
-		return
+	if inner := bs.inner.Load(); inner != nil {
+		inner.cancel()
+		<-inner.done
 	}
 }
 
 // IsRunning implements Service by returning true or false depending on the
 // service's state.
 func (bs *BaseService) IsRunning() bool {
-	bs.mtx.Lock()
-	defer bs.mtx.Unlock()
-
-	if bs.quit == nil {
+	inner := bs.inner.Load()
+	if inner == nil {
 		return false
 	}
-
 	select {
-	case <-bs.quit:
+	case <-inner.done:
 		return false
 	default:
 		return true
 	}
 }
 
-func (bs *BaseService) getWait() <-chan struct{} {
-	bs.mtx.Lock()
-	defer bs.mtx.Unlock()
-
-	if bs.quit == nil {
-		out := make(chan struct{})
-		close(out)
-		return out
-	}
-
-	return bs.quit
-}
-
 // Wait blocks until the service is stopped.
-func (bs *BaseService) Wait() { <-bs.getWait() }
+func (bs *BaseService) Wait() {
+	if inner := bs.inner.Load(); inner != nil {
+		<-inner.done
+	}
+}
 
 // String provides a human-friendly representation of the service.
 func (bs *BaseService) String() string { return bs.name }
