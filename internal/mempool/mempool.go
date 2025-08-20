@@ -101,6 +101,7 @@ type TxMempool struct {
 	postCheck PostCheckFunc
 
 	// NodeID to count of transactions failing CheckTx
+	totalCheckTxCount      uint64
 	failedCheckTxCounts    map[types.NodeID]uint64
 	mtxFailedCheckTxCounts sync.RWMutex
 
@@ -321,22 +322,18 @@ func (txmp *TxMempool) CheckTx(
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
 	if txmp.config.DuplicateTxsCacheTTL > 0 {
-		if _, found := txmp.duplicateTxsCache.Get(txHash); found {
-			// Transaction was seen recently, increment counter and extend TTL
-			_ = txmp.duplicateTxsCache.Increment(txHash)
-		} else {
-			// First time seeing this transaction, add to TTL cache with default TTL
-			txmp.duplicateTxsCache.Set(txHash, 1)
+		_ = txmp.duplicateTxsCache.Increment(txHash)
+		if txmp.totalCheckTxCount%100 == 0 {
+			// Update TTL cache metrics every 100 txs
+			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(txmp.duplicateTxsCache.GetMaxDuplicateCount()))
+			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(txmp.duplicateTxsCache.GetAggregatedDuplicateCount()))
+			txmp.metrics.NumberOfDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetDuplicateTxCount()))
+			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetNonDuplicateTxCount()))
 		}
-		// Update TTL cache metrics after CheckTx to avoid interfering with critical path
-		// Only update if we're using a real TTL cache (not NOP)
-		txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(txmp.duplicateTxsCache.GetMaxDuplicateCount()))
-		txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(txmp.duplicateTxsCache.GetAggregatedDuplicateCount()))
-		txmp.metrics.NumberOfDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetDuplicateTxCount()))
-		txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetNonDuplicateTxCount()))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
+	txmp.totalCheckTxCount++
 
 	// when a transaction is removed/expired/rejected, this should be called
 	// The expire tx handler unreserves the pending nonce
