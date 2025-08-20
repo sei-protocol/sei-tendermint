@@ -1453,6 +1453,7 @@ func TestPeerManager_EvictNext(t *testing.T) {
 
 	// Since there are no more peers to evict, the next call should block.
 	timeoutCtx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
 	_, err = peerManager.EvictNext(timeoutCtx)
 	require.Error(t, err)
 	require.Equal(t, context.DeadlineExceeded, err)
