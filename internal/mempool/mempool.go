@@ -333,7 +333,11 @@ func (txmp *TxMempool) CheckTx(
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 	txmp.totalCheckTxCount.Add(1)
-	txmp.metrics.NumberOfCheckTxs.Add(1)
+	if err != nil {
+		txmp.metrics.NumberOfFailedCheckTxs.Add(1)
+	} else {
+		txmp.metrics.NumberOfSuccessfulCheckTxs.Add(1)
+	}
 
 	// when a transaction is removed/expired/rejected, this should be called
 	// The expire tx handler unreserves the pending nonce

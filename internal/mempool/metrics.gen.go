@@ -68,11 +68,17 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "number_of_non_duplicate_txs",
 			Help:      "Track the number of unique new tx transactions",
 		}, labels).With(labelsAndValues...),
-		NumberOfCheckTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+		NumberOfSuccessfulCheckTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "number_of_check_txs",
+			Name:      "number_of_successful_check_txs",
 			Help:      "Track the number of checkTx calls",
+		}, labels).With(labelsAndValues...),
+		NumberOfFailedCheckTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "number_of_failed_check_txs",
+			Help:      "Track the number of failed checkTx calls",
 		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
@@ -130,7 +136,8 @@ func NopMetrics() *Metrics {
 		DuplicateTxTotalOccurrences: discard.NewGauge(),
 		NumberOfDuplicateTxs:        discard.NewGauge(),
 		NumberOfNonDuplicateTxs:     discard.NewGauge(),
-		NumberOfCheckTxs:            discard.NewCounter(),
+		NumberOfSuccessfulCheckTxs:  discard.NewCounter(),
+		NumberOfFailedCheckTxs:      discard.NewCounter(),
 		FailedTxs:                   discard.NewCounter(),
 		RejectedTxs:                 discard.NewCounter(),
 		EvictedTxs:                  discard.NewCounter(),
