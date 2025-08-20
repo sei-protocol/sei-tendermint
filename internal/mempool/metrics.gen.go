@@ -26,6 +26,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "pending_size",
 			Help:      "Number of pending transactions in mempool",
 		}, labels).With(labelsAndValues...),
+		CacheSize: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "cache_size",
+			Help:      "Number of cached transactions in the mempool cache.",
+		}, labels).With(labelsAndValues...),
 		TxSizeBytes: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -38,11 +44,29 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "total_txs_size_bytes",
 			Help:      "Total current mempool uncommitted txs bytes",
 		}, labels).With(labelsAndValues...),
-		DuplicateTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+		DuplicateTxMaxOccurrences: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
-			Name:      "duplicate_txs",
-			Help:      "Track the total number of transactions we have seen",
+			Name:      "duplicate_tx_max_occurrences",
+			Help:      "Track max number of occurrences for a duplicate tx",
+		}, labels).With(labelsAndValues...),
+		DuplicateTxTotalOccurrences: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "duplicate_tx_total_occurrences",
+			Help:      "Track the total number of occurrences for all duplicate txs",
+		}, labels).With(labelsAndValues...),
+		NumberOfDuplicateTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "number_of_duplicate_txs",
+			Help:      "Track the number of unique duplicate transactions",
+		}, labels).With(labelsAndValues...),
+		NumberOfNonDuplicateTxs: prometheus.NewGaugeFrom(stdprometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "number_of_non_duplicate_txs",
+			Help:      "Track the number of unique new tx transactions",
 		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
@@ -91,17 +115,21 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 
 func NopMetrics() *Metrics {
 	return &Metrics{
-		Size:              discard.NewGauge(),
-		PendingSize:       discard.NewGauge(),
-		TxSizeBytes:       discard.NewCounter(),
-		TotalTxsSizeBytes: discard.NewGauge(),
-		DuplicateTxs:      discard.NewGauge(),
-		FailedTxs:         discard.NewCounter(),
-		RejectedTxs:       discard.NewCounter(),
-		EvictedTxs:        discard.NewCounter(),
-		ExpiredTxs:        discard.NewCounter(),
-		RecheckTimes:      discard.NewCounter(),
-		RemovedTxs:        discard.NewCounter(),
-		InsertedTxs:       discard.NewCounter(),
+		Size:                        discard.NewGauge(),
+		PendingSize:                 discard.NewGauge(),
+		CacheSize:                   discard.NewGauge(),
+		TxSizeBytes:                 discard.NewCounter(),
+		TotalTxsSizeBytes:           discard.NewGauge(),
+		DuplicateTxMaxOccurrences:   discard.NewGauge(),
+		DuplicateTxTotalOccurrences: discard.NewGauge(),
+		NumberOfDuplicateTxs:        discard.NewGauge(),
+		NumberOfNonDuplicateTxs:     discard.NewGauge(),
+		FailedTxs:                   discard.NewCounter(),
+		RejectedTxs:                 discard.NewCounter(),
+		EvictedTxs:                  discard.NewCounter(),
+		ExpiredTxs:                  discard.NewCounter(),
+		RecheckTimes:                discard.NewCounter(),
+		RemovedTxs:                  discard.NewCounter(),
+		InsertedTxs:                 discard.NewCounter(),
 	}
 }

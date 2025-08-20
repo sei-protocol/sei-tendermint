@@ -34,20 +34,17 @@ func TestDuplicateTxCache(t *testing.T) {
 		t.Errorf("Expected counter=1, got %d", newCounter)
 	}
 
-	// Test GetTotalCounters (should only count counters > 1)
-	total := cache.GetTotalCounters()
+	total := cache.GetAggregatedDuplicateCount()
 	if total != 6 { // Only txKey1 has counter > 1
 		t.Errorf("Expected total=6, got %d", total)
 	}
 
-	// Test GetOneCounters (should count transactions with counter = 1)
-	oneCounters := cache.GetOneCounters()
+	oneCounters := cache.GetNonDuplicateTxCount()
 	if oneCounters != 1 { // Only txKey2 has counter = 1
 		t.Errorf("Expected oneCounters=1, got %d", oneCounters)
 	}
 
-	// Test GetMaxCounter
-	maxCounter := cache.GetMaxCounter()
+	maxCounter := cache.GetMaxDuplicateCount()
 	if maxCounter != 6 { // txKey1 has the highest counter
 		t.Errorf("Expected maxCounter=6, got %d", maxCounter)
 	}
@@ -59,13 +56,13 @@ func TestDuplicateTxCache(t *testing.T) {
 	}
 
 	// Test that counters are reset after Reset
-	if total := cache.GetTotalCounters(); total != 0 {
+	if total := cache.GetAggregatedDuplicateCount(); total != 0 {
 		t.Errorf("Expected total=0 after reset, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 0 {
 		t.Errorf("Expected oneCounters=0 after reset, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 0 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 0 {
 		t.Errorf("Expected maxCounter=0 after reset, got %d", maxCounter)
 	}
 }
@@ -90,17 +87,17 @@ func TestDuplicateTxCacheWithExpiration(t *testing.T) {
 	}
 
 	// Test GetTotalCounters - BEFORE EXPIRY
-	if total := cache.GetTotalCounters(); total != 6 {
+	if total := cache.GetAggregatedDuplicateCount(); total != 6 {
 		t.Errorf("Expected total=6 before expiry, got %d", total)
 	}
 
 	// Test GetOneCounters - BEFORE EXPIRY
-	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 0 {
 		t.Errorf("Expected oneCounters=0 before expiry, got %d", oneCounters)
 	}
 
 	// Test GetMaxCounter - BEFORE EXPIRY
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 6 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 6 {
 		t.Errorf("Expected maxCounter=6 before expiry, got %d", maxCounter)
 	}
 
@@ -120,13 +117,13 @@ func TestDuplicateTxCacheWithExpiration(t *testing.T) {
 	}
 
 	// Test that counters are updated after expiry - AFTER EXPIRY
-	if total := cache.GetTotalCounters(); total != 0 { // counter = 1, so not counted
+	if total := cache.GetAggregatedDuplicateCount(); total != 0 { // counter = 1, so not counted
 		t.Errorf("Expected total=0 after expiry, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 1 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 1 {
 		t.Errorf("Expected oneCounters=1 after expiry, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 1 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 1 {
 		t.Errorf("Expected maxCounter=1 after expiry, got %d", maxCounter)
 	}
 }
@@ -152,13 +149,13 @@ func TestDuplicateTxCacheExpiryBehavior(t *testing.T) {
 	}
 
 	// Verify counters - BEFORE EXPIRY
-	if total := cache.GetTotalCounters(); total != 3 {
+	if total := cache.GetAggregatedDuplicateCount(); total != 3 {
 		t.Errorf("Expected total=3 before expiry, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 1 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 1 {
 		t.Errorf("Expected oneCounters=1 before expiry, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 3 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 3 {
 		t.Errorf("Expected maxCounter=3 before expiry, got %d", maxCounter)
 	}
 
@@ -174,13 +171,13 @@ func TestDuplicateTxCacheExpiryBehavior(t *testing.T) {
 	}
 
 	// Verify counters are reset - AFTER EXPIRY
-	if total := cache.GetTotalCounters(); total != 0 {
+	if total := cache.GetAggregatedDuplicateCount(); total != 0 {
 		t.Errorf("Expected total=0 after expiry, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 0 {
 		t.Errorf("Expected oneCounters=0 after expiry, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 0 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 0 {
 		t.Errorf("Expected maxCounter=0 after expiry, got %d", maxCounter)
 	}
 
@@ -211,17 +208,17 @@ func TestNopTxCacheWithTTL(t *testing.T) {
 	}
 
 	// Test GetTotalCounters (should always return 0)
-	if total := cache.GetTotalCounters(); total != 0 {
+	if total := cache.GetAggregatedDuplicateCount(); total != 0 {
 		t.Errorf("Expected total=0, got %d", total)
 	}
 
 	// Test GetOneCounters (should always return 0)
-	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 0 {
 		t.Errorf("Expected oneCounters=0, got %d", oneCounters)
 	}
 
 	// Test GetMaxCounter (should always return 0)
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 0 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 0 {
 		t.Errorf("Expected maxCounter=0, got %d", maxCounter)
 	}
 
@@ -233,13 +230,13 @@ func TestDuplicateTxCacheEdgeCases(t *testing.T) {
 	cache := NewDuplicateTxCache(0, 0)
 
 	// Test with empty cache
-	if total := cache.GetTotalCounters(); total != 0 {
+	if total := cache.GetAggregatedDuplicateCount(); total != 0 {
 		t.Errorf("Expected total=0 for empty cache, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 0 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 0 {
 		t.Errorf("Expected oneCounters=0 for empty cache, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 0 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 0 {
 		t.Errorf("Expected maxCounter=0 for empty cache, got %d", maxCounter)
 	}
 
@@ -247,13 +244,13 @@ func TestDuplicateTxCacheEdgeCases(t *testing.T) {
 	txKey := types.TxKey{1, 2, 3, 4}
 	cache.Set(txKey, 1)
 
-	if total := cache.GetTotalCounters(); total != 0 { // counter = 1, so not counted
+	if total := cache.GetAggregatedDuplicateCount(); total != 0 { // counter = 1, so not counted
 		t.Errorf("Expected total=0 for single tx with counter=1, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 1 {
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 1 {
 		t.Errorf("Expected oneCounters=1 for single tx with counter=1, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 1 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 1 {
 		t.Errorf("Expected maxCounter=1 for single tx with counter=1, got %d", maxCounter)
 	}
 
@@ -261,13 +258,13 @@ func TestDuplicateTxCacheEdgeCases(t *testing.T) {
 	txKey2 := types.TxKey{5, 6, 7, 8}
 	cache.Set(txKey2, 3)
 
-	if total := cache.GetTotalCounters(); total != 3 { // only txKey2 has counter > 1
+	if total := cache.GetAggregatedDuplicateCount(); total != 3 { // only txKey2 has counter > 1
 		t.Errorf("Expected total=3 for two txs, got %d", total)
 	}
-	if oneCounters := cache.GetOneCounters(); oneCounters != 1 { // only txKey1 has counter = 1
+	if oneCounters := cache.GetNonDuplicateTxCount(); oneCounters != 1 { // only txKey1 has counter = 1
 		t.Errorf("Expected oneCounters=1 for two txs, got %d", oneCounters)
 	}
-	if maxCounter := cache.GetMaxCounter(); maxCounter != 3 { // txKey2 has highest counter
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != 3 { // txKey2 has highest counter
 		t.Errorf("Expected maxCounter=3 for two txs, got %d", maxCounter)
 	}
 }
@@ -298,11 +295,11 @@ func TestDuplicateTxCacheConcurrency(t *testing.T) {
 		expectedTotal += (i + 2) // original + 1 from increment
 	}
 
-	if total := cache.GetTotalCounters(); total != expectedTotal {
+	if total := cache.GetAggregatedDuplicateCount(); total != expectedTotal {
 		t.Errorf("Expected total=%d, got %d", expectedTotal, total)
 	}
 
-	if maxCounter := cache.GetMaxCounter(); maxCounter != numGoroutines+1 {
+	if maxCounter := cache.GetMaxDuplicateCount(); maxCounter != numGoroutines+1 {
 		t.Errorf("Expected maxCounter=%d, got %d", numGoroutines+1, maxCounter)
 	}
 }

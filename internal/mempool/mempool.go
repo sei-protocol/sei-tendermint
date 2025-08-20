@@ -316,6 +316,7 @@ func (txmp *TxMempool) CheckTx(
 		txmp.txStore.GetOrSetPeerByTxHash(txHash, txInfo.SenderID)
 		return types.ErrTxInCache
 	}
+	txmp.metrics.CacheSize.Set(float64(txmp.cache.Size()))
 
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
@@ -333,10 +334,10 @@ func (txmp *TxMempool) CheckTx(
 		}
 		// Update TTL cache metrics after CheckTx to avoid interfering with critical path
 		// Only update if we're using a real TTL cache (not NOP)
-		txmp.metrics.DuplicateTxs.With("type", "max_occurrence").Set(float64(txmp.duplicateTxsCache.GetMaxDuplicateCount()))
-		txmp.metrics.DuplicateTxs.With("type", "total_occurrence").Set(float64(txmp.duplicateTxsCache.GetAggregatedDuplicateCount()))
-		txmp.metrics.DuplicateTxs.With("type", "num_seen_txs").Set(float64(txmp.duplicateTxsCache.GetDuplicateTxCount()))
-		txmp.metrics.DuplicateTxs.With("type", "num_new_txs").Set(float64(txmp.duplicateTxsCache.GetNonDuplicateTxCount()))
+		txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(txmp.duplicateTxsCache.GetMaxDuplicateCount()))
+		txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(txmp.duplicateTxsCache.GetAggregatedDuplicateCount()))
+		txmp.metrics.NumberOfDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetDuplicateTxCount()))
+		txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(txmp.duplicateTxsCache.GetNonDuplicateTxCount()))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})

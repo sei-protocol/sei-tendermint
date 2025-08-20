@@ -26,6 +26,9 @@ type TxCache interface {
 
 	// Remove removes the given raw transaction from the cache.
 	Remove(tx types.Tx)
+
+	// Size returns the current size of the cache
+	Size() int
 }
 
 var _ TxCache = (*LRUTxCache)(nil)
@@ -101,6 +104,12 @@ func (c *LRUTxCache) Remove(tx types.Tx) {
 	}
 }
 
+func (c *LRUTxCache) Size() int {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	return c.list.Len()
+}
+
 // NopTxCache defines a no-op raw transaction cache.
 type NopTxCache struct{}
 
@@ -109,6 +118,7 @@ var _ TxCache = (*NopTxCache)(nil)
 func (NopTxCache) Reset()             {}
 func (NopTxCache) Push(types.Tx) bool { return true }
 func (NopTxCache) Remove(types.Tx)    {}
+func (NopTxCache) Size() int          { return 0 }
 
 // NopTxCacheWithTTL defines a no-op TTL transaction cache.
 type NopTxCacheWithTTL struct{}
