@@ -323,8 +323,8 @@ func (txmp *TxMempool) CheckTx(
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
 	if txmp.config.DuplicateTxsCacheTTL > 0 {
 		_ = txmp.duplicateTxsCache.Increment(txHash)
-		if txmp.totalCheckTxCount%100 == 0 {
-			// Update metrics every 100 txs
+		if txmp.totalCheckTxCount%10 == 0 {
+			// Update metrics every 10 txs
 			maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
 			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
 			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
