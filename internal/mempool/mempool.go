@@ -327,9 +327,13 @@ func (txmp *TxMempool) CheckTx(
 		_ = txmp.duplicateTxsCache.Increment(txHash)
 	}
 
+	if string(txInfo.SenderNodeID) == "SelfRemoveTx" {
+		fmt.Printf("Received same checkTx from removeTx: %s\n", txHash)
+	}
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 	txmp.totalCheckTxCount.Add(1)
 	if err != nil {
+		fmt.Printf("Tx %s failed CheckTx error: %s\n", txHash, err.Error())
 		txmp.metrics.NumberOfFailedCheckTxs.Add(1)
 	} else {
 		txmp.metrics.NumberOfSuccessfulCheckTxs.Add(1)
@@ -1004,7 +1008,10 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 		for _, reenqueue := range toBeReenqueued {
 			rtx := reenqueue.tx
 			go func() {
-				if err := txmp.CheckTx(context.Background(), rtx, nil, TxInfo{}); err != nil {
+				selfNode, _ := types.NewNodeID("SelfRemoveTx")
+				if err := txmp.CheckTx(context.Background(), rtx, nil, TxInfo{
+					SenderNodeID: selfNode,
+				}); err != nil {
 					txmp.logger.Error(fmt.Sprintf("failed to reenqueue transaction %X due to %s", rtx.Hash(), err))
 				}
 			}()
