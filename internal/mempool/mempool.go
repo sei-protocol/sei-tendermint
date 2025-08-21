@@ -149,9 +149,8 @@ func NewTxMempool(
 
 	if cfg.DuplicateTxsCacheSize > 0 {
 		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheSize, 1*time.Minute, 1*time.Minute)
+		go txmp.exposeDuplicateTxMetrics()
 	}
-
-	go txmp.exposeMetrics()
 
 	return txmp
 }
@@ -1151,7 +1150,7 @@ func (txmp *TxMempool) handlePendingTransactions() {
 	}
 }
 
-func (txmp *TxMempool) exposeMetrics() {
+func (txmp *TxMempool) exposeDuplicateTxMetrics() {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
