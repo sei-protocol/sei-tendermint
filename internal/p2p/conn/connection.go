@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"reflect"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/tendermint/tendermint/internal/libs/flowrate"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
-	"github.com/tendermint/tendermint/internal/libs/timer"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/libs/utils/scope"
@@ -72,33 +70,25 @@ request times out.  The message `msg` is serialized using Protobuf.
 
 Inbound message bytes are handled with an onReceive callback function.
 */
+
+type sendQueue struct {
+	ping bool
+	pong bool
+	flush bool
+	channels map[ChannelID]*channel
+}
+
 type MConnection struct {
 	logger log.Logger
-
+	config        MConnConfig
 	conn          net.Conn
 	bufConnReader *bufio.Reader
-	bufConnWriter *bufio.Writer
-	sendMonitor   *flowrate.Monitor
-	recvMonitor   *flowrate.Monitor
-	send          chan struct{}
-	pong          chan struct{}
-	channels   map[ChannelID]*channel
+	sendQueue    utils.Watch[*sendQueue]
+
 	onReceive     receiveCbFunc
-	onError       errorCbFunc
-	errored       uint32
-	config        MConnConfig
-
-	// doneSendRoutine is closed when the sendRoutine actually quits.
-	doneSendRoutine chan struct{}
-
-	flushTimer *timer.ThrottleTimer // flush writes as necessary but throttled.
 
 	// close conn if pong is not received in pongTimeout
 	lastMsgRecv atomic.Pointer[time.Time]
-
-	chStatsTimer *time.Ticker // update channel stats periodically
-
-	_maxPacketMsgSize int
 }
 
 // MConnConfig is a MConnection configuration.
@@ -147,55 +137,32 @@ func NewMConnection(
 		logger:        logger,
 		conn:          conn,
 		bufConnReader: bufio.NewReaderSize(conn, minReadBufferSize),
-		bufConnWriter: bufio.NewWriterSize(conn, minWriteBufferSize),
-		recvMonitor:   flowrate.New(config.StartTime, 0, 0),
-		send:          make(chan struct{}, 1),
 		pong:          make(chan struct{}, 1),
-		onReceive:     onReceive,
+		onReceive:     onReceive, // TODO: this should be a channel.
 		config:        config,
-		channels: map[ChannelID]*channel{},
 	}
 	for _, desc := range chDescs {
 		mconn.channels[desc.ID] = newChannel(mconn, *desc)
 	}
-	// maxPacketMsgSize() is a bit heavy, so call just once
-	mconn._maxPacketMsgSize = mconn.maxPacketMsgSize()
 	return mconn
 }
 
 func (c *MConnection) Run(ctx context.Context) error {
-	c.flushTimer = timer.NewThrottleTimer("flush", c.config.FlushThrottle)
-	c.chStatsTimer = time.NewTicker(updateStats)
-	c.doneSendRoutine = make(chan struct{})
-	defer c.conn.Close()
 	return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnNamed("sendRoutine", func() error { return c.sendRoutine(ctx) })
 		s.SpawnNamed("recvRoutine", func() error { return c.recvRoutine(ctx) })
-		return nil
+		s.SpawnNamed("statsRoutine", func() error { return c.statsRoutine(ctx) })
+		<-ctx.Done()
+		// Unfortunately golang std IO operations do not support cancellation via context.
+		// Instead, we trigger cancellation by closing the underlying connection.
+		// Alternatively, we could utilise net.Conn.Set[Read|Write]Deadline() methods
+		// for precise cancellation, but we don't have a need for that here.
+		return c.conn.Close()
 	})
 }
 
 func (c *MConnection) String() string {
 	return fmt.Sprintf("MConn{%v}", c.conn.RemoteAddr())
-}
-
-func (c *MConnection) flush() error {
-	c.logger.Debug("Flush", "conn", c)
-	if err := c.bufConnWriter.Flush(); err!=nil {
-		return err
-	}
-	return nil
-}
-
-// Catch panics, usually caused by remote disconnects.
-// If *err==nil, sets *err to an error informing about the panic.
-func (c *MConnection) _recover(err *error) {
-	if r := recover(); r != nil {
-		c.logger.Error("MConnection panicked", "err", r, "stack", string(debug.Stack()))
-		if *err==nil {
-			*err = fmt.Errorf("recovered from panic: %v", r)
-		}
-	}
 }
 
 // Queues a message to be sent to channel.
@@ -209,11 +176,6 @@ func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte)
 	}
 	if err:=utils.Send(ctx,channel.sendQueue,msgBytes); err!=nil {
 		return fmt.Errorf("Send failed: channel = %v, conn = %v, msgBytes = %v", chID, c, msgBytes)
-	}
-	// Wake up sendRoutine if necessary
-	select {
-	case c.send <- struct{}{}:
-	default:
 	}
 	return nil
 }
@@ -235,61 +197,73 @@ func (c *MConnection) statsRoutine(ctx context.Context) error {
 	}
 }
 
+func (c *MConnection) popSendQueue(ctx context.Context) (*tmp2p.Packet,error) {
+	for q,ctrl := range c.sendQueue.Lock() {
+		for {
+			if q.ping {
+				q.ping = false
+				q.flush = true
+				return &tmp2p.Packet{
+					Sum: &tmp2p.Packet_PacketPing{
+						PacketPing: &tmp2p.PacketPing{},
+					},
+				},nil
+			}
+			if q.pong {
+				q.pong = false
+				q.flush = true
+				return &tmp2p.Packet{
+					Sum: &tmp2p.Packet_PacketPong{
+						PacketPong: &tmp2p.PacketPong{},
+					},
+				},nil
+			}
+			// Select message.
+			if q.flush { // flush every c.config.FlushThrottle if sent after flush - ping/pong flushes immediately
+				return nil,nil
+			}
+			if err:=ctrl.Wait(ctx); err!=nil {
+				return nil,err
+			}
+		}
+	}
+}
 
 // sendRoutine polls for packets to send from channels.
 func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
-	// TODO(gprusak): fix the panic properly.
-	defer c._recover(&err)
-	sendMonitor := flowrate.New(c.config.StartTime, 0, 0)
-	protoWriter := protoio.NewDelimitedWriter(c.bufConnWriter)
-
-	pingTimer := time.NewTicker(c.config.PingInterval)
-	pongTimeout := time.NewTicker(c.config.PongTimeout)
-	defer pongTimeout.Stop()
+	// We should NOT use the same rate limit for send and recv:
+	// recv should be more permissive to compensate for fluctuations.
+	sendMonitor := flowrate.New(c.config.StartTime, 0, 0) // sample rate: 100ms, window size: 1s
+	// This doesn't make sense - TCP package is 1.5kB anyway (unless we match the encryption frame here)
+	// In fact, buffering should be just moved to the encryption layer.
+	bufWriter := bufio.NewWriterSize(c.conn, minWriteBufferSize)
+	protoWriter := protoio.NewDelimitedWriter(bufWriter)
 	for {
-		select {
-		case <-c.flushTimer.Ch:
-			// NOTE: flushTimer.Set() must be called every time
-			// something is written to .bufConnWriter.
-			c.flush()
-
-		case <-pingTimer.C:
-			n, err := protoWriter.WriteMsg(newPing())
-			if err != nil {
-				return fmt.Errorf("Failed to send PacketPing: %w")
-			}
+		msg,err := c.popSendQueue(ctx)
+		if err != nil { return fmt.Errorf("popSendQueue(): %w", err) }
+		if msg != nil {
+			n,err:=protoWriter.Write(msg)
+			if err!=nil { return fmt.Errorf("protoWriter.Write(): %w",err) }
 			sendMonitor.Update(n)
-			c.flush()
-		case <-c.pong:
-			n, err := protoWriter.WriteMsg(newPong())
-			if err != nil {
-				return fmt.Errorf("Failed to send PacketPong: %w")
-			}
-			sendMonitor.Update(n)
-			c.flush()
-		case <-pongTimeout.C:
-			// the point of the pong timer is to check to
-			// see if we've seen a message recently, so we
-			// want to make sure that we escape this
-			// select statement on an interval to ensure
-			// that we avoid hanging on to dead
-			// connections for too long.
-			break SELECTION
-		case <-c.send:
-			if err:=c.sendSomePacketMsgs(ctx); err!=nil {
-				return fmt.Errorf("sendSomePacketMsgs(): %w", err)
-			}
-		}
-
-		if time.Since(*c.lastMsgRecv.Load()) > c.config.PongTimeout {
-			return errors.New("pong timeout")
+		} else {
+			c.logger.Debug("Flush", "conn", c)
+			if err:=bufWriter.Flush(); err!=nil { return fmt.Errorf("bufWriter.Flush(): %w",err) }
 		}
 	}
+	/*
+	case // ping every c.config.PingInterval
+	case // observe timeout after c.config.PongTimeout
+
+	if time.Since(*c.lastMsgRecv.Load()) > c.config.PongTimeout {
+		return errors.New("pong timeout")
+	}*/
 }
 
 // Returns true if messages from channels were exhausted.
 // Blocks in accordance to .sendMonitor throttling.
 func (c *MConnection) sendSomePacketMsgs(ctx context.Context) error {
+	// TODO: this looks bullshit: we should rate AFTER we select the message to send.
+	// ALSO this is wrong layer again. We should rate limit at the level of raw bytes.
 	// Block until .sendMonitor says we can write.
 	// Once we're ready we send more than we asked for,
 	// but amortized it should even out.
@@ -329,10 +303,11 @@ func (c *MConnection) sendPacketMsg(ctx context.Context) error {
 	}
 
 	// Make & send a PacketMsg from this channel
-	n, err := leastChannel.writePacketMsgTo(c.bufConnWriter)
+	n, err := protoWriter.WriteMsg(wrapMsg(leastChannel.nextPacketMsg()))
 	if err != nil {
 		return fmt.Errorf("Failed to write PacketMsg: %w",err)
 	}
+	leastChannel.recentlySent.Add(uint64(n))
 	c.sendMonitor.Update(n)
 	c.flushTimer.Set()
 	return nil
@@ -343,20 +318,16 @@ func (c *MConnection) sendPacketMsg(ctx context.Context) error {
 // Blocks depending on how the connection is throttled.
 // Otherwise, it never blocks.
 func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
-	// TODO(gprusak): fix the panic properly.
-	defer c._recover(&err)
-
-	protoReader := protoio.NewDelimitedReader(c.bufConnReader, c._maxPacketMsgSize)
+	recvMonitor := flowrate.New(config.StartTime, 0, 0)
+	maxPacketMsgSize = c.maxPacketMsgSize()
+	protoReader := protoio.NewDelimitedReader(c.bufConnReader, maxPacketMsgSize)
 
 	for {
 		// Block until .recvMonitor says we can read.
-		c.recvMonitor.Limit(c._maxPacketMsgSize, c.config.RecvRate, true)
-
-		// Read packet type
-		var packet tmp2p.Packet
-
-		n, err := protoReader.ReadMsg(&packet)
-		c.recvMonitor.Update(n)
+		recvMonitor.Limit(maxPacketMsgSize, c.config.RecvRate, true)
+		packet := &tmp2p.Packet{}
+		n, err := protoReader.ReadMsg(packet)
+		recvMonitor.Update(n)
 		if err != nil {
 			return fmt.Errorf("protoReader.ReadMsg(): %w", err)
 		}
@@ -365,24 +336,15 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 		// Read more depending on packet type.
 		switch pkt := packet.Sum.(type) {
 		case *tmp2p.Packet_PacketPing:
-			// TODO: prevent abuse, as they cause flush()'s.
-			// https://github.com/tendermint/tendermint/issues/1190
-			select {
-			case c.pong <- struct{}{}:
-			default:
-				// never block
-			}
+			c.sendQueue.pong = true
 		case *tmp2p.Packet_PacketPong:
-			// do nothing, we updated the "last message
-			// received" timestamp above, so we can ignore
-			// this message
+			// TODO: report pong received
 		case *tmp2p.Packet_PacketMsg:
 			channelID := ChannelID(pkt.PacketMsg.ChannelID)
 			channel, ok := c.channels[channelID]
 			if pkt.PacketMsg.ChannelID < 0 || pkt.PacketMsg.ChannelID > math.MaxUint8 || !ok {
 				return fmt.Errorf("unknown channel %X", pkt.PacketMsg.ChannelID)
 			}
-
 			msgBytes, err := channel.recvPacketMsg(*pkt.PacketMsg)
 			if err != nil {
 				return fmt.Errorf("recvPacketMsg(): %v",err)
@@ -448,18 +410,16 @@ func (chDesc ChannelDescriptor) FillDefaults() (filled ChannelDescriptor) {
 	return
 }
 
-// NOTE: not goroutine-safe.
-type channel struct {
+type sendChannel struct {
 	// Exponential moving average.
 	recentlySent atomic.Uint64
-
-	conn          *MConnection
 	desc          ChannelDescriptor
-	sendQueue     chan []byte
-	recving       []byte
-	sending       []byte
+	sendQueue     [][]byte // RingBuf
+}
 
-	maxPacketMsgPayloadSize int
+type recvChannel struct {
+	desc          ChannelDescriptor
+	recving       []byte
 }
 
 func newChannel(conn *MConnection, desc ChannelDescriptor) *channel {
@@ -472,7 +432,6 @@ func newChannel(conn *MConnection, desc ChannelDescriptor) *channel {
 		desc:                    desc,
 		sendQueue:               make(chan []byte, desc.SendQueueCapacity),
 		recving:                 make([]byte, 0, desc.RecvBufferCapacity),
-		maxPacketMsgPayloadSize: conn.config.MaxPacketMsgPayloadSize,
 	}
 }
 
@@ -493,24 +452,17 @@ func (ch *channel) isSendPending() bool {
 // Not goroutine-safe
 func (ch *channel) nextPacketMsg() *tmp2p.PacketMsg {
 	packet := &tmp2p.PacketMsg{ChannelID: int32(ch.desc.ID)}
-	maxSize := ch.maxPacketMsgPayloadSize
-	packet.Data = ch.sending[:min(maxSize, len(ch.sending))]
+	maxSize := ch.conn.config.MaxPacketMsgPayloadSize
 	if len(ch.sending) <= maxSize {
 		packet.EOF = true
+		packet.Data = ch.sending
 		ch.sending = nil
 	} else {
 		packet.EOF = false
-		ch.sending = ch.sending[min(maxSize, len(ch.sending)):]
+		packet.Data = ch.sending[:maxSize]
+		ch.sending = ch.sending[maxSize:]
 	}
 	return packet
-}
-
-// Writes next PacketMsg to w and updates c.recentlySent.
-// Not goroutine-safe
-func (ch *channel) writePacketMsgTo(w io.Writer) (int, error) {
-	n, err := protoio.NewDelimitedWriter(w).WriteMsg(wrapMsg(ch.nextPacketMsg()))
-	ch.recentlySent.Add(uint64(n))
-	return n, err
 }
 
 // Handles incoming PacketMsgs. It returns a message bytes if message is
@@ -528,28 +480,6 @@ func (ch *channel) recvPacketMsg(packet tmp2p.PacketMsg) ([]byte, error) {
 		return msgBytes, nil
 	}
 	return nil, nil
-}
-
-// Call this periodically to update stats for throttling purposes.
-// Not goroutine-safe
-func (ch *channel) updateStats() {
-
-}
-
-func newPong() *tmp2p.Packet {
-	return &tmp2p.Packet{
-		Sum: &tmp2p.Packet_PacketPong{
-			PacketPong: &tmp2p.PacketPong{},
-		},
-	}
-}
-
-func newPing() *tmp2p.Packet {
-	return &tmp2p.Packet{
-		Sum: &tmp2p.Packet_PacketPing{
-			PacketPing: &tmp2p.PacketPing{},
-		},
-	}
 }
 
 func wrapMsg(m *tmp2p.PacketMsg) *tmp2p.Packet {

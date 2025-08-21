@@ -102,7 +102,7 @@ func varintWrittenBytes(m marshaler, size int) ([]byte, error) {
 }
 
 var bufPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return new(bytes.Buffer)
 	},
 }
