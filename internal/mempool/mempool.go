@@ -143,13 +143,15 @@ func NewTxMempool(
 		txmp.cache = NewLRUTxCache(cfg.CacheSize)
 	}
 
-	if cfg.DuplicateTxsCacheTTL > 0 {
-		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheTTL, cfg.DuplicateTxsCacheTTL)
-	}
-
 	for _, opt := range options {
 		opt(txmp)
 	}
+
+	if cfg.DuplicateTxsCacheSize > 0 {
+		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheSize, 1*time.Minute, 1*time.Minute)
+	}
+
+	go txmp.exposeMetrics()
 
 	return txmp
 }
@@ -322,13 +324,8 @@ func (txmp *TxMempool) CheckTx(
 
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
-	if txmp.config.DuplicateTxsCacheTTL > 0 {
+	if txmp.config.DuplicateTxsCacheSize > 0 {
 		_ = txmp.duplicateTxsCache.Increment(txHash)
-		maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
-		txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
-		txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
-		txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
-		txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
@@ -1150,6 +1147,21 @@ func (txmp *TxMempool) handlePendingTransactions() {
 		atomic.AddInt64(&txmp.pendingSizeBytes, int64(-tx.tx.Size()))
 		if !txmp.config.KeepInvalidTxsInCache {
 			tx.tx.removeHandler(true)
+		}
+	}
+}
+
+func (txmp *TxMempool) exposeMetrics() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
+			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
+			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
+			txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
+			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
 		}
 	}
 }

@@ -157,11 +157,12 @@ type TxCacheWithTTL interface {
 
 // DuplicateTxCache implements TxCacheWithTTL using go-cache
 type DuplicateTxCache struct {
-	cache *cache.Cache
+	maxSize int
+	cache   *cache.Cache
 }
 
 // NewDuplicateTxCache creates a new TTL transaction cache
-func NewDuplicateTxCache(defaultExpiration, cleanupInterval time.Duration) *DuplicateTxCache {
+func NewDuplicateTxCache(maxSize int, defaultExpiration, cleanupInterval time.Duration) *DuplicateTxCache {
 	// If defaultExpiration is 0 (no expiration), don't create a cleanup interval
 	// to avoid starting background janitor goroutines that can cause leaks
 	if defaultExpiration == 0 {
@@ -170,7 +171,8 @@ func NewDuplicateTxCache(defaultExpiration, cleanupInterval time.Duration) *Dupl
 	}
 
 	return &DuplicateTxCache{
-		cache: cache.New(defaultExpiration, cleanupInterval),
+		maxSize: maxSize,
+		cache:   cache.New(defaultExpiration, cleanupInterval),
 	}
 }
 
@@ -201,9 +203,12 @@ func (t *DuplicateTxCache) Increment(txKey types.TxKey) int {
 		}
 	}
 
-	// If not found, start with counter = 1
 	newCounter := 1
-	t.cache.SetDefault(key, newCounter)
+	if t.cache.ItemCount() <= t.maxSize {
+		// If key is not found and we have space, insert with counter = 1
+		t.cache.SetDefault(key, newCounter)
+	}
+
 	return newCounter
 }
 
