@@ -330,6 +330,8 @@ func (txmp *TxMempool) CheckTx(
 	if string(txInfo.SenderNodeID) == "SelfRemoveTx" {
 		txmp.metrics.NumberOfSelfRemovedCheckTxs.Add(1)
 		fmt.Printf("Received same checkTx from removeTx: %X\n", txHash)
+	} else {
+		fmt.Printf("CheckTx nodeId: %s, txHash: %X\n", txInfo.SenderNodeID, txHash)
 	}
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
 	txmp.totalCheckTxCount.Add(1)
