@@ -95,6 +95,7 @@ type sendQueue struct {
 	ping bool
 	pong bool
 	flush utils.Option[time.Time]
+	// TODO(gprusak): restrict to channels that peer knows about
 	channels map[ChannelID]*sendChannel
 }
 

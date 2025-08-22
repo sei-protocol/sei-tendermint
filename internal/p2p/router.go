@@ -156,26 +156,15 @@ type Router struct {
 	options     RouterOptions
 	privKey     crypto.PrivKey
 	peerManager *PeerManager
-	chDescs     []*ChannelDescriptor
-	transport   Transport
-	endpoint    *Endpoint
-	connTracker connectionTracker
+	connTracker *connTrackerImpl
 
 	peerMtx    sync.RWMutex
 	peerQueues map[types.NodeID]queue // outbound messages per peer for all channels
 	// the channels that the peer queue has open
+	// TODO(gprusak): this is redundant with sendQueue.channels
 	peerChannels     map[types.NodeID]ChannelIDSet
 	queueFactory     func(int) queue
 	nodeInfoProducer func() *types.NodeInfo
-
-	// FIXME: We don't strictly need to use a mutex for this if we seal the
-	// channels on router start. This depends on whether we want to allow
-	// dynamic channels in the future.
-	channelMtx      sync.RWMutex
-	channelQueues   map[ChannelID]queue // inbound messages from all peers to a single channel
-	channelMessages map[ChannelID]proto.Message
-
-	chDescsToBeAdded []chDescAdderWithCallback
 }
 
 type chDescAdderWithCallback struct {
@@ -193,7 +182,6 @@ func NewRouter(
 	peerManager *PeerManager,
 	nodeInfoProducer func() *types.NodeInfo,
 	transport Transport,
-	endpoint *Endpoint,
 	options RouterOptions,
 ) (*Router, error) {
 
@@ -213,11 +201,8 @@ func NewRouter(
 		),
 		chDescs:           make([]*ChannelDescriptor, 0),
 		transport:         transport,
-		endpoint:          endpoint,
 		peerManager:       peerManager,
 		options:           options,
-		channelQueues:     map[ChannelID]queue{},
-		channelMessages:   map[ChannelID]proto.Message{},
 		peerQueues:        map[types.NodeID]queue{},
 		peerChannels:      make(map[types.NodeID]ChannelIDSet),
 	}
@@ -225,85 +210,6 @@ func NewRouter(
 	router.BaseService = service.NewBaseService(logger, "router", router)
 
 	return router, nil
-}
-
-func (r *Router) createQueueFactory(ctx context.Context) (func(int) queue, error) {
-	switch r.options.QueueType {
-	case queueTypeFifo:
-		return newFIFOQueue, nil
-
-	case queueTypePriority:
-		return func(size int) queue {
-			if size%2 != 0 {
-				size++
-			}
-
-			q := newPQScheduler(r.logger, r.metrics, r.lc, r.chDescs, uint(size)/2, uint(size)/2, defaultCapacity)
-			q.start(ctx)
-			return q
-		}, nil
-
-	case queueTypeSimplePriority:
-		return func(size int) queue { return newSimplePriorityQueue(ctx, size, r.chDescs) }, nil
-
-	default:
-		return nil, fmt.Errorf("cannot construct queue of type %q", r.options.QueueType)
-	}
-}
-
-// ChannelCreator allows routers to construct their own channels,
-// either by receiving a reference to Router.OpenChannel or using some
-// kind shim for testing purposes.
-type ChannelCreator func(context.Context, *ChannelDescriptor) (*Channel, error)
-
-// OpenChannel opens a new channel for the given message type. The caller must
-// close the channel when done, before stopping the Router. messageType is the
-// type of message passed through the channel (used for unmarshaling), which can
-// implement Wrapper to automatically (un)wrap multiple message types in a
-// wrapper message. The caller may provide a size to make the channel buffered,
-// which internally makes the inbound, outbound, and error channel buffered.
-func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*Channel, error) {
-	r.channelMtx.Lock()
-	defer r.channelMtx.Unlock()
-
-	id := chDesc.ID
-	if _, ok := r.channelQueues[id]; ok {
-		return nil, fmt.Errorf("channel %v already exists", id)
-	}
-	r.chDescs = append(r.chDescs, chDesc)
-
-	messageType := chDesc.MessageType
-
-	queue := r.queueFactory(chDesc.RecvBufferCapacity)
-	channel := NewChannel(id, queue.dequeue())
-	channel.name = chDesc.Name
-
-	var wrapper Wrapper
-	if w, ok := messageType.(Wrapper); ok {
-		wrapper = w
-	}
-
-	r.channelQueues[id] = queue
-	r.channelMessages[id] = messageType
-
-	// add the channel to the nodeInfo if it's not already there.
-	r.nodeInfoProducer().AddChannel(uint16(chDesc.ID))
-
-	r.transport.AddChannelDescriptors([]*ChannelDescriptor{chDesc})
-
-	go func() {
-		defer func() {
-			r.channelMtx.Lock()
-			delete(r.channelQueues, id)
-			delete(r.channelMessages, id)
-			r.channelMtx.Unlock()
-			queue.close()
-		}()
-
-		r.routeChannel(ctx, id, outCh, errCh, wrapper)
-	}()
-
-	return channel, nil
 }
 
 // routeChannel receives outbound channel messages and routes them to the
@@ -480,22 +386,9 @@ func (r *Router) dialSleep(ctx context.Context) {
 
 // acceptPeers accepts inbound connections from peers on the given transport,
 // and spawns goroutines that route messages to/from them.
-func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
+func (r *Router) acceptPeers(ctx context.Context) {
 	for {
-		conn, err := transport.Accept(ctx)
-		switch {
-		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-			r.logger.Debug("stopping accept routine", "transport", transport, "err", "context canceled")
-			return
-		case errors.Is(err, io.EOF):
-			r.logger.Debug("stopping accept routine", "transport", transport, "err", "EOF")
-			return
-		case err != nil:
-			// in this case we got an error from the net.Listener.
-			r.logger.Error("failed to accept connection", "transport", transport, "err", err)
-			continue
-		}
-
+		conn, err := r.transport.Accept(ctx)
 		incomingIP := conn.RemoteEndpoint().IP
 		if err := r.connTracker.AddConn(incomingIP); err != nil {
 			closeErr := conn.Close()
@@ -504,7 +397,6 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 				"ip", incomingIP.String(),
 				"close_err", closeErr,
 			)
-
 			continue
 		}
 
@@ -970,13 +862,7 @@ func (r *Router) evictPeers(ctx context.Context) {
 }
 
 func (r *Router) setupQueueFactory(ctx context.Context) error {
-	qf, err := r.createQueueFactory(ctx)
-	if err != nil {
-		return err
-	}
-
-	r.queueFactory = qf
-	return nil
+		return nil
 }
 
 func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Channel)) {
@@ -988,11 +874,8 @@ func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Ch
 
 // OnStart implements service.Service.
 func (r *Router) OnStart(ctx context.Context) error {
-	if err := r.setupQueueFactory(ctx); err != nil {
-		return err
-	}
-
-	if err := r.transport.Listen(r.endpoint); err != nil {
+	qf, err := r.createQueueFactory(ctx)
+	if err != nil {
 		return err
 	}
 

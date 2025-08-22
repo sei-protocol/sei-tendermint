@@ -305,17 +305,19 @@ func createRouter(
 	transportConf.SendRate = cfg.P2P.SendRate
 	transportConf.RecvRate = cfg.P2P.RecvRate
 	transportConf.MaxPacketMsgPayloadSize = cfg.P2P.MaxPacketMsgPayloadSize
+	ep, err := p2p.NewEndpoint(nodeKey.ID.AddressString(cfg.P2P.ListenAddress))
+	if err != nil {
+		return nil, err
+	}
 	transport := p2p.NewMConnTransport(
+		ep,
 		p2pLogger, transportConf, []*p2p.ChannelDescriptor{},
 		p2p.MConnTransportOptions{
 			MaxAcceptedConnections: uint32(cfg.P2P.MaxConnections),
 		},
 	)
 
-	ep, err := p2p.NewEndpoint(nodeKey.ID.AddressString(cfg.P2P.ListenAddress))
-	if err != nil {
-		return nil, err
-	}
+
 
 	return p2p.NewRouter(
 		p2pLogger,
@@ -324,7 +326,6 @@ func createRouter(
 		peerManager,
 		nodeInfoProducer,
 		transport,
-		ep,
 		getRouterConfig(cfg, appClient),
 	)
 }
