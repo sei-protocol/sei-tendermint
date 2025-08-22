@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/time/rate"
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/tendermint/tendermint/internal/libs/flowrate"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
@@ -37,15 +37,16 @@ const (
 	defaultSendQueueCapacity   = 1
 	defaultRecvBufferCapacity  = 4096
 	defaultRecvMessageCapacity = 22020096      // 21MB
-	defaultSendRate            = int64(512000) // 500KB/s
-	defaultRecvRate            = int64(512000) // 500KB/s
+	// TODO(gprusak): RecvRate should be strictly larger than SendRate,
+	// so that under maximal load the backpressure is at the sender.
+	defaultSendRate            = uint64(512000) // 500KB/s
+	defaultRecvRate            = uint64(512000) // 500KB/s
 	// TODO(gprusak): these are enormous values. Consider decreasing to ~10s.
 	defaultPingInterval        = 60 * time.Second
 	defaultPongTimeout         = 90 * time.Second
 )
 
 type receiveCbFunc func(ctx context.Context, chID ChannelID, msgBytes []byte)
-type errorCbFunc func(context.Context, any)
 
 /*
 Each peer has one `MConnection` (multiplex connection) instance.
@@ -75,23 +76,10 @@ type MConnection struct {
 
 // MConnConfig is a MConnection configuration.
 type MConnConfig struct {
-	SendRate int64 `mapstructure:"send_rate"`
-	RecvRate int64 `mapstructure:"recv_rate"`
-
-	// Maximum payload size
-	MaxPacketMsgPayloadSize int `mapstructure:"max_packet_msg_payload_size"`
-
-	// Interval to flush writes (throttled)
-	FlushThrottle time.Duration `mapstructure:"flush_throttle"`
-
-	// Interval to send pings
-	PingInterval time.Duration `mapstructure:"ping_interval"`
-
-	// Maximum wait time for pongs
-	PongTimeout time.Duration `mapstructure:"pong_timeout"`
-
-	// Process/Transport Start time
-	StartTime time.Time `mapstructure:",omitempty"`
+	SendRate uint64 // B/s
+	RecvRate uint64 // B/s
+	MaxPacketMsgPayloadSize uint // Maximum payload size
+	FlushThrottle time.Duration // Interval to flush writes (throttled)
 }
 
 // DefaultMConnConfig returns the default config.
@@ -101,9 +89,6 @@ func DefaultMConnConfig() MConnConfig {
 		RecvRate:                defaultRecvRate,
 		MaxPacketMsgPayloadSize: defaultMaxPacketMsgPayloadSize,
 		FlushThrottle:           defaultFlushThrottle,
-		PingInterval:            defaultPingInterval,
-		PongTimeout:             defaultPongTimeout,
-		StartTime:               time.Now(),
 	}
 }
 type sendQueue struct {
@@ -271,7 +256,8 @@ func (c *MConnection) popSendQueue(ctx context.Context) (*tmp2p.Packet,error) {
 func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 	// We should NOT use the same rate limit for send and recv:
 	// recv should be more permissive to compensate for fluctuations.
-	sendMonitor := flowrate.New(c.config.StartTime, 0, 0) // sample rate: 100ms, window size: 1s
+	maxPacketMsgSize := c.maxPacketMsgSize()
+	limiter := rate.NewLimiter(rate.Limit(c.config.SendRate),max(maxPacketMsgSize,c.config.SendRate))
 	// This doesn't make sense - TCP package is 1.5kB anyway (unless we match the encryption frame here)
 	// In fact, buffering should be just moved to the encryption layer.
 	bufWriter := bufio.NewWriterSize(c.conn, minWriteBufferSize)
@@ -282,7 +268,9 @@ func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 		if msg != nil {
 			n,err:=protoWriter.WriteMsg(msg)
 			if err!=nil { return fmt.Errorf("protoWriter.Write(): %w",err) }
-			sendMonitor.Update(n)
+			if err:=limiter.WaitN(ctx, n); err!=nil {
+				return err
+			}
 		} else {
 			c.logger.Debug("Flush", "conn", c)
 			if err:=bufWriter.Flush(); err!=nil { return fmt.Errorf("bufWriter.Flush(): %w",err) }
@@ -302,8 +290,8 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 	if time.Since(*c.lastMsgRecv.Load()) > c.config.PongTimeout {
 		return errors.New("pong timeout")
 	}*/
-	recvMonitor := flowrate.New(c.config.StartTime, 0, 0)
 	maxPacketMsgSize := c.maxPacketMsgSize()
+	limiter := rate.NewLimiter(rate.Limit(c.config.RecvRate), max(c.config.RecvRate,maxPacketMsgSize))
 	bufReader := bufio.NewReaderSize(c.conn, minReadBufferSize)
 	protoReader := protoio.NewDelimitedReader(bufReader, maxPacketMsgSize)
 	channels := map[ChannelID]*recvChannel{}
@@ -315,16 +303,14 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 
 	lastMsgRecv := time.Now()
 	for {
-		recvMonitor.Limit(maxPacketMsgSize, c.config.RecvRate, true)
 		packet := &tmp2p.Packet{}
 		n, err := protoReader.ReadMsg(packet)
 		if err != nil {
 			return fmt.Errorf("protoReader.ReadMsg(): %w", err)
 		}
-		recvMonitor.Update(n)
+		if err:=limiter.WaitN(ctx,n); err!=nil { return err }
 		lastMsgRecv = time.Now()
 
-		// Read more depending on packet type.
 		switch p := packet.Sum.(type) {
 		case *tmp2p.Packet_PacketPing:
 			for q,ctrl := range c.sendQueue.Lock() {
