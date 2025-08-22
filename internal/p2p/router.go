@@ -176,8 +176,6 @@ type Router struct {
 	channelMessages map[ChannelID]proto.Message
 
 	chDescsToBeAdded []chDescAdderWithCallback
-
-	dynamicIDFilterer func(context.Context, types.NodeID) error
 }
 
 type chDescAdderWithCallback struct {
@@ -196,7 +194,6 @@ func NewRouter(
 	nodeInfoProducer func() *types.NodeInfo,
 	transport Transport,
 	endpoint *Endpoint,
-	dynamicIDFilterer func(context.Context, types.NodeID) error,
 	options RouterOptions,
 ) (*Router, error) {
 
@@ -223,7 +220,6 @@ func NewRouter(
 		channelMessages:   map[ChannelID]proto.Message{},
 		peerQueues:        map[types.NodeID]queue{},
 		peerChannels:      make(map[types.NodeID]ChannelIDSet),
-		dynamicIDFilterer: dynamicIDFilterer,
 	}
 
 	router.BaseService = service.NewBaseService(logger, "router", router)
@@ -279,9 +275,7 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 	messageType := chDesc.MessageType
 
 	queue := r.queueFactory(chDesc.RecvBufferCapacity)
-	outCh := make(chan Envelope, chDesc.RecvBufferCapacity)
-	errCh := make(chan PeerError, chDesc.RecvBufferCapacity)
-	channel := NewChannel(id, queue.dequeue(), outCh, errCh)
+	channel := NewChannel(id, queue.dequeue())
 	channel.name = chDesc.Name
 
 	var wrapper Wrapper
@@ -453,13 +447,6 @@ func (r *Router) filterPeersIP(ctx context.Context, ip net.IP, port uint16) erro
 }
 
 func (r *Router) filterPeersID(ctx context.Context, id types.NodeID) error {
-	// apply dynamic filterer first
-	if r.dynamicIDFilterer != nil {
-		if err := r.dynamicIDFilterer(ctx, id); err != nil {
-			return err
-		}
-	}
-
 	if r.options.FilterPeerByID == nil {
 		return nil
 	}
@@ -1031,11 +1018,6 @@ func (r *Router) OnStart(ctx context.Context) error {
 // here, since that would cause any reactor senders to panic, so it is the
 // sender's responsibility.
 func (r *Router) OnStop() {
-	// Close transport listeners (unblocks Accept calls).
-	if err := r.transport.Close(); err != nil {
-		r.logger.Error("failed to close transport", "err", err)
-	}
-
 	// Collect all remaining queues, and wait for them to close.
 	queues := []queue{}
 

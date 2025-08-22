@@ -670,13 +670,13 @@ type P2PConfig struct { //nolint: maligned
 	FlushThrottleTimeout time.Duration `mapstructure:"flush-throttle-timeout"`
 
 	// Maximum size of a message packet payload, in bytes
-	MaxPacketMsgPayloadSize int `mapstructure:"max-packet-msg-payload-size"`
+	MaxPacketMsgPayloadSize uint `mapstructure:"max-packet-msg-payload-size"`
 
 	// Rate at which packets can be sent, in bytes/second
-	SendRate int64 `mapstructure:"send-rate"`
+	SendRate uint64 `mapstructure:"send-rate"`
 
 	// Rate at which packets can be received, in bytes/second
-	RecvRate int64 `mapstructure:"recv-rate"`
+	RecvRate uint64 `mapstructure:"recv-rate"`
 
 	// Peer connection configuration.
 	HandshakeTimeout time.Duration `mapstructure:"handshake-timeout"`

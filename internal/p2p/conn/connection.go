@@ -10,14 +10,16 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/tendermint/tendermint/crypto"
 	"golang.org/x/time/rate"
 	"github.com/gogo/protobuf/proto"
 
+	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/libs/utils/scope"
-	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
+	p2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
 )
 
 const (
@@ -127,6 +129,8 @@ func NewMConnection(
 	chDescs []*ChannelDescriptor,
 	onReceive receiveCbFunc,
 	config MConnConfig,
+	nodeInfo types.NodeInfo,
+	privKey crypto.PrivKey,
 ) *MConnection {
 	return &MConnection{
 		logger:        logger,
@@ -138,6 +142,36 @@ func NewMConnection(
 }
 
 func (c *MConnection) Run(ctx context.Context) error {
+	// TODO: handshake timeout
+	// e2e encryption
+	secretConn, err := MakeSecretConnection(c.conn, privKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("makeSecretConnection")
+	}
+	// handshake
+	var pbPeerInfo p2p.NodeInfo
+	if err:=scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		s.Spawn(func() error {
+			writer := protoio.NewDelimitedWriter(secretConn)
+			_, err := writer.WriteMsg(nodeInfo.ToProto())
+			return fmt.Errorf("WriteMsg(nodeInfo): %w",err)
+		})
+		s.Spawn(func() error {
+			reader := protoio.NewDelimitedReader(secretConn, types.MaxNodeInfoSize())
+			_, err := reader.ReadMsg(&pbPeerInfo)
+			return fmt.Errorf("ReadMsg(peerInfo): %w",err)
+		})
+		return nil
+	}); err!=nil {
+		return err
+	}
+	peerInfo, err := types.NodeInfoFromProto(&pbPeerInfo)
+	if err != nil {
+		return nil, nil, fmt.Errorf("NodeInfoFromProto(): %w",err)
+	}
+	// TODO: handle gracefully
+	logger = logger.With("peer", c.RemoteEndpoint().NodeAddress(peerInfo.NodeID))
+	c.logger.Debug(fmt.Sprintf("Creating a new MConnection with peerId %s, moniker %s, listenAddr %s", peerInfo.NodeID, peerInfo.Moniker, peerInfo.ListenAddr))
 	return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnNamed("sendRoutine", func() error { return c.sendRoutine(ctx) })
 		s.SpawnNamed("recvRoutine", func() error { return c.recvRoutine(ctx) })
@@ -151,8 +185,9 @@ func (c *MConnection) Run(ctx context.Context) error {
 	})
 }
 
+// String displays connection information.
 func (c *MConnection) String() string {
-	return fmt.Sprintf("MConn{%v}", c.conn.RemoteAddr())
+	return c.RemoteEndpoint().String()
 }
 
 // Queues a message to be sent.
@@ -195,24 +230,24 @@ func (c *MConnection) statsRoutine(ctx context.Context) error {
 
 // popSendQueue pops a message from the send queue.
 // Returns nil,nil if the connection should be flushed.
-func (c *MConnection) popSendQueue(ctx context.Context) (*tmp2p.Packet,error) {
+func (c *MConnection) popSendQueue(ctx context.Context) (*p2p.Packet,error) {
 	for q,ctrl := range c.sendQueue.Lock() {
 		for {
 			if q.ping {
 				q.ping = false
 				q.setFlush(time.Now())
-				return &tmp2p.Packet{
-					Sum: &tmp2p.Packet_PacketPing{
-						PacketPing: &tmp2p.PacketPing{},
+				return &p2p.Packet{
+					Sum: &p2p.Packet_PacketPing{
+						PacketPing: &p2p.PacketPing{},
 					},
 				},nil
 			}
 			if q.pong {
 				q.pong = false
 				q.setFlush(time.Now())
-				return &tmp2p.Packet{
-					Sum: &tmp2p.Packet_PacketPong{
-						PacketPong: &tmp2p.PacketPong{},
+				return &p2p.Packet{
+					Sum: &p2p.Packet_PacketPong{
+						PacketPong: &p2p.PacketPong{},
 					},
 				},nil
 			}
@@ -231,8 +266,8 @@ func (c *MConnection) popSendQueue(ctx context.Context) (*tmp2p.Packet,error) {
 				q.setFlush(time.Now().Add(c.config.FlushThrottle))
 				msg := leastChannel.popMsg(c.config.MaxPacketMsgPayloadSize)
 				leastChannel.recentlySent.Add(uint64(len(msg.Data)))
-				return &tmp2p.Packet{
-					Sum: &tmp2p.Packet_PacketMsg{
+				return &p2p.Packet{
+					Sum: &p2p.Packet_PacketMsg{
 						PacketMsg: msg,
 					},
 				}, nil
@@ -303,7 +338,7 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 
 	lastMsgRecv := time.Now()
 	for {
-		packet := &tmp2p.Packet{}
+		packet := &p2p.Packet{}
 		n, err := protoReader.ReadMsg(packet)
 		if err != nil {
 			return fmt.Errorf("protoReader.ReadMsg(): %w", err)
@@ -312,13 +347,13 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 		lastMsgRecv = time.Now()
 
 		switch p := packet.Sum.(type) {
-		case *tmp2p.Packet_PacketPing:
+		case *p2p.Packet_PacketPing:
 			for q,ctrl := range c.sendQueue.Lock() {
 				q.pong = true
 				ctrl.Updated()
 			}
-		case *tmp2p.Packet_PacketPong:
-		case *tmp2p.Packet_PacketMsg:
+		case *p2p.Packet_PacketPong:
+		case *p2p.Packet_PacketMsg:
 			channelID, castOk := utils.SafeCast[ChannelID](p.PacketMsg.ChannelID)
 			ch, ok := channels[channelID]
 			if !castOk || !ok {
@@ -342,9 +377,9 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 
 // maxPacketMsgSize returns a maximum size of PacketMsg
 func (c *MConnection) maxPacketMsgSize() int {
-	bz, err := proto.Marshal(&tmp2p.Packet{
-		Sum: &tmp2p.Packet_PacketMsg{
-			PacketMsg: &tmp2p.PacketMsg{
+	bz, err := proto.Marshal(&p2p.Packet{
+		Sum: &p2p.Packet_PacketMsg{
+			PacketMsg: &p2p.PacketMsg{
 				ChannelID: 0x01,
 				EOF:       true,
 				Data:      make([]byte, c.config.MaxPacketMsgPayloadSize),
@@ -408,10 +443,10 @@ func (ch *sendChannel) ratio() float32 {
 
 // Creates a new PacketMsg to send.
 // Not goroutine-safe
-func (ch *sendChannel) popMsg(maxPayload int) *tmp2p.PacketMsg {
+func (ch *sendChannel) popMsg(maxPayload uint) *p2p.PacketMsg {
   payload := ch.queue.Get(0)
-	packet := &tmp2p.PacketMsg{ChannelID: int32(ch.id)}
-	if len(*payload) <= maxPayload {
+	packet := &p2p.PacketMsg{ChannelID: int32(ch.id)}
+	if uint(len(*payload)) <= maxPayload {
 		packet.EOF = true
 		packet.Data = *ch.queue.PopFront()
 	} else {
@@ -437,7 +472,7 @@ func newRecvChannel(desc ChannelDescriptor) *recvChannel {
 // Handles incoming PacketMsgs. It returns a message bytes if message is
 // complete, which is owned by the caller and will not be modified.
 // Not goroutine-safe
-func (ch *recvChannel) pushMsg(packet *tmp2p.PacketMsg) ([]byte, error) {
+func (ch *recvChannel) pushMsg(packet *p2p.PacketMsg) ([]byte, error) {
 	if got,wantMax := len(ch.buf) + len(packet.Data), ch.desc.RecvMessageCapacity; uint(got) > wantMax {
 		return nil, fmt.Errorf("received message exceeds available capacity: %v < %v", wantMax, got)
 	}
@@ -449,3 +484,31 @@ func (ch *recvChannel) pushMsg(packet *tmp2p.PacketMsg) ([]byte, error) {
 	}
 	return nil, nil
 }
+
+// Closes the connection.
+// It does NOT wait for the goroutines to stop.
+func (c *MConnection) Close() error {
+	return c.conn.Close()
+}
+
+// LocalEndpoint implements Connection.
+func (c *MConnection) LocalEndpoint() Endpoint {
+	endpoint := Endpoint{}
+	if addr, ok := c.conn.LocalAddr().(*net.TCPAddr); ok {
+		endpoint.IP = addr.IP
+		endpoint.Port = uint16(addr.Port)
+	}
+	return endpoint
+}
+
+// RemoteEndpoint implements Connection.
+func (c *MConnection) RemoteEndpoint() Endpoint {
+	endpoint := Endpoint{}
+	if addr, ok := c.conn.RemoteAddr().(*net.TCPAddr); ok {
+		endpoint.IP = addr.IP
+		endpoint.Port = uint16(addr.Port)
+	}
+	return endpoint
+}
+
+
