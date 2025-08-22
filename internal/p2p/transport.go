@@ -12,23 +12,10 @@ import (
 
 //go:generate ../../scripts/mockery_generate.sh Transport|Connection
 
-const (
-	// defaultProtocol is the default protocol used for NodeAddress when
-	// a protocol isn't explicitly given as a URL scheme.
-	defaultProtocol Protocol = MConnProtocol
-)
-
-// Protocol identifies a transport protocol.
-type Protocol string
-
 // Transport is a connection-oriented mechanism for exchanging data with a peer.
 type Transport interface {
 	// Listen starts the transport on the specified endpoint.
 	Listen(*Endpoint) error
-
-	// Protocols returns the protocols supported by the transport. The Router
-	// uses this to pick a transport for an Endpoint.
-	Protocols() []Protocol
 
 	// Endpoints returns the local endpoints the transport is listening on, if any.
 	//
@@ -113,9 +100,6 @@ type Connection interface {
 // networked endpoints must use IP as the underlying transport protocol to allow
 // e.g. IP address filtering. Either IP or Path (or both) must be set.
 type Endpoint struct {
-	// Protocol specifies the transport protocol.
-	Protocol Protocol
-
 	// IP is an IP address (v4 or v6) to connect to. If set, this defines the
 	// endpoint as a networked endpoint.
 	IP net.IP
@@ -136,7 +120,6 @@ func NewEndpoint(addr string) (*Endpoint, error) {
 	}
 
 	return &Endpoint{
-		Protocol: MConnProtocol,
 		IP:       ip,
 		Port:     port,
 	}, nil
@@ -146,7 +129,6 @@ func NewEndpoint(addr string) (*Endpoint, error) {
 func (e Endpoint) NodeAddress(nodeID types.NodeID) NodeAddress {
 	address := NodeAddress{
 		NodeID:   nodeID,
-		Protocol: e.Protocol,
 		Path:     e.Path,
 	}
 	if len(e.IP) > 0 {
@@ -172,9 +154,6 @@ func (e Endpoint) String() string {
 // Validate validates the endpoint.
 func (e Endpoint) Validate() error {
 	switch {
-	case e.Protocol == "":
-		return errors.New("endpoint has no protocol")
-
 	case len(e.IP) > 0 && e.IP.To16() == nil:
 		return fmt.Errorf("invalid IP address %v", e.IP)
 
