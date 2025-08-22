@@ -2306,6 +2306,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			if commitSig.BlockIDFlag == types.BlockIDFlagAbsent {
 				missingValidators++
 				missingValidatorsPower += val.VotingPower
+				fmt.Printf("[TM-Debug] Missing validator %s with power %d at height %d \n", val.Address.String(), val.VotingPower, height)
 				cs.metrics.MissingValidatorsPower.With("validator_address", val.Address.String()).Set(float64(val.VotingPower))
 			} else {
 				cs.metrics.MissingValidatorsPower.With("validator_address", val.Address.String()).Set(0)
