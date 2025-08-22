@@ -1902,7 +1902,7 @@ func (cs *State) enterPrecommit(ctx context.Context, height int64, round int32, 
 
 	// check for a polka
 	prevotes := cs.roundState.Votes().Prevotes(round)
-	fmt.Printf("[VOTE-Debug] Prevotes for height %d: %s \n", cs.roundState.Height(), prevotes.StringIndented("  "))
+	fmt.Printf("[VOTE-Debug] Prevotes of proposer %X for height %d: %s \n", cs.roundState.Proposal().ProposerAddress.String(), cs.roundState.Height(), prevotes.StringIndented("  "))
 	blockID, ok := cs.roundState.Votes().Prevotes(round).TwoThirdsMajority()
 	fmt.Printf("[TM-Debug] EnterPrevote -> EnterPrecommit latency is %s for height %d \n", time.Since(EnterPrevoteTime), cs.roundState.Height())
 	EnterPrecommitTime = time.Now()
