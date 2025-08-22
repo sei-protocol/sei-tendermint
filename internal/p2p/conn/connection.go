@@ -68,8 +68,6 @@ type MConnection struct {
 	conn          net.Conn
 	bufConnReader *bufio.Reader
 	sendQueue     utils.Watch[*sendQueue]
-	flushTime     utils.AtomicWatch[utils.Option[time.Time]]
-
 	onReceive     receiveCbFunc
 
 	// close conn if pong is not received in pongTimeout
