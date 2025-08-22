@@ -324,7 +324,10 @@ func (txmp *TxMempool) CheckTx(
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
 	if txmp.config.DuplicateTxsCacheSize > 0 {
-		_ = txmp.duplicateTxsCache.Increment(txHash)
+		count := txmp.duplicateTxsCache.Increment(txHash)
+		if count > 3 {
+			return types.ErrTxInCache
+		}
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
