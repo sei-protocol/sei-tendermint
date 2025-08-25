@@ -13,6 +13,8 @@ type connectionTracker interface {
 	Len() int
 }
 
+// Rate limits the connection attempts and bounds the number of connections from an IP address.
+// TODO(gprusak): figure out how it works and why
 type connTrackerImpl struct {
 	cache       map[string]uint
 	lastConnect map[string]time.Time
@@ -21,7 +23,7 @@ type connTrackerImpl struct {
 	window      time.Duration
 }
 
-func newConnTracker(max uint, window time.Duration) connectionTracker {
+func newConnTracker(max uint, window time.Duration) *connTrackerImpl {
 	return &connTrackerImpl{
 		cache:       make(map[string]uint),
 		lastConnect: make(map[string]time.Time),
