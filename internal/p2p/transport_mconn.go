@@ -47,7 +47,6 @@ type MConnTransport struct {
 	channelQueues   map[ChannelID]queue // inbound messages from all peers to a single channel
 	channelMessages map[ChannelID]proto.Message
 
-	closeOnce sync.Once
 	listener  chan *conn.MConnection
   // Connection register here.
 }
@@ -147,9 +146,6 @@ func (m *MConnTransport) Dial(ctx context.Context, endpoint Endpoint) (Connectio
 // wrapper message. The caller may provide a size to make the channel buffered,
 // which internally makes the inbound, outbound, and error channel buffered.
 func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*Channel, error) {
-	r.channelMtx.Lock()
-	defer r.channelMtx.Unlock()
-
 	id := chDesc.ID
 	if _, ok := r.channelQueues[id]; ok {
 		return nil, fmt.Errorf("channel %v already exists", id)
@@ -181,24 +177,19 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 	return channel, nil
 }
 
-func (r *Router) createQueueFactory(ctx context.Context) (func(int) queue, error) {
+func (t *MConnTransport) createQueueFactory(ctx context.Context) (func(int) queue, error) {
 	switch r.options.QueueType {
 	case queueTypeFifo:
 		return newFIFOQueue, nil
 
 	case queueTypePriority:
 		return func(size int) queue {
-			if size%2 != 0 {
-				size++
-			}
 
-			q := newPQScheduler(r.logger, r.metrics, r.lc, r.chDescs, uint(size)/2, uint(size)/2, defaultCapacity)
-			q.start(ctx)
-			return q
+			return newPQScheduler(r.logger, r.metrics, r.lc, r.chDescs, size, defaultCapacity)
 		}, nil
 
 	case queueTypeSimplePriority:
-		return func(size int) queue { return newSimplePriorityQueue(ctx, size, r.chDescs) }, nil
+		return func(size int) queue { return newSimplePriorityQueue(size, r.chDescs) }, nil
 
 	default:
 		return nil, fmt.Errorf("cannot construct queue of type %q", r.options.QueueType)
