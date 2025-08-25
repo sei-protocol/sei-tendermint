@@ -129,9 +129,9 @@ func ToRequestLoadLatest(req *RequestLoadLatest) *Request {
 	}
 }
 
-func ToRequestGetTxPriority(req *RequestGetTxPriority) *Request {
+func ToRequestGetTxPriorityHint(req *RequestGetTxPriorityHint) *Request {
 	return &Request{
-		Value: &Request_GetTxPriority{req},
+		Value: &Request_GetTxPriorityHint{req},
 	}
 }
 

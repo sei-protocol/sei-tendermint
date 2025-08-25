@@ -819,6 +819,25 @@ type MempoolConfig struct {
 	PendingTTLNumBlocks int64 `mapstructure:"pending-ttl-num-blocks"`
 
 	RemoveExpiredTxsFromQueue bool `mapstructure:"remove-expired-txs-from-queue"`
+
+	// DropPriorityThreshold defines the minimum priority hint that a transaction
+	// must have in order to be retained in the mempool once the configured
+	// utilisation threshold is exceeded.
+	//
+	// Any transaction with a priority hint below this value will be dropped when
+	// mempool utilisation surpasses the configured drop threshold.
+	//
+	// See DropUtilisationThreshold.
+	DropPriorityThreshold int64 `mapstructure:"drop-priority-threshold"`
+
+	// DropUtilisationThreshold defines the mempool utilisation level (expressed as
+	// a percentage in the range [0.0, 1.0]) above which transactions will be
+	// selectively dropped based on their priority hint.
+	//
+	// For example, if this parameter is set to 0.8, then once the mempool reaches
+	// 80% capacity, transactions with priority hints below DropPriorityThreshold
+	// will be dropped to preserve higher-priority transactions.
+	DropUtilisationThreshold float64 `mapstructure:"drop-utilisation-threshold"`
 }
 
 // DefaultMempoolConfig returns a default configuration for the Tendermint mempool.
@@ -841,6 +860,8 @@ func DefaultMempoolConfig() *MempoolConfig {
 		PendingTTLDuration:           0 * time.Second,
 		PendingTTLNumBlocks:          0,
 		RemoveExpiredTxsFromQueue:    true,
+		DropPriorityThreshold:        0,
+		DropUtilisationThreshold:     1.0,
 	}
 }
 
@@ -877,6 +898,12 @@ func (cfg *MempoolConfig) ValidateBasic() error {
 	}
 	if cfg.CheckTxErrorThreshold < 0 {
 		return errors.New("check-tx-error-threshold can't be negative")
+	}
+	if cfg.DropPriorityThreshold < 0 {
+		return errors.New("drop-priority-threshold can't be negative")
+	}
+	if cfg.DropUtilisationThreshold < 0.0 || cfg.DropUtilisationThreshold > 1.0 {
+		return errors.New("drop-utilisation-threshold must be between 0.0 and 1.0")
 	}
 
 	return nil

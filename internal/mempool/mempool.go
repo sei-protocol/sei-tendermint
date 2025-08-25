@@ -183,6 +183,10 @@ func (txmp *TxMempool) Size() int {
 	return txmp.NumTxsNotPending() + txmp.PendingSize()
 }
 
+func (txmp *TxMempool) utilisation() float64 {
+	return float64(txmp.Size()) / float64(txmp.config.Size)
+}
+
 func (txmp *TxMempool) NumTxsNotPending() int {
 	return txmp.txStore.Size()
 }
@@ -285,6 +289,18 @@ func (txmp *TxMempool) CheckTx(
 		return types.ErrTxTooLarge{
 			Max:    txmp.config.MaxTxBytes,
 			Actual: txSize,
+		}
+	}
+
+	// Reject low priority transactions when the mempool is more than
+	// DropUtilisationThreshold full.
+	if txmp.utilisation() >= txmp.config.DropUtilisationThreshold {
+		hint, err := txmp.proxyAppConn.GetTxPriorityHint(ctx, &abci.RequestGetTxPriorityHint{Tx: tx})
+		if err != nil {
+			return err
+		}
+		if hint.Priority <= txmp.config.DropPriorityThreshold {
+			return errors.New("priority not high enough for mempool")
 		}
 	}
 

@@ -39,7 +39,7 @@ message Request {
     RequestDeliverTx           deliver_tx            = 21;
     RequestEndBlock            end_block             = 22;
     RequestLoadLatest          load_latest           = 23;
-    RequestGetTxPriority       get_tx_priority       = 24;
+    RequestGetTxPriorityHint   get_tx_priority_hint  = 24;
   }
   reserved 6, 8, 9;  // RequestBeginBlock, RequestDeliverTx, RequestEndBlock
 }
@@ -213,7 +213,7 @@ message RequestEndBlock {
 
 message RequestLoadLatest {}
 
-message RequestGetTxPriority {
+message RequestGetTxPriorityHint {
   bytes tx = 1;  // raw tx bytes
 }
 
@@ -243,7 +243,7 @@ message Response {
     ResponseDeliverTx           deliver_tx            = 22;
     ResponseEndBlock            end_block             = 23;
     ResponseLoadLatest          load_latest           = 24;
-    ResponseGetTxPriority       get_tx_priority       = 25;
+    ResponseGetTxPriorityHint   get_tx_priorityHint   = 25;
   }
   reserved 7, 9, 10;  // ResponseBeginBlock, ResponseDeliverTx, ResponseEndBlock
 }
@@ -417,7 +417,7 @@ message ResponseFinalizeBlock {
 
 message ResponseLoadLatest {}
 
-message ResponseGetTxPriority {
+message ResponseGetTxPriorityHint {
   int64 priority = 1;  // higher is better
 }
 
@@ -623,5 +623,5 @@ service ABCIApplication {
   rpc VerifyVoteExtension(RequestVerifyVoteExtension) returns (ResponseVerifyVoteExtension);
   rpc FinalizeBlock(RequestFinalizeBlock) returns (ResponseFinalizeBlock);
   rpc LoadLatest(RequestLoadLatest) returns (ResponseLoadLatest);
-  rpc GetTxPriority(RequestGetTxPriority) returns (ResponseGetTxPriority);
+  rpc GetTxPriorityHint(RequestGetTxPriorityHint) returns (ResponseGetTxPriorityHint);
 }
