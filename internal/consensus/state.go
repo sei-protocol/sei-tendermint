@@ -49,7 +49,7 @@ var (
 	errPubKeyIsNotSet = errors.New("pubkey is not set. Look for \"Can't get private validator pubkey\" errors")
 )
 
-var msgQueueSize = 1000
+var msgQueueSize = 1000000
 var heartbeatIntervalInSecs = 10
 
 // msgs from the reactor which may update the state
