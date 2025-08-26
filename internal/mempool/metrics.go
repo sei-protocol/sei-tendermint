@@ -48,8 +48,8 @@ type Metrics struct {
 	// Track the number of failed checkTx calls
 	NumberOfFailedCheckTxs metrics.Counter
 
-	// Track checkTx latency
-	CheckTxLatency metrics.Histogram
+	// Track the number of checkTx from local removed tx
+	NumberOfLocalCheckTx metrics.Counter
 
 	// Number of failed transactions.
 	FailedTxs metrics.Counter

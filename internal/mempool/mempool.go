@@ -290,10 +290,6 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
-	startTime := time.Now()
-	defer func() {
-		txmp.metrics.CheckTxLatency.Observe(float64(time.Since(startTime).Milliseconds()))
-	}()
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
@@ -337,6 +333,9 @@ func (txmp *TxMempool) CheckTx(
 		txmp.metrics.NumberOfFailedCheckTxs.Add(1)
 	} else {
 		txmp.metrics.NumberOfSuccessfulCheckTxs.Add(1)
+	}
+	if len(txInfo.SenderNodeID) == 0 {
+		txmp.metrics.NumberOfLocalCheckTx.Add(1)
 	}
 
 	// when a transaction is removed/expired/rejected, this should be called
