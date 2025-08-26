@@ -292,8 +292,10 @@ func TestNopTxCacheWithTTL(t *testing.T) {
 	t.Run("Increment", func(t *testing.T) {
 		txKey := createTestTxKey("test")
 		cache.Increment(txKey)
-		count, _ := cache.Get(txKey)
-		assert.Equal(t, 1, count)
+		count, found := cache.Get(txKey)
+		// NOP cache should always return 0 and false, regardless of operations
+		assert.Equal(t, 0, count)
+		assert.False(t, found)
 	})
 
 	t.Run("Reset", func(t *testing.T) {
