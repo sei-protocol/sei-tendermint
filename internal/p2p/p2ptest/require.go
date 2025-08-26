@@ -4,11 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/internal/p2p"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
 )
 
@@ -25,7 +23,7 @@ func RequireEmpty(t *testing.T, channels ...*p2p.Channel) {
 // RequireReceive requires that the given envelope is received on the channel.
 func RequireReceive(t *testing.T, channel *p2p.Channel, expect p2p.Envelope) {
 	t.Helper()
-	RequireReceiveUnordered(t, channel, []*p2p.Envelope{&expect})
+	RequireReceiveUnordered(t, channel, utils.Slice(&expect))
 }
 
 // RequireReceiveUnordered requires that the given envelopes are all received on
@@ -51,19 +49,6 @@ func RequireReceiveUnordered(t *testing.T, channel *p2p.Channel, expect []*p2p.E
 func RequireSend(t *testing.T, channel *p2p.Channel, envelope p2p.Envelope) {
 	t.Logf("sending message %v", envelope)
 	require.NoError(t,channel.Send(t.Context(), envelope))
-}
-
-// RequireSendReceive requires that a given Protobuf message is sent to the
-// given peer, and then that the given response is received back.
-func RequireSendReceive(
-	t *testing.T,
-	channel *p2p.Channel,
-	peerID types.NodeID,
-	send proto.Message,
-	receive proto.Message,
-) {
-	RequireSend(t, channel, p2p.Envelope{To: peerID, Message: send})
-	RequireReceive(t, channel, p2p.Envelope{From: peerID, Message: send})
 }
 
 // RequireNoUpdates requires that a PeerUpdates subscription is empty.

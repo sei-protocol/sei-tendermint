@@ -1,9 +1,7 @@
 package p2p
 
 import (
-	"context"
 	"testing"
-	"time"
 )
 
 func TestSimpleQueue(t *testing.T) {
@@ -16,18 +14,10 @@ func TestSimpleQueue(t *testing.T) {
 	for range 100 {
 		sq.Send(Envelope{From: "merlin"},0)
 	}
-
-	seen := 0
-
-	for seen <= 2 {
-		ctx,cancel := context.WithTimeout(ctx,10 * time.Millisecond)
-		defer cancel()
-		if _,err:=sq.Recv(ctx); err!=nil {
-			break
-		}
+	if _,err:=sq.Recv(ctx); err!=nil {
+		t.Fatal(err)
 	}
-	// if we don't see any messages, then it's just broken.
-	if seen != 1 {
-		t.Errorf("seen %d messages, should have seen %v", seen, 1)
+	if sq.Len()!=0 {
+		t.Fatalf("queue length is %d, should be 0", sq.Len())
 	}
 }

@@ -834,7 +834,8 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
 	c := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("c", 40))}
 
-	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
+	logger,_ := log.NewDefaultLogger("plain","debug")
+	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
 			a.NodeID: p2p.DefaultMutableScore - 1, // Set lower score for a to make it upgradeable
 			b.NodeID: p2p.DefaultMutableScore + 1, // Higher score for b to attempt upgrade
@@ -845,7 +846,7 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	}, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	// Add and connect to peer a (lower scored)
+	t.Logf("Add and connect to peer a (lower scored)")
 	added, err := peerManager.Add(a)
 	require.NoError(t, err)
 	require.True(t, added)
@@ -854,7 +855,7 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	require.Equal(t, a, dial)
 	require.NoError(t, peerManager.Dialed(a))
 
-	// Add both higher scored peers b and c
+	t.Logf("Add both higher scored peers b and c")
 	added, err = peerManager.Add(b)
 	require.NoError(t, err)
 	require.True(t, added)
@@ -862,13 +863,13 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, added)
 
-	// Attempt to dial b for upgrade
+	t.Logf("Attempt to dial b for upgrade")
 	dial, err = peerManager.TryDialNext()
 	require.NoError(t, err)
 	require.Equal(t, b, dial)
 
-	// When b's dial fails, the upgrade slot should be freed
-	// allowing c to attempt upgrade of the same peer (a)
+	t.Logf("When b's dial fails, the upgrade slot should be freed")
+	t.Logf("allowing c to attempt upgrade of the same peer (a)")
 	require.NoError(t, peerManager.DialFailed(ctx, b))
 	dial, err = peerManager.TryDialNext()
 	require.NoError(t, err)

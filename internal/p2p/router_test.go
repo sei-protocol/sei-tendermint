@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	slog "log"
 
 	"github.com/fortytw2/leaktest"
 	"github.com/gogo/protobuf/proto"
@@ -31,6 +32,7 @@ func echoReactor(ctx context.Context, channel *p2p.Channel) {
 	for iter.Next(ctx) {
 		envelope := iter.Envelope()
 		value := envelope.Message.(*p2ptest.Message).Value
+		slog.Printf("sending back %v", value)
 		if err := channel.Send(ctx, p2p.Envelope{
 			To:      envelope.From,
 			Message: &p2ptest.Message{Value: value},
@@ -38,6 +40,7 @@ func echoReactor(ctx context.Context, channel *p2p.Channel) {
 			return
 		}
 	}
+	slog.Printf("echoReactor done")
 }
 
 func TestRouter_Network(t *testing.T) {
@@ -60,10 +63,9 @@ func TestRouter_Network(t *testing.T) {
 
 	t.Logf("Sending a message to each peer should work.")
 	for _, peer := range peers {
-		p2ptest.RequireSendReceive(t, channel, peer.NodeID,
-			&p2ptest.Message{Value: "foo"},
-			&p2ptest.Message{Value: "foo"},
-		)
+		msg := &p2ptest.Message{Value: "foo"}
+		p2ptest.RequireSend(t, channel, p2p.Envelope{To: peer.NodeID, Message: msg, ChannelID: chDesc.ID})
+		p2ptest.RequireReceive(t, channel, p2p.Envelope{From: peer.NodeID, Message: msg, ChannelID: chDesc.ID})
 	}
 
 	t.Logf("Sending a broadcast should return back a message from all peers.")
@@ -167,46 +169,46 @@ func TestRouter_Channel_SendReceive(t *testing.T) {
 
 	network.Start(ctx, t)
 
-	// Sending a message a->b should work, and not send anything
-	// further to a, b, or c.
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &p2ptest.Message{Value: "foo"}})
-	p2ptest.RequireReceive(t, b, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "foo"}})
+	t.Logf("Sending a message a->b should work, and not send anything further to a, b, or c.")
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, b, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// Sending a nil message a->b should be dropped.
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: nil})
+	t.Logf("Sending a nil message a->b should be dropped.")
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: nil, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// Sending a different message type should be dropped.
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &gogotypes.BoolValue{Value: true}})
+	t.Logf("Sending a different message type should be dropped.")
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &gogotypes.BoolValue{Value: true}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// Sending to an unknown peer should be dropped.
+	t.Logf("Sending to an unknown peer should be dropped.")
 	p2ptest.RequireSend(t, a, p2p.Envelope{
 		To:      types.NodeID(strings.Repeat("a", 40)),
 		Message: &p2ptest.Message{Value: "a"},
+		ChannelID: chDesc.ID,
 	})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// Sending without a recipient should be dropped.
-	p2ptest.RequireSend(t, a, p2p.Envelope{Message: &p2ptest.Message{Value: "noto"}})
+	t.Logf("Sending without a recipient should be dropped.")
+	p2ptest.RequireSend(t, a, p2p.Envelope{Message: &p2ptest.Message{Value: "noto"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// Sending to self should be dropped.
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: aID, Message: &p2ptest.Message{Value: "self"}})
+	t.Logf("Sending to self should be dropped.")
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: aID, Message: &p2ptest.Message{Value: "self"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// Removing b and sending to it should be dropped.
+	t.Logf("Removing b and sending to it should be dropped.")
 	network.Remove(ctx, t, bID)
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &p2ptest.Message{Value: "nob"}})
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &p2ptest.Message{Value: "nob"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// After all this, sending a message c->a should work.
-	p2ptest.RequireSend(t, c, p2p.Envelope{To: aID, Message: &p2ptest.Message{Value: "bar"}})
-	p2ptest.RequireReceive(t, a, p2p.Envelope{From: cID, Message: &p2ptest.Message{Value: "bar"}})
+	t.Logf("After all this, sending a message c->a should work.")
+	p2ptest.RequireSend(t, c, p2p.Envelope{To: aID, Message: &p2ptest.Message{Value: "bar"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, a, p2p.Envelope{From: cID, Message: &p2ptest.Message{Value: "bar"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c)
 
-	// None of these messages should have made it onto the other channels.
+	t.Logf("None of these messages should have made it onto the other channels.")
 	for _, other := range otherChannels {
 		p2ptest.RequireEmpty(t, other)
 	}
@@ -217,7 +219,7 @@ func TestRouter_Channel_Broadcast(t *testing.T) {
 
 	ctx := t.Context()
 
-	// Create a test network and open a channel on all nodes.
+	t.Logf("Create a test network and open a channel on all nodes.")
 	network := p2ptest.MakeNetwork(ctx, t, p2ptest.NetworkOptions{NumNodes: 4})
 
 	ids := network.NodeIDs()
@@ -227,18 +229,18 @@ func TestRouter_Channel_Broadcast(t *testing.T) {
 
 	network.Start(ctx, t)
 
-	// Sending a broadcast from b should work.
-	p2ptest.RequireSend(t, b, p2p.Envelope{Broadcast: true, Message: &p2ptest.Message{Value: "foo"}})
-	p2ptest.RequireReceive(t, a, p2p.Envelope{From: bID, Message: &p2ptest.Message{Value: "foo"}})
-	p2ptest.RequireReceive(t, c, p2p.Envelope{From: bID, Message: &p2ptest.Message{Value: "foo"}})
-	p2ptest.RequireReceive(t, d, p2p.Envelope{From: bID, Message: &p2ptest.Message{Value: "foo"}})
+	t.Logf("Sending a broadcast from b should work.")
+	p2ptest.RequireSend(t, b, p2p.Envelope{Broadcast: true, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, a, p2p.Envelope{From: bID, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, c, p2p.Envelope{From: bID, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, d, p2p.Envelope{From: bID, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c, d)
 
-	// Removing one node from the network shouldn't prevent broadcasts from working.
+	t.Logf("Removing one node from the network shouldn't prevent broadcasts from working.")
 	network.Remove(ctx, t, dID)
-	p2ptest.RequireSend(t, a, p2p.Envelope{Broadcast: true, Message: &p2ptest.Message{Value: "bar"}})
-	p2ptest.RequireReceive(t, b, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "bar"}})
-	p2ptest.RequireReceive(t, c, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "bar"}})
+	p2ptest.RequireSend(t, a, p2p.Envelope{Broadcast: true, Message: &p2ptest.Message{Value: "bar"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, b, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "bar"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, c, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "bar"}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, a, b, c, d)
 }
 
@@ -247,7 +249,7 @@ func TestRouter_Channel_Wrapper(t *testing.T) {
 
 	ctx := t.Context()
 
-	// Create a test network and open a channel on all nodes.
+	t.Logf("Create a test network and open a channel on all nodes.")
 	network := p2ptest.MakeNetwork(ctx, t, p2ptest.NetworkOptions{NumNodes: 2})
 
 	ids := network.NodeIDs()
@@ -257,6 +259,7 @@ func TestRouter_Channel_Wrapper(t *testing.T) {
 		MessageType:         &wrapperMessage{},
 		Priority:            5,
 		SendQueueCapacity:   10,
+		RecvBufferCapacity:   10,
 		RecvMessageCapacity: 10,
 	}
 
@@ -268,11 +271,11 @@ func TestRouter_Channel_Wrapper(t *testing.T) {
 	// Since wrapperMessage implements p2p.Wrapper and handles Message, it
 	// should automatically wrap and unwrap sent messages -- we prepend the
 	// wrapper actions to the message value to signal this.
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &p2ptest.Message{Value: "foo"}})
-	p2ptest.RequireReceive(t, b, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "unwrap:wrap:foo"}})
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &p2ptest.Message{Value: "foo"}, ChannelID: chDesc.ID})
+	p2ptest.RequireReceive(t, b, p2p.Envelope{From: aID, Message: &p2ptest.Message{Value: "unwrap:wrap:foo"}, ChannelID: chDesc.ID})
 
 	// If we send a different message that can't be wrapped, it should be dropped.
-	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &gogotypes.BoolValue{Value: true}})
+	p2ptest.RequireSend(t, a, p2p.Envelope{To: bID, Message: &gogotypes.BoolValue{Value: true}, ChannelID: chDesc.ID})
 	p2ptest.RequireEmpty(t, b)
 
 	// If we send the wrapper message itself, it should also be passed through
@@ -280,10 +283,12 @@ func TestRouter_Channel_Wrapper(t *testing.T) {
 	p2ptest.RequireSend(t, a, p2p.Envelope{
 		To:      bID,
 		Message: &wrapperMessage{Message: p2ptest.Message{Value: "foo"}},
+		ChannelID: chDesc.ID,
 	})
 	p2ptest.RequireReceive(t, b, p2p.Envelope{
 		From:    aID,
 		Message: &p2ptest.Message{Value: "unwrap:foo"},
+		ChannelID: chDesc.ID,
 	})
 
 }
@@ -316,7 +321,7 @@ func TestRouter_Channel_Error(t *testing.T) {
 
 	ctx := t.Context()
 
-	// Create a test network and open a channel on all nodes.
+	t.Logf("Create a test network and open a channel on all nodes.")
 	network := p2ptest.MakeNetwork(ctx, t, p2ptest.NetworkOptions{NumNodes: 3})
 	network.Start(ctx, t)
 
@@ -325,7 +330,7 @@ func TestRouter_Channel_Error(t *testing.T) {
 	channels := network.MakeChannels(t, chDesc)
 	a := channels[aID]
 
-	// Erroring b should cause it to be disconnected. It will reconnect shortly after.
+	t.Logf("Erroring b should cause it to be disconnected. It will reconnect shortly after.")
 	sub := network.Nodes[aID].MakePeerUpdates(ctx, t)
 	p2ptest.RequireSendError(t, a, p2p.PeerError{NodeID: bID, Err: errors.New("boom")})
 	p2ptest.RequireUpdates(t, sub, []p2p.PeerUpdate{

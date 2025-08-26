@@ -127,6 +127,9 @@ func (i *inner) Pop() *pqEnvelope {
 type Queue struct { inner utils.Watch[*inner] }
 
 func NewQueue(size int) *Queue {
+	if size<=0 {
+		size = 1
+	}
 	// TODO(gprusak): this size*size looks ridiculous. Fix it.
 	return &Queue{inner: utils.NewWatch(newInner(size*size))}
 }

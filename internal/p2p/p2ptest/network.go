@@ -51,7 +51,7 @@ func (opts *NetworkOptions) setDefaults() {
 // connects them to each other.
 func MakeNetwork(ctx context.Context, t *testing.T, opts NetworkOptions) *Network {
 	opts.setDefaults()
-	logger := log.NewNopLogger()
+	logger,_ := log.NewDefaultLogger("plain","info")
 	network := &Network{
 		Nodes:         map[types.NodeID]*Node{},
 		logger:        logger,
@@ -255,7 +255,8 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 		maxRetryTime = opts.MaxRetryTime
 	}
 
-	peerManager, err := p2p.NewPeerManager(n.logger, nodeID, dbm.NewMemDB(), p2p.PeerManagerOptions{
+	logger := n.logger.With("node", nodeID[:5])
+	peerManager, err := p2p.NewPeerManager(logger, nodeID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MinRetryTime:    10 * time.Millisecond,
 		MaxRetryTime:    maxRetryTime,
 		RetryTimeJitter: time.Millisecond,
@@ -265,7 +266,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	require.NoError(t, err)
 
 	router, err := p2p.NewRouter(
-		n.logger,
+		logger,
 		p2p.NopMetrics(),
 		privKey,
 		peerManager,
