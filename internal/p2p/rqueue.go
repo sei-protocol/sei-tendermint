@@ -127,7 +127,8 @@ func (i *inner) Pop() *pqEnvelope {
 type queue struct { inner utils.Watch[*inner] }
 
 func newQueue(size int) *queue {
-	return &queue{inner: utils.NewWatch(newInner(size))}
+	// TODO(gprusak): this size*size looks ridiculous. Fix it.
+	return &queue{inner: utils.NewWatch(newInner(size*size))}
 }
 
 // Non-blocking send.

@@ -17,6 +17,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/libs/utils/scope"
 	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
@@ -89,6 +90,12 @@ func (o *RouterOptions) Validate() error {
 	return nil
 }
 
+type peerState struct {
+	cancel context.CancelFunc
+	queue *queue // outbound messages per peer for all channels
+	channels ChannelIDSet // the channels that the peer queue has open
+}
+
 // Router manages peer connections and routes messages between peers and reactor
 // channels. It takes a PeerManager for peer lifecycle management (e.g. which
 // peers to dial and when) and a set of Transports for connecting and
@@ -143,10 +150,7 @@ type Router struct {
 	endpoint    *Endpoint
 	connTracker connectionTracker
 
-	peerMtx    sync.RWMutex
-	peerQueues map[types.NodeID]*queue // outbound messages per peer for all channels
-	// the channels that the peer queue has open
-	peerChannels     map[types.NodeID]ChannelIDSet
+	peerStates utils.RWMutex[map[types.NodeID]*peerState]
 	nodeInfoProducer func() *types.NodeInfo
 
 	// FIXME: We don't strictly need to use a mutex for this if we seal the
@@ -202,8 +206,7 @@ func NewRouter(
 		options:           options,
 		channelQueues:     map[ChannelID]*queue{},
 		channelMessages:   map[ChannelID]proto.Message{},
-		peerQueues:        map[types.NodeID]*queue{},
-		peerChannels:      make(map[types.NodeID]ChannelIDSet),
+		peerStates:        utils.NewRWMutex(map[types.NodeID]*peerState{}),
 		dynamicIDFilterer: dynamicIDFilterer,
 	}
 
@@ -254,17 +257,29 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 
 	r.transport.AddChannelDescriptors([]*ChannelDescriptor{chDesc})
 
-	go func() {
-		defer func() {
-			r.channelMtx.Lock()
-			delete(r.channelQueues, id)
-			delete(r.channelMessages, id)
-			r.channelMtx.Unlock()
-		}()
-
-		r.routeChannel(ctx, chDesc, outCh, errCh, wrapper)
-	}()
-
+	r.Spawn("channel", func(ctx context.Context) error {
+		return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+			s.Spawn(func() error { return r.routeChannel(ctx, chDesc, outCh, wrapper) })
+			for {
+				peerError,err := utils.Recv(ctx,errCh)
+				if err!=nil { return err }
+				shouldEvict := peerError.Fatal || r.peerManager.HasMaxPeerCapacity()
+				r.logger.Error("peer error",
+					"peer", peerError.NodeID,
+					"err", peerError.Err,
+					"evicting", shouldEvict,
+				)
+				if shouldEvict {
+					r.peerManager.Errored(peerError.NodeID, peerError.Err)
+				} else {
+					r.peerManager.processPeerEvent(ctx, PeerUpdate{
+						NodeID: peerError.NodeID,
+						Status: PeerStatusBad,
+					})
+				}
+			}
+		})
+	})
 	return channel, nil
 }
 
@@ -277,106 +292,63 @@ func (r *Router) routeChannel(
 	ctx context.Context,
 	chDesc *ChannelDescriptor,
 	outCh <-chan Envelope,
-	errCh <-chan PeerError,
 	wrapper Wrapper,
-) {
+) error {
 	for {
-		select {
-		case envelope, ok := <-outCh:
-			if !ok {
-				return
-			}
-			if envelope.IsZero() {
+		envelope,err := utils.Recv(ctx, outCh)
+		if err!=nil { return err }
+		if envelope.IsZero() {
+			continue
+		}
+
+		// Mark the envelope with the channel ID to allow sendPeer() to pass
+		// it on to Transport.SendMessage().
+		envelope.ChannelID = chDesc.ID
+
+		// wrap the message in a wrapper message, if requested
+		if wrapper != nil {
+			msg := proto.Clone(wrapper)
+			if err := msg.(Wrapper).Wrap(envelope.Message); err != nil {
+				r.logger.Error("failed to wrap message", "channel", chDesc.ID, "err", err)
 				continue
 			}
 
-			// Mark the envelope with the channel ID to allow sendPeer() to pass
-			// it on to Transport.SendMessage().
-			envelope.ChannelID = chDesc.ID
+			envelope.Message = msg
+		}
 
-			// wrap the message in a wrapper message, if requested
-			if wrapper != nil {
-				msg := proto.Clone(wrapper)
-				if err := msg.(Wrapper).Wrap(envelope.Message); err != nil {
-					r.logger.Error("failed to wrap message", "channel", chDesc.ID, "err", err)
-					continue
-				}
-
-				envelope.Message = msg
-			}
-
-			// collect peer queues to pass the message via
-			var queues []*queue
-			if envelope.Broadcast {
-				r.peerMtx.RLock()
-
-				queues = make([]*queue, 0, len(r.peerQueues))
-				for nodeID, q := range r.peerQueues {
-					peerChs := r.peerChannels[nodeID]
-
-					// check whether the peer is receiving on that channel
-					if _, ok := peerChs[chDesc.ID]; ok {
-						queues = append(queues, q)
+		// collect peer queues to pass the message via
+		var queues []*queue
+		if envelope.Broadcast {
+			for states := range r.peerStates.RLock() {
+				queues = make([]*queue, 0, len(states))
+				for _, s := range states {
+					if _, ok := s.channels[chDesc.ID]; ok {
+						queues = append(queues, s.queue)
 					}
 				}
-
-				r.peerMtx.RUnlock()
-			} else {
-				r.peerMtx.RLock()
-
-				q, ok := r.peerQueues[envelope.To]
-				contains := false
-				if ok {
-					peerChs := r.peerChannels[envelope.To]
-
-					// check whether the peer is receiving on that channel
-					_, contains = peerChs[chDesc.ID]
-				}
-				r.peerMtx.RUnlock()
-
-				if !ok {
-					r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chDesc.ID)
-					continue
-				}
-
-				if !contains {
-					// reactor tried to send a message across a channel that the
-					// peer doesn't have available. This is a known issue due to
-					// how peer subscriptions work:
-					// https://github.com/tendermint/tendermint/issues/6598
-					continue
-				}
-
-				queues = []*queue{q}
 			}
-
-			// send message to peers
-			for _, q := range queues {
-				q.Send(envelope, chDesc.Priority)
+		} else {
+			ok := false
+			var s *peerState
+			for states := range r.peerStates.RLock() {
+				s,ok = states[envelope.To]
 			}
-
-		case peerError, ok := <-errCh:
 			if !ok {
-				return
+				r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chDesc.ID)
+				continue
 			}
-
-			shouldEvict := peerError.Fatal || r.peerManager.HasMaxPeerCapacity()
-			r.logger.Error("peer error",
-				"peer", peerError.NodeID,
-				"err", peerError.Err,
-				"evicting", shouldEvict,
-			)
-			if shouldEvict {
-				r.peerManager.Errored(peerError.NodeID, peerError.Err)
-			} else {
-				r.peerManager.processPeerEvent(ctx, PeerUpdate{
-					NodeID: peerError.NodeID,
-					Status: PeerStatusBad,
-				})
+			if _, contains := s.channels[chDesc.ID]; !contains {
+				// reactor tried to send a message across a channel that the
+				// peer doesn't have available. This is a known issue due to
+				// how peer subscriptions work:
+				// https://github.com/tendermint/tendermint/issues/6598
+				continue
 			}
-
-		case <-ctx.Done():
-			return
+			queues = []*queue{s.queue}
+		}
+		// send message to peers
+		for _, q := range queues {
+			q.Send(envelope, chDesc.Priority)
 		}
 	}
 }
@@ -467,12 +439,11 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 		}
 
 		// Spawn a goroutine for the handshake, to avoid head-of-line blocking.
-		go r.openConnection(ctx, conn)
-
+		r.Spawn("openConnection",func(ctx context.Context) error { return r.openConnection(ctx, conn) })
 	}
 }
 
-func (r *Router) openConnection(ctx context.Context, conn Connection) {
+func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 	defer conn.Close()
 	defer r.connTracker.RemoveConn(conn.RemoteEndpoint().IP)
 
@@ -481,7 +452,7 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 
 	if err := r.filterPeersIP(ctx, incomingIP, re.Port); err != nil {
 		r.logger.Debug("peer filtered by IP", "ip", incomingIP.String(), "err", err)
-		return
+		return nil
 	}
 
 	// FIXME: The peer manager may reject the peer during Accepted()
@@ -500,16 +471,12 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 	// message to make sure both ends have accepted the connection, such
 	// that it can be coordinated with the peer manager.
 	peerInfo, err := r.handshakePeer(ctx, conn, "")
-	switch {
-	case errors.Is(err, context.Canceled):
-		return
-	case err != nil:
-		r.logger.Error("peer handshake failed", "endpoint", conn, "err", err)
-		return
+	if err!=nil {
+		return fmt.Errorf("peer handshake failed: endpoint=%v: %w", conn, err)
 	}
 	if err := r.filterPeersID(ctx, peerInfo.NodeID); err != nil {
 		r.logger.Debug("peer filtered by node ID", "node", peerInfo.NodeID, "err", err)
-		return
+		return nil
 	}
 
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
@@ -517,12 +484,9 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) {
 		if strings.Contains(err.Error(), "is already connected") {
 			r.peerManager.Errored(peerInfo.NodeID, err)
 		}
-		r.logger.Error("failed to accept connection",
-			"op", "incoming/accepted", "peer", peerInfo.NodeID, "err", err)
-		return
+		return fmt.Errorf("failed to accept connection: op=incoming/accepted, peer=%v: %w",peerInfo.NodeID,err)
 	}
-
-	r.routePeer(ctx, peerInfo.NodeID, conn, toChannelIDs(peerInfo.Channels))
+	return r.routePeer(ctx, peerInfo.NodeID, conn, toChannelIDs(peerInfo.Channels))
 }
 
 // dialPeers maintains outbound connections to peers by dialing them.
@@ -621,22 +585,10 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		return
 	}
 
-	// routePeer (also) calls connection close
-	go r.routePeer(ctx, address.NodeID, conn, toChannelIDs(peerInfo.Channels))
-}
-
-func (r *Router) getOrMakeQueue(peerID types.NodeID, channels ChannelIDSet) *queue {
-	r.peerMtx.Lock()
-	defer r.peerMtx.Unlock()
-
-	if peerQueue, ok := r.peerQueues[peerID]; ok {
-		return peerQueue
-	}
-
-	peerQueue := newQueue(queueBufferDefault)
-	r.peerQueues[peerID] = peerQueue
-	r.peerChannels[peerID] = channels
-	return peerQueue
+	r.Spawn("routePeer",func(ctx context.Context) error {
+		defer conn.Close()
+		return r.routePeer(ctx, address.NodeID, conn, toChannelIDs(peerInfo.Channels))
+	})
 }
 
 // dialPeer connects to a peer by dialing it.
@@ -739,76 +691,44 @@ func (r *Router) handshakePeer(
 }
 
 func (r *Router) runWithPeerMutex(fn func() error) error {
-	r.peerMtx.Lock()
-	defer r.peerMtx.Unlock()
-	return fn()
+	for range r.peerStates.Lock() {
+		return fn()
+	}
+	panic("unreachable")
 }
 
 // routePeer routes inbound and outbound messages between a peer and the reactor
 // channels. It will close the given connection and send queue when done, or if
 // they are closed elsewhere it will cause this method to shut down and return.
-func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) {
+func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) error {
 	r.metrics.Peers.Add(1)
 	r.peerManager.Ready(ctx, peerID, channels)
 
-	sendQueue := r.getOrMakeQueue(peerID, channels)
-	defer func() {
-		r.peerMtx.Lock()
-		delete(r.peerQueues, peerID)
-		delete(r.peerChannels, peerID)
-		r.peerMtx.Unlock()
-
-		r.peerManager.Disconnected(ctx, peerID)
-		r.metrics.Peers.Add(-1)
-	}()
-
+	ctx,cancel := context.WithCancel(ctx)
+	state := &peerState{
+		cancel:   cancel,
+		queue: newQueue(queueBufferDefault),
+		channels: channels,
+	}
+	for states := range r.peerStates.Lock() {
+		if old,ok := states[peerID]; ok {
+			old.cancel()
+		}
+		states[peerID] = state
+	}
 	r.logger.Debug("peer connected", "peer", peerID, "endpoint", conn)
-
-	errCh := make(chan error, 2)
-
-	go func() {
-		select {
-		case errCh <- r.receivePeer(ctx, peerID, conn):
-		case <-ctx.Done():
-		}
-	}()
-
-	go func() {
-		select {
-		case errCh <- utils.IgnoreCancel(r.sendPeer(ctx, peerID, conn, sendQueue)):
-		case <-ctx.Done():
-		}
-	}()
-
-	var err error
-	select {
-	case err = <-errCh:
-	case <-ctx.Done():
+	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		s.Spawn(func() error { return r.receivePeer(ctx, peerID, conn) })
+		s.Spawn(func() error { return r.sendPeer(ctx, peerID, conn, state.queue) })
+		return nil
+	})
+	r.logger.Info("peer disconnected", "peer", peerID, "endpoint", conn, "err", err)
+	for states := range r.peerStates.Lock() {
+		delete(states, peerID)
 	}
-
-	_ = conn.Close()
-
-	select {
-	case <-ctx.Done():
-	case e := <-errCh:
-		// The first err was nil, so we update it with the second err, which may
-		// or may not be nil.
-		if err == nil {
-			err = e
-		}
-	}
-
-	// if the context was canceled
-	if e := ctx.Err(); err == nil && e != nil {
-		err = e
-	}
-
-	switch err {
-	case nil, io.EOF:
-		r.logger.Debug("peer disconnected", "peer", peerID, "endpoint", conn)
-	default:
-		r.logger.Error("peer failure", "peer", peerID, "endpoint", conn, "err", err)
-	}
+	r.peerManager.Disconnected(ctx, peerID)
+	r.metrics.Peers.Add(-1)
+	return err
 }
 
 // receivePeer receives inbound messages from a peer, deserializes them and
@@ -897,7 +817,11 @@ func (r *Router) evictPeers(ctx context.Context) {
 		}
 
 		r.logger.Info("evicting peer", "peer", peerID)
-		// TODO: we need to cancel the peer here.
+		for states := range r.peerStates.Lock() {
+			if s,ok := states[peerID]; ok {
+				s.cancel()
+			}
+		}
 	}
 }
 
