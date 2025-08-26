@@ -71,7 +71,7 @@ func (x *byMax[T]) Pop() any {
 // into a priority queue used for Envelope scheduling.
 type pqEnvelope struct {
 	envelope  Envelope
-	priority  uint
+	priority  int
 	size      int
 	timestamp time.Time
 }
@@ -124,14 +124,14 @@ func (i *inner) Pop() *pqEnvelope {
 	return w.v
 }
 
-type simpleQueue struct { inner utils.Watch[*inner] }
+type queue struct { inner utils.Watch[*inner] }
 
-func newSimplePriorityQueue(size int) *simpleQueue {
-	return &simpleQueue{inner: utils.NewWatch(newInner(size))}
+func newQueue(size int) *queue {
+	return &queue{inner: utils.NewWatch(newInner(size))}
 }
 
 // Non-blocking send.
-func (q *simpleQueue) Send(e Envelope, priority uint) {
+func (q *queue) Send(e Envelope, priority int) {
 	// We construct the pqEnvelope without holding the lock to avoid contention.
 	pqe := &pqEnvelope{
 		envelope:  e,
@@ -146,7 +146,7 @@ func (q *simpleQueue) Send(e Envelope, priority uint) {
 }
 
 // Blocking recv.
-func (q *simpleQueue) Recv(ctx context.Context) (Envelope,error) {
+func (q *queue) Recv(ctx context.Context) (Envelope,error) {
 	for inner,ctrl := range q.inner.Lock() {
 		if err:=ctrl.WaitUntil(ctx,func() bool { return inner.Len()>0 }); err!=nil {
 			return Envelope{},err
