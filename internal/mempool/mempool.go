@@ -290,6 +290,10 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
+	startTime := time.Now()
+	defer func() {
+		txmp.metrics.CheckTxLatency.Observe(float64(time.Since(startTime).Milliseconds()))
+	}()
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
@@ -324,7 +328,7 @@ func (txmp *TxMempool) CheckTx(
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
 	if txmp.config.DuplicateTxsCacheSize > 0 {
-		_ = txmp.duplicateTxsCache.Increment(txHash)
+		txmp.duplicateTxsCache.Increment(txHash)
 	}
 
 	res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})

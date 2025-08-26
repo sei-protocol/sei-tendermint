@@ -80,6 +80,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "number_of_failed_check_txs",
 			Help:      "Track the number of failed checkTx calls",
 		}, labels).With(labelsAndValues...),
+		CheckTxLatency: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "check_tx_latency",
+			Help:      "Track checkTx latency",
+		}, labels).With(labelsAndValues...),
 		FailedTxs: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -138,6 +144,7 @@ func NopMetrics() *Metrics {
 		NumberOfNonDuplicateTxs:     discard.NewGauge(),
 		NumberOfSuccessfulCheckTxs:  discard.NewCounter(),
 		NumberOfFailedCheckTxs:      discard.NewCounter(),
+		CheckTxLatency:              discard.NewHistogram(),
 		FailedTxs:                   discard.NewCounter(),
 		RejectedTxs:                 discard.NewCounter(),
 		EvictedTxs:                  discard.NewCounter(),

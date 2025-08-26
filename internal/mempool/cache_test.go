@@ -186,8 +186,7 @@ func TestDuplicateTxCache(t *testing.T) {
 		txKey := createTestTxKey("new_key")
 
 		// Increment non-existent key should start with 1
-		result := cache.Increment(txKey)
-		assert.Equal(t, 1, result)
+		cache.Increment(txKey)
 
 		// Verify it was stored
 		counter, found := cache.Get(txKey)
@@ -203,8 +202,7 @@ func TestDuplicateTxCache(t *testing.T) {
 		cache.Set(txKey, 3)
 
 		// Increment existing key
-		result := cache.Increment(txKey)
-		assert.Equal(t, 4, result)
+		cache.Increment(txKey)
 
 		// Verify it was updated
 		counter, found := cache.Get(txKey)
@@ -293,8 +291,9 @@ func TestNopTxCacheWithTTL(t *testing.T) {
 
 	t.Run("Increment", func(t *testing.T) {
 		txKey := createTestTxKey("test")
-		result := cache.Increment(txKey)
-		assert.Equal(t, 1, result)
+		cache.Increment(txKey)
+		count, _ := cache.Get(txKey)
+		assert.Equal(t, 1, count)
 	})
 
 	t.Run("Reset", func(t *testing.T) {

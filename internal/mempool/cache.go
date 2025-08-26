@@ -127,7 +127,7 @@ var _ TxCacheWithTTL = (*NopTxCacheWithTTL)(nil)
 
 func (NopTxCacheWithTTL) Set(_ types.TxKey, _ int)                    {}
 func (NopTxCacheWithTTL) Get(_ types.TxKey) (counter int, found bool) { return 0, false }
-func (NopTxCacheWithTTL) Increment(_ types.TxKey) int                 { return 1 }
+func (NopTxCacheWithTTL) Increment(_ types.TxKey)                     {}
 func (NopTxCacheWithTTL) Reset()                                      {}
 
 func (NopTxCacheWithTTL) GetForMetrics() (int, int, int, int) { return 0, 0, 0, 0 }
@@ -143,7 +143,7 @@ type TxCacheWithTTL interface {
 	Get(txKey types.TxKey) (counter int, found bool)
 
 	// Increment increments the counter for a transaction key, extending TTL
-	Increment(txKey types.TxKey) int
+	Increment(txKey types.TxKey)
 
 	// GetForMetrics returns the max count, total count, duplicate count, and non duplicate count
 	GetForMetrics() (int, int, int, int)
@@ -192,24 +192,12 @@ func (t *DuplicateTxCache) Get(txKey types.TxKey) (counter int, found bool) {
 }
 
 // Increment increments the counter for a transaction key, extending TTL
-func (t *DuplicateTxCache) Increment(txKey types.TxKey) int {
+func (t *DuplicateTxCache) Increment(txKey types.TxKey) {
 	key := txKeyToString(txKey)
-
-	if value, exists := t.cache.Get(key); exists {
-		if currentCounter, ok := value.(int); ok {
-			newCounter := currentCounter + 1
-			t.cache.SetDefault(key, newCounter)
-			return newCounter
-		}
+	err := t.cache.Increment(key, 1)
+	if err != nil {
+		t.cache.SetDefault(key, 1)
 	}
-
-	newCounter := 1
-	if t.cache.ItemCount() <= t.maxSize {
-		// If key is not found and we have space, insert with counter = 1
-		t.cache.SetDefault(key, newCounter)
-	}
-
-	return newCounter
 }
 
 // Reset clears the cache
