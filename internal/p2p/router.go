@@ -92,7 +92,7 @@ func (o *RouterOptions) Validate() error {
 
 type peerState struct {
 	cancel context.CancelFunc
-	queue *queue // outbound messages per peer for all channels
+	queue *Queue // outbound messages per peer for all channels
 	channels ChannelIDSet // the channels that the peer queue has open
 }
 
@@ -157,7 +157,7 @@ type Router struct {
 	// channels on router start. This depends on whether we want to allow
 	// dynamic channels in the future.
 	channelMtx      sync.RWMutex
-	channelQueues   map[ChannelID]*queue // inbound messages from all peers to a single channel
+	channelQueues   map[ChannelID]*Queue // inbound messages from all peers to a single channel
 	channelMessages map[ChannelID]proto.Message
 
 	chDescsToBeAdded []chDescAdderWithCallback
@@ -204,7 +204,7 @@ func NewRouter(
 		endpoint:          endpoint,
 		peerManager:       peerManager,
 		options:           options,
-		channelQueues:     map[ChannelID]*queue{},
+		channelQueues:     map[ChannelID]*Queue{},
 		channelMessages:   map[ChannelID]proto.Message{},
 		peerStates:        utils.NewRWMutex(map[types.NodeID]*peerState{}),
 		dynamicIDFilterer: dynamicIDFilterer,
@@ -238,7 +238,7 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 
 	messageType := chDesc.MessageType
 
-	queue := newQueue(chDesc.RecvBufferCapacity)
+	queue := NewQueue(chDesc.RecvBufferCapacity)
 	outCh := make(chan Envelope, chDesc.RecvBufferCapacity)
 	errCh := make(chan PeerError, chDesc.RecvBufferCapacity)
 	channel := NewChannel(id, queue, outCh, errCh)
@@ -317,10 +317,10 @@ func (r *Router) routeChannel(
 		}
 
 		// collect peer queues to pass the message via
-		var queues []*queue
+		var queues []*Queue
 		if envelope.Broadcast {
 			for states := range r.peerStates.RLock() {
-				queues = make([]*queue, 0, len(states))
+				queues = make([]*Queue, 0, len(states))
 				for _, s := range states {
 					if _, ok := s.channels[chDesc.ID]; ok {
 						queues = append(queues, s.queue)
@@ -344,7 +344,7 @@ func (r *Router) routeChannel(
 				// https://github.com/tendermint/tendermint/issues/6598
 				continue
 			}
-			queues = []*queue{s.queue}
+			queues = []*Queue{s.queue}
 		}
 		// send message to peers
 		for _, q := range queues {
@@ -707,7 +707,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 	ctx,cancel := context.WithCancel(ctx)
 	state := &peerState{
 		cancel:   cancel,
-		queue: newQueue(queueBufferDefault),
+		queue: NewQueue(queueBufferDefault),
 		channels: channels,
 	}
 	for states := range r.peerStates.Lock() {
@@ -777,7 +777,7 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 }
 
 // sendPeer sends queued messages to a peer.
-func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connection, peerQueue *queue) error {
+func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connection, peerQueue *Queue) error {
 	for {
 		start := time.Now().UTC()
 		envelope,err := peerQueue.Recv(ctx)

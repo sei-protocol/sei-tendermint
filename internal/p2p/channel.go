@@ -61,7 +61,7 @@ func (pe PeerError) Unwrap() error { return pe.Err }
 // Each message is wrapped in an Envelope to specify its sender and receiver.
 type Channel struct {
 	ID    ChannelID
-	inCh  *queue  // inbound messages (peers to reactors)
+	inCh  *Queue  // inbound messages (peers to reactors)
 	outCh chan<- Envelope  // outbound messages (reactors to peers)
 	errCh chan<- PeerError // peer error reporting
 
@@ -70,7 +70,7 @@ type Channel struct {
 
 // NewChannel creates a new channel. It is primarily for internal and test
 // use, reactors should use Router.OpenChannel().
-func NewChannel(id ChannelID, inCh *queue, outCh chan<- Envelope, errCh chan<- PeerError) *Channel {
+func NewChannel(id ChannelID, inCh *Queue, outCh chan<- Envelope, errCh chan<- PeerError) *Channel {
 	return &Channel{
 		ID:    id,
 		inCh:  inCh,

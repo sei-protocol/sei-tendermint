@@ -76,20 +76,20 @@ func TestReactorSendsRequestsTooOften(t *testing.T) {
 
 	badNode := newNodeID(t, "b")
 
-	r.pexInCh <- p2p.Envelope{
+	r.pexInCh.Send(p2p.Envelope{
 		From:    badNode,
 		Message: &p2pproto.PexRequest{},
-	}
+	},0)
 
 	resp := <-r.pexOutCh
 	msg, ok := resp.Message.(*p2pproto.PexResponse)
 	require.True(t, ok)
 	require.Empty(t, msg.Addresses)
 
-	r.pexInCh <- p2p.Envelope{
+	r.pexInCh.Send(p2p.Envelope{
 		From:    badNode,
 		Message: &p2pproto.PexRequest{},
-	}
+	},0)
 
 	peerErr := <-r.pexErrCh
 	require.Error(t, peerErr.Err)
@@ -170,12 +170,12 @@ func TestReactorErrorsOnReceivingTooManyPeers(t *testing.T) {
 		if _, ok := req.Message.(*p2pproto.PexRequest); !ok {
 			t.Fatal("expected v2 pex request")
 		}
-		r.pexInCh <- p2p.Envelope{
+		r.pexInCh.Send(p2p.Envelope{
 			From: peer.NodeID,
 			Message: &p2pproto.PexResponse{
 				Addresses: addresses,
 			},
-		}
+		},0)
 
 	case <-time.After(10 * time.Second):
 		t.Fatal("pex failed to send a request within 10 seconds")
@@ -266,7 +266,7 @@ func TestReactorWithNetworkGrowth(t *testing.T) {
 
 type singleTestReactor struct {
 	reactor  *pex.Reactor
-	pexInCh  chan p2p.Envelope
+	pexInCh  *p2p.Queue
 	pexOutCh chan p2p.Envelope
 	pexErrCh chan p2p.PeerError
 	pexCh    *p2p.Channel
@@ -278,7 +278,7 @@ func setupSingle(ctx context.Context, t *testing.T) *singleTestReactor {
 	t.Helper()
 	nodeID := newNodeID(t, "a")
 	chBuf := 2
-	pexInCh := make(chan p2p.Envelope, chBuf)
+	pexInCh := p2p.NewQueue(chBuf)
 	pexOutCh := make(chan p2p.Envelope, chBuf)
 	pexErrCh := make(chan p2p.PeerError, chBuf)
 	pexCh := p2p.NewChannel(
