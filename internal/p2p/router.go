@@ -220,13 +220,8 @@ func NewRouter(
 // kind shim for testing purposes.
 type ChannelCreator func(context.Context, *ChannelDescriptor) (*Channel, error)
 
-// OpenChannel opens a new channel for the given message type. The caller must
-// close the channel when done, before stopping the Router. messageType is the
-// type of message passed through the channel (used for unmarshaling), which can
-// implement Wrapper to automatically (un)wrap multiple message types in a
-// wrapper message. The caller may provide a size to make the channel buffered,
-// which internally makes the inbound, outbound, and error channel buffered.
-func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*Channel, error) {
+// OpenChannel opens a new channel for the given message type.
+func (r *Router) OpenChannel(chDesc *ChannelDescriptor) (*Channel, error) {
 	r.channelMtx.Lock()
 	defer r.channelMtx.Unlock()
 
@@ -834,7 +829,7 @@ func (r *Router) OnStart(ctx context.Context) error {
 	}
 
 	for _, chDescWithCb := range r.chDescsToBeAdded {
-		if ch, err := r.OpenChannel(ctx, chDescWithCb.chDesc); err != nil {
+		if ch, err := r.OpenChannel(chDescWithCb.chDesc); err != nil {
 			return err
 		} else {
 			chDescWithCb.cb(ch)

@@ -131,6 +131,13 @@ func NewQueue(size int) *Queue {
 	return &Queue{inner: utils.NewWatch(newInner(size*size))}
 }
 
+func (q *Queue) Len() int {
+	for inner := range q.inner.Lock() {
+		return inner.Len()
+	}
+	panic("unreachable")
+}
+
 // Non-blocking send.
 func (q *Queue) Send(e Envelope, priority int) {
 	// We construct the pqEnvelope without holding the lock to avoid contention.

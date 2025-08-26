@@ -103,6 +103,8 @@ func (ch *Channel) SendError(ctx context.Context, pe PeerError) error {
 
 func (ch *Channel) String() string { return fmt.Sprintf("p2p.Channel<%d:%s>", ch.ID, ch.name) }
 
+func (ch *Channel) ReceiveLen() int { return ch.inCh.Len() }
+
 // Receive returns a new unbuffered iterator to receive messages from ch.
 // The iterator runs until ctx ends.
 func (ch *Channel) Receive(ctx context.Context) *ChannelIterator {
