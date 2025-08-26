@@ -479,7 +479,7 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 		return nil
 	}
 
-	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
+	if err := r.peerManager.Accepted(peerInfo.NodeID); err != nil {
 		// If peer is trying to reconnect, error and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
 			r.peerManager.Errored(peerInfo.NodeID, err)
@@ -572,7 +572,7 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		return
 	}
 
-	if err := r.runWithPeerMutex(func() error { return r.peerManager.Dialed(address) }); err != nil {
+	if err := r.peerManager.Dialed(address); err != nil {
 		// If peer is trying to reconnect, fail it and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
 			r.logger.Error(fmt.Sprintf("Disconnecting %s because of %s", address.NodeID, err))
@@ -690,21 +690,13 @@ func (r *Router) handshakePeer(
 	return peerInfo, nil
 }
 
-func (r *Router) runWithPeerMutex(fn func() error) error {
-	for range r.peerStates.Lock() {
-		return fn()
-	}
-	panic("unreachable")
-}
-
 // routePeer routes inbound and outbound messages between a peer and the reactor
 // channels. It will close the given connection and send queue when done, or if
 // they are closed elsewhere it will cause this method to shut down and return.
 func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) error {
 	r.metrics.Peers.Add(1)
-	r.peerManager.Ready(ctx, peerID, channels)
 
-	ctx,cancel := context.WithCancel(ctx)
+	peerCtx,cancel := context.WithCancel(ctx)
 	state := &peerState{
 		cancel:   cancel,
 		queue: NewQueue(queueBufferDefault),
@@ -717,9 +709,12 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 		states[peerID] = state
 	}
 	r.logger.Debug("peer connected", "peer", peerID, "endpoint", conn)
-	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+	r.peerManager.Ready(ctx, peerID, channels)
+	err := scope.Run(peerCtx, func(ctx context.Context, s scope.Scope) error {
 		s.Spawn(func() error { return r.receivePeer(ctx, peerID, conn) })
 		s.Spawn(func() error { return r.sendPeer(ctx, peerID, conn, state.queue) })
+		<-ctx.Done()
+		_ = conn.Close() // TODO: conn.ReceiveMessage() (either in inmem or mconn) does not respect the context. Fix that.
 		return nil
 	})
 	r.logger.Info("peer disconnected", "peer", peerID, "endpoint", conn, "err", err)

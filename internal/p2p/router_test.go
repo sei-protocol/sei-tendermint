@@ -96,17 +96,18 @@ func TestRouter_Network(t *testing.T) {
 
 func TestRouter_Channel_Basic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
+	logger,_ := log.NewDefaultLogger("plain","debug")
 
 	ctx := t.Context()
 
 	// Set up a router with no transports (so no peers).
-	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
+	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
 
 	testnet := p2ptest.MakeNetwork(ctx, t, p2ptest.NetworkOptions{NumNodes: 1})
 
 	router, err := p2p.NewRouter(
-		log.NewNopLogger(),
+		logger,
 		p2p.NopMetrics(),
 		selfKey,
 		peerManager,
@@ -121,7 +122,7 @@ func TestRouter_Channel_Basic(t *testing.T) {
 	require.NoError(t, router.Start(ctx))
 	t.Cleanup(router.Wait)
 
-	// Opening a channel should work.
+	t.Logf("Opening a channel should work.")
 	chctx, chcancel := context.WithCancel(ctx)
 	defer chcancel()
 
@@ -129,29 +130,29 @@ func TestRouter_Channel_Basic(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, channel)
 
-	// Opening the same channel again should fail.
+	t.Logf("Opening the same channel again should fail.")
 	_, err = router.OpenChannel(ctx, chDesc)
 	require.Error(t, err)
 
-	// Opening a different channel should work.
+	t.Logf("Opening a different channel should work.")
 	chDesc2 := &p2p.ChannelDescriptor{ID: 2, MessageType: &p2ptest.Message{}}
 	_, err = router.OpenChannel(ctx, chDesc2)
 	require.NoError(t, err)
 
-	// Closing the channel, then opening it again should be fine.
+	t.Logf("Closing the channel, then opening it again should be fine.")
 	chcancel()
 	time.Sleep(200 * time.Millisecond) // yes yes, but Close() is async...
 
 	channel, err = router.OpenChannel(ctx, chDesc)
 	require.NoError(t, err)
 
-	// We should be able to send on the channel, even though there are no peers.
+	t.Logf("We should be able to send on the channel, even though there are no peers.")
 	p2ptest.RequireSend(ctx, t, channel, p2p.Envelope{
 		To:      types.NodeID(strings.Repeat("a", 40)),
 		Message: &p2ptest.Message{Value: "foo"},
 	})
 
-	// A message to ourselves should be dropped.
+	t.Logf("A message to ourselves should be dropped.")
 	p2ptest.RequireSend(ctx, t, channel, p2p.Envelope{
 		To:      selfID,
 		Message: &p2ptest.Message{Value: "self"},
@@ -734,6 +735,7 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 
 func TestRouter_EvictPeers(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
+	logger,_ := log.NewDefaultLogger("plain","debug")
 
 	ctx := t.Context()
 
@@ -761,13 +763,13 @@ func TestRouter_EvictPeers(t *testing.T) {
 	mockTransport.On("Listen", mock.Anything).Return(nil)
 
 	// Set up and start the router.
-	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
+	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
 
 	sub := peerManager.Subscribe(ctx)
 
 	router, err := p2p.NewRouter(
-		log.NewNopLogger(),
+		logger,
 		p2p.NopMetrics(),
 		selfKey,
 		peerManager,
@@ -785,7 +787,7 @@ func TestRouter_EvictPeers(t *testing.T) {
 		NodeID: peerInfo.NodeID,
 		Status: p2p.PeerStatusUp,
 	})
-
+	t.Logf("node is up")
 	peerManager.Errored(peerInfo.NodeID, errors.New("boom"))
 
 	p2ptest.RequireUpdate(t, sub, p2p.PeerUpdate{
