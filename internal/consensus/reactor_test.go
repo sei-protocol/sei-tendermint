@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"sync"
@@ -57,7 +58,7 @@ func chDesc(chID p2p.ChannelID, size int) *p2p.ChannelDescriptor {
 	return &p2p.ChannelDescriptor{
 		ID:                 chID,
 		MessageType:        new(tmcons.Message),
-		RecvBufferCapacity: size,
+		RecvBufferCapacity: int(math.Sqrt(float64(size))+1),
 	}
 }
 
