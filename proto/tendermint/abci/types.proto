@@ -243,7 +243,7 @@ message Response {
     ResponseDeliverTx           deliver_tx            = 22;
     ResponseEndBlock            end_block             = 23;
     ResponseLoadLatest          load_latest           = 24;
-    ResponseGetTxPriorityHint   get_tx_priorityHint   = 25;
+    ResponseGetTxPriorityHint   get_tx_priority_hint  = 25;
   }
   reserved 7, 9, 10;  // ResponseBeginBlock, ResponseDeliverTx, ResponseEndBlock
 }
