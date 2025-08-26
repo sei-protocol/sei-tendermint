@@ -35,10 +35,6 @@ type RouterOptions struct {
 	// no timeout.
 	HandshakeTimeout time.Duration
 
-	// QueueType must be, "priority", or "fifo". Defaults to
-	// "fifo".
-	QueueType string
-
 	// MaxIncomingConnectionAttempts rate limits the number of incoming connection
 	// attempts per IP address. Defaults to 100.
 	MaxIncomingConnectionAttempts uint
@@ -75,23 +71,8 @@ type RouterOptions struct {
 	NumConcurrentDials func() int
 }
 
-const (
-	queueTypeFifo           = "fifo"
-	queueTypePriority       = "priority"
-	queueTypeSimplePriority = "simple-priority"
-)
-
 // Validate validates router options.
 func (o *RouterOptions) Validate() error {
-	switch o.QueueType {
-	case "":
-		o.QueueType = queueTypeFifo
-	case queueTypeFifo, queueTypePriority, queueTypeSimplePriority:
-		// pass
-	default:
-		return fmt.Errorf("queue type %q is not supported", o.QueueType)
-	}
-
 	switch {
 	case o.IncomingConnectionWindow == 0:
 		o.IncomingConnectionWindow = 100 * time.Millisecond
@@ -165,7 +146,6 @@ type Router struct {
 	peerQueues map[types.NodeID]queue // outbound messages per peer for all channels
 	// the channels that the peer queue has open
 	peerChannels     map[types.NodeID]ChannelIDSet
-	queueFactory     func(int) queue
 	nodeInfoProducer func() *types.NodeInfo
 
 	// FIXME: We don't strictly need to use a mutex for this if we seal the
@@ -231,30 +211,6 @@ func NewRouter(
 	return router, nil
 }
 
-func (r *Router) createQueueFactory(ctx context.Context) (func(int) queue, error) {
-	switch r.options.QueueType {
-	case queueTypeFifo:
-		return newFIFOQueue, nil
-
-	case queueTypePriority:
-		return func(size int) queue {
-			if size%2 != 0 {
-				size++
-			}
-
-			q := newPQScheduler(r.logger, r.metrics, r.lc, r.chDescs, uint(size)/2, uint(size)/2, defaultCapacity)
-			q.start(ctx)
-			return q
-		}, nil
-
-	case queueTypeSimplePriority:
-		return func(size int) queue { return newSimplePriorityQueue(ctx, size, r.chDescs) }, nil
-
-	default:
-		return nil, fmt.Errorf("cannot construct queue of type %q", r.options.QueueType)
-	}
-}
-
 // ChannelCreator allows routers to construct their own channels,
 // either by receiving a reference to Router.OpenChannel or using some
 // kind shim for testing purposes.
@@ -278,7 +234,7 @@ func (r *Router) OpenChannel(ctx context.Context, chDesc *ChannelDescriptor) (*C
 
 	messageType := chDesc.MessageType
 
-	queue := r.queueFactory(chDesc.RecvBufferCapacity)
+	queue := newSimplePriorityQueue(chDesc.RecvBufferCapacity, r.chDescs)
 	outCh := make(chan Envelope, chDesc.RecvBufferCapacity)
 	errCh := make(chan PeerError, chDesc.RecvBufferCapacity)
 	channel := NewChannel(id, queue.dequeue(), outCh, errCh)
@@ -688,7 +644,7 @@ func (r *Router) getOrMakeQueue(peerID types.NodeID, channels ChannelIDSet) queu
 		return peerQueue
 	}
 
-	peerQueue := r.queueFactory(queueBufferDefault)
+	peerQueue := newSimplePriorityQueue(queueBufferDefault, r.chDescs)
 	r.peerQueues[peerID] = peerQueue
 	r.peerChannels[peerID] = channels
 	return peerQueue
@@ -982,16 +938,6 @@ func (r *Router) evictPeers(ctx context.Context) {
 	}
 }
 
-func (r *Router) setupQueueFactory(ctx context.Context) error {
-	qf, err := r.createQueueFactory(ctx)
-	if err != nil {
-		return err
-	}
-
-	r.queueFactory = qf
-	return nil
-}
-
 func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Channel)) {
 	r.chDescsToBeAdded = append(r.chDescsToBeAdded, chDescAdderWithCallback{
 		chDesc: chDesc,
@@ -1001,10 +947,6 @@ func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Ch
 
 // OnStart implements service.Service.
 func (r *Router) OnStart(ctx context.Context) error {
-	if err := r.setupQueueFactory(ctx); err != nil {
-		return err
-	}
-
 	if err := r.transport.Listen(r.endpoint); err != nil {
 		return err
 	}

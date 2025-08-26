@@ -13,64 +13,6 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 )
 
-// pqEnvelope defines a wrapper around an Envelope with priority to be inserted
-// into a priority queue used for Envelope scheduling.
-type pqEnvelope struct {
-	envelope  Envelope
-	priority  uint
-	size      uint
-	timestamp time.Time
-
-	index int
-}
-
-// priorityQueue defines a type alias for a priority queue implementation.
-type priorityQueue []*pqEnvelope
-
-func (pq priorityQueue) get(i int) *pqEnvelope { return pq[i] }
-func (pq priorityQueue) Len() int              { return len(pq) }
-
-func (pq priorityQueue) Less(i, j int) bool {
-	// if both elements have the same priority, prioritize based
-	// on most recent and largest
-	if pq[i].priority == pq[j].priority {
-		diff := pq[i].timestamp.Sub(pq[j].timestamp)
-		if diff < 0 {
-			diff *= -1
-		}
-		if diff < 10*time.Millisecond {
-			return pq[i].size > pq[j].size
-		}
-		return pq[i].timestamp.After(pq[j].timestamp)
-	}
-
-	// otherwise, pick the pqEnvelope with the higher priority
-	return pq[i].priority > pq[j].priority
-}
-
-func (pq priorityQueue) Swap(i, j int) {
-	pq[i], pq[j] = pq[j], pq[i]
-	pq[i].index = i
-	pq[j].index = j
-}
-
-func (pq *priorityQueue) Push(x interface{}) {
-	n := len(*pq)
-	pqEnv := x.(*pqEnvelope)
-	pqEnv.index = n
-	*pq = append(*pq, pqEnv)
-}
-
-func (pq *priorityQueue) Pop() interface{} {
-	old := *pq
-	n := len(old)
-	pqEnv := old[n-1]
-	old[n-1] = nil
-	pqEnv.index = -1
-	*pq = old[:n-1]
-	return pqEnv
-}
-
 // Assert the priority queue scheduler implements the queue interface at
 // compile-time.
 var _ queue = (*pqScheduler)(nil)
