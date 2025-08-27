@@ -22,7 +22,7 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-const queueBufferDefault = 32
+const queueBufferDefault = 1024
 
 // RouterOptions specifies options for a Router.
 type RouterOptions struct {
@@ -233,7 +233,9 @@ func (r *Router) OpenChannel(chDesc *ChannelDescriptor) (*Channel, error) {
 
 	messageType := chDesc.MessageType
 
-	queue := NewQueue(chDesc.RecvBufferCapacity)
+	// TODO(gprusak): get rid of this random cap*cap value once we understand
+	// what the sizes per channel really should be.
+	queue := NewQueue(chDesc.RecvBufferCapacity * chDesc.RecvBufferCapacity)
 	outCh := make(chan Envelope, chDesc.RecvBufferCapacity)
 	errCh := make(chan PeerError, chDesc.RecvBufferCapacity)
 	channel := NewChannel(id, queue, outCh, errCh)

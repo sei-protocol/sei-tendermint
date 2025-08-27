@@ -130,10 +130,10 @@ type Queue struct{ inner utils.Watch[*inner] }
 
 func NewQueue(size int) *Queue {
 	if size <= 0 {
+		// prevent caller from shooting self in the foot.
 		size = 1
 	}
-	// TODO(gprusak): this size*size looks ridiculous. Fix it.
-	return &Queue{inner: utils.NewWatch(newInner(size * size))}
+	return &Queue{inner: utils.NewWatch(newInner(size))}
 }
 
 func (q *Queue) Len() int {
