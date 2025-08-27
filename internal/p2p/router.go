@@ -349,7 +349,9 @@ func (r *Router) routeChannel(
 		}
 		// send message to peers
 		for _, q := range queues {
-			q.Send(envelope, chDesc.Priority)
+			if pruned, ok := q.Send(envelope, chDesc.Priority).Get(); ok {
+				r.metrics.QueueDroppedMsgs.With("ch_id", string(pruned.ChannelID), "direction", "out").Add(float64(1))
+			}
 		}
 	}
 }
@@ -786,7 +788,9 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 
 		start := time.Now().UTC()
 		// Priority is not used since all messages in this queue are from the same channel.
-		queue.Send(Envelope{From: peerID, Message: msg, ChannelID: chID}, 0)
+		if pruned, ok := queue.Send(Envelope{From: peerID, Message: msg, ChannelID: chID}, 0).Get(); ok {
+			r.metrics.QueueDroppedMsgs.With("ch_id", string(pruned.ChannelID), "direction", "in").Add(float64(1))
+		}
 		r.metrics.PeerReceiveBytesTotal.With(
 			"chID", fmt.Sprint(chID),
 			"peer_id", string(peerID),

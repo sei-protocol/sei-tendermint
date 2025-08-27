@@ -110,14 +110,16 @@ func newInner(capacity int) *inner {
 
 func (i *inner) Len() int { return i.byMin.Len() }
 
-func (i *inner) Push(e *pqEnvelope) {
+func (i *inner) Push(e *pqEnvelope) utils.Option[Envelope] {
 	w := newWithIdx(e)
 	heap.Push(&i.byMin, w)
 	heap.Push(&i.byMax, w)
 	if i.byMin.Len() > i.capacity {
 		w := heap.Pop(&i.byMax).(*withIdx[*pqEnvelope])
 		heap.Remove(&i.byMin, w.minIdx)
+		return utils.Some(w.v.envelope)
 	}
+	return utils.None[Envelope]()
 }
 
 func (i *inner) Pop() *pqEnvelope {
@@ -144,7 +146,8 @@ func (q *Queue) Len() int {
 }
 
 // Non-blocking send.
-func (q *Queue) Send(e Envelope, priority int) {
+// Returns the pruned message if any.
+func (q *Queue) Send(e Envelope, priority int) utils.Option[Envelope] {
 	// We construct the pqEnvelope without holding the lock to avoid contention.
 	pqe := &pqEnvelope{
 		envelope:  e,
@@ -153,9 +156,11 @@ func (q *Queue) Send(e Envelope, priority int) {
 		timestamp: time.Now().UTC(),
 	}
 	for inner, ctrl := range q.inner.Lock() {
-		inner.Push(pqe)
+		pruned := inner.Push(pqe)
 		ctrl.Updated()
+		return pruned
 	}
+	panic("unreachable")
 }
 
 // Blocking recv.
