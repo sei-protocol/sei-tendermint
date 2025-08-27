@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/gogo/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 

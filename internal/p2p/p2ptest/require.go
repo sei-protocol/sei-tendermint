@@ -13,7 +13,7 @@ import (
 // RequireEmpty requires that the given channel is empty.
 func RequireEmpty(t *testing.T, channels ...*p2p.Channel) {
 	t.Helper()
-	for _,ch := range channels {
+	for _, ch := range channels {
 		if ch.ReceiveLen() != 0 {
 			t.Errorf("nonempty channel %v", ch)
 		}
@@ -42,19 +42,19 @@ func RequireReceiveUnordered(t *testing.T, channel *p2p.Channel, expect []*p2p.E
 			return
 		}
 	}
-	require.FailNow(t,"not enough messages")
+	require.FailNow(t, "not enough messages")
 }
 
 // RequireSend requires that the given envelope is sent on the channel.
 func RequireSend(t *testing.T, channel *p2p.Channel, envelope p2p.Envelope) {
 	t.Logf("sending message %v", envelope)
-	require.NoError(t,channel.Send(t.Context(), envelope))
+	require.NoError(t, channel.Send(t.Context(), envelope))
 }
 
 // RequireNoUpdates requires that a PeerUpdates subscription is empty.
 func RequireNoUpdates(ctx context.Context, t *testing.T, peerUpdates *p2p.PeerUpdates) {
 	t.Helper()
-	if len(peerUpdates.Updates())!=0 {
+	if len(peerUpdates.Updates()) != 0 {
 		require.FailNow(t, "unexpected peer updates")
 	}
 }
@@ -67,8 +67,8 @@ func RequireSendError(t *testing.T, channel *p2p.Channel, peerError p2p.PeerErro
 // RequireUpdate requires that a PeerUpdates subscription yields the given update.
 func RequireUpdate(t *testing.T, peerUpdates *p2p.PeerUpdates, expect p2p.PeerUpdate) {
 	t.Logf("awaiting update %v", expect)
-	update,err := utils.Recv(t.Context(),peerUpdates.Updates())
-	if err!=nil {
+	update, err := utils.Recv(t.Context(), peerUpdates.Updates())
+	if err != nil {
 		require.FailNow(t, "utils.Recv(): %w", err)
 	}
 	require.Equal(t, expect.NodeID, update.NodeID, "node id did not match")
@@ -81,9 +81,9 @@ func RequireUpdates(t *testing.T, peerUpdates *p2p.PeerUpdates, expect []p2p.Pee
 	t.Logf("awaiting %d updates", len(expect))
 	actual := []p2p.PeerUpdate{}
 	for {
-		update,err := utils.Recv(t.Context(),peerUpdates.Updates())
-		if err!=nil {
-			require.FailNow(t,"utils.Recv(): %v",err)
+		update, err := utils.Recv(t.Context(), peerUpdates.Updates())
+		if err != nil {
+			require.FailNow(t, "utils.Recv(): %v", err)
 		}
 		actual = append(actual, update)
 		if len(actual) == len(expect) {

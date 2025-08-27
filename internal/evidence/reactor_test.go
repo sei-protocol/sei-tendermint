@@ -64,8 +64,8 @@ func setup(ctx context.Context, t *testing.T, stateStores []sm.Store) *reactorTe
 	}
 
 	chDesc := &p2p.ChannelDescriptor{
-		ID: evidence.EvidenceChannel,
-		MessageType: new(tmproto.Evidence),
+		ID:                 evidence.EvidenceChannel,
+		MessageType:        new(tmproto.Evidence),
 		RecvBufferCapacity: 10,
 	}
 	rts.evidenceChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)

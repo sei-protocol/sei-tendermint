@@ -7,8 +7,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/types"
 )
 
 // Envelope contains a message with sender/receiver routing info.
@@ -61,7 +61,7 @@ func (pe PeerError) Unwrap() error { return pe.Err }
 // Each message is wrapped in an Envelope to specify its sender and receiver.
 type Channel struct {
 	ID    ChannelID
-	inCh  *Queue  // inbound messages (peers to reactors)
+	inCh  *Queue           // inbound messages (peers to reactors)
 	outCh chan<- Envelope  // outbound messages (reactors to peers)
 	errCh chan<- PeerError // peer error reporting
 
@@ -131,9 +131,13 @@ type ChannelIterator struct {
 
 func iteratorWorker(ctx context.Context, ch *Channel, pipe chan Envelope) {
 	for {
-		e,err:=ch.inCh.Recv(ctx)
-		if err!=nil { return }
-		if err:=utils.Send(ctx, pipe, e); err!=nil { return }
+		e, err := ch.inCh.Recv(ctx)
+		if err != nil {
+			return
+		}
+		if err := utils.Send(ctx, pipe, e); err != nil {
+			return
+		}
 	}
 }
 

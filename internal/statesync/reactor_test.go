@@ -246,7 +246,7 @@ func TestReactor_ChunkRequest_InvalidRequest(t *testing.T) {
 		From:      types.NodeID("aa"),
 		ChannelID: ChunkChannel,
 		Message:   &ssproto.SnapshotsRequest{},
-	},0)
+	}, 0)
 
 	response := <-rts.chunkPeerErrCh
 	require.Error(t, response.Err)
@@ -301,7 +301,7 @@ func TestReactor_ChunkRequest(t *testing.T) {
 				From:      types.NodeID("aa"),
 				ChannelID: ChunkChannel,
 				Message:   tc.request,
-			},0)
+			}, 0)
 
 			response := <-rts.chunkOutCh
 			require.Equal(t, tc.expectResponse, response.Message)
@@ -321,7 +321,7 @@ func TestReactor_SnapshotsRequest_InvalidRequest(t *testing.T) {
 		From:      types.NodeID("aa"),
 		ChannelID: SnapshotChannel,
 		Message:   &ssproto.ChunkRequest{},
-	},0)
+	}, 0)
 
 	response := <-rts.snapshotPeerErrCh
 	require.Error(t, response.Err)
@@ -381,7 +381,7 @@ func TestReactor_SnapshotsRequest(t *testing.T) {
 				From:      types.NodeID("aa"),
 				ChannelID: SnapshotChannel,
 				Message:   &ssproto.SnapshotsRequest{},
-			},0)
+			}, 0)
 
 			if len(tc.expectResponses) > 0 {
 				retryUntil(ctx, t, func() bool { return len(rts.snapshotOutCh) == len(tc.expectResponses) }, time.Second)
@@ -440,7 +440,7 @@ func TestReactor_LightBlockResponse(t *testing.T) {
 		Message: &ssproto.LightBlockRequest{
 			Height: 10,
 		},
-	},0)
+	}, 0)
 	require.Empty(t, rts.blockPeerErrCh)
 
 	select {
@@ -737,7 +737,7 @@ func handleLightBlockRequests(
 						Message: &ssproto.LightBlockResponse{
 							LightBlock: lb,
 						},
-					},0)
+					}, 0)
 				} else {
 					switch errorCount % 3 {
 					case 0: // send a different block
@@ -751,7 +751,7 @@ func handleLightBlockRequests(
 							Message: &ssproto.LightBlockResponse{
 								LightBlock: differntLB,
 							},
-						},0)
+						}, 0)
 					case 1: // send nil block i.e. pretend we don't have it
 						sending.Send(p2p.Envelope{
 							From:      envelope.To,
@@ -759,7 +759,7 @@ func handleLightBlockRequests(
 							Message: &ssproto.LightBlockResponse{
 								LightBlock: nil,
 							},
-						},0)
+						}, 0)
 					case 2: // don't do anything
 					}
 					errorCount++
@@ -799,7 +799,7 @@ func handleConsensusParamsRequest(
 					Height:          msg.Height,
 					ConsensusParams: paramsProto,
 				},
-			},0)
+			}, 0)
 		case <-closeCh:
 			return
 		}
@@ -908,7 +908,7 @@ func handleSnapshotRequests(
 						Hash:     snapshot.Hash,
 						Metadata: snapshot.Metadata,
 					},
-				},0)
+				}, 0)
 			}
 		}
 	}
@@ -942,7 +942,7 @@ func handleChunkRequests(
 					Chunk:   chunk,
 					Missing: false,
 				},
-			},0)
+			}, 0)
 
 		}
 	}

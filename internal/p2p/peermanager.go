@@ -1326,7 +1326,7 @@ func (s *peerStore) Ranked() []*peerInfo {
 	sort.Slice(s.ranked, func(i, j int) bool {
 		// FIXME: If necessary, consider precomputing scores before sorting,
 		// to reduce the number of Score() calls.
-		if a,b := s.ranked[i].Score(),s.ranked[j].Score(); a != b {
+		if a, b := s.ranked[i].Score(), s.ranked[j].Score(); a != b {
 			return a > b
 		}
 		// TODO(gprusak): we don't allow ties because tests require deterministic order.

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	slog "log"
 	"runtime"
 	"strings"
 	"sync"
 	"testing"
 	"time"
-	slog "log"
 
 	"github.com/fortytw2/leaktest"
 	"github.com/gogo/protobuf/proto"
@@ -98,7 +98,7 @@ func TestRouter_Network(t *testing.T) {
 
 func TestRouter_Channel_Basic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	logger,_ := log.NewDefaultLogger("plain","debug")
+	logger, _ := log.NewDefaultLogger("plain", "debug")
 
 	ctx := t.Context()
 
@@ -184,8 +184,8 @@ func TestRouter_Channel_SendReceive(t *testing.T) {
 
 	t.Logf("Sending to an unknown peer should be dropped.")
 	p2ptest.RequireSend(t, a, p2p.Envelope{
-		To:      types.NodeID(strings.Repeat("a", 40)),
-		Message: &p2ptest.Message{Value: "a"},
+		To:        types.NodeID(strings.Repeat("a", 40)),
+		Message:   &p2ptest.Message{Value: "a"},
 		ChannelID: chDesc.ID,
 	})
 	p2ptest.RequireEmpty(t, a, b, c)
@@ -259,7 +259,7 @@ func TestRouter_Channel_Wrapper(t *testing.T) {
 		MessageType:         &wrapperMessage{},
 		Priority:            5,
 		SendQueueCapacity:   10,
-		RecvBufferCapacity:   10,
+		RecvBufferCapacity:  10,
 		RecvMessageCapacity: 10,
 	}
 
@@ -281,13 +281,13 @@ func TestRouter_Channel_Wrapper(t *testing.T) {
 	// If we send the wrapper message itself, it should also be passed through
 	// since WrapperMessage supports it, and should only be unwrapped at the receiver.
 	p2ptest.RequireSend(t, a, p2p.Envelope{
-		To:      bID,
-		Message: &wrapperMessage{Message: p2ptest.Message{Value: "foo"}},
+		To:        bID,
+		Message:   &wrapperMessage{Message: p2ptest.Message{Value: "foo"}},
 		ChannelID: chDesc.ID,
 	})
 	p2ptest.RequireReceive(t, b, p2p.Envelope{
-		From:    aID,
-		Message: &p2ptest.Message{Value: "unwrap:foo"},
+		From:      aID,
+		Message:   &p2ptest.Message{Value: "unwrap:foo"},
 		ChannelID: chDesc.ID,
 	})
 
@@ -730,7 +730,7 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 
 func TestRouter_EvictPeers(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	logger,_ := log.NewDefaultLogger("plain","debug")
+	logger, _ := log.NewDefaultLogger("plain", "debug")
 
 	ctx := t.Context()
 

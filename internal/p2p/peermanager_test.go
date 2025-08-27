@@ -834,7 +834,7 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
 	c := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("c", 40))}
 
-	logger,_ := log.NewDefaultLogger("plain","debug")
+	logger, _ := log.NewDefaultLogger("plain", "debug")
 	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
 			a.NodeID: p2p.DefaultMutableScore - 1, // Set lower score for a to make it upgradeable

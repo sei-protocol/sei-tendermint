@@ -79,7 +79,7 @@ func TestReactorSendsRequestsTooOften(t *testing.T) {
 	r.pexInCh.Send(p2p.Envelope{
 		From:    badNode,
 		Message: &p2pproto.PexRequest{},
-	},0)
+	}, 0)
 
 	resp := <-r.pexOutCh
 	msg, ok := resp.Message.(*p2pproto.PexResponse)
@@ -89,7 +89,7 @@ func TestReactorSendsRequestsTooOften(t *testing.T) {
 	r.pexInCh.Send(p2p.Envelope{
 		From:    badNode,
 		Message: &p2pproto.PexRequest{},
-	},0)
+	}, 0)
 
 	peerErr := <-r.pexErrCh
 	require.Error(t, peerErr.Err)
@@ -175,7 +175,7 @@ func TestReactorErrorsOnReceivingTooManyPeers(t *testing.T) {
 			Message: &p2pproto.PexResponse{
 				Addresses: addresses,
 			},
-		},0)
+		}, 0)
 
 	case <-time.After(10 * time.Second):
 		t.Fatal("pex failed to send a request within 10 seconds")

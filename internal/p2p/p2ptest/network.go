@@ -51,7 +51,7 @@ func (opts *NetworkOptions) setDefaults() {
 // connects them to each other.
 func MakeNetwork(ctx context.Context, t *testing.T, opts NetworkOptions) *Network {
 	opts.setDefaults()
-	logger,_ := log.NewDefaultLogger("plain","info")
+	logger, _ := log.NewDefaultLogger("plain", "info")
 	network := &Network{
 		Nodes:         map[types.NodeID]*Node{},
 		logger:        logger,

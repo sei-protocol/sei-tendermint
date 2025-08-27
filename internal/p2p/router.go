@@ -16,9 +16,9 @@ import (
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/libs/utils/scope"
-	"github.com/tendermint/tendermint/libs/service"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -91,8 +91,8 @@ func (o *RouterOptions) Validate() error {
 }
 
 type peerState struct {
-	cancel context.CancelFunc
-	queue *Queue // outbound messages per peer for all channels
+	cancel   context.CancelFunc
+	queue    *Queue       // outbound messages per peer for all channels
 	channels ChannelIDSet // the channels that the peer queue has open
 }
 
@@ -150,7 +150,7 @@ type Router struct {
 	endpoint    *Endpoint
 	connTracker connectionTracker
 
-	peerStates utils.RWMutex[map[types.NodeID]*peerState]
+	peerStates       utils.RWMutex[map[types.NodeID]*peerState]
 	nodeInfoProducer func() *types.NodeInfo
 
 	// FIXME: We don't strictly need to use a mutex for this if we seal the
@@ -256,8 +256,10 @@ func (r *Router) OpenChannel(chDesc *ChannelDescriptor) (*Channel, error) {
 		return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 			s.Spawn(func() error { return r.routeChannel(ctx, chDesc, outCh, wrapper) })
 			for {
-				peerError,err := utils.Recv(ctx,errCh)
-				if err!=nil { return err }
+				peerError, err := utils.Recv(ctx, errCh)
+				if err != nil {
+					return err
+				}
 				shouldEvict := peerError.Fatal || r.peerManager.HasMaxPeerCapacity()
 				r.logger.Error("peer error",
 					"peer", peerError.NodeID,
@@ -290,8 +292,10 @@ func (r *Router) routeChannel(
 	wrapper Wrapper,
 ) error {
 	for {
-		envelope,err := utils.Recv(ctx, outCh)
-		if err!=nil { return err }
+		envelope, err := utils.Recv(ctx, outCh)
+		if err != nil {
+			return err
+		}
 		if envelope.IsZero() {
 			continue
 		}
@@ -326,7 +330,7 @@ func (r *Router) routeChannel(
 			ok := false
 			var s *peerState
 			for states := range r.peerStates.RLock() {
-				s,ok = states[envelope.To]
+				s, ok = states[envelope.To]
 			}
 			if !ok {
 				r.logger.Debug("dropping message for unconnected peer", "peer", envelope.To, "channel", chDesc.ID)
@@ -434,7 +438,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
 		}
 
 		// Spawn a goroutine for the handshake, to avoid head-of-line blocking.
-		r.Spawn("openConnection",func(ctx context.Context) error { return r.openConnection(ctx, conn) })
+		r.Spawn("openConnection", func(ctx context.Context) error { return r.openConnection(ctx, conn) })
 	}
 }
 
@@ -466,7 +470,7 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 	// message to make sure both ends have accepted the connection, such
 	// that it can be coordinated with the peer manager.
 	peerInfo, err := r.handshakePeer(ctx, conn, "")
-	if err!=nil {
+	if err != nil {
 		return fmt.Errorf("peer handshake failed: endpoint=%v: %w", conn, err)
 	}
 	if err := r.filterPeersID(ctx, peerInfo.NodeID); err != nil {
@@ -474,12 +478,15 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 		return nil
 	}
 
+	// TODO(gprusak): this is fragile that updating peerManager requires a lock on peerStates.
+	// If this is intended, they should just share the same mutex.
+	// Also currently the pattern of keeping the mutex locked for peerManager accesses is inconsistent.
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
 		// If peer is trying to reconnect, error and let it reconnect
 		if strings.Contains(err.Error(), "is already connected") {
 			r.peerManager.Errored(peerInfo.NodeID, err)
 		}
-		return fmt.Errorf("failed to accept connection: op=incoming/accepted, peer=%v: %w",peerInfo.NodeID,err)
+		return fmt.Errorf("failed to accept connection: op=incoming/accepted, peer=%v: %w", peerInfo.NodeID, err)
 	}
 	return r.routePeer(ctx, peerInfo.NodeID, conn, toChannelIDs(peerInfo.Channels))
 }
@@ -569,6 +576,11 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 
 	if err := r.runWithPeerMutex(func() error { return r.peerManager.Dialed(address) }); err != nil {
 		// If peer is trying to reconnect, fail it and let it reconnect
+		// TODO(gprusak): this symmetric logic for handling duplicate connections is a source of race conditions:
+		// if 2 nodes try to establish a connection to each other at the same time, both connections will be dropped.
+		// Instead either:
+		// * break the symmetry by favoring incoming connection iff my.NodeID > peer.NodeID
+		// * keep incoming and outcoming connection pools separate to avoid the collision (recommended)
 		if strings.Contains(err.Error(), "is already connected") {
 			r.logger.Error(fmt.Sprintf("Disconnecting %s because of %s", address.NodeID, err))
 			r.peerManager.Disconnected(ctx, address.NodeID)
@@ -580,7 +592,7 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		return
 	}
 
-	r.Spawn("routePeer",func(ctx context.Context) error {
+	r.Spawn("routePeer", func(ctx context.Context) error {
 		defer conn.Close()
 		return r.routePeer(ctx, address.NodeID, conn, toChannelIDs(peerInfo.Channels))
 	})
@@ -691,6 +703,7 @@ func (r *Router) runWithPeerMutex(fn func() error) error {
 	}
 	panic("unreachable")
 }
+
 // routePeer routes inbound and outbound messages between a peer and the reactor
 // channels. It will close the given connection and send queue when done, or if
 // they are closed elsewhere it will cause this method to shut down and return.
@@ -698,14 +711,14 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 	r.metrics.Peers.Add(1)
 	r.peerManager.Ready(ctx, peerID, channels)
 
-	peerCtx,cancel := context.WithCancel(ctx)
+	peerCtx, cancel := context.WithCancel(ctx)
 	state := &peerState{
 		cancel:   cancel,
-		queue: NewQueue(queueBufferDefault),
+		queue:    NewQueue(queueBufferDefault),
 		channels: channels,
 	}
 	for states := range r.peerStates.Lock() {
-		if old,ok := states[peerID]; ok {
+		if old, ok := states[peerID]; ok {
 			old.cancel()
 		}
 		states[peerID] = state
@@ -715,12 +728,15 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 		s.Spawn(func() error { return r.receivePeer(ctx, peerID, conn) })
 		s.Spawn(func() error { return r.sendPeer(ctx, peerID, conn, state.queue) })
 		<-ctx.Done()
-		_ = conn.Close() // TODO: conn.ReceiveMessage() (either in inmem or mconn) does not respect the context. Fix that.
+		// TODO(gprusak): we need to close the connection here, because
+		// the mock connection used in tests does not respect the context.
+		// Get rid of these stupid mocks.
+		_ = conn.Close()
 		return nil
 	})
 	r.logger.Info("peer disconnected", "peer", peerID, "endpoint", conn, "err", err)
 	for states := range r.peerStates.Lock() {
-		if states[peerID]==state {
+		if states[peerID] == state {
 			delete(states, peerID)
 		}
 	}
@@ -768,7 +784,7 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 
 		start := time.Now().UTC()
 		// Priority is not used since all messages in this queue are from the same channel.
-		queue.Send(Envelope{From: peerID, Message: msg, ChannelID: chID},0)
+		queue.Send(Envelope{From: peerID, Message: msg, ChannelID: chID}, 0)
 		r.metrics.PeerReceiveBytesTotal.With(
 			"chID", fmt.Sprint(chID),
 			"peer_id", string(peerID),
@@ -782,8 +798,10 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connection, peerQueue *Queue) error {
 	for {
 		start := time.Now().UTC()
-		envelope,err := peerQueue.Recv(ctx)
-		if err!=nil { return err }
+		envelope, err := peerQueue.Recv(ctx)
+		if err != nil {
+			return err
+		}
 		r.metrics.RouterPeerQueueRecv.Observe(time.Since(start).Seconds())
 		if envelope.Message == nil {
 			r.logger.Error("dropping nil message", "peer", peerID)
@@ -820,7 +838,7 @@ func (r *Router) evictPeers(ctx context.Context) {
 
 		r.logger.Info("evicting peer", "peer", peerID)
 		for states := range r.peerStates.Lock() {
-			if s,ok := states[peerID]; ok {
+			if s, ok := states[peerID]; ok {
 				s.cancel()
 			}
 		}

@@ -12,12 +12,12 @@ func TestSimpleQueue(t *testing.T) {
 	// queue, most of which we'll watch it drop.
 	sq := NewQueue(1)
 	for range 100 {
-		sq.Send(Envelope{From: "merlin"},0)
+		sq.Send(Envelope{From: "merlin"}, 0)
 	}
-	if _,err:=sq.Recv(ctx); err!=nil {
+	if _, err := sq.Recv(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if sq.Len()!=0 {
+	if sq.Len() != 0 {
 		t.Fatalf("queue length is %d, should be 0", sq.Len())
 	}
 }
