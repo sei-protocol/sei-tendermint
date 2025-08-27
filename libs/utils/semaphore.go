@@ -16,7 +16,7 @@ func NewSemaphore(n int) *Semaphore {
 
 // Acquire acquires a permit from the semaphore.
 // Blocks until a permit is available.
-func (s *Semaphore) Acquire(ctx context.Context) (relase func(), err error) {
+func (s *Semaphore) Acquire(ctx context.Context) (release func(), err error) {
 	if err := Send(ctx, s.ch, struct{}{}); err != nil {
 		return nil, err
 	}
