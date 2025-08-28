@@ -409,6 +409,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %w", err)
 		}
+		r.metrics.NewConnections.With("direction","in").Add(1)
 		incomingIP := conn.RemoteEndpoint().IP
 		if err := r.connTracker.AddConn(incomingIP); err != nil {
 			closeErr := conn.Close()
@@ -609,6 +610,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		if err != nil {
 			r.logger.Debug("failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
 		} else {
+			r.metrics.NewConnections.With("direction","out").Add(1)
 			r.logger.Debug("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
 			return conn, nil
 		}

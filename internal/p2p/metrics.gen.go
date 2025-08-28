@@ -44,6 +44,12 @@ func PrometheusMetrics(namespace string, labelsAndValues ...string) *Metrics {
 			Name:      "peer_pending_send_bytes",
 			Help:      "Number of bytes pending being sent to a given peer.",
 		}, append(labels, "peer_id")).With(labelsAndValues...),
+		NewConnections: prometheus.NewCounterFrom(stdprometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: MetricsSubsystem,
+			Name:      "new_connections",
+			Help:      "Number of newly established connections.",
+		}, append(labels, "direction")).With(labelsAndValues...),
 		RouterPeerQueueRecv: prometheus.NewHistogramFrom(stdprometheus.HistogramOpts{
 			Namespace: namespace,
 			Subsystem: MetricsSubsystem,
@@ -78,6 +84,7 @@ func NopMetrics() *Metrics {
 		PeerReceiveBytesTotal:  discard.NewCounter(),
 		PeerSendBytesTotal:     discard.NewCounter(),
 		PeerPendingSendBytes:   discard.NewGauge(),
+		NewConnections:         discard.NewCounter(),
 		RouterPeerQueueRecv:    discard.NewHistogram(),
 		RouterPeerQueueSend:    discard.NewHistogram(),
 		RouterChannelQueueSend: discard.NewHistogram(),
