@@ -830,12 +830,10 @@ func (r *Router) OnStart(ctx context.Context) error {
 		}
 	}
 
-	return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		s.SpawnNamed("dialPeers", func() error { return r.dialPeers(ctx) })
-		s.SpawnNamed("evictPeers", func() error { return r.evictPeers(ctx) })
-		s.SpawnNamed("acceptPeers", func() error { return r.acceptPeers(ctx, r.transport) })
-		return nil
-	})
+	r.Spawn("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
+	r.Spawn("evictPeers", func(ctx context.Context) error { return r.evictPeers(ctx) })
+	r.Spawn("acceptPeers", func(ctx context.Context) error { return r.acceptPeers(ctx, r.transport) })
+	return nil
 }
 
 // OnStop implements service.Service.
