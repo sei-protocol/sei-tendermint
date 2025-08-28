@@ -274,7 +274,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 		transport,
 		ep,
 		nil,
-		p2p.RouterOptions{DialSleep: func(_ context.Context) {}},
+		p2p.RouterOptions{DialSleep: func(_ context.Context) error { return nil }},
 	)
 
 	require.NoError(t, err)

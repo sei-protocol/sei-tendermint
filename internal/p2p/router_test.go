@@ -698,7 +698,7 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 		nil,
 		nil,
 		p2p.RouterOptions{
-			DialSleep: func(_ context.Context) {},
+			DialSleep: func(_ context.Context) error { return nil },
 			NumConcurrentDials: func() int {
 				ncpu := runtime.NumCPU()
 				if ncpu <= 3 {

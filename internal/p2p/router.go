@@ -65,7 +65,7 @@ type RouterOptions struct {
 	// sleeps between dialing peers. If not set, a default value
 	// is used that sleeps for a (random) amount of time up to 3
 	// seconds between submitting each peer to be dialed.
-	DialSleep func(context.Context)
+	DialSleep func(context.Context) error
 
 	// NumConcrruentDials controls how many parallel go routines
 	// are used to dial peers. This defaults to the value of
@@ -387,48 +387,28 @@ func (r *Router) filterPeersID(ctx context.Context, id types.NodeID) error {
 	return r.options.FilterPeerByID(ctx, id)
 }
 
-func (r *Router) dialSleep(ctx context.Context) {
-	if r.options.DialSleep == nil {
-		const (
-			maxDialerInterval = 3000
-			minDialerInterval = 250
-		)
-
-		// nolint:gosec // G404: Use of weak random number generator
-		dur := time.Duration(rand.Int63n(maxDialerInterval-minDialerInterval+1) + minDialerInterval)
-
-		timer := time.NewTimer(dur * time.Millisecond)
-		defer timer.Stop()
-
-		select {
-		case <-ctx.Done():
-		case <-timer.C:
-		}
-
-		return
+func (r *Router) dialSleep(ctx context.Context) error {
+	if r.options.DialSleep != nil {
+		return r.options.DialSleep(ctx)
 	}
+	const (
+		maxDialerInterval = 3000
+		minDialerInterval = 250
+	)
 
-	r.options.DialSleep(ctx)
+	// nolint:gosec // G404: Use of weak random number generator
+	dur := time.Duration(rand.Int63n(maxDialerInterval-minDialerInterval+1) + minDialerInterval)
+	return utils.Sleep(ctx, dur*time.Millisecond)
 }
 
 // acceptPeers accepts inbound connections from peers on the given transport,
 // and spawns goroutines that route messages to/from them.
-func (r *Router) acceptPeers(ctx context.Context, transport Transport) {
+func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 	for {
 		conn, err := transport.Accept(ctx)
-		switch {
-		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-			r.logger.Debug("stopping accept routine", "transport", transport, "err", "context canceled")
-			return
-		case errors.Is(err, io.EOF):
-			r.logger.Debug("stopping accept routine", "transport", transport, "err", "EOF")
-			return
-		case err != nil:
-			// in this case we got an error from the net.Listener.
-			r.logger.Error("failed to accept connection", "transport", transport, "err", err)
-			continue
+		if err != nil {
+			return fmt.Errorf("failed to accept connection: %w", err)
 		}
-
 		incomingIP := conn.RemoteEndpoint().IP
 		if err := r.connTracker.AddConn(incomingIP); err != nil {
 			closeErr := conn.Close()
@@ -496,59 +476,44 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 }
 
 // dialPeers maintains outbound connections to peers by dialing them.
-func (r *Router) dialPeers(ctx context.Context) {
-	addresses := make(chan NodeAddress)
-	wg := &sync.WaitGroup{}
-
-	// Start a limited number of goroutines to dial peers in
-	// parallel. the goal is to avoid starting an unbounded number
-	// of goroutines thereby spamming the network, but also being
-	// able to add peers at a reasonable pace, though the number
-	// is somewhat arbitrary. The action is further throttled by a
-	// sleep after sending to the addresses channel.
-	for i := 0; i < r.numConccurentDials(); i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case address := <-addresses:
+func (r *Router) dialPeers(ctx context.Context) error {
+	return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		addresses := make(chan NodeAddress)
+		// Start a limited number of goroutines to dial peers in
+		// parallel. the goal is to avoid starting an unbounded number
+		// of goroutines thereby spamming the network, but also being
+		// able to add peers at a reasonable pace, though the number
+		// is somewhat arbitrary. The action is further throttled by a
+		// sleep after sending to the addresses channel.
+		for range r.numConccurentDials() {
+			s.Spawn(func() error {
+				for {
+					address, err := utils.Recv(ctx, addresses)
+					if err != nil {
+						return err
+					}
 					r.logger.Debug(fmt.Sprintf("Going to dial next peer %s", address.NodeID))
 					r.connectPeer(ctx, address)
 				}
-			}
-		}()
-	}
-
-LOOP:
-	for {
-		address, err := r.peerManager.DialNext(ctx)
-		switch {
-		case errors.Is(err, context.Canceled):
-			break LOOP
-		case err != nil:
-			r.logger.Error("failed to find next peer to dial", "err", err)
-			break LOOP
+			})
 		}
 
-		select {
-		case addresses <- address:
+		for {
+			address, err := r.peerManager.DialNext(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to find next peer to dial: %w", err)
+			}
+			if err := utils.Send(ctx, addresses, address); err != nil {
+				return err
+			}
 			// this jitters the frequency that we call
 			// DialNext and prevents us from attempting to
 			// create connections too quickly.
-
-			r.dialSleep(ctx)
-			continue
-		case <-ctx.Done():
-			close(addresses)
-			break LOOP
+			if err := r.dialSleep(ctx); err != nil {
+				return err
+			}
 		}
-	}
-
-	wg.Wait()
+	})
 }
 
 func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
@@ -828,16 +793,11 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 }
 
 // evictPeers evicts connected peers as requested by the peer manager.
-func (r *Router) evictPeers(ctx context.Context) {
+func (r *Router) evictPeers(ctx context.Context) error {
 	for {
 		peerID, err := r.peerManager.EvictNext(ctx)
-
-		switch {
-		case errors.Is(err, context.Canceled):
-			return
-		case err != nil:
-			r.logger.Error("failed to find next peer to evict", "err", err)
-			return
+		if err != nil {
+			return fmt.Errorf("failed to find next peer to evict: %w", err)
 		}
 
 		r.logger.Info("evicting peer", "peer", peerID)
@@ -870,11 +830,12 @@ func (r *Router) OnStart(ctx context.Context) error {
 		}
 	}
 
-	go r.dialPeers(ctx)
-	go r.evictPeers(ctx)
-	go r.acceptPeers(ctx, r.transport)
-
-	return nil
+	return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		s.SpawnNamed("dialPeers", func() error { return r.dialPeers(ctx) })
+		s.SpawnNamed("evictPeers", func() error { return r.evictPeers(ctx) })
+		s.SpawnNamed("acceptPeers", func() error { return r.acceptPeers(ctx, r.transport) })
+		return nil
+	})
 }
 
 // OnStop implements service.Service.
