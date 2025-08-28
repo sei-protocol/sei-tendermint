@@ -76,20 +76,20 @@ func TestReactorSendsRequestsTooOften(t *testing.T) {
 
 	badNode := newNodeID(t, "b")
 
-	r.pexInCh <- p2p.Envelope{
+	r.pexInCh.Send(p2p.Envelope{
 		From:    badNode,
 		Message: &p2pproto.PexRequest{},
-	}
+	}, 0)
 
 	resp := <-r.pexOutCh
 	msg, ok := resp.Message.(*p2pproto.PexResponse)
 	require.True(t, ok)
 	require.Empty(t, msg.Addresses)
 
-	r.pexInCh <- p2p.Envelope{
+	r.pexInCh.Send(p2p.Envelope{
 		From:    badNode,
 		Message: &p2pproto.PexRequest{},
-	}
+	}, 0)
 
 	peerErr := <-r.pexErrCh
 	require.Error(t, peerErr.Err)
@@ -132,7 +132,7 @@ func TestReactorNeverSendsTooManyPeers(t *testing.T) {
 
 	testNet.addNodes(ctx, t, 110)
 	nodes := make([]int, 110)
-	for i := 0; i < len(nodes); i++ {
+	for i := range nodes {
 		nodes[i] = i + 2
 	}
 	testNet.addAddresses(t, secondNode, nodes)
@@ -170,12 +170,12 @@ func TestReactorErrorsOnReceivingTooManyPeers(t *testing.T) {
 		if _, ok := req.Message.(*p2pproto.PexRequest); !ok {
 			t.Fatal("expected v2 pex request")
 		}
-		r.pexInCh <- p2p.Envelope{
+		r.pexInCh.Send(p2p.Envelope{
 			From: peer.NodeID,
 			Message: &p2pproto.PexResponse{
 				Addresses: addresses,
 			},
-		}
+		}, 0)
 
 	case <-time.After(10 * time.Second):
 		t.Fatal("pex failed to send a request within 10 seconds")
@@ -266,7 +266,7 @@ func TestReactorWithNetworkGrowth(t *testing.T) {
 
 type singleTestReactor struct {
 	reactor  *pex.Reactor
-	pexInCh  chan p2p.Envelope
+	pexInCh  *p2p.Queue
 	pexOutCh chan p2p.Envelope
 	pexErrCh chan p2p.PeerError
 	pexCh    *p2p.Channel
@@ -278,7 +278,7 @@ func setupSingle(ctx context.Context, t *testing.T) *singleTestReactor {
 	t.Helper()
 	nodeID := newNodeID(t, "a")
 	chBuf := 2
-	pexInCh := make(chan p2p.Envelope, chBuf)
+	pexInCh := p2p.NewQueue(chBuf)
 	pexOutCh := make(chan p2p.Envelope, chBuf)
 	pexErrCh := make(chan p2p.PeerError, chBuf)
 	pexCh := p2p.NewChannel(
@@ -375,14 +375,10 @@ func setupNetwork(ctx context.Context, t *testing.T, opts testOptions) *reactorT
 
 	// NOTE: we don't assert that the channels get drained after stopping the
 	// reactor
-	rts.pexChannels = rts.network.MakeChannelsNoCleanup(ctx, t, pex.ChannelDescriptor())
+	rts.pexChannels = rts.network.MakeChannelsNoCleanup(t, pex.ChannelDescriptor())
 
 	idx := 0
 	for nodeID := range rts.network.Nodes {
-		// make a copy to avoid getting hit by the range ref
-		// confusion:
-		nodeID := nodeID
-
 		rts.peerChans[nodeID] = make(chan p2p.PeerUpdate, chBuf)
 		rts.peerUpdates[nodeID] = p2p.NewPeerUpdates(rts.peerChans[nodeID], chBuf)
 		rts.network.Nodes[nodeID].PeerManager.Register(ctx, rts.peerUpdates[nodeID])
@@ -433,7 +429,7 @@ func (r *reactorTestSuite) start(ctx context.Context, t *testing.T) {
 func (r *reactorTestSuite) addNodes(ctx context.Context, t *testing.T, nodes int) {
 	t.Helper()
 
-	for i := 0; i < nodes; i++ {
+	for range nodes {
 		node := r.network.MakeNode(ctx, t, p2ptest.NodeOptions{
 			MaxPeers:     r.opts.MaxPeers,
 			MaxConnected: r.opts.MaxConnected,
@@ -441,7 +437,7 @@ func (r *reactorTestSuite) addNodes(ctx context.Context, t *testing.T, nodes int
 		})
 		r.network.Nodes[node.NodeID] = node
 		nodeID := node.NodeID
-		r.pexChannels[nodeID] = node.MakeChannelNoCleanup(ctx, t, pex.ChannelDescriptor())
+		r.pexChannels[nodeID] = node.MakeChannelNoCleanup(t, pex.ChannelDescriptor())
 		r.peerChans[nodeID] = make(chan p2p.PeerUpdate, r.opts.BufferSize)
 		r.peerUpdates[nodeID] = p2p.NewPeerUpdates(r.peerChans[nodeID], r.opts.BufferSize)
 		r.network.Nodes[nodeID].PeerManager.Register(ctx, r.peerUpdates[nodeID])
@@ -642,7 +638,7 @@ func (r *reactorTestSuite) connectN(ctx context.Context, t *testing.T, n int) {
 	}
 
 	for i := 0; i < r.total; i++ {
-		for j := 0; j < n; j++ {
+		for j := range n {
 			r.connectPeers(ctx, t, i, (i+j+1)%r.total)
 		}
 	}

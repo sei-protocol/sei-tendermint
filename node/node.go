@@ -809,9 +809,7 @@ func LoadStateFromDBOrGenesisDocProvider(stateStore sm.Store, genDoc *types.Gene
 }
 
 func getRouterConfig(conf *config.Config, appClient abciclient.Client) p2p.RouterOptions {
-	opts := p2p.RouterOptions{
-		QueueType: conf.P2P.QueueType,
-	}
+	opts := p2p.RouterOptions{}
 
 	if conf.FilterPeers && appClient != nil {
 		opts.FilterPeerByID = func(ctx context.Context, id types.NodeID) error {
