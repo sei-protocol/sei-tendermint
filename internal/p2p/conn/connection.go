@@ -676,7 +676,7 @@ func newChannel(conn *MConnection, desc ChannelDescriptor) *channel {
 func (ch *channel) sendBytes(ctx context.Context, bytes []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultSendTimeout)
 	defer cancel()
-	return utils.Send(ctx, ch.sendQueue)
+	return utils.Send(ctx, ch.sendQueue, bytes)
 }
 
 // Returns true if any PacketMsgs are pending to be sent.
