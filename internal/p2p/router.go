@@ -960,20 +960,16 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 // evictPeers evicts connected peers as requested by the peer manager.
 func (r *Router) evictPeers(ctx context.Context) {
 	for {
-		peerID, err := r.peerManager.EvictNext(ctx)
-
-		switch {
-		case errors.Is(err, context.Canceled):
-			return
-		case err != nil:
+		ev, err := r.peerManager.EvictNext(ctx)
+		if err != nil {
 			r.logger.Error("failed to find next peer to evict", "err", err)
 			return
 		}
 
-		r.logger.Info("evicting peer", "peer", peerID)
+		r.logger.Info("evicting peer", "peer", ev.ID, "cause", ev.Cause)
 
 		r.peerMtx.RLock()
-		queue, ok := r.peerQueues[peerID]
+		queue, ok := r.peerQueues[ev.ID]
 		r.peerMtx.RUnlock()
 
 		if ok {

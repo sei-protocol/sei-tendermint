@@ -20,6 +20,7 @@ import (
 	tmsync "github.com/tendermint/tendermint/internal/libs/sync"
 	p2pproto "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/libs/utils"
 )
 
 const (
@@ -315,7 +316,7 @@ type PeerManager struct {
 	upgrading     map[types.NodeID]types.NodeID // peers claimed for upgrade (DialNext → Dialed/DialFail)
 	connected     map[types.NodeID]bool         // connected peers (Dialed/Accepted → Disconnected)
 	ready         map[types.NodeID]bool         // ready peers (Ready → Disconnected)
-	evict         map[types.NodeID]bool         // peers scheduled for eviction (Connected → EvictNext)
+	evict         map[types.NodeID]error         // peers scheduled for eviction (Connected → EvictNext)
 	evicting      map[types.NodeID]bool         // peers being evicted (EvictNext → Disconnected)
 	metrics       *Metrics
 }
@@ -355,7 +356,7 @@ func NewPeerManager(
 		upgrading:     map[types.NodeID]types.NodeID{},
 		connected:     map[types.NodeID]bool{},
 		ready:         map[types.NodeID]bool{},
-		evict:         map[types.NodeID]bool{},
+		evict:         map[types.NodeID]error{},
 		evicting:      map[types.NodeID]bool{},
 		subscriptions: map[*PeerUpdates]*PeerUpdates{},
 		metrics:       metrics,
@@ -689,7 +690,7 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 				upgradeFromPeer = u
 			}
 		}
-		m.evict[upgradeFromPeer] = true
+		m.evict[upgradeFromPeer] = errors.New("too many peers")
 	}
 	m.connected[peer.ID] = true
 	m.evictWaker.Wake()
@@ -758,7 +759,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 
 	m.connected[peerID] = true
 	if upgradeFromPeer != "" {
-		m.evict[upgradeFromPeer] = true
+		m.evict[upgradeFromPeer] = errors.New("found better peer")
 	}
 	m.evictWaker.Wake()
 	return nil
@@ -787,40 +788,48 @@ func (m *PeerManager) Ready(ctx context.Context, peerID types.NodeID, channels C
 
 // EvictNext returns the next peer to evict (i.e. disconnect). If no evictable
 // peers are found, the call will block until one becomes available.
-func (m *PeerManager) EvictNext(ctx context.Context) (types.NodeID, error) {
+func (m *PeerManager) EvictNext(ctx context.Context) (Eviction, error) {
 	for {
-		id, err := m.TryEvictNext()
-		if err != nil || id != "" {
-			return id, err
+		ev, err := m.TryEvictNext()
+		if err != nil {
+			return Eviction{}, err
+		}
+		if ev,ok := ev.Get(); ok {
+			return ev,nil
 		}
 		select {
 		case <-m.evictWaker.Sleep():
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return Eviction{}, ctx.Err()
 		}
 	}
 }
 
+type Eviction struct {
+	ID types.NodeID
+	Cause error
+}
+
 // TryEvictNext is equivalent to EvictNext, but immediately returns an empty
 // node ID if no evictable peers are found.
-func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
+func (m *PeerManager) TryEvictNext() (utils.Option[Eviction], error) {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
 	// If any connected peers are explicitly scheduled for eviction, we return a
 	// random one.
-	for peerID := range m.evict {
+	for peerID,cause := range m.evict {
 		delete(m.evict, peerID)
 		if m.connected[peerID] && !m.evicting[peerID] {
 			m.evicting[peerID] = true
-			return peerID, nil
+			return utils.Some(Eviction{peerID,cause}), nil
 		}
 	}
 
 	// If we're below capacity, we don't need to evict anything.
 	if m.options.MaxConnected == 0 ||
 		m.NumConnected()-len(m.evicting) <= int(m.options.MaxConnected) {
-		return "", nil
+		return utils.None[Eviction](), nil
 	}
 
 	// If we're above capacity (shouldn't really happen), just pick the
@@ -830,11 +839,11 @@ func (m *PeerManager) TryEvictNext() (types.NodeID, error) {
 		peer := ranked[i]
 		if m.connected[peer.ID] && !m.evicting[peer.ID] {
 			m.evicting[peer.ID] = true
-			return peer.ID, nil
+			return utils.Some(Eviction{peer.ID,errors.New("too many peers")}), nil
 		}
 	}
 
-	return "", nil
+	return utils.None[Eviction](), nil
 }
 
 // Disconnected unmarks a peer as connected, allowing it to be dialed or
@@ -888,7 +897,7 @@ func (m *PeerManager) Errored(peerID types.NodeID, err error) {
 	defer m.mtx.Unlock()
 
 	if m.connected[peerID] {
-		m.evict[peerID] = true
+		m.evict[peerID] = err
 	}
 
 	m.evictWaker.Wake()
@@ -1144,7 +1153,7 @@ func (m *PeerManager) findUpgradeCandidate(id types.NodeID, score PeerScore) typ
 		case candidate.Score() >= score:
 			return "" // no further peers can be scored lower, due to sorting
 		case !m.connected[candidate.ID]:
-		case m.evict[candidate.ID]:
+		case m.evict[candidate.ID]!=nil:
 		case m.evicting[candidate.ID]:
 		case m.upgrading[candidate.ID] != "":
 		default:
