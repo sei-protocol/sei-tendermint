@@ -428,13 +428,10 @@ func (c *mConnConnection) SendMessage(ctx context.Context, chID ChannelID, msg [
 	select {
 	case err := <-c.errorCh:
 		return err
-	case <-ctx.Done():
-		return io.EOF
 	default:
-		if ok := c.mconn.Send(chID, msg); !ok {
-			return errors.New("sending message timed out")
+		if err := c.mconn.Send(ctx, chID, msg); err!=nil {
+			return fmt.Errorf("m.mconn.Send(%v): %w", chID, err)
 		}
-
 		return nil
 	}
 }
