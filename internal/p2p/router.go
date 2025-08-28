@@ -819,10 +819,6 @@ func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Ch
 
 // OnStart implements service.Service.
 func (r *Router) OnStart(ctx context.Context) error {
-	if err := r.transport.Listen(r.endpoint); err != nil {
-		return err
-	}
-
 	for _, chDescWithCb := range r.chDescsToBeAdded {
 		if ch, err := r.OpenChannel(chDescWithCb.chDesc); err != nil {
 			return err
@@ -831,9 +827,12 @@ func (r *Router) OnStart(ctx context.Context) error {
 		}
 	}
 
-	r.Spawn("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
-	r.Spawn("evictPeers", func(ctx context.Context) error { return r.evictPeers(ctx) })
-	r.Spawn("acceptPeers", func(ctx context.Context) error { return r.acceptPeers(ctx, r.transport) })
+	r.SpawnCritical("transport.Run",func(ctx context.Context) error {
+		return r.transport.Run(ctx, r.endpoint)
+	})
+	r.SpawnCritical("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
+	r.SpawnCritical("evictPeers", func(ctx context.Context) error { return r.evictPeers(ctx) })
+	r.SpawnCritical("acceptPeers", func(ctx context.Context) error { return r.acceptPeers(ctx, r.transport) })
 	return nil
 }
 
@@ -843,12 +842,7 @@ func (r *Router) OnStart(ctx context.Context) error {
 // router, to prevent blocked channel sends in reactors. Channels are not closed
 // here, since that would cause any reactor senders to panic, so it is the
 // sender's responsibility.
-func (r *Router) OnStop() {
-	// Close transport listeners (unblocks Accept calls).
-	if err := r.transport.Close(); err != nil {
-		r.logger.Error("failed to close transport", "err", err)
-	}
-}
+func (r *Router) OnStop() {	}
 
 type ChannelIDSet map[ChannelID]struct{}
 

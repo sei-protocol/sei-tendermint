@@ -23,18 +23,11 @@ type Protocol string
 
 // Transport is a connection-oriented mechanism for exchanging data with a peer.
 type Transport interface {
-	// Listen starts the transport on the specified endpoint.
-	Listen(*Endpoint) error
+	Run(ctx context.Context, endpoint *Endpoint) error
 
 	// Protocols returns the protocols supported by the transport. The Router
 	// uses this to pick a transport for an Endpoint.
 	Protocols() []Protocol
-
-	// Endpoints returns the local endpoints the transport is listening on, if any.
-	//
-	// How to listen is transport-dependent, e.g. MConnTransport uses Listen() while
-	// MemoryTransport starts listening via MemoryNetwork.CreateTransport().
-	Endpoint() (*Endpoint, error)
 
 	// Accept waits for the next inbound connection on a listening endpoint, blocking
 	// until either a connection is available or the transport is closed. On closure,
@@ -43,9 +36,6 @@ type Transport interface {
 
 	// Dial creates an outbound connection to an endpoint.
 	Dial(context.Context, *Endpoint) (Connection, error)
-
-	// Close stops accepting new connections, but does not close active connections.
-	Close() error
 
 	// AddChannelDescriptors is only part of this interface
 	// temporarily

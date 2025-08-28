@@ -203,7 +203,6 @@ func (n *Network) Remove(ctx context.Context, t *testing.T, id types.NodeID) {
 		subs = append(subs, sub)
 	}
 
-	require.NoError(t, node.Transport.Close())
 	node.cancel()
 	if node.Router.IsRunning() {
 		node.Router.Stop()
@@ -285,7 +284,6 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 			router.Stop()
 			router.Wait()
 		}
-		require.NoError(t, transport.Close())
 		cancel()
 	})
 
