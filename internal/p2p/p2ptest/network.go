@@ -245,10 +245,6 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	}
 
 	transport := n.memoryNetwork.CreateTransport(nodeID)
-	ep, err := transport.Endpoint()
-	require.NoError(t, err)
-	require.NotNil(t, ep, "transport not listening an endpoint")
-
 	maxRetryTime := 1000 * time.Millisecond
 	if opts.MaxRetryTime > 0 {
 		maxRetryTime = opts.MaxRetryTime
@@ -271,7 +267,6 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 		peerManager,
 		func() *types.NodeInfo { return &nodeInfo },
 		transport,
-		ep,
 		nil,
 		p2p.RouterOptions{DialSleep: func(_ context.Context) error { return nil }},
 	)
@@ -290,7 +285,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	return &Node{
 		NodeID:      nodeID,
 		NodeInfo:    nodeInfo,
-		NodeAddress: ep.NodeAddress(nodeID),
+		NodeAddress: transport.Endpoint().NodeAddress(nodeID),
 		PrivKey:     privKey,
 		Router:      router,
 		PeerManager: peerManager,

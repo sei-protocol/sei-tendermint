@@ -24,10 +24,14 @@ type Protocol string
 // Transport is a connection-oriented mechanism for exchanging data with a peer.
 type Transport interface {
 	// Run executes the background tasks of transport.
-	Run(ctx context.Context, endpoint *Endpoint) error
+	Run(ctx context.Context) error
 	// Protocols returns the protocols supported by the transport. The Router
 	// uses this to pick a transport for an Endpoint.
 	Protocols() []Protocol
+
+	// Endpoints returns the local endpoints the transport is listening on.
+	Endpoint() Endpoint
+
 
 	// Accept waits for the next inbound connection on a listening endpoint, blocking
 	// until either a connection is available or the transport is closed. On closure,
@@ -35,7 +39,7 @@ type Transport interface {
 	Accept(context.Context) (Connection, error)
 
 	// Dial creates an outbound connection to an endpoint.
-	Dial(context.Context, *Endpoint) (Connection, error)
+	Dial(context.Context, Endpoint) (Connection, error)
 
 	// AddChannelDescriptors is only part of this interface
 	// temporarily
@@ -113,13 +117,13 @@ type Endpoint struct {
 }
 
 // NewEndpoint constructs an Endpoint from a types.NetAddress structure.
-func NewEndpoint(addr string) (*Endpoint, error) {
+func NewEndpoint(addr string) (Endpoint, error) {
 	addrPort, err := types.ParseAddressString(addr)
 	if err != nil {
-		return nil, err
+		return Endpoint{}, err
 	}
 
-	return &Endpoint{
+	return Endpoint{
 		Protocol: MConnProtocol,
 		Addr: addrPort,
 	}, nil

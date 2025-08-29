@@ -103,7 +103,7 @@ func (t *MemoryTransport) String() string {
 	return string(MemoryProtocol)
 }
 
-func (t *MemoryTransport) Run(ctx context.Context, e *Endpoint) error {
+func (t *MemoryTransport) Run(ctx context.Context) error {
 	<-ctx.Done()
 	t.network.mtx.Lock()
 	delete(t.network.transports, t.nodeID)
@@ -120,18 +120,14 @@ func (t *MemoryTransport) Protocols() []Protocol {
 }
 
 // Endpoints implements Transport.
-func (t *MemoryTransport) Endpoint() (*Endpoint, error) {
-	if n := t.network.GetTransport(t.nodeID); n == nil {
-		return nil, errors.New("node not defined")
-	}
-
-	return &Endpoint{
+func (t *MemoryTransport) Endpoint() Endpoint {
+	return Endpoint{
 		Protocol: MemoryProtocol,
 		Path:     string(t.nodeID),
 		// An arbitrary IP and port is used in order for the pex
 		// reactor to be able to send addresses to one another.
 		Addr: netip.AddrPort{},
-	}, nil
+	}
 }
 
 // Accept implements Transport.
@@ -148,7 +144,7 @@ func (t *MemoryTransport) Accept(ctx context.Context) (Connection, error) {
 }
 
 // Dial implements Transport.
-func (t *MemoryTransport) Dial(ctx context.Context, endpoint *Endpoint) (Connection, error) {
+func (t *MemoryTransport) Dial(ctx context.Context, endpoint Endpoint) (Connection, error) {
 	if endpoint.Protocol != MemoryProtocol {
 		return nil, fmt.Errorf("invalid protocol %q", endpoint.Protocol)
 	}

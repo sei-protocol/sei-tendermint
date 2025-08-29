@@ -115,7 +115,6 @@ func TestRouter_Channel_Basic(t *testing.T) {
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
 		testnet.RandomNode().Transport,
-		&p2p.Endpoint{},
 		nil,
 		p2p.RouterOptions{},
 	)
@@ -400,7 +399,6 @@ func TestRouter_AcceptPeers(t *testing.T) {
 				func() *types.NodeInfo { return &selfInfo },
 				mockTransport,
 				nil,
-				nil,
 				p2p.RouterOptions{},
 			)
 			require.NoError(t, err)
@@ -457,7 +455,6 @@ func TestRouter_AcceptPeers_Errors(t *testing.T) {
 				func() *types.NodeInfo { return &selfInfo },
 				mockTransport,
 				nil,
-				nil,
 				p2p.RouterOptions{},
 			)
 			require.NoError(t, err)
@@ -511,7 +508,6 @@ func TestRouter_AcceptPeers_HeadOfLineBlocking(t *testing.T) {
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
-		nil,
 		nil,
 		p2p.RouterOptions{},
 	)
@@ -611,7 +607,6 @@ func TestRouter_DialPeers(t *testing.T) {
 				func() *types.NodeInfo { return &selfInfo },
 				mockTransport,
 				nil,
-				nil,
 				p2p.RouterOptions{},
 			)
 			require.NoError(t, err)
@@ -696,7 +691,6 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
 		nil,
-		nil,
 		p2p.RouterOptions{
 			DialSleep: func(_ context.Context) error { return nil },
 			NumConcurrentDials: func() int {
@@ -771,7 +765,6 @@ func TestRouter_EvictPeers(t *testing.T) {
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
 		nil,
-		nil,
 		p2p.RouterOptions{},
 	)
 	require.NoError(t, err)
@@ -833,7 +826,6 @@ func TestRouter_ChannelCompatability(t *testing.T) {
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
 		nil,
-		nil,
 		p2p.RouterOptions{},
 	)
 	require.NoError(t, err)
@@ -887,7 +879,6 @@ func TestRouter_DontSendOnInvalidChannel(t *testing.T) {
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
-		nil,
 		nil,
 		p2p.RouterOptions{},
 	)
@@ -952,7 +943,6 @@ func TestRouter_Channel_FilterByID(t *testing.T) {
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
-		&p2p.Endpoint{},
 		nil,
 		p2p.RouterOptions{},
 	)
@@ -976,7 +966,6 @@ func TestRouter_Channel_FilterByID(t *testing.T) {
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
 		mockTransport,
-		&p2p.Endpoint{},
 		func(_ context.Context, _ types.NodeID) error { return errors.New("should filter") },
 		p2p.RouterOptions{},
 	)

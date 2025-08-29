@@ -147,7 +147,6 @@ type Router struct {
 	peerManager *PeerManager
 	chDescs     []*ChannelDescriptor
 	transport   Transport
-	endpoint    *Endpoint
 	connTracker connectionTracker
 
 	peerStates       utils.RWMutex[map[types.NodeID]*peerState]
@@ -180,7 +179,6 @@ func NewRouter(
 	peerManager *PeerManager,
 	nodeInfoProducer func() *types.NodeInfo,
 	transport Transport,
-	endpoint *Endpoint,
 	dynamicIDFilterer func(context.Context, types.NodeID) error,
 	options RouterOptions,
 ) (*Router, error) {
@@ -201,7 +199,6 @@ func NewRouter(
 		),
 		chDescs:           make([]*ChannelDescriptor, 0),
 		transport:         transport,
-		endpoint:          endpoint,
 		peerManager:       peerManager,
 		options:           options,
 		channelQueues:     map[ChannelID]*Queue{},
@@ -827,7 +824,7 @@ func (r *Router) OnStart(ctx context.Context) error {
 	}
 
 	r.SpawnCritical("transport.Run",func(ctx context.Context) error {
-		return r.transport.Run(ctx, r.endpoint)
+		return r.transport.Run(ctx)
 	})
 	r.SpawnCritical("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
 	r.SpawnCritical("evictPeers", func(ctx context.Context) error { return r.evictPeers(ctx) })

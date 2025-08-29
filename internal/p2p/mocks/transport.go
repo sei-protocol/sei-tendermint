@@ -53,7 +53,7 @@ func (_m *Transport) AddChannelDescriptors(_a0 []*conn.ChannelDescriptor) {
 }
 
 // Dial provides a mock function with given fields: _a0, _a1
-func (_m *Transport) Dial(_a0 context.Context, _a1 *p2p.Endpoint) (p2p.Connection, error) {
+func (_m *Transport) Dial(_a0 context.Context, _a1 p2p.Endpoint) (p2p.Connection, error) {
 	ret := _m.Called(_a0, _a1)
 
 	if len(ret) == 0 {
@@ -62,10 +62,10 @@ func (_m *Transport) Dial(_a0 context.Context, _a1 *p2p.Endpoint) (p2p.Connectio
 
 	var r0 p2p.Connection
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *p2p.Endpoint) (p2p.Connection, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, p2p.Endpoint) (p2p.Connection, error)); ok {
 		return rf(_a0, _a1)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *p2p.Endpoint) p2p.Connection); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, p2p.Endpoint) p2p.Connection); ok {
 		r0 = rf(_a0, _a1)
 	} else {
 		if ret.Get(0) != nil {
@@ -73,13 +73,31 @@ func (_m *Transport) Dial(_a0 context.Context, _a1 *p2p.Endpoint) (p2p.Connectio
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *p2p.Endpoint) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, p2p.Endpoint) error); ok {
 		r1 = rf(_a0, _a1)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
+}
+
+// Endpoint provides a mock function with no fields
+func (_m *Transport) Endpoint() p2p.Endpoint {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Endpoint")
+	}
+
+	var r0 p2p.Endpoint
+	if rf, ok := ret.Get(0).(func() p2p.Endpoint); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(p2p.Endpoint)
+	}
+
+	return r0
 }
 
 // Protocols provides a mock function with no fields
@@ -102,17 +120,17 @@ func (_m *Transport) Protocols() []p2p.Protocol {
 	return r0
 }
 
-// Run provides a mock function with given fields: ctx, endpoint
-func (_m *Transport) Run(ctx context.Context, endpoint *p2p.Endpoint) error {
-	ret := _m.Called(ctx, endpoint)
+// Run provides a mock function with given fields: ctx
+func (_m *Transport) Run(ctx context.Context) error {
+	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Run")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *p2p.Endpoint) error); ok {
-		r0 = rf(ctx, endpoint)
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/tendermint/tendermint/internal/p2p/conn"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/tendermint/tendermint/libs/utils/scope"
 	p2pproto "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
@@ -43,9 +44,11 @@ type MConnTransportOptions struct {
 // Tendermint protocol ("MConn").
 type MConnTransport struct {
 	logger       log.Logger
+	endpoint     Endpoint
 	options      MConnTransportOptions
 	mConnConfig  conn.MConnConfig
 	channelDescs []*ChannelDescriptor
+	started      chan struct{}
 	listener     chan *mConnConnection
 }
 
@@ -54,31 +57,43 @@ type MConnTransport struct {
 // conn.MConnection.
 func NewMConnTransport(
 	logger log.Logger,
-	endpoint *Endpoint,
+	endpoint Endpoint,
 	mConnConfig conn.MConnConfig,
 	channelDescs []*ChannelDescriptor,
 	options MConnTransportOptions,
 ) *MConnTransport {
 	return &MConnTransport{
 		logger:       logger,
-		endpoint: endpoint,
+		endpoint:     endpoint,
 		options:      options,
 		mConnConfig:  mConnConfig,
 		channelDescs: channelDescs,
 		// This is rendezvous channel, so that no unclosed connections get stuck inside
 		// when transport is closing.
+		started:  make(chan struct{}),
 		listener: make(chan *mConnConnection),
 	}
+}
+
+// WaitForStart waits until transport starts listening for incoming connections.
+func (m *MConnTransport) WaitForStart(ctx context.Context) error {
+	_,_,err := utils.RecvOrClosed(ctx, m.started)
+	return err
+}
+
+func (m *MConnTransport) Endpoint() Endpoint {
+	return m.endpoint
 }
 
 func (m *MConnTransport) Run(ctx context.Context) error {
 	if err := m.validateEndpoint(m.endpoint); err != nil {
 		return err
 	}
-	listener, err := net.Listen("tcp", endpoint.Addr.String())
+	listener, err := tcp.Listen(m.endpoint.Addr)
 	if err != nil {
 		return fmt.Errorf("net.Listen(): %w",err)
 	}
+	close(m.started) // signal that we are listening
 	if m.options.MaxAcceptedConnections > 0 {
 		// FIXME: This will establish the inbound connection but simply hang it
 		// until another connection is released. It would probably be better to
@@ -96,7 +111,7 @@ func (m *MConnTransport) Run(ctx context.Context) error {
 		for {
 			conn, err := listener.Accept()
 			if err!=nil {
-				if errors.Is(err, io.EOF) {
+				if errors.Is(err, net.ErrClosed) {
 					return nil
 				}
 				return err
@@ -126,7 +141,7 @@ func (m *MConnTransport) Accept(ctx context.Context) (Connection, error) {
 }
 
 // Dial implements Transport.
-func (m *MConnTransport) Dial(ctx context.Context, endpoint *Endpoint) (Connection, error) {
+func (m *MConnTransport) Dial(ctx context.Context, endpoint Endpoint) (Connection, error) {
 	if err := m.validateEndpoint(endpoint); err != nil {
 		return nil, err
 	}
@@ -152,19 +167,21 @@ func (m *MConnTransport) AddChannelDescriptors(channelDesc []*ChannelDescriptor)
 	m.channelDescs = append(m.channelDescs, channelDesc...)
 }
 
+type InvalidEndpointErr struct { error }
+
 // validateEndpoint validates an endpoint.
-func (m *MConnTransport) validateEndpoint(endpoint *Endpoint) error {
+func (m *MConnTransport) validateEndpoint(endpoint Endpoint) error {
 	if err := endpoint.Validate(); err != nil {
-		return err
+		return InvalidEndpointErr{err}
 	}
 	if endpoint.Protocol != MConnProtocol && endpoint.Protocol != TCPProtocol {
-		return fmt.Errorf("unsupported protocol %q", endpoint.Protocol)
+		return InvalidEndpointErr{fmt.Errorf("unsupported protocol %q", endpoint.Protocol)}
 	}
 	if !endpoint.Addr.IsValid() {
-		return errors.New("endpoint has invalid address")
+		return InvalidEndpointErr{errors.New("endpoint has invalid address")}
 	}
 	if endpoint.Path != "" {
-		return fmt.Errorf("endpoints with path not supported (got %q)", endpoint.Path)
+		return InvalidEndpointErr{fmt.Errorf("endpoints with path not supported (got %q)", endpoint.Path)}
 	}
 	return nil
 }
@@ -336,7 +353,7 @@ func (c *mConnConnection) onReceive(ctx context.Context, chID ChannelID, payload
 
 // onError is a callback for MConnection errors. The error is passed via errorCh
 // to ReceiveMessage (but not SendMessage, for legacy P2P stack behavior).
-func (c *mConnConnection) onError(ctx context.Context, e interface{}) {
+func (c *mConnConnection) onError(ctx context.Context, e any) {
 	err, ok := e.(error)
 	if !ok {
 		err = fmt.Errorf("%v", err)
