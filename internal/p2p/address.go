@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -121,10 +122,11 @@ func (a NodeAddress) Resolve(ctx context.Context) ([]*Endpoint, error) {
 	}
 	endpoints := make([]*Endpoint, len(ips))
 	for i, ip := range ips {
+		ip,ok := netip.AddrFromSlice(ip)
+		if !ok { return nil, fmt.Errorf("LookupIP returned invalid IP %q", ip) }
 		endpoints[i] = &Endpoint{
 			Protocol: a.Protocol,
-			IP:       ip,
-			Port:     a.Port,
+			Addr:     netip.AddrPortFrom(ip, a.Port),
 			Path:     a.Path,
 		}
 	}

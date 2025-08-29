@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net"
+	"net/netip"
 	"runtime"
 	"strings"
 	"sync"
@@ -51,7 +51,7 @@ type RouterOptions struct {
 	// the remote IP of the incoming connection the port number as
 	// arguments. Functions should return an error to reject the
 	// peer.
-	FilterPeerByIP func(context.Context, net.IP, uint16) error
+	FilterPeerByIP func(context.Context, netip.AddrPort) error
 
 	// FilterPeerByID is used by the router to inject filtering
 	// behavior for new incoming connections. The router passes
@@ -364,12 +364,12 @@ func (r *Router) numConccurentDials() int {
 	return r.options.NumConcurrentDials()
 }
 
-func (r *Router) filterPeersIP(ctx context.Context, ip net.IP, port uint16) error {
+func (r *Router) filterPeersIP(ctx context.Context, addrPort netip.AddrPort) error {
 	if r.options.FilterPeerByIP == nil {
 		return nil
 	}
 
-	return r.options.FilterPeerByIP(ctx, ip, port)
+	return r.options.FilterPeerByIP(ctx, addrPort)
 }
 
 func (r *Router) filterPeersID(ctx context.Context, id types.NodeID) error {
@@ -409,12 +409,13 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %w", err)
 		}
-		incomingIP := conn.RemoteEndpoint().IP
-		if err := r.connTracker.AddConn(incomingIP); err != nil {
+		r.metrics.NewConnections.With("direction","in").Add(1)
+		incomingAddr := conn.RemoteEndpoint().Addr
+		if err := r.connTracker.AddConn(incomingAddr); err != nil {
 			closeErr := conn.Close()
 			r.logger.Error("rate limiting incoming peer",
 				"err", err,
-				"ip", incomingIP.String(),
+				"addr", incomingAddr.String(),
 				"close_err", closeErr,
 			)
 
@@ -428,13 +429,12 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 
 func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 	defer conn.Close()
-	defer r.connTracker.RemoveConn(conn.RemoteEndpoint().IP)
+	incomingAddr := conn.RemoteEndpoint().Addr
+	defer r.connTracker.RemoveConn(incomingAddr)
 
-	re := conn.RemoteEndpoint()
-	incomingIP := re.IP
 
-	if err := r.filterPeersIP(ctx, incomingIP, re.Port); err != nil {
-		r.logger.Debug("peer filtered by IP", "ip", incomingIP.String(), "err", err)
+	if err := r.filterPeersIP(ctx, incomingAddr); err != nil {
+		r.logger.Debug("peer filtered by IP", "ip", incomingAddr, "err", err)
 		return nil
 	}
 
@@ -609,6 +609,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		if err != nil {
 			r.logger.Debug("failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
 		} else {
+			r.metrics.NewConnections.With("direction","out").Add(1)
 			r.logger.Debug("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
 			return conn, nil
 		}
@@ -795,14 +796,13 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 // evictPeers evicts connected peers as requested by the peer manager.
 func (r *Router) evictPeers(ctx context.Context) error {
 	for {
-		peerID, err := r.peerManager.EvictNext(ctx)
+		ev, err := r.peerManager.EvictNext(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to find next peer to evict: %w", err)
 		}
-
-		r.logger.Info("evicting peer", "peer", peerID)
+		r.logger.Info("evicting peer", "peer", ev.ID,"cause",ev.Cause)
 		for states := range r.peerStates.Lock() {
-			if s, ok := states[peerID]; ok {
+			if s, ok := states[ev.ID]; ok {
 				s.cancel()
 			}
 		}
@@ -818,10 +818,6 @@ func (r *Router) AddChDescToBeAdded(chDesc *ChannelDescriptor, callback func(*Ch
 
 // OnStart implements service.Service.
 func (r *Router) OnStart(ctx context.Context) error {
-	if err := r.transport.Listen(r.endpoint); err != nil {
-		return err
-	}
-
 	for _, chDescWithCb := range r.chDescsToBeAdded {
 		if ch, err := r.OpenChannel(chDescWithCb.chDesc); err != nil {
 			return err
@@ -830,9 +826,12 @@ func (r *Router) OnStart(ctx context.Context) error {
 		}
 	}
 
-	r.Spawn("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
-	r.Spawn("evictPeers", func(ctx context.Context) error { return r.evictPeers(ctx) })
-	r.Spawn("acceptPeers", func(ctx context.Context) error { return r.acceptPeers(ctx, r.transport) })
+	r.SpawnCritical("transport.Run",func(ctx context.Context) error {
+		return r.transport.Run(ctx, r.endpoint)
+	})
+	r.SpawnCritical("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
+	r.SpawnCritical("evictPeers", func(ctx context.Context) error { return r.evictPeers(ctx) })
+	r.SpawnCritical("acceptPeers", func(ctx context.Context) error { return r.acceptPeers(ctx, r.transport) })
 	return nil
 }
 
@@ -842,12 +841,7 @@ func (r *Router) OnStart(ctx context.Context) error {
 // router, to prevent blocked channel sends in reactors. Channels are not closed
 // here, since that would cause any reactor senders to panic, so it is the
 // sender's responsibility.
-func (r *Router) OnStop() {
-	// Close transport listeners (unblocks Accept calls).
-	if err := r.transport.Close(); err != nil {
-		r.logger.Error("failed to close transport", "err", err)
-	}
-}
+func (r *Router) OnStop() {	}
 
 type ChannelIDSet map[ChannelID]struct{}
 

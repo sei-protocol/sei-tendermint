@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
+	"net/netip"
 	"sync"
 
 	"github.com/tendermint/tendermint/crypto"
@@ -61,22 +61,6 @@ func (n *MemoryNetwork) GetTransport(id types.NodeID) *MemoryTransport {
 	return n.transports[id]
 }
 
-// RemoveTransport removes a transport from the network and closes it.
-func (n *MemoryNetwork) RemoveTransport(id types.NodeID) {
-	n.mtx.Lock()
-	t, ok := n.transports[id]
-	delete(n.transports, id)
-	n.mtx.Unlock()
-
-	if ok {
-		// Close may recursively call RemoveTransport() again, but this is safe
-		// because we've already removed the transport from the map above.
-		if err := t.Close(); err != nil {
-			n.logger.Error("failed to close memory transport", "id", id, "err", err)
-		}
-	}
-}
-
 // Size returns the number of transports in the network.
 func (n *MemoryNetwork) Size() int {
 	return len(n.transports)
@@ -119,7 +103,14 @@ func (t *MemoryTransport) String() string {
 	return string(MemoryProtocol)
 }
 
-func (*MemoryTransport) Listen(*Endpoint) error { return nil }
+func (t *MemoryTransport) Run(ctx context.Context, e *Endpoint) error {
+	<-ctx.Done()
+	t.network.mtx.Lock()
+	delete(t.network.transports, t.nodeID)
+	t.network.mtx.Unlock()
+	t.closeFn()
+	return nil
+}
 
 func (t *MemoryTransport) AddChannelDescriptors([]*ChannelDescriptor) {}
 
@@ -139,8 +130,7 @@ func (t *MemoryTransport) Endpoint() (*Endpoint, error) {
 		Path:     string(t.nodeID),
 		// An arbitrary IP and port is used in order for the pex
 		// reactor to be able to send addresses to one another.
-		IP:   net.IPv4zero,
-		Port: 0,
+		Addr: netip.AddrPort{},
 	}, nil
 }
 
@@ -200,13 +190,6 @@ func (t *MemoryTransport) Dial(ctx context.Context, endpoint *Endpoint) (Connect
 	case <-ctx.Done():
 		return nil, io.EOF
 	}
-}
-
-// Close implements Transport.
-func (t *MemoryTransport) Close() error {
-	t.network.RemoveTransport(t.nodeID)
-	t.closeFn()
-	return nil
 }
 
 // MemoryConnection is an in-memory connection between two transport endpoints.

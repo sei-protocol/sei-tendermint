@@ -1,11 +1,12 @@
 package p2p_test
 
 import (
-	"io"
+	"net/netip"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/require"
 
@@ -17,67 +18,29 @@ import (
 // Transports are mainly tested by common tests in transport_test.go, we
 // register a transport factory here to get included in those tests.
 func init() {
-	testTransports["mconn"] = func(t *testing.T) p2p.Transport {
+	testTransports["mconn"] = func(t *testing.T, addr netip.AddrPort) p2p.Transport {
 		transport := p2p.NewMConnTransport(
 			log.NewNopLogger(),
 			conn.DefaultMConnConfig(),
 			[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
 			p2p.MConnTransportOptions{},
 		)
-		err := transport.Listen(&p2p.Endpoint{
-			Protocol: p2p.MConnProtocol,
-			IP:       net.IPv4(127, 0, 0, 1),
-			Port:     0, // assign a random port
-		})
-		require.NoError(t, err)
-
-		t.Cleanup(func() { _ = transport.Close() })
-
+		go func() {
+			if err:=transport.Run(t.Context(),&p2p.Endpoint{
+				Protocol: p2p.MConnProtocol,
+				Addr: 	addr,
+			}); err != nil {
+				panic(err)
+			}
+		}()
 		return transport
 	}
-}
-
-func TestMConnTransport_AcceptBeforeListen(t *testing.T) {
-	transport := p2p.NewMConnTransport(
-		log.NewNopLogger(),
-		conn.DefaultMConnConfig(),
-		[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
-		p2p.MConnTransportOptions{
-			MaxAcceptedConnections: 2,
-		},
-	)
-	t.Cleanup(func() {
-		_ = transport.Close()
-	})
-	ctx := t.Context()
-
-	_, err := transport.Accept(ctx)
-	require.Error(t, err)
-	require.NotEqual(t, io.EOF, err) // io.EOF should be returned after Close()
 }
 
 func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 	ctx := t.Context()
 
-	transport := p2p.NewMConnTransport(
-		log.NewNopLogger(),
-		conn.DefaultMConnConfig(),
-		[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
-		p2p.MConnTransportOptions{
-			MaxAcceptedConnections: 2,
-		},
-	)
-	t.Cleanup(func() {
-		_ = transport.Close()
-	})
-	err := transport.Listen(&p2p.Endpoint{
-		Protocol: p2p.MConnProtocol,
-		IP:       net.IPv4(127, 0, 0, 1),
-	})
-	require.NoError(t, err)
-	endpoint, err := transport.Endpoint()
-	require.NoError(t, err)
-	require.NotNil(t, endpoint)
+	transport := testTransports["mconn"](t)
 
 	// Start a goroutine to just accept any connections.
 	acceptCh := make(chan p2p.Connection, 10)

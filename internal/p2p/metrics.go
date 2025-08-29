@@ -36,6 +36,8 @@ type Metrics struct {
 	PeerSendBytesTotal metrics.Counter `metrics_labels:"peer_id, chID, message_type"`
 	// Number of bytes pending being sent to a given peer.
 	PeerPendingSendBytes metrics.Gauge `metrics_labels:"peer_id"`
+	// Number of newly established connections.
+	NewConnections metrics.Counter `metrics_labels:"direction"`
 
 	// RouterPeerQueueRecv defines the time taken to read off of a peer's queue
 	// before sending on the connection.

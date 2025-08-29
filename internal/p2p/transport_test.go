@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/netip"
 	"testing"
 	"time"
 
@@ -15,10 +16,13 @@ import (
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/bytes"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 )
 
 // transportFactory is used to set up transports for tests.
-type transportFactory func(t *testing.T) p2p.Transport
+type transportFactory interface {
+	SpawnTransport(ctx context.Context, addr netip.AddrPort) p2p.Transport
+}
 
 // testTransports is a registry of transport factories for withTransports().
 var testTransports = map[string]transportFactory{}
@@ -28,7 +32,6 @@ var testTransports = map[string]transportFactory{}
 func withTransports(t *testing.T, tester func(*testing.T, transportFactory)) {
 	t.Helper()
 	for name, transportFactory := range testTransports {
-		transportFactory := transportFactory
 		t.Run(name, func(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 			tester(t, transportFactory)
@@ -40,7 +43,7 @@ func TestTransport_AcceptClose(t *testing.T) {
 	// Just test accept unblock on close, happy path is tested widely elsewhere.
 	withTransports(t, func(t *testing.T, makeTransport transportFactory) {
 		ctx := t.Context()
-		a := makeTransport(t)
+		a := makeTransport(t,tcp.TestReserveAddr())
 		opctx, opcancel := context.WithTimeout(ctx, 200*time.Millisecond)
 		defer opcancel()
 
