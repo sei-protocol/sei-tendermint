@@ -11,6 +11,7 @@ import (
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/libs/utils"
 )
 
 const (
@@ -85,16 +86,12 @@ type MemoryTransport struct {
 // newMemoryTransport creates a new MemoryTransport. This is for internal use by
 // MemoryNetwork, use MemoryNetwork.CreateTransport() instead.
 func newMemoryTransport(network *MemoryNetwork, nodeID types.NodeID) *MemoryTransport {
-	once := &sync.Once{}
-	closeCh := make(chan struct{})
 	return &MemoryTransport{
 		logger:     network.logger.With("local", nodeID),
 		network:    network,
 		nodeID:     nodeID,
 		bufferSize: network.bufferSize,
 		acceptCh:   make(chan *MemoryConnection),
-		closeCh:    closeCh,
-		closeFn:    func() { once.Do(func() { close(closeCh) }) },
 	}
 }
 
@@ -108,7 +105,6 @@ func (t *MemoryTransport) Run(ctx context.Context) error {
 	t.network.mtx.Lock()
 	delete(t.network.transports, t.nodeID)
 	t.network.mtx.Unlock()
-	t.closeFn()
 	return nil
 }
 
@@ -132,15 +128,7 @@ func (t *MemoryTransport) Endpoint() Endpoint {
 
 // Accept implements Transport.
 func (t *MemoryTransport) Accept(ctx context.Context) (Connection, error) {
-	select {
-	case <-t.closeCh:
-		return nil, io.EOF
-	case conn := <-t.acceptCh:
-		t.logger.Info("accepted connection", "remote", conn.RemoteEndpoint().Path)
-		return conn, nil
-	case <-ctx.Done():
-		return nil, io.EOF
-	}
+	return utils.Recv(ctx,t.acceptCh)
 }
 
 // Dial implements Transport.
@@ -180,12 +168,10 @@ func (t *MemoryTransport) Dial(ctx context.Context, endpoint Endpoint) (Connecti
 	inConn.closeCh = closeCh
 	inConn.closeFn = closeFn
 
-	select {
-	case peer.acceptCh <- inConn:
-		return outConn, nil
-	case <-ctx.Done():
-		return nil, io.EOF
+	if err:=utils.Send(ctx,peer.acceptCh,inConn); err!=nil {
+		return nil, err
 	}
+	return outConn, nil
 }
 
 // MemoryConnection is an in-memory connection between two transport endpoints.

@@ -174,7 +174,7 @@ func TestReactorBroadcastDoesNotPanic(t *testing.T) {
 	go primaryReactor.broadcastTxRoutine(ctx, secondary, rts.mempoolChannels[primary])
 
 	wg := &sync.WaitGroup{}
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		next := &WrappedTx{}
 		wg.Add(1)
 		go func() {
