@@ -161,11 +161,10 @@ func (e Endpoint) Validate() error {
 	if e.Protocol == "" {
 		return errors.New("endpoint has no protocol")
 	}
-	if e.Addr==(netip.AddrPort{}) {
-		if e.Path == "" {
-			return errors.New("endpoint has neither path nor IP")
-		}
-	} else {
+	if (e.Addr==netip.AddrPort{}) && (e.Path=="") {
+		return errors.New("endpoint has neither path nor IP")
+	}
+	if e.Addr!=(netip.AddrPort{}) {
 		if !e.Addr.IsValid() {
 			return fmt.Errorf("endpoint has invalid address %q", e.Addr.String())
 		}

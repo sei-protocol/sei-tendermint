@@ -40,11 +40,16 @@ func init() {
 					panic(err)
 				}
 			}()
+			if err:=transport.WaitForStart(ctx); err!=nil {
+				panic(err)
+			}
 			return transport
 		}
 	}
 }
 
+// Establishes a connection to the transport.
+// Returns both ends of the connection.
 func connect(ctx context.Context, tr *p2p.MConnTransport) (c1 p2p.Connection, c2 p2p.Connection, err error) {
 	defer func() {
 		if err != nil {

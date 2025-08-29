@@ -123,6 +123,7 @@ func (a NodeAddress) Resolve(ctx context.Context) ([]Endpoint, error) {
 	endpoints := make([]Endpoint, len(ips))
 	for i, ip := range ips {
 		ip,ok := netip.AddrFromSlice(ip)
+		fmt.Printf("%v\n",ip)
 		if !ok { return nil, fmt.Errorf("LookupIP returned invalid IP %q", ip) }
 		endpoints[i] = Endpoint{
 			Protocol: a.Protocol,

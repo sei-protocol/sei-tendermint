@@ -5,11 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/utils/tcp"
+	"github.com/tendermint/tendermint/libs/utils/require"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -266,7 +265,15 @@ func TestNodeAddress_Resolve(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
-			require.Contains(t, endpoints, tc.expect)
+			ok := false
+			tc.expect.Addr = tcp.Norm(tc.expect.Addr)
+			for _,e := range endpoints {
+				e.Addr = tcp.Norm(e.Addr)
+				ok = ok || e==tc.expect
+			}
+			if !ok {
+				t.Fatalf("%v not in %v",tc.expect,endpoints)
+			}
 		})
 	}
 	t.Run("Resolve localhost", func(t *testing.T) {
@@ -277,7 +284,7 @@ func TestNodeAddress_Resolve(t *testing.T) {
 		for _, got := range endpoints {
 			require.True(t, got.Addr.Addr().IsLoopback())
 			// Any loopback address is acceptable, so ignore it in comparison.
-			want := &p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(got.Addr.Addr(),80), Path: "/path"}
+			want := p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(got.Addr.Addr(),80), Path: "/path"}
 			require.Equal(t, want, got)
 		}
 	})
