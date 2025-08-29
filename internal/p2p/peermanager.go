@@ -28,6 +28,15 @@ const (
 	retryNever time.Duration = math.MaxInt64
 )
 
+type DialFailuresError struct {
+	Failures    uint32
+	Address      types.NodeID
+}
+
+func (e DialFailuresError) Error() string {
+	return fmt.Sprintf("dialing failed %d times will not retry for address=%s, deleting peer",e.Failures,e.Address)
+}
+
 // PeerStatus is a peer status.
 //
 // The peer manager has many more internal states for a peer (e.g. dialing,
@@ -614,7 +623,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
 			}
-			return fmt.Errorf("dialing failed %d times will not retry for address=%s, deleting peer", addressInfo.DialFailures, address.NodeID)
+			return DialFailuresError{addressInfo.DialFailures, address.NodeID}
 		}
 		go func() {
 			// Use an explicit timer with deferred cleanup instead of
