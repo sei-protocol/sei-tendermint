@@ -15,8 +15,8 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/internal/p2p"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils/require"
+	"github.com/tendermint/tendermint/types"
 )
 
 // FIXME: We should probably have some randomized property-based tests for the
@@ -432,7 +432,7 @@ func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
 			require.GreaterOrEqual(t, elapsed, time.Duration(math.Pow(2, float64(i)))*options.MinRetryTime)
 		}
 		if i == 3 {
-			if got,err:=(p2p.DialFailuresError{}),peerManager.DialFailed(ctx, a); !errors.As(err, &got) || got.Failures!=4 {
+			if got, err := (p2p.DialFailuresError{}), peerManager.DialFailed(ctx, a); !errors.As(err, &got) || got.Failures != 4 {
 				t.Errorf("expected 4 failures, got error %v", err)
 			}
 
@@ -1048,7 +1048,7 @@ func TestPeerManager_Dialed_Upgrade(t *testing.T) {
 	// a should now be evicted.
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=a.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
 	}
 }
@@ -1106,7 +1106,7 @@ func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
 	require.NoError(t, peerManager.Dialed(c))
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=d.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != d.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, d.NodeID)
 	}
 }
@@ -1319,7 +1319,7 @@ func TestPeerManager_Accepted_Upgrade(t *testing.T) {
 	// This should cause a to get evicted.
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=a.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
 	}
 	peerManager.Disconnected(ctx, a.NodeID)
@@ -1371,7 +1371,7 @@ func TestPeerManager_Accepted_UpgradeDialing(t *testing.T) {
 	// This should cause a to get evicted, and the dial upgrade to fail.
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=a.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
 	}
 	require.Error(t, peerManager.Dialed(b))
@@ -1597,7 +1597,7 @@ func TestPeerManager_TryEvictNext(t *testing.T) {
 	peerManager.Errored(a.NodeID, errors.New("foo"))
 	evict, err = peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=a.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
 	}
 
@@ -1702,7 +1702,7 @@ func TestPeerManager_Errored(t *testing.T) {
 	peerManager.Errored(a.NodeID, errors.New("foo"))
 	evict, err = peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=a.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
 	}
 }
@@ -1753,7 +1753,7 @@ func TestPeerManager_Subscribe(t *testing.T) {
 
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	if ev,ok := evict.Get(); !ok || ev.ID!=a.NodeID {
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
 		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
 	}
 

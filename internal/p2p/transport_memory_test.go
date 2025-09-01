@@ -2,8 +2,8 @@ package p2p_test
 
 import (
 	"bytes"
-	"encoding/hex"
 	"context"
+	"encoding/hex"
 
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/log"
@@ -18,10 +18,12 @@ func init() {
 		return func(ctx context.Context) p2p.Transport {
 			i := byte(network.Size())
 			nodeID, err := types.NewNodeID(hex.EncodeToString(bytes.Repeat([]byte{i<<4 + i}, 20)))
-			if err!=nil { panic(err) }
+			if err != nil {
+				panic(err)
+			}
 			t := network.CreateTransport(nodeID)
 			go func() {
-				if err:=t.Run(ctx); err!=nil {
+				if err := t.Run(ctx); err != nil {
 					panic(err)
 				}
 			}()

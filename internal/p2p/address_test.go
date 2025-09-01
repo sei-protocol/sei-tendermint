@@ -7,8 +7,8 @@ import (
 
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
-	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/tendermint/tendermint/libs/utils/require"
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -208,28 +208,28 @@ func TestNodeAddress_Resolve(t *testing.T) {
 		// Valid networked addresses (with hostname).
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1", Port: 80, Path: "/path"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(),80), Path: "/path"},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(), 80), Path: "/path"},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(),0)},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "::1"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.IPv6Loopback(),0)},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.IPv6Loopback(), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "8.8.8.8"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{8, 8, 8, 8}),0)},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{8, 8, 8, 8}), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "2001:0db8::ff00:0042:8329"},
 			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom16([16]byte{
-				0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x42, 0x83, 0x29}),0)},
+				0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x42, 0x83, 0x29}), 0)},
 			true,
 		},
 		{
@@ -267,12 +267,12 @@ func TestNodeAddress_Resolve(t *testing.T) {
 			}
 			ok := false
 			tc.expect.Addr = tcp.Norm(tc.expect.Addr)
-			for _,e := range endpoints {
+			for _, e := range endpoints {
 				e.Addr = tcp.Norm(e.Addr)
-				ok = ok || e==tc.expect
+				ok = ok || e == tc.expect
 			}
 			if !ok {
-				t.Fatalf("%v not in %v",tc.expect,endpoints)
+				t.Fatalf("%v not in %v", tc.expect, endpoints)
 			}
 		})
 	}
@@ -284,7 +284,7 @@ func TestNodeAddress_Resolve(t *testing.T) {
 		for _, got := range endpoints {
 			require.True(t, got.Addr.Addr().IsLoopback())
 			// Any loopback address is acceptable, so ignore it in comparison.
-			want := p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(got.Addr.Addr(),80), Path: "/path"}
+			want := p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(got.Addr.Addr(), 80), Path: "/path"}
 			require.Equal(t, want, got)
 		}
 	})

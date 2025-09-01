@@ -284,7 +284,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	})
 
 	return &Node{
-		Logger: logger,
+		Logger:      logger,
 		NodeID:      nodeID,
 		NodeInfo:    nodeInfo,
 		NodeAddress: transport.Endpoint().NodeAddress(nodeID),

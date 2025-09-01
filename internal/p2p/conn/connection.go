@@ -19,10 +19,10 @@ import (
 	"github.com/tendermint/tendermint/internal/libs/flowrate"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/internal/libs/timer"
-	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/libs/log"
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	"github.com/tendermint/tendermint/libs/service"
+	"github.com/tendermint/tendermint/libs/utils"
 	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
 )
 
@@ -317,7 +317,7 @@ func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte)
 	}
 
 	if err := channel.sendBytes(ctx, msgBytes); err != nil {
-		return fmt.Errorf("channel.sendBytes(): %v",err)
+		return fmt.Errorf("channel.sendBytes(): %v", err)
 	}
 	// Wake up sendRoutine if necessary
 	select {
@@ -643,11 +643,11 @@ type channel struct {
 	// See https://github.com/tendermint/tendermint/issues/7000.
 	recentlySent int64
 
-	conn          *MConnection
-	desc          ChannelDescriptor
-	sendQueue     chan []byte
-	recving       []byte
-	sending       []byte
+	conn      *MConnection
+	desc      ChannelDescriptor
+	sendQueue chan []byte
+	recving   []byte
+	sending   []byte
 
 	maxPacketMsgPayloadSize int
 

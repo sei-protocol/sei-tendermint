@@ -322,7 +322,7 @@ type reactorTestSuite struct {
 	reactors    map[types.NodeID]*pex.Reactor
 	pexChannels map[types.NodeID]*p2p.Channel
 
-	peerChans   map[types.NodeID]chan p2p.PeerUpdate
+	peerChans map[types.NodeID]chan p2p.PeerUpdate
 
 	nodes []types.NodeID
 	mocks []types.NodeID
@@ -624,7 +624,9 @@ func (r *reactorTestSuite) requireNumberOfPeers(
 }
 
 func (r *reactorTestSuite) connectCycle(ctx context.Context, t *testing.T) {
-	if r.total==0 { return }
+	if r.total == 0 {
+		return
+	}
 	for i := range r.total {
 		r.connectPeers(ctx, t, i, (i+1)%r.total)
 	}
@@ -632,7 +634,7 @@ func (r *reactorTestSuite) connectCycle(ctx context.Context, t *testing.T) {
 
 func (r *reactorTestSuite) connectAll(ctx context.Context, t *testing.T) {
 	for i := range r.total {
-		for j := range r.total-1 {
+		for j := range r.total - 1 {
 			r.connectPeers(ctx, t, i, (i+j+1)%r.total)
 		}
 	}
@@ -641,10 +643,10 @@ func (r *reactorTestSuite) connectAll(ctx context.Context, t *testing.T) {
 // Adds enough addresses to peerManagers, so that all nodes are discoverable.
 func (r *reactorTestSuite) seedAddrs(t *testing.T) {
 	t.Helper()
-	for i := range r.total-1 {
+	for i := range r.total - 1 {
 		n1 := r.network.Nodes[r.nodes[i]]
 		n2 := r.network.Nodes[r.nodes[i+1]]
-		_,err := n1.PeerManager.Add(n2.NodeAddress)
+		_, err := n1.PeerManager.Add(n2.NodeAddress)
 		require.NoError(t, err)
 	}
 }
@@ -667,7 +669,7 @@ func (r *reactorTestSuite) connectPeers(ctx context.Context, t *testing.T, sourc
 	}
 
 	// Subscription is for the ctx lifetime.
-	ctx,cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	sourceSub := n1.PeerManager.Subscribe(ctx)
 	targetSub := n2.PeerManager.Subscribe(ctx)

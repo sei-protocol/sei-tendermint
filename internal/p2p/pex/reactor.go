@@ -148,8 +148,8 @@ func (r *Reactor) SetChannel(ch *p2p.Channel) {
 // OnStop to ensure the outbound p2p Channels are closed.
 func (r *Reactor) OnStart(ctx context.Context) error {
 	peerUpdates := r.peerEvents(ctx)
-	r.Spawn("processPexCh",func(ctx context.Context) error { return r.processPexCh(ctx) })
-	r.Spawn("processPeerUpdates",func(ctx context.Context) error { return r.processPeerUpdates(ctx, peerUpdates) })
+	r.Spawn("processPexCh", func(ctx context.Context) error { return r.processPexCh(ctx) })
+	r.Spawn("processPeerUpdates", func(ctx context.Context) error { return r.processPeerUpdates(ctx, peerUpdates) })
 	return nil
 }
 
@@ -165,7 +165,7 @@ func (r *Reactor) processPexCh(ctx context.Context) error {
 		defer close(incoming)
 		iter := r.channel.Receive(ctx)
 		for iter.Next(ctx) {
-			if err:=utils.Send(ctx, incoming, iter.Envelope()); err!=nil {
+			if err := utils.Send(ctx, incoming, iter.Envelope()); err != nil {
 				return
 			}
 		}
@@ -197,7 +197,7 @@ func (r *Reactor) processPexCh(ctx context.Context) error {
 			// Send a request for more peer addresses.
 			if err := r.sendRequestForPeers(ctx); err != nil {
 				r.logger.Error("failed to send request for peers", "err", err)
-				if errors.Is(err,NoPeersAvailableError) {
+				if errors.Is(err, NoPeersAvailableError) {
 					noAvailablePeerFailCounter++
 					lastNoAvailablePeersTime = time.Now()
 					continue
@@ -207,7 +207,7 @@ func (r *Reactor) processPexCh(ctx context.Context) error {
 			noAvailablePeerFailCounter = 0
 		case envelope, ok := <-incoming:
 			if !ok {
-				return nil// channel closed
+				return nil // channel closed
 			}
 
 			// A request from another peer, or a response to one of our requests.
@@ -236,8 +236,10 @@ func (r *Reactor) processPexCh(ctx context.Context) error {
 // close the p2p PeerUpdatesCh gracefully.
 func (r *Reactor) processPeerUpdates(ctx context.Context, peerUpdates *p2p.PeerUpdates) error {
 	for {
-		peerUpdate,err:=utils.Recv(ctx,peerUpdates.Updates())
-		if err!=nil { return err }
+		peerUpdate, err := utils.Recv(ctx, peerUpdates.Updates())
+		if err != nil {
+			return err
+		}
 		r.processPeerUpdate(peerUpdate)
 	}
 }
@@ -285,7 +287,7 @@ func (r *Reactor) handlePexMessage(ctx context.Context, envelope *p2p.Envelope) 
 		for _, pexAddress := range msg.Addresses {
 			peerAddress, err := p2p.ParseNodeAddress(pexAddress.URL)
 			if err != nil {
-				return 0,fmt.Errorf("PEX parse node address error %s", err)
+				return 0, fmt.Errorf("PEX parse node address error %s", err)
 			}
 			added, err := r.peerManager.Add(peerAddress)
 			if err != nil {

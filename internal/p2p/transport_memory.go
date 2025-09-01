@@ -10,8 +10,8 @@ import (
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/types"
 )
 
 const (
@@ -128,7 +128,7 @@ func (t *MemoryTransport) Endpoint() Endpoint {
 
 // Accept implements Transport.
 func (t *MemoryTransport) Accept(ctx context.Context) (Connection, error) {
-	return utils.Recv(ctx,t.acceptCh)
+	return utils.Recv(ctx, t.acceptCh)
 }
 
 // Dial implements Transport.
@@ -168,7 +168,7 @@ func (t *MemoryTransport) Dial(ctx context.Context, endpoint Endpoint) (Connecti
 	inConn.closeCh = closeCh
 	inConn.closeFn = closeFn
 
-	if err:=utils.Send(ctx,peer.acceptCh,inConn); err!=nil {
+	if err := utils.Send(ctx, peer.acceptCh, inConn); err != nil {
 		return nil, err
 	}
 	return outConn, nil

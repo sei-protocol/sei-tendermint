@@ -405,7 +405,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %w", err)
 		}
-		r.metrics.NewConnections.With("direction","in").Add(1)
+		r.metrics.NewConnections.With("direction", "in").Add(1)
 		incomingAddr := conn.RemoteEndpoint().Addr
 		if err := r.connTracker.AddConn(incomingAddr); err != nil {
 			closeErr := conn.Close()
@@ -427,7 +427,6 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 	defer conn.Close()
 	incomingAddr := conn.RemoteEndpoint().Addr
 	defer r.connTracker.RemoveConn(incomingAddr)
-
 
 	if err := r.filterPeersIP(ctx, incomingAddr); err != nil {
 		r.logger.Debug("peer filtered by IP", "ip", incomingAddr, "err", err)
@@ -590,7 +589,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		if err != nil {
 			r.logger.Debug("failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
 		} else {
-			r.metrics.NewConnections.With("direction","out").Add(1)
+			r.metrics.NewConnections.With("direction", "out").Add(1)
 			r.logger.Debug("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
 			return conn, nil
 		}
@@ -781,7 +780,7 @@ func (r *Router) evictPeers(ctx context.Context) error {
 		}
 		for states := range r.peerStates.Lock() {
 			if s, ok := states[ev.ID]; ok {
-				r.logger.Info("evicting peer", "peer", ev.ID,"cause",ev.Cause)
+				r.logger.Info("evicting peer", "peer", ev.ID, "cause", ev.Cause)
 				s.cancel()
 			}
 		}
@@ -805,7 +804,7 @@ func (r *Router) OnStart(ctx context.Context) error {
 		}
 	}
 
-	r.SpawnCritical("transport.Run",func(ctx context.Context) error {
+	r.SpawnCritical("transport.Run", func(ctx context.Context) error {
 		return r.transport.Run(ctx)
 	})
 	r.SpawnCritical("dialPeers", func(ctx context.Context) error { return r.dialPeers(ctx) })
@@ -820,7 +819,7 @@ func (r *Router) OnStart(ctx context.Context) error {
 // router, to prevent blocked channel sends in reactors. Channels are not closed
 // here, since that would cause any reactor senders to panic, so it is the
 // sender's responsibility.
-func (r *Router) OnStop() {	}
+func (r *Router) OnStop() {}
 
 type ChannelIDSet map[ChannelID]struct{}
 

@@ -19,7 +19,7 @@ func IPv4Loopback() netip.Addr { return netip.AddrFrom4([4]byte{127, 0, 0, 1}) }
 
 // Norm normalizes address by unmapping IPv4 -> IPv6 embedding.
 func Norm(addr netip.AddrPort) netip.AddrPort {
-	return netip.AddrPortFrom(addr.Addr().Unmap(),addr.Port())
+	return netip.AddrPortFrom(addr.Addr().Unmap(), addr.Port())
 }
 
 // Listen opens a TCP listener on the given address.

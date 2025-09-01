@@ -27,7 +27,7 @@ var NotZero = require.NotZero
 var Contains = require.Contains
 
 func ElementsMatch[T any](t TestingT, a []T, b []T, msgAndArgs ...any) {
-	require.ElementsMatch(t,a,b,msgAndArgs...)
+	require.ElementsMatch(t, a, b, msgAndArgs...)
 }
 
 // Eventually .
@@ -92,7 +92,6 @@ func Greater[T cmp.Ordered](t TestingT, e1, e2 T, msgAndArgs ...any) {
 func GreaterOrEqual[T cmp.Ordered](t TestingT, e1, e2 T, msgAndArgs ...any) {
 	require.GreaterOrEqual(t, e1, e2, msgAndArgs...)
 }
-
 
 // Equal .
 func Equal[T any](t TestingT, expected, actual T, msgAndArgs ...any) {

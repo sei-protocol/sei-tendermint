@@ -2,18 +2,18 @@ package p2p_test
 
 import (
 	"context"
-	"net/netip"
+	"errors"
+	"fmt"
 	"io"
+	"net/netip"
 	"testing"
 	"time"
-	"fmt"
-	"errors"
 
-	"github.com/tendermint/tendermint/libs/utils/tcp"
-	"github.com/tendermint/tendermint/libs/utils"
-	"github.com/tendermint/tendermint/libs/utils/scope"
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/libs/utils/scope"
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/internal/p2p/conn"
@@ -29,18 +29,18 @@ func init() {
 				log.NewNopLogger(),
 				p2p.Endpoint{
 					Protocol: p2p.MConnProtocol,
-					Addr: 	tcp.TestReserveAddr(),
+					Addr:     tcp.TestReserveAddr(),
 				},
 				conn.DefaultMConnConfig(),
 				[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
 				p2p.MConnTransportOptions{},
 			)
 			go func() {
-				if err:=transport.Run(ctx); err != nil {
+				if err := transport.Run(ctx); err != nil {
 					panic(err)
 				}
 			}()
-			if err:=transport.WaitForStart(ctx); err!=nil {
+			if err := transport.WaitForStart(ctx); err != nil {
 				panic(err)
 			}
 			return transport
@@ -53,23 +53,31 @@ func init() {
 func connect(ctx context.Context, tr *p2p.MConnTransport) (c1 p2p.Connection, c2 p2p.Connection, err error) {
 	defer func() {
 		if err != nil {
-			if c1 != nil { c1.Close() }
-			if c2 != nil { c2.Close() }
+			if c1 != nil {
+				c1.Close()
+			}
+			if c2 != nil {
+				c2.Close()
+			}
 		}
 	}()
 	// Here we are utilizing the fact that MConnTransport accepts connection proactively
 	// before Accept is called.
 	c1, err = tr.Dial(ctx, tr.Endpoint())
-	if err != nil { return nil,nil,fmt.Errorf("Dial(): %w", err) }
+	if err != nil {
+		return nil, nil, fmt.Errorf("Dial(): %w", err)
+	}
 	c2, err = tr.Accept(ctx)
-	if err != nil { return nil,nil,fmt.Errorf("Accept(): %w", err) }
-	if got,want := c1.LocalEndpoint(),c2.RemoteEndpoint(); got!=want {
-		return nil,nil,fmt.Errorf("c1.LocalEndpoint() = %v, want %v", got, want)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Accept(): %w", err)
 	}
-	if got,want := c1.RemoteEndpoint(),c2.LocalEndpoint(); got!=want {
-		return nil,nil,fmt.Errorf("c1.RemoteEndpoint() = %v, want %v", got, want)
+	if got, want := c1.LocalEndpoint(), c2.RemoteEndpoint(); got != want {
+		return nil, nil, fmt.Errorf("c1.LocalEndpoint() = %v, want %v", got, want)
 	}
-	return c1,c2,nil
+	if got, want := c1.RemoteEndpoint(), c2.LocalEndpoint(); got != want {
+		return nil, nil, fmt.Errorf("c1.RemoteEndpoint() = %v, want %v", got, want)
+	}
+	return c1, c2, nil
 }
 
 func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
@@ -78,7 +86,7 @@ func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 		log.NewNopLogger(),
 		p2p.Endpoint{
 			Protocol: p2p.MConnProtocol,
-			Addr: 	tcp.TestReserveAddr(),
+			Addr:     tcp.TestReserveAddr(),
 		},
 		conn.DefaultMConnConfig(),
 		[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
@@ -89,28 +97,34 @@ func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 
 	err := utils.IgnoreCancel(scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnBgNamed("transport", func() error { return transport.Run(ctx) })
-		if err:=transport.WaitForStart(ctx); err!=nil {
+		if err := transport.WaitForStart(ctx); err != nil {
 			return err
 		}
 		t.Logf("The first two connections should be accepted just fine.")
 
-		a1,a2,err := connect(ctx, transport)
-		if err!=nil { return fmt.Errorf("1st connect(): %w", err) }
+		a1, a2, err := connect(ctx, transport)
+		if err != nil {
+			return fmt.Errorf("1st connect(): %w", err)
+		}
 		defer a1.Close()
 		defer a2.Close()
 
-		b1,b2,err := connect(ctx, transport)
-		if err!=nil { return fmt.Errorf("2nd connect(): %w",err) }
+		b1, b2, err := connect(ctx, transport)
+		if err != nil {
+			return fmt.Errorf("2nd connect(): %w", err)
+		}
 		defer b1.Close()
 		defer b2.Close()
 
 		t.Logf("The third connection will be dialed successfully, but the accept should not go through.")
 		c1, err := transport.Dial(ctx, transport.Endpoint())
-		if err!=nil { return fmt.Errorf("3rd Dial(): %w", err) }
+		if err != nil {
+			return fmt.Errorf("3rd Dial(): %w", err)
+		}
 		defer c1.Close()
 		if err := utils.WithTimeout(ctx, time.Second, func(ctx context.Context) error {
 			c2, err := transport.Accept(ctx)
-			if err==nil {
+			if err == nil {
 				c2.Close()
 			}
 			return err
@@ -121,8 +135,10 @@ func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 		t.Logf("once either of the other connections are closed, the accept goes through.")
 		a1.Close()
 		a2.Close() // we close both a1 and a2 to make sure the connection count drops below the limit.
-		c2,err := transport.Accept(ctx)
-		if err!=nil { return fmt.Errorf("3rd Accept(): %w",err) }
+		c2, err := transport.Accept(ctx)
+		if err != nil {
+			return fmt.Errorf("3rd Accept(): %w", err)
+		}
 		defer c2.Close()
 		return nil
 	}))
@@ -165,33 +181,37 @@ func TestMConnTransport_Listen(t *testing.T) {
 				[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
 				p2p.MConnTransportOptions{},
 			)
-			if got,want := transport.Endpoint(),tc.endpoint; got!=want {
+			if got, want := transport.Endpoint(), tc.endpoint; got != want {
 				t.Fatalf("transport.Endpoint() = %v, want %v", got, want)
 			}
 
 			err := utils.IgnoreCancel(scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 				s.SpawnBgNamed("transport", func() error { return transport.Run(ctx) })
-				if err:=transport.WaitForStart(ctx); err!=nil {
+				if err := transport.WaitForStart(ctx); err != nil {
 					return err
 				}
-				s.SpawnNamed("dial",func() error {
+				s.SpawnNamed("dial", func() error {
 					conn, err := transport.Dial(ctx, tc.endpoint)
-					if err != nil { return fmt.Errorf("transport.Dial(): %w", err) }
-					if err:=conn.Close(); err!=nil {
+					if err != nil {
+						return fmt.Errorf("transport.Dial(): %w", err)
+					}
+					if err := conn.Close(); err != nil {
 						return fmt.Errorf("conn.Close(): %w", err)
 					}
-					if _, _, err := conn.ReceiveMessage(ctx); !errors.Is(err,io.EOF) {
+					if _, _, err := conn.ReceiveMessage(ctx); !errors.Is(err, io.EOF) {
 						return fmt.Errorf("conn.ReceiveMessage() =  %v, want %v", err, io.EOF)
 					}
 					return nil
 				})
-				s.SpawnNamed("accept",func() error {
+				s.SpawnNamed("accept", func() error {
 					conn, err := transport.Accept(ctx)
-					if err != nil { return fmt.Errorf("transport.Accept(): %w",err) }
-					if err:=conn.Close(); err!=nil {
+					if err != nil {
+						return fmt.Errorf("transport.Accept(): %w", err)
+					}
+					if err := conn.Close(); err != nil {
 						return fmt.Errorf("conn.Close(): %w", err)
 					}
-					if _, _, err := conn.ReceiveMessage(ctx); !errors.Is(err,io.EOF) {
+					if _, _, err := conn.ReceiveMessage(ctx); !errors.Is(err, io.EOF) {
 						return fmt.Errorf("conn.ReceiveMessage() =  %v, want %v", err, io.EOF)
 					}
 					return nil

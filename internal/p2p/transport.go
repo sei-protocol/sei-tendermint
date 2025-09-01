@@ -32,7 +32,6 @@ type Transport interface {
 	// Endpoints returns the local endpoints the transport is listening on.
 	Endpoint() Endpoint
 
-
 	// Accept waits for the next inbound connection on a listening endpoint, blocking
 	// until either a connection is available or the transport is closed. On closure,
 	// io.EOF is returned and further Accept calls are futile.
@@ -125,7 +124,7 @@ func NewEndpoint(addr string) (Endpoint, error) {
 
 	return Endpoint{
 		Protocol: MConnProtocol,
-		Addr: addrPort,
+		Addr:     addrPort,
 	}, nil
 }
 
@@ -136,7 +135,7 @@ func (e Endpoint) NodeAddress(nodeID types.NodeID) NodeAddress {
 		Protocol: e.Protocol,
 		Path:     e.Path,
 	}
-	if e.Addr!=(netip.AddrPort{}) {
+	if e.Addr != (netip.AddrPort{}) {
 		address.Hostname = e.Addr.Addr().String()
 		address.Port = e.Addr.Port()
 	}
@@ -161,10 +160,10 @@ func (e Endpoint) Validate() error {
 	if e.Protocol == "" {
 		return errors.New("endpoint has no protocol")
 	}
-	if (e.Addr==netip.AddrPort{}) && (e.Path=="") {
+	if (e.Addr == netip.AddrPort{}) && (e.Path == "") {
 		return errors.New("endpoint has neither path nor IP")
 	}
-	if e.Addr!=(netip.AddrPort{}) {
+	if e.Addr != (netip.AddrPort{}) {
 		if !e.Addr.IsValid() {
 			return fmt.Errorf("endpoint has invalid address %q", e.Addr.String())
 		}

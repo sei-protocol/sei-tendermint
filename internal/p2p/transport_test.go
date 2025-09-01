@@ -43,7 +43,7 @@ func TestTransport_DialEndpoints(t *testing.T) {
 		{netip.IPv4Unspecified(), true},
 		{netip.IPv6Unspecified(), true},
 
-		{netip.AddrFrom4([4]byte{255,255,255,255}), false},
+		{netip.AddrFrom4([4]byte{255, 255, 255, 255}), false},
 		{netip.AddrFrom4([4]byte{224, 0, 0, 1}), false},
 	}
 
@@ -85,11 +85,11 @@ func TestTransport_DialEndpoints(t *testing.T) {
 		require.Error(t, err)
 
 		// Tests for networked endpoints (with IP).
-		if endpoint.Addr!=(netip.AddrPort{}) && endpoint.Protocol != p2p.MemoryProtocol {
+		if endpoint.Addr != (netip.AddrPort{}) && endpoint.Protocol != p2p.MemoryProtocol {
 			for _, tc := range ipTestCases {
 				t.Run(tc.ip.String(), func(t *testing.T) {
 					e := endpoint
-					e.Addr = netip.AddrPortFrom(tc.ip,endpoint.Addr.Port())
+					e.Addr = netip.AddrPortFrom(tc.ip, endpoint.Addr.Port())
 					conn, err := a.Dial(ctx, e)
 					if tc.ok {
 						require.NoError(t, err)
@@ -325,9 +325,9 @@ func TestConnection_String(t *testing.T) {
 
 func TestEndpoint_NodeAddress(t *testing.T) {
 	var (
-		ip4    = netip.AddrFrom4([4]byte{1, 2, 3, 4})
-		ip6    = netip.AddrFrom16([16]byte{0xb1, 0x0c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01})
-		id     = types.NodeID("00112233445566778899aabbccddeeff00112233")
+		ip4 = netip.AddrFrom4([4]byte{1, 2, 3, 4})
+		ip6 = netip.AddrFrom16([16]byte{0xb1, 0x0c, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01})
+		id  = types.NodeID("00112233445566778899aabbccddeeff00112233")
 	)
 
 	testcases := []struct {
@@ -336,7 +336,7 @@ func TestEndpoint_NodeAddress(t *testing.T) {
 	}{
 		// Valid endpoints.
 		{
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,8080), Path: "path"},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 8080), Path: "path"},
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "1.2.3.4", Port: 8080, Path: "path"},
 		},
 		{
@@ -355,7 +355,7 @@ func TestEndpoint_NodeAddress(t *testing.T) {
 		// Partial (invalid) endpoints.
 		{p2p.Endpoint{}, p2p.NodeAddress{}},
 		{p2p.Endpoint{Protocol: "tcp"}, p2p.NodeAddress{Protocol: "tcp"}},
-		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip4,0)}, p2p.NodeAddress{Hostname: "1.2.3.4"}},
+		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip4, 0)}, p2p.NodeAddress{Hostname: "1.2.3.4"}},
 		{p2p.Endpoint{Path: "path"}, p2p.NodeAddress{Path: "path"}},
 	}
 	for _, tc := range testcases {
@@ -388,23 +388,23 @@ func TestEndpoint_String(t *testing.T) {
 		{p2p.Endpoint{Protocol: "file", Path: "👋"}, "file:///%F0%9F%91%8B"},
 
 		// IPv4 endpoints.
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,0)}, "tcp://1.2.3.4"},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,8080)}, "tcp://1.2.3.4:8080"},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,8080), Path: "/path"}, "tcp://1.2.3.4:8080/path"},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,0), Path: "path/👋"}, "tcp://1.2.3.4/path/%F0%9F%91%8B"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 0)}, "tcp://1.2.3.4"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 8080)}, "tcp://1.2.3.4:8080"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 8080), Path: "/path"}, "tcp://1.2.3.4:8080/path"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 0), Path: "path/👋"}, "tcp://1.2.3.4/path/%F0%9F%91%8B"},
 
 		// IPv6 endpoints.
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6,0)}, "tcp://b10c::1"},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6,8080)}, "tcp://[b10c::1]:8080"},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6,8080), Path: "/path"}, "tcp://[b10c::1]:8080/path"},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6,0), Path: "path/👋"}, "tcp://b10c::1/path/%F0%9F%91%8B"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6, 0)}, "tcp://b10c::1"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6, 8080)}, "tcp://[b10c::1]:8080"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6, 8080), Path: "/path"}, "tcp://[b10c::1]:8080/path"},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6, 0), Path: "path/👋"}, "tcp://b10c::1/path/%F0%9F%91%8B"},
 
 		// Partial (invalid) endpoints.
 		{p2p.Endpoint{}, ""},
 		{p2p.Endpoint{Protocol: "tcp"}, "tcp:"},
-		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip4,0)}, "1.2.3.4"},
-		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip6,0)}, "b10c::1"},
-		{p2p.Endpoint{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(),8080)}, "0.0.0.0:8080"},
+		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip4, 0)}, "1.2.3.4"},
+		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip6, 0)}, "b10c::1"},
+		{p2p.Endpoint{Addr: netip.AddrPortFrom(netip.IPv4Unspecified(), 8080)}, "0.0.0.0:8080"},
 		{p2p.Endpoint{Path: "foo"}, "/foo"},
 	}
 	for _, tc := range testcases {
@@ -423,15 +423,15 @@ func TestEndpoint_Validate(t *testing.T) {
 		expectValid bool
 	}{
 		// Valid endpoints.
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,0)}, true},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6,0)}, true},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,8008)}, true},
-		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4,8080), Path: "path"}, true},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 0)}, true},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip6, 0)}, true},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 8008)}, true},
+		{p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(ip4, 8080), Path: "path"}, true},
 		{p2p.Endpoint{Protocol: "memory", Path: "path"}, true},
 
 		// Invalid endpoints.
 		{p2p.Endpoint{}, false},
-		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip4,0)}, false},
+		{p2p.Endpoint{Addr: netip.AddrPortFrom(ip4, 0)}, false},
 		{p2p.Endpoint{Protocol: "tcp"}, false},
 	}
 	for _, tc := range testcases {

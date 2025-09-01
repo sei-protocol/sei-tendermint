@@ -17,8 +17,8 @@ import (
 	"github.com/tendermint/tendermint/internal/p2p/conn"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
-	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/tendermint/tendermint/libs/utils/scope"
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 	p2pproto "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
 )
@@ -77,7 +77,7 @@ func NewMConnTransport(
 
 // WaitForStart waits until transport starts listening for incoming connections.
 func (m *MConnTransport) WaitForStart(ctx context.Context) error {
-	_,_,err := utils.RecvOrClosed(ctx, m.started)
+	_, _, err := utils.RecvOrClosed(ctx, m.started)
 	return err
 }
 
@@ -91,7 +91,7 @@ func (m *MConnTransport) Run(ctx context.Context) error {
 	}
 	listener, err := tcp.Listen(m.endpoint.Addr)
 	if err != nil {
-		return fmt.Errorf("net.Listen(): %w",err)
+		return fmt.Errorf("net.Listen(): %w", err)
 	}
 	close(m.started) // signal that we are listening
 	if m.options.MaxAcceptedConnections > 0 {
@@ -110,14 +110,14 @@ func (m *MConnTransport) Run(ctx context.Context) error {
 		})
 		for {
 			conn, err := listener.Accept()
-			if err!=nil {
+			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					return nil
 				}
 				return err
 			}
 			mconn := newMConnConnection(m.logger, conn, m.mConnConfig, m.channelDescs)
-			if err:=utils.Send(ctx, m.listener, mconn); err!=nil {
+			if err := utils.Send(ctx, m.listener, mconn); err != nil {
 				mconn.Close()
 				return err
 			}
@@ -146,12 +146,12 @@ func (m *MConnTransport) Dial(ctx context.Context, endpoint Endpoint) (Connectio
 		return nil, err
 	}
 	if endpoint.Addr.Port() == 0 {
-		endpoint.Addr = netip.AddrPortFrom(endpoint.Addr.Addr(),26657)
+		endpoint.Addr = netip.AddrPortFrom(endpoint.Addr.Addr(), 26657)
 	}
 	dialer := net.Dialer{}
 	tcpConn, err := dialer.DialContext(ctx, "tcp", endpoint.Addr.String())
 	if err != nil {
-		return nil,fmt.Errorf("dialer.DialContext(%v): %w", endpoint.Addr, err)
+		return nil, fmt.Errorf("dialer.DialContext(%v): %w", endpoint.Addr, err)
 	}
 	return newMConnConnection(m.logger, tcpConn, m.mConnConfig, m.channelDescs), nil
 }
@@ -167,7 +167,7 @@ func (m *MConnTransport) AddChannelDescriptors(channelDesc []*ChannelDescriptor)
 	m.channelDescs = append(m.channelDescs, channelDesc...)
 }
 
-type InvalidEndpointErr struct { error }
+type InvalidEndpointErr struct{ error }
 
 // validateEndpoint validates an endpoint.
 func (m *MConnTransport) validateEndpoint(endpoint Endpoint) error {
@@ -382,7 +382,7 @@ func (c *mConnConnection) SendMessage(ctx context.Context, chID ChannelID, msg [
 	case err := <-c.errorCh:
 		return err
 	default:
-		if err := c.mconn.Send(ctx, chID, msg); err!=nil {
+		if err := c.mconn.Send(ctx, chID, msg); err != nil {
 			return fmt.Errorf("m.mconn.Send(%v): %w", chID, err)
 		}
 		return nil

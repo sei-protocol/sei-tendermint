@@ -18,9 +18,9 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	tmsync "github.com/tendermint/tendermint/internal/libs/sync"
+	"github.com/tendermint/tendermint/libs/utils"
 	p2pproto "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/types"
-	"github.com/tendermint/tendermint/libs/utils"
 )
 
 const (
@@ -29,12 +29,12 @@ const (
 )
 
 type DialFailuresError struct {
-	Failures    uint32
-	Address      types.NodeID
+	Failures uint32
+	Address  types.NodeID
 }
 
 func (e DialFailuresError) Error() string {
-	return fmt.Sprintf("dialing failed %d times will not retry for address=%s, deleting peer",e.Failures,e.Address)
+	return fmt.Sprintf("dialing failed %d times will not retry for address=%s, deleting peer", e.Failures, e.Address)
 }
 
 // PeerStatus is a peer status.
@@ -325,7 +325,7 @@ type PeerManager struct {
 	upgrading     map[types.NodeID]types.NodeID // peers claimed for upgrade (DialNext → Dialed/DialFail)
 	connected     map[types.NodeID]bool         // connected peers (Dialed/Accepted → Disconnected)
 	ready         map[types.NodeID]bool         // ready peers (Ready → Disconnected)
-	evict         map[types.NodeID]error         // peers scheduled for eviction (Connected → EvictNext)
+	evict         map[types.NodeID]error        // peers scheduled for eviction (Connected → EvictNext)
 	evicting      map[types.NodeID]bool         // peers being evicted (EvictNext → Disconnected)
 	metrics       *Metrics
 }
@@ -797,8 +797,8 @@ func (m *PeerManager) EvictNext(ctx context.Context) (Eviction, error) {
 		if err != nil {
 			return Eviction{}, err
 		}
-		if ev,ok := ev.Get(); ok {
-			return ev,nil
+		if ev, ok := ev.Get(); ok {
+			return ev, nil
 		}
 		select {
 		case <-m.evictWaker.Sleep():
@@ -809,7 +809,7 @@ func (m *PeerManager) EvictNext(ctx context.Context) (Eviction, error) {
 }
 
 type Eviction struct {
-	ID types.NodeID
+	ID    types.NodeID
 	Cause error
 }
 
@@ -821,11 +821,11 @@ func (m *PeerManager) TryEvictNext() (utils.Option[Eviction], error) {
 
 	// If any connected peers are explicitly scheduled for eviction, we return a
 	// random one.
-	for peerID,cause := range m.evict {
+	for peerID, cause := range m.evict {
 		delete(m.evict, peerID)
 		if m.connected[peerID] && !m.evicting[peerID] {
 			m.evicting[peerID] = true
-			return utils.Some(Eviction{peerID,cause}), nil
+			return utils.Some(Eviction{peerID, cause}), nil
 		}
 	}
 
@@ -842,7 +842,7 @@ func (m *PeerManager) TryEvictNext() (utils.Option[Eviction], error) {
 		peer := ranked[i]
 		if m.connected[peer.ID] && !m.evicting[peer.ID] {
 			m.evicting[peer.ID] = true
-			return utils.Some(Eviction{peer.ID,errors.New("too many peers")}), nil
+			return utils.Some(Eviction{peer.ID, errors.New("too many peers")}), nil
 		}
 	}
 
@@ -1156,7 +1156,7 @@ func (m *PeerManager) findUpgradeCandidate(id types.NodeID, score PeerScore) typ
 		case candidate.Score() >= score:
 			return "" // no further peers can be scored lower, due to sorting
 		case !m.connected[candidate.ID]:
-		case m.evict[candidate.ID]!=nil:
+		case m.evict[candidate.ID] != nil:
 		case m.evicting[candidate.ID]:
 		case m.upgrading[candidate.ID] != "":
 		default:
