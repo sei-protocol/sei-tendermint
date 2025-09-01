@@ -117,48 +117,7 @@ func TestTransport_DialEndpoints(t *testing.T) {
 	})
 }
 
-func TestTransport_Dial(t *testing.T) {
-	t.Skip() // TODO
-	// Most just tests dial failures, happy path is tested widely elsewhere.
-	withTransports(t, func(t *testing.T, makeTransport transportFactory) {
-		ctx := t.Context()
-		a := makeTransport(ctx)
-		b := makeTransport(ctx)
-
-		aEndpoint := a.Endpoint()
-		bEndpoint := b.Endpoint()
-
-		// Context cancellation should error. We can't test timeouts since we'd
-		// need a non-responsive endpoint.
-		cancelCtx, cancel := context.WithCancel(ctx)
-		cancel()
-		_, err := a.Dial(cancelCtx, bEndpoint)
-		require.Error(t, err)
-
-		// Unavailable endpoint should error.
-		// TODO: err = b.Close()
-		require.NoError(t, err)
-		_, err = a.Dial(ctx, bEndpoint)
-		require.Error(t, err)
-
-		// Dialing from a closed transport should still work.
-		errCh := make(chan error, 1)
-		go func() {
-			conn, err := a.Accept(ctx)
-			if err == nil {
-				_ = conn.Close()
-			}
-			errCh <- err
-		}()
-		conn, err := b.Dial(ctx, aEndpoint)
-		require.NoError(t, err)
-		require.NoError(t, conn.Close())
-		require.NoError(t, <-errCh)
-	})
-}
-
 func TestTransport_Endpoints(t *testing.T) {
-
 	withTransports(t, func(t *testing.T, makeTransport transportFactory) {
 		ctx := t.Context()
 		a := makeTransport(ctx)

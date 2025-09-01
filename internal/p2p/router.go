@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/netip"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
@@ -406,6 +405,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %w", err)
 		}
+		r.logger.Info("DUPASON accepted")
 		r.metrics.NewConnections.With("direction","in").Add(1)
 		incomingAddr := conn.RemoteEndpoint().Addr
 		if err := r.connTracker.AddConn(incomingAddr); err != nil {
@@ -458,15 +458,7 @@ func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 		r.logger.Debug("peer filtered by node ID", "node", peerInfo.NodeID, "err", err)
 		return nil
 	}
-
-	// TODO(gprusak): this is fragile that updating peerManager requires a lock on peerStates.
-	// If this is intended, they should just share the same mutex.
-	// Also currently the pattern of keeping the mutex locked for peerManager accesses is inconsistent.
-	if err := r.runWithPeerMutex(func() error { return r.peerManager.Accepted(peerInfo.NodeID) }); err != nil {
-		// If peer is trying to reconnect, error and let it reconnect
-		if strings.Contains(err.Error(), "is already connected") {
-			r.peerManager.Errored(peerInfo.NodeID, err)
-		}
+	if err := r.peerManager.Accepted(peerInfo.NodeID); err != nil {
 		return fmt.Errorf("failed to accept connection: op=incoming/accepted, peer=%v: %w", peerInfo.NodeID, err)
 	}
 	return r.routePeer(ctx, peerInfo.NodeID, conn, toChannelIDs(peerInfo.Channels))
@@ -489,7 +481,7 @@ func (r *Router) dialPeers(ctx context.Context) error {
 					if err != nil {
 						return err
 					}
-					r.logger.Debug(fmt.Sprintf("Going to dial next peer %s", address.NodeID))
+					r.logger.Info(fmt.Sprintf("DUPASO Going to dial next peer %s", address.NodeID[:5]))
 					r.connectPeer(ctx, address)
 				}
 			})
@@ -519,9 +511,9 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 	case errors.Is(err, context.Canceled):
 		return
 	case err != nil:
-		r.logger.Debug("failed to dial peer", "peer", address, "err", err)
+		r.logger.Info("DUPASO failed to dial peer", "peer", address, "err", err)
 		if err = r.peerManager.DialFailed(ctx, address); err != nil {
-			r.logger.Debug("failed to report dial failure", "peer", address, "err", err)
+			r.logger.Info("DUPASO failed to report dial failure", "peer", address, "err", err)
 		}
 		return
 	}
@@ -533,30 +525,24 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		return
 	case err != nil:
 		r.logger.Debug("failed to handshake with peer", "peer", address, "err", err)
-		if err = r.peerManager.DialFailed(ctx, address); err != nil {
+		if err := r.peerManager.DialFailed(ctx, address); err != nil {
 			r.logger.Error("failed to report dial failure", "peer", address, "err", err)
 		}
 		conn.Close()
 		return
 	}
 
-	if err := r.runWithPeerMutex(func() error { return r.peerManager.Dialed(address) }); err != nil {
-		// If peer is trying to reconnect, fail it and let it reconnect
-		// TODO(gprusak): this symmetric logic for handling duplicate connections is a source of race conditions:
-		// if 2 nodes try to establish a connection to each other at the same time, both connections will be dropped.
-		// Instead either:
-		// * break the symmetry by favoring incoming connection iff my.NodeID > peer.NodeID
-		// * keep incoming and outcoming connection pools separate to avoid the collision (recommended)
-		if strings.Contains(err.Error(), "is already connected") {
-			r.logger.Error(fmt.Sprintf("Disconnecting %s because of %s", address.NodeID, err))
-			r.peerManager.Disconnected(ctx, address.NodeID)
-		}
-
-		r.logger.Debug("failed to dial peer",
-			"op", "outgoing/dialing", "peer", address.NodeID, "err", err)
+	// TODO(gprusak): this symmetric logic for handling duplicate connections is a source of race conditions:
+	// if 2 nodes try to establish a connection to each other at the same time, both connections will be dropped.
+	// Instead either:
+	// * break the symmetry by favoring incoming connection iff my.NodeID > peer.NodeID
+	// * keep incoming and outcoming connection pools separate to avoid the collision (recommended)
+	if err := r.peerManager.Dialed(address); err != nil {
+		r.logger.Info("failed to dial peer", "op", "outgoing/dialing", "peer", address.NodeID, "err", err)
 		conn.Close()
 		return
 	}
+	r.logger.Info("DUPASON dial+hs+dial", "to",address.NodeID[:5], "err", err)
 
 	r.Spawn("routePeer", func(ctx context.Context) error {
 		defer conn.Close()
@@ -573,7 +559,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		defer cancel()
 	}
 
-	r.logger.Debug("dialing peer address", "peer", address)
+	r.logger.Info("dialing peer address", "peer", address)
 	endpoints, err := address.Resolve(resolveCtx)
 	switch {
 	case err != nil:
@@ -604,7 +590,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		// Internet can't and needs a different public address.
 		conn, err := r.transport.Dial(dialCtx, endpoint)
 		if err != nil {
-			r.logger.Debug("failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
+			r.logger.Info("DUPASO failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
 		} else {
 			r.metrics.NewConnections.With("direction","out").Add(1)
 			r.logger.Debug("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
@@ -675,9 +661,10 @@ func (r *Router) runWithPeerMutex(fn func() error) error {
 // channels. It will close the given connection and send queue when done, or if
 // they are closed elsewhere it will cause this method to shut down and return.
 func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) error {
+	r.logger.Info("DUPASON [PRE] new connection","from",peerID[:5])
 	r.metrics.Peers.Add(1)
 	r.peerManager.Ready(ctx, peerID, channels)
-
+	r.logger.Info("DUPASON new connection","from",peerID[:5])
 	peerCtx, cancel := context.WithCancel(ctx)
 	state := &peerState{
 		cancel:   cancel,
@@ -725,27 +712,27 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 			return err
 		}
 
+		r.logger.Info("DUPA RECV","from",peerID[:5],"chan",chID)
 		r.channelMtx.RLock()
 		queue, ok := r.channelQueues[chID]
 		messageType := r.channelMessages[chID]
 		r.channelMtx.RUnlock()
 
 		if !ok {
+			// TODO(gprusak): verify if this is a misbehavior, and drop the peer if it is.
 			r.logger.Debug("dropping message for unknown channel", "peer", peerID, "channel", chID)
 			continue
 		}
 
 		msg := proto.Clone(messageType)
 		if err := proto.Unmarshal(bz, msg); err != nil {
-			r.logger.Error("message decoding failed, dropping message", "peer", peerID, "err", err)
-			continue
+			return fmt.Errorf("message decoding failed, dropping message: [peer=%v] %w", peerID, err)
 		}
 
 		if wrapper, ok := msg.(Wrapper); ok {
 			msg, err = wrapper.Unwrap()
 			if err != nil {
-				r.logger.Error("failed to unwrap message", "err", err)
-				continue
+				return fmt.Errorf("failed to unwrap message: %w", err)
 			}
 		}
 
@@ -781,6 +768,7 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 			continue
 		}
 
+		r.logger.Info("DUPA SEND","to",envelope.To[:5],"chan",envelope.ChannelID)
 		if err = conn.SendMessage(ctx, envelope.ChannelID, bz); err != nil {
 			r.logger.Error("failed to send message", "peer", peerID, "err", err)
 			return err
@@ -797,9 +785,9 @@ func (r *Router) evictPeers(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to find next peer to evict: %w", err)
 		}
-		r.logger.Info("evicting peer", "peer", ev.ID,"cause",ev.Cause)
 		for states := range r.peerStates.Lock() {
 			if s, ok := states[ev.ID]; ok {
+				r.logger.Info("evicting peer", "peer", ev.ID,"cause",ev.Cause)
 				s.cancel()
 			}
 		}

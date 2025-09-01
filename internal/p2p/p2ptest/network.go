@@ -219,6 +219,7 @@ func (n *Network) Remove(ctx context.Context, t *testing.T, id types.NodeID) {
 
 // Node is a node in a Network, with a Router and a PeerManager.
 type Node struct {
+	Logger      log.Logger
 	NodeID      types.NodeID
 	NodeInfo    types.NodeInfo
 	NodeAddress p2p.NodeAddress
@@ -283,6 +284,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	})
 
 	return &Node{
+		Logger: logger,
 		NodeID:      nodeID,
 		NodeInfo:    nodeInfo,
 		NodeAddress: transport.Endpoint().NodeAddress(nodeID),

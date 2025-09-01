@@ -619,6 +619,7 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	// calculate the retry delay outside the goroutine, since it must hold
 	// the mutex lock.
 	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
+		m.logger.Info("will dial","after",d)
 		if d == m.options.MaxRetryTime {
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
@@ -626,12 +627,8 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 			return DialFailuresError{addressInfo.DialFailures, address.NodeID}
 		}
 		go func() {
-			// Use an explicit timer with deferred cleanup instead of
-			// time.After(), to avoid leaking goroutines on PeerManager.Close().
-			timer := time.NewTimer(d)
-			defer timer.Stop()
 			select {
-			case <-timer.C:
+			case <-time.After(d):
 				m.dialWaker.Wake()
 			case <-ctx.Done():
 			}
@@ -645,9 +642,11 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 
 // Dialed marks a peer as successfully dialed. Any further connections will be
 // rejected, and once disconnected the peer may be dialed again.
-func (m *PeerManager) Dialed(address NodeAddress) error {
+func (m *PeerManager) Dialed(address NodeAddress) (err error) {
+	m.logger.Info("DUPASO dial() LOCK","peer",address.NodeID[:5])
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
+	defer m.logger.Info("DUPASO dial() UNLOCK","peer",address.NodeID[:5],"err",err)
 
 	delete(m.dialing, address.NodeID)
 
@@ -664,8 +663,7 @@ func (m *PeerManager) Dialed(address NodeAddress) error {
 		return fmt.Errorf("rejecting connection to self (%v)", address.NodeID)
 	}
 	if m.connected[address.NodeID] {
-		dupeConnectionErr := fmt.Errorf("cant dial, peer=%q is already connected", address.NodeID)
-		return dupeConnectionErr
+		return fmt.Errorf("cant dial, peer=%q is already connected", address.NodeID)
 	}
 	if m.options.MaxConnected > 0 && m.NumConnected() >= int(m.options.MaxConnected) {
 		if upgradeFromPeer == "" || m.NumConnected() >=
@@ -732,8 +730,7 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 		return fmt.Errorf("rejecting connection from self (%v)", peerID)
 	}
 	if m.connected[peerID] {
-		dupeConnectionErr := fmt.Errorf("can't accept, peer=%q is already connected", peerID)
-		return dupeConnectionErr
+		return fmt.Errorf("can't accept, peer=%q is already connected", peerID)
 	}
 	if !m.options.isUnconditional(peerID) && m.options.MaxConnected > 0 &&
 		m.NumConnected() >= int(m.options.MaxConnected)+int(m.options.MaxConnectedUpgrade) {
@@ -987,6 +984,7 @@ func (m *PeerManager) Subscribe(ctx context.Context) *PeerUpdates {
 // instance in a timely fashion and close the subscription when done,
 // otherwise the PeerManager will halt.
 func (m *PeerManager) Register(ctx context.Context, peerUpdates *PeerUpdates) {
+	m.logger.Info("DUPASON REGISTER")
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	m.subscriptions[peerUpdates] = peerUpdates
