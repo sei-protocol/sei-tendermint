@@ -30,6 +30,9 @@ func ElementsMatch[T any](t TestingT, a []T, b []T, msgAndArgs ...any) {
 	require.ElementsMatch(t,a,b,msgAndArgs...)
 }
 
+// Eventually .
+var Eventually = require.Eventually
+
 // EqualError .
 // TODO: get rid of comparing errors by strings,
 // use concrete error types instead.

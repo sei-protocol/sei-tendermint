@@ -619,7 +619,6 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 	// calculate the retry delay outside the goroutine, since it must hold
 	// the mutex lock.
 	if d := m.retryDelay(addressInfo.DialFailures, peer.Persistent); d != 0 && d != retryNever {
-		m.logger.Info("will dial","after",d)
 		if d == m.options.MaxRetryTime {
 			if err := m.store.Delete(address.NodeID); err != nil {
 				return err
@@ -642,11 +641,9 @@ func (m *PeerManager) DialFailed(ctx context.Context, address NodeAddress) error
 
 // Dialed marks a peer as successfully dialed. Any further connections will be
 // rejected, and once disconnected the peer may be dialed again.
-func (m *PeerManager) Dialed(address NodeAddress) (err error) {
-	m.logger.Info("DUPASO dial() LOCK","peer",address.NodeID[:5])
+func (m *PeerManager) Dialed(address NodeAddress) error {
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
-	defer m.logger.Info("DUPASO dial() UNLOCK","peer",address.NodeID[:5],"err",err)
 
 	delete(m.dialing, address.NodeID)
 
@@ -984,7 +981,6 @@ func (m *PeerManager) Subscribe(ctx context.Context) *PeerUpdates {
 // instance in a timely fashion and close the subscription when done,
 // otherwise the PeerManager will halt.
 func (m *PeerManager) Register(ctx context.Context, peerUpdates *PeerUpdates) {
-	m.logger.Info("DUPASON REGISTER")
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	m.subscriptions[peerUpdates] = peerUpdates

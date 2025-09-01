@@ -405,7 +405,6 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %w", err)
 		}
-		r.logger.Info("DUPASON accepted")
 		r.metrics.NewConnections.With("direction","in").Add(1)
 		incomingAddr := conn.RemoteEndpoint().Addr
 		if err := r.connTracker.AddConn(incomingAddr); err != nil {
@@ -481,7 +480,7 @@ func (r *Router) dialPeers(ctx context.Context) error {
 					if err != nil {
 						return err
 					}
-					r.logger.Info(fmt.Sprintf("DUPASO Going to dial next peer %s", address.NodeID[:5]))
+					r.logger.Debug(fmt.Sprintf("Going to dial next peer %s", address.NodeID))
 					r.connectPeer(ctx, address)
 				}
 			})
@@ -511,9 +510,9 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 	case errors.Is(err, context.Canceled):
 		return
 	case err != nil:
-		r.logger.Info("DUPASO failed to dial peer", "peer", address, "err", err)
+		r.logger.Debug("failed to dial peer", "peer", address, "err", err)
 		if err = r.peerManager.DialFailed(ctx, address); err != nil {
-			r.logger.Info("DUPASO failed to report dial failure", "peer", address, "err", err)
+			r.logger.Debug("failed to report dial failure", "peer", address, "err", err)
 		}
 		return
 	}
@@ -542,7 +541,6 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 		conn.Close()
 		return
 	}
-	r.logger.Info("DUPASON dial+hs+dial", "to",address.NodeID[:5], "err", err)
 
 	r.Spawn("routePeer", func(ctx context.Context) error {
 		defer conn.Close()
@@ -559,7 +557,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		defer cancel()
 	}
 
-	r.logger.Info("dialing peer address", "peer", address)
+	r.logger.Debug("dialing peer address", "peer", address)
 	endpoints, err := address.Resolve(resolveCtx)
 	switch {
 	case err != nil:
@@ -590,7 +588,7 @@ func (r *Router) dialPeer(ctx context.Context, address NodeAddress) (Connection,
 		// Internet can't and needs a different public address.
 		conn, err := r.transport.Dial(dialCtx, endpoint)
 		if err != nil {
-			r.logger.Info("DUPASO failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
+			r.logger.Debug("failed to dial endpoint", "peer", address.NodeID, "endpoint", endpoint, "err", err)
 		} else {
 			r.metrics.NewConnections.With("direction","out").Add(1)
 			r.logger.Debug("dialed peer", "peer", address.NodeID, "endpoint", endpoint)
@@ -661,10 +659,8 @@ func (r *Router) runWithPeerMutex(fn func() error) error {
 // channels. It will close the given connection and send queue when done, or if
 // they are closed elsewhere it will cause this method to shut down and return.
 func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) error {
-	r.logger.Info("DUPASON [PRE] new connection","from",peerID[:5])
 	r.metrics.Peers.Add(1)
 	r.peerManager.Ready(ctx, peerID, channels)
-	r.logger.Info("DUPASON new connection","from",peerID[:5])
 	peerCtx, cancel := context.WithCancel(ctx)
 	state := &peerState{
 		cancel:   cancel,
@@ -712,7 +708,6 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 			return err
 		}
 
-		r.logger.Info("DUPA RECV","from",peerID[:5],"chan",chID)
 		r.channelMtx.RLock()
 		queue, ok := r.channelQueues[chID]
 		messageType := r.channelMessages[chID]
@@ -768,7 +763,6 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 			continue
 		}
 
-		r.logger.Info("DUPA SEND","to",envelope.To[:5],"chan",envelope.ChannelID)
 		if err = conn.SendMessage(ctx, envelope.ChannelID, bz); err != nil {
 			r.logger.Error("failed to send message", "peer", peerID, "err", err)
 			return err

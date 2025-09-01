@@ -192,22 +192,21 @@ func TestReactorSmallPeerStoreInALargeNetwork(t *testing.T) {
 	ctx := t.Context()
 
 	testNet := setupNetwork(ctx, t, testOptions{
-		TotalNodes:   4,
-		MaxPeers:     3,
-		MaxConnected: 3,
-		BufferSize:   8,
+		TotalNodes:   8,
+		MaxPeers:     7, // total-1, because PeerManager doesn't count self
+		MaxConnected: 2, // enough capacity to establish a connected graph
+		BufferSize:   8, // reactor deadlocks if peer updates' subscribers are full (which is stupid)
 		MaxRetryTime: 5 * time.Minute,
 	})
-	testNet.seedAddrs(t)
+	testNet.connectCycle(ctx, t) // Saturate capacity by connecting nodes in a cycle.
 	testNet.start(ctx, t)
 
-	t.Logf("test that all nodes reach full capacity")
+	t.Logf("test that peers are gossiped even if connection cap is reached")
 	for _, nodeID := range testNet.nodes {
-		t.Logf("OK %v",nodeID)
 		require.Eventually(t, func() bool {
 			// nolint:scopelint
 			return testNet.network.Nodes[nodeID].PeerManager.PeerRatio() >= 0.9
-		}, longWait, checkFrequency,
+		}, time.Minute, checkFrequency,
 			"peer ratio is: %f", testNet.network.Nodes[nodeID].PeerManager.PeerRatio())
 	}
 }
@@ -622,6 +621,13 @@ func (r *reactorTestSuite) requireNumberOfPeers(
 		nodeIndex, r.nodes[nodeIndex], waitPeriod, numPeers,
 		len(r.network.Nodes[r.nodes[nodeIndex]].PeerManager.Peers()),
 	)
+}
+
+func (r *reactorTestSuite) connectCycle(ctx context.Context, t *testing.T) {
+	if r.total==0 { return }
+	for i := range r.total {
+		r.connectPeers(ctx, t, i, (i+1)%r.total)
+	}
 }
 
 func (r *reactorTestSuite) connectAll(ctx context.Context, t *testing.T) {

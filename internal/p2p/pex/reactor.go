@@ -196,7 +196,7 @@ func (r *Reactor) processPexCh(ctx context.Context) error {
 
 			// Send a request for more peer addresses.
 			if err := r.sendRequestForPeers(ctx); err != nil {
-				r.logger.Error("DUPASO failed to send request for peers", "err", err)
+				r.logger.Error("failed to send request for peers", "err", err)
 				if errors.Is(err,NoPeersAvailableError) {
 					noAvailablePeerFailCounter++
 					lastNoAvailablePeersTime = time.Now()
@@ -250,7 +250,6 @@ func (r *Reactor) handlePexMessage(ctx context.Context, envelope *p2p.Envelope) 
 
 	switch msg := envelope.Message.(type) {
 	case *protop2p.PexRequest:
-		r.logger.Info("DUPAS PexRequest","from", envelope.From[:5])
 		// Verify that this peer hasn't sent us another request too recently.
 		if err := r.markPeerRequest(envelope.From); err != nil {
 			return 0, fmt.Errorf("PEX mark peer req from %s: %w", envelope.From, err)
@@ -271,7 +270,6 @@ func (r *Reactor) handlePexMessage(ctx context.Context, envelope *p2p.Envelope) 
 		})
 
 	case *protop2p.PexResponse:
-		r.logger.Info("DUPAS PexResponse","from",envelope.From[:5],"got",msg.Addresses)
 		// Verify that this response corresponds to one of our pending requests.
 		if err := r.markPeerResponse(envelope.From); err != nil {
 			return 0, fmt.Errorf("PEX mark peer resp from %s: %w", envelope.From, err)
@@ -292,12 +290,12 @@ func (r *Reactor) handlePexMessage(ctx context.Context, envelope *p2p.Envelope) 
 			added, err := r.peerManager.Add(peerAddress)
 			if err != nil {
 				// TODO(gprusak): This does not distinguish between bad messages (should drop peer) and internal errors (ignore/abort).
-				logger.Error("DUPAS failed to add PEX address", "address", peerAddress, "err", err)
+				logger.Error("failed to add PEX address", "address", peerAddress, "err", err)
 				continue
 			}
 			if added {
 				numAdded++
-				logger.Info("DUPAS added PEX address", "address", peerAddress.NodeID)
+				logger.Debug("added PEX address", "address", peerAddress)
 			}
 		}
 
@@ -358,7 +356,6 @@ func (r *Reactor) sendRequestForPeers(ctx context.Context) error {
 	delete(r.availablePeers, peerID)
 	r.requestsSent[peerID] = struct{}{}
 
-	r.logger.Info("DUPASO PexRequest","to",peerID[:5])
 	// TODO(gprusak): blocking send while holding a mutex.
 	return r.channel.Send(ctx, p2p.Envelope{
 		To:      peerID,
