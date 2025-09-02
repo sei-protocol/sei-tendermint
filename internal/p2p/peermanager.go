@@ -495,6 +495,12 @@ func (m *PeerManager) Add(address NodeAddress) (bool, error) {
 	return true, nil
 }
 
+func (m *PeerManager) Delete(id types.NodeID) error {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	return m.store.Delete(id)
+}
+
 func (m *PeerManager) GetBlockSyncPeers() map[types.NodeID]bool {
 	return m.options.blocksyncPeers
 }

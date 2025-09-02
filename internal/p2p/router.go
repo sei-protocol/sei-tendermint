@@ -614,44 +614,38 @@ func (r *Router) handshakePeer(
 	nodeInfo := r.nodeInfoProducer()
 	peerInfo, peerKey, err := conn.Handshake(ctx, *nodeInfo, r.privKey)
 	if err != nil {
-		return peerInfo, err
+		return types.NodeInfo{}, err
 	}
-	if err = peerInfo.Validate(); err != nil {
-		return peerInfo, fmt.Errorf("invalid handshake NodeInfo: %w", err)
-	}
-
-	if peerInfo.Network != nodeInfo.Network {
-		if err := r.peerManager.store.Delete(peerInfo.NodeID); err != nil {
-			return peerInfo, fmt.Errorf("problem removing peer from store from incorrect network [%s]: %w", peerInfo.Network, err)
-		}
-
-		return peerInfo, fmt.Errorf("connected to peer from wrong network, %q, removed from peer store", peerInfo.Network)
-	}
-
+	// Authenticate the peer first.
 	if types.NodeIDFromPubKey(peerKey) != peerInfo.NodeID {
-		return peerInfo, fmt.Errorf("peer's public key did not match its node ID %q (expected %q)",
+		return types.NodeInfo{}, fmt.Errorf("peer's public key did not match its node ID %q (expected %q)",
 			peerInfo.NodeID, types.NodeIDFromPubKey(peerKey))
 	}
+
+	if err = peerInfo.Validate(); err != nil {
+		return types.NodeInfo{}, fmt.Errorf("invalid handshake NodeInfo: %w", err)
+	}
+	if peerInfo.Network != nodeInfo.Network {
+		if err := r.peerManager.Delete(peerInfo.NodeID); err != nil {
+			return types.NodeInfo{}, fmt.Errorf("problem removing peer from store from incorrect network [%s]: %w", peerInfo.Network, err)
+		}
+
+		return types.NodeInfo{}, fmt.Errorf("connected to peer from wrong network, %q, removed from peer store", peerInfo.Network)
+	}
+
 	if expectID != "" && expectID != peerInfo.NodeID {
-		return peerInfo, fmt.Errorf("expected to connect with peer %q, got %q",
+		return types.NodeInfo{}, fmt.Errorf("expected to connect with peer %q, got %q",
 			expectID, peerInfo.NodeID)
 	}
 
 	if err := nodeInfo.CompatibleWith(peerInfo); err != nil {
-		return peerInfo, ErrRejected{
+		return types.NodeInfo{}, ErrRejected{
 			err:            err,
 			id:             peerInfo.ID(),
 			isIncompatible: true,
 		}
 	}
 	return peerInfo, nil
-}
-
-func (r *Router) runWithPeerMutex(fn func() error) error {
-	for range r.peerStates.Lock() {
-		return fn()
-	}
-	panic("unreachable")
 }
 
 // routePeer routes inbound and outbound messages between a peer and the reactor
