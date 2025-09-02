@@ -345,7 +345,7 @@ func TestRouter_AcceptPeers(t *testing.T) {
 		ok       bool
 	}{
 		"valid handshake": {peerInfo, peerKey.PubKey(), true},
-		"empty handshake": {types.NodeInfo{}, nil, false},
+		"empty handshake": {types.NodeInfo{}, peerKey.PubKey(), false},
 		"invalid key":     {peerInfo, selfKey.PubKey(), false},
 		"self handshake":  {selfInfo, selfKey.PubKey(), false},
 		"incompatible peer": {
@@ -528,7 +528,7 @@ func TestRouter_DialPeers(t *testing.T) {
 		ok       bool
 	}{
 		"valid dial":         {peerInfo.NodeID, peerInfo, peerKey.PubKey(), nil, true},
-		"empty handshake":    {peerInfo.NodeID, types.NodeInfo{}, nil, nil, false},
+		"empty handshake":    {peerInfo.NodeID, types.NodeInfo{}, peerKey.PubKey(), nil, false},
 		"invalid key":        {peerInfo.NodeID, peerInfo, selfKey.PubKey(), nil, false},
 		"unexpected node ID": {peerInfo.NodeID, selfInfo, selfKey.PubKey(), nil, false},
 		"dial error":         {peerInfo.NodeID, peerInfo, peerKey.PubKey(), errors.New("boom"), false},
