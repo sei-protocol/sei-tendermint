@@ -96,7 +96,7 @@ type Metrics struct {
 func (m *Metrics) observeCheckTxPriorityDistribution(priority int64, hint bool, senderNodeID types.NodeID, err error) {
 	m.CheckTxPriorityDistribution.With(
 		"hint", strconv.FormatBool(hint),
-		"local", strconv.FormatBool(senderNodeID == "0"),
+		"local", strconv.FormatBool(senderNodeID == ""),
 		"error", strconv.FormatBool(err != nil),
 	).Observe(float64(priority))
 }
