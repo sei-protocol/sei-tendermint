@@ -94,7 +94,7 @@ type Metrics struct {
 	//
 	// Note that the priority is normalized as a float64 value between zero and
 	// maximum tx priority.
-	CheckTxPriorityDistribution metrics.Histogram `metrics_buckettype:"exprange" metrics_bucketsizes:"0.0, 1.0, 20" metrics_labels:"hint, local, error"`
+	CheckTxPriorityDistribution metrics.Histogram `metrics_buckettype:"exprange" metrics_bucketsizes:"0.000001, 1.0, 20" metrics_labels:"hint, local, error"`
 
 	// CheckTxDroppedByPriorityHint is the number of transactions that were dropped
 	// due to low priority based on the priority hint.
