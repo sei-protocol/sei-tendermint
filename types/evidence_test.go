@@ -397,7 +397,7 @@ func TestEvidenceVectors(t *testing.T) {
 	height := int64(5)
 	commonHeight := height - 1
 	nValidators := 10
-	voteSet, valSet, privVals := deterministicVoteSet(ctx, t, height, 1, tmproto.PrecommitType, 1)
+	voteSet, valSet, privVals := deterministicVoteSet(ctx, t, height, 1, tmproto.PrecommitType)
 	header := &Header{
 		Version:            version.Consensus{Block: 1, App: 1},
 		ChainID:            chainID,

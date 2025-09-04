@@ -988,7 +988,6 @@ func TestCreateProposalAbsentVoteExtensions(t *testing.T) {
 			blockID := types.BlockID{Hash: block.Hash(), PartSetHeader: bps.Header()}
 			pa, _ := state.Validators.GetByIndex(0)
 			lastCommit, _ := makeValidCommit(ctx, t, testCase.height-1, blockID, state.Validators, privVals)
-			stripSignatures(lastCommit)
 			if testCase.expectPanic {
 				require.Panics(t, func() {
 					blockExec.CreateProposalBlock(ctx, testCase.height, state, lastCommit, pa) //nolint:errcheck
@@ -998,14 +997,6 @@ func TestCreateProposalAbsentVoteExtensions(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
-	}
-}
-
-func stripSignatures(ec *types.ExtendedCommit) {
-	for i, commitSig := range ec.ExtendedSignatures {
-		commitSig.Extension = nil
-		commitSig.ExtensionSignature = nil
-		ec.ExtendedSignatures[i] = commitSig
 	}
 }
 

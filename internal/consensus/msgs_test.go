@@ -377,7 +377,6 @@ func TestConsMsgsVectors(t *testing.T) {
 		Timestamp:        date,
 		Type:             tmproto.PrecommitType,
 		BlockID:          bi,
-		Extension:        []byte("extension"),
 	}
 	vpb := v.ToProto()
 
