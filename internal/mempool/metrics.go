@@ -1,7 +1,10 @@
 package mempool
 
 import (
+	"strconv"
+
 	"github.com/go-kit/kit/metrics"
+	"github.com/tendermint/tendermint/types"
 )
 
 const (
@@ -82,4 +85,18 @@ type Metrics struct {
 
 	// Number of txs inserted to mempool
 	InsertedTxs metrics.Counter
+
+	CheckTxPriorityDistribution metrics.Histogram
+
+	CheckTxDroppedByPriorityHint metrics.Counter
+
+	CheckTxMetDropUtilisationThreshold metrics.Counter
+}
+
+func (m *Metrics) observeCheckTxPriorityDistribution(priority int64, hint bool, senderNodeID types.NodeID, err error) {
+	m.CheckTxPriorityDistribution.With(
+		"hint", strconv.FormatBool(hint),
+		"local", strconv.FormatBool(senderNodeID == "0"),
+		"error", strconv.FormatBool(err != nil),
+	).Observe(float64(priority))
 }
