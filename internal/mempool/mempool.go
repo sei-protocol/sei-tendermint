@@ -394,10 +394,10 @@ func (txmp *TxMempool) CheckTx(
 			removeHandler(true)
 			return err
 		}
-		atomic.AddInt64(&txmp.pendingSizeBytes, int64(wtx.Size()))
 		if err := txmp.pendingTxs.Insert(wtx, res, txInfo); err != nil {
 			return err
 		}
+		atomic.AddInt64(&txmp.pendingSizeBytes, int64(wtx.Size()))
 	}
 
 	if cb != nil {
