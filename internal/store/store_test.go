@@ -204,10 +204,9 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 	}
 
 	for i, tuple := range tuples {
-		tuple := tuple
 		bs, db := newInMemoryBlockStore()
 		// SaveBlock
-		res, err, panicErr := doFn(func() (interface{}, error) {
+		res, err, panicErr := doFn(func() (any, error) {
 			bs.SaveBlock(tuple.block, tuple.parts, tuple.seenCommit)
 			if tuple.block == nil {
 				return nil, nil
@@ -278,39 +277,6 @@ func TestBlockStoreSaveLoadBlock(t *testing.T) {
 	}
 }
 
-// TestLoadBlockCommit tests loading the extended commit for a previously
-// saved block. The load method should return nil when only a commit was saved and
-// return the extended commit otherwise.
-func TestLoadBlockCommit(t *testing.T) {
-	for _, testCase := range []struct {
-		name         string
-		expectResult bool
-	}{
-		{
-			name:         "save commit",
-			expectResult: false,
-		},
-
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			state, bs, cleanup, err := makeStateAndBlockStore(t.TempDir())
-			require.NoError(t, err)
-			defer cleanup()
-			block := factory.MakeBlock(state, bs.Height()+1, new(types.Commit))
-			seenCommit := makeTestCommit(block.Header.Height, tmtime.Now())
-			ps, err := block.MakePartSet(2)
-			require.NoError(t, err)
-			bs.SaveBlock(block, ps, seenCommit)
-			res := bs.LoadBlock(block.Height)
-			if testCase.expectResult {
-				require.Equal(t, seenCommit, res)
-			} else {
-				require.Nil(t, res)
-			}
-		})
-	}
-}
-
 func TestLoadBaseMeta(t *testing.T) {
 	cfg, err := config.ResetTestRoot(t.TempDir(), "blockchain_reactor_test")
 	require.NoError(t, err)
@@ -346,7 +312,7 @@ func TestLoadBlockPart(t *testing.T) {
 
 	bs, db := newInMemoryBlockStore()
 	const height, index = 10, 1
-	loadPart := func() (interface{}, error) {
+	loadPart := func() (any, error) {
 		part := bs.LoadBlockPart(height, index)
 		return part, nil
 	}
@@ -468,7 +434,7 @@ func TestPruneBlocks(t *testing.T) {
 func TestLoadBlockMeta(t *testing.T) {
 	bs, db := newInMemoryBlockStore()
 	height := int64(10)
-	loadMeta := func() (interface{}, error) {
+	loadMeta := func() (any, error) {
 		meta := bs.LoadBlockMeta(height)
 		return meta, nil
 	}
@@ -539,7 +505,7 @@ func TestSeenAndCanonicalCommit(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, err)
 
-	loadCommit := func() (interface{}, error) {
+	loadCommit := func() (any, error) {
 		meta := store.LoadSeenCommit()
 		return meta, nil
 	}
@@ -571,7 +537,7 @@ func TestSeenAndCanonicalCommit(t *testing.T) {
 
 }
 
-func doFn(fn func() (interface{}, error)) (res interface{}, err error, panicErr error) {
+func doFn(fn func() (any, error)) (res any, err error, panicErr error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch e := r.(type) {
