@@ -48,7 +48,7 @@ func TestBlockAddEvidence(t *testing.T) {
 	require.NoError(t, err)
 	evList := []Evidence{ev}
 
-	block := MakeBlock(h, txs, commit.ToCommit(), evList)
+	block := MakeBlock(h, txs, commit, evList)
 	require.NotNil(t, block)
 	require.Equal(t, 1, len(block.Evidence))
 	require.NotNil(t, block.EvidenceHash)
@@ -66,7 +66,6 @@ func TestBlockValidateBasic(t *testing.T) {
 	voteSet, valSet, vals := randVoteSet(ctx, t, h-1, 1, tmproto.PrecommitType, 10, 1)
 	commit, err := makeCommit(ctx, lastID, h-1, 1, voteSet, vals, time.Now())
 	require.NoError(t, err)
-	commit := commit.ToCommit()
 
 	ev, err := NewMockDuplicateVoteEvidenceWithValidator(ctx, h, time.Now(), vals[0], "block-test-chain")
 	require.NoError(t, err)
@@ -159,7 +158,7 @@ func TestBlockMakePartSetWithEvidence(t *testing.T) {
 	require.NoError(t, err)
 	evList := []Evidence{ev}
 
-	partSet, err := MakeBlock(h, []Tx{Tx("Hello World")}, commit.ToCommit(), evList).MakePartSet(512)
+	partSet, err := MakeBlock(h, []Tx{Tx("Hello World")}, commit, evList).MakePartSet(512)
 	require.NoError(t, err)
 
 	assert.NotNil(t, partSet)
@@ -182,7 +181,7 @@ func TestBlockHashesTo(t *testing.T) {
 	require.NoError(t, err)
 	evList := []Evidence{ev}
 
-	block := MakeBlock(h, []Tx{Tx("Hello World")}, commit.ToCommit(), evList)
+	block := MakeBlock(h, []Tx{Tx("Hello World")}, commit, evList)
 	block.ValidatorsHash = valSet.Hash()
 	assert.False(t, block.HashesTo([]byte{}))
 	assert.False(t, block.HashesTo([]byte("something else")))
@@ -573,7 +572,7 @@ func TestVoteSetToExtendedCommit(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, added)
 	}
-	ec := voteSet.MakeExtendedCommit()
+	ec := voteSet.MakeCommit()
 
 	for i := int32(0); int(i) < len(vals); i++ {
 		vote1 := voteSet.GetByIndex(i)
