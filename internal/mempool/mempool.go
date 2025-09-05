@@ -355,14 +355,13 @@ func (txmp *TxMempool) CheckTx(
 		if removeFromCache {
 			txmp.cache.Remove(txHash)
 		}
-		if res.ExpireTxHandler != nil {
+		if res != nil && res.ExpireTxHandler != nil {
 			res.ExpireTxHandler()
 		}
 	}
 
 	if err != nil {
 		removeHandler(true)
-		res.Log = txmp.AppendCheckTxErr(res.Log, err.Error())
 		return err
 	}
 
