@@ -60,7 +60,7 @@ func encodedVoteFromProto(pb *tmproto.Vote) (*encodedVote, error) {
 	return &encodedVote{Vote: v, proto: pb}, nil
 }
 
-func newEncodedVote(v *Vote) *encodedVote {
+func NewEncodedVote(v *Vote) *encodedVote {
 	if v == nil {
 		return nil
 	}
@@ -118,8 +118,8 @@ func NewDuplicateVoteEvidence(vote1, vote2 *Vote, blockTime time.Time, valSet *V
 		voteB = vote1
 	}
 	return &DuplicateVoteEvidence{
-		VoteA:            newEncodedVote(voteA),
-		VoteB:            newEncodedVote(voteB),
+		VoteA:            NewEncodedVote(voteA),
+		VoteB:            NewEncodedVote(voteB),
 		TotalVotingPower: valSet.TotalVotingPower(),
 		ValidatorPower:   val.VotingPower,
 		Timestamp:        blockTime,

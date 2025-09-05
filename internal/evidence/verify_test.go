@@ -442,12 +442,12 @@ func TestVerifyDuplicateVoteEvidence(t *testing.T) {
 	require.NoError(t, err)
 	for _, c := range cases {
 		ev := &types.DuplicateVoteEvidence{
+			VoteA:            types.NewEncodedVote(c.vote1),
+			VoteB:            types.NewEncodedVote(c.vote2),
 			ValidatorPower:   1,
 			TotalVotingPower: 1,
 			Timestamp:        defaultEvidenceTime,
 		}
-		ev.VoteA.Vote = c.vote1
-		ev.VoteB.Vote = c.vote2
 		if c.valid {
 			assert.Nil(t, evidence.VerifyDuplicateVote(ev, chainID, valSet), "evidence should be valid")
 		} else {
