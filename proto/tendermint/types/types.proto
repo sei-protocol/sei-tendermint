@@ -105,7 +105,7 @@ message TxKey {
 // Vote represents a prevote, precommit, or commit vote from validators for
 // consensus.
 message Vote {
-  reserved 9,10;
+  reserved 9, 10;
   reserved "extension", "extension_signature";
   SignedMsgType type     = 1;
   int64         height   = 2;
