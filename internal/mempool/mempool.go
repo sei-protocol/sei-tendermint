@@ -323,6 +323,7 @@ func (txmp *TxMempool) CheckTx(
 		hint, err := txmp.proxyAppConn.GetTxPriorityHint(ctx, &abci.RequestGetTxPriorityHint{Tx: tx})
 		if err != nil {
 			txmp.metrics.observeCheckTxPriorityDistribution(0, true, txInfo.SenderNodeID, err)
+			txmp.logger.Error("failed to get tx priority hint", "err", err)
 			return err
 		}
 
