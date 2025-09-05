@@ -120,8 +120,8 @@ message Vote {
   // associated block.
   bytes signature = 8;
 
-  bytes extension = 9 [deprecated=true];
-  bytes extension_signature = 10 [deprecated=true];
+  bytes extension           = 9 [deprecated = true];
+  bytes extension_signature = 10 [deprecated = true];
 }
 
 // Commit contains the evidence that a block was committed by a set of
