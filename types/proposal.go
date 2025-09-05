@@ -6,11 +6,18 @@ import (
 	"math/bits"
 	"time"
 
+	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 	tmtime "github.com/tendermint/tendermint/libs/time"
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 )
+
+// maxTxKeysPerProposal is the maximum number of transaction keys that can be
+// included in a proposal. The limit is determined such that the proposal should
+// hit the gas limit before ever reaching the max transaction keys in order to
+// cap the maximum.
+const maxTxKeysPerProposal = 1_000
 
 var (
 	ErrInvalidBlockPartSignature = errors.New("error invalid block part signature")
@@ -87,6 +94,28 @@ func (p *Proposal) ValidateBasic() error {
 	if len(p.Signature) > MaxSignatureSize {
 		return fmt.Errorf("signature is too big (max: %d)", MaxSignatureSize)
 	}
+
+	if err := p.LastCommit.ValidateBasic(); err != nil {
+		return fmt.Errorf("invalid LastCommit: %w", err)
+	}
+
+	// Evidence is validated as part of proto decoding. See EvidenceList.FromProto.
+
+	if err := p.Header.ValidateBasic(); err != nil {
+		return fmt.Errorf("invalid Header: %w", err)
+	}
+
+	if len(p.TxKeys) > maxTxKeysPerProposal {
+		return fmt.Errorf("invalid number of TxKeys: must be at most %d, got %d", maxTxKeysPerProposal, len(p.TxKeys))
+	}
+
+	if len(p.ProposerAddress) != crypto.AddressSize {
+		return fmt.Errorf(
+			"invalid ProposerAddress length; got: %d, expected: %d",
+			len(p.ProposerAddress), crypto.AddressSize,
+		)
+	}
+
 	return nil
 }
 
@@ -228,9 +257,14 @@ func ProposalFromProto(pp *tmproto.Proposal) (*Proposal, error) {
 	}
 	p.Header = header
 	lastCommit, err := CommitFromProto(pp.LastCommit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate last commit: %w", err)
+	}
 	p.LastCommit = lastCommit
 	eviD := new(EvidenceList)
-	eviD.FromProto(pp.Evidence)
+	if err := eviD.FromProto(pp.Evidence); err != nil {
+		return nil, fmt.Errorf("faield to instantiate evidence list: %w", err)
+	}
 	p.Evidence = *eviD
 	p.ProposerAddress = pp.ProposerAddress
 
