@@ -166,6 +166,13 @@ func (app *application) CheckTx(_ context.Context, req *abci.RequestCheckTx) (*a
 	}}, nil
 }
 
+func (app *application) GetTxPriorityHint(context.Context, *abci.RequestGetTxPriorityHint) (*abci.ResponseGetTxPriorityHint, error) {
+	return &abci.ResponseGetTxPriorityHint{
+		// Return non-zero priority to allow testing the eviction logic effectively.
+		Priority: 1,
+	}, nil
+}
+
 func setup(t testing.TB, app abciclient.Client, cacheSize int, options ...TxMempoolOption) *TxMempool {
 	t.Helper()
 

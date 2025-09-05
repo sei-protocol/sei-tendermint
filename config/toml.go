@@ -422,6 +422,25 @@ pending-ttl-duration = "{{ .Mempool.PendingTTLDuration }}"
 
 pending-ttl-num-blocks = {{ .Mempool.PendingTTLNumBlocks }}
 
+# Defines the minimum priority hint that a transaction
+# must have in order to be retained in the mempool once the configured
+# utilisation threshold is exceeded.
+#
+# Any transaction with a priority hint below this value will be dropped when
+# mempool utilisation surpasses the configured drop threshold.
+#
+# See DropUtilisationThreshold.
+drop-priority-threshold = {{ .Mempool.DropPriorityThreshold }}
+
+# Defines the mempool utilisation level (expressed as
+# a percentage in the range [0.0, 1.0]) above which transactions will be
+# selectively dropped based on their priority hint.
+#
+# For example, if this parameter is set to 0.8, then once the mempool reaches
+# 80% capacity, transactions with priority hints below DropPriorityThreshold
+# will be dropped to preserve higher-priority transactions.
+drop-utilisation-threshold = {{ .Mempool.DropUtilisationThreshold }}
+
 #######################################################
 ###         State Sync Configuration Options        ###
 #######################################################
