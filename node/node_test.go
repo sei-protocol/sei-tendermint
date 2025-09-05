@@ -298,7 +298,7 @@ func TestCreateProposalBlock(t *testing.T) {
 		ev, err := types.NewMockDuplicateVoteEvidenceWithValidator(ctx, height, time.Now(), privVals[0], "test-chain")
 		require.NoError(t, err)
 		currentBytes += int64(len(ev.Bytes()))
-		evidencePool.ReportConflictingVotes(ev.VoteA, ev.VoteB)
+		evidencePool.ReportConflictingVotes(ev.VoteA.Vote, ev.VoteB.Vote)
 	}
 
 	evList, size := evidencePool.PendingEvidence(state.ConsensusParams.Evidence.MaxBytes)

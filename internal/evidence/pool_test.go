@@ -179,10 +179,10 @@ func TestReportConflictingVotes(t *testing.T) {
 	ev, err := types.NewMockDuplicateVoteEvidenceWithValidator(ctx, height+1, defaultEvidenceTime, pv, evidenceChainID)
 	require.NoError(t, err)
 
-	pool.ReportConflictingVotes(ev.VoteA, ev.VoteB)
+	pool.ReportConflictingVotes(ev.VoteA.Vote, ev.VoteB.Vote)
 
 	// shouldn't be able to submit the same evidence twice
-	pool.ReportConflictingVotes(ev.VoteA, ev.VoteB)
+	pool.ReportConflictingVotes(ev.VoteA.Vote, ev.VoteB.Vote)
 
 	// evidence from consensus should not be added immediately but reside in the consensus buffer
 	evList, evSize := pool.PendingEvidence(defaultEvidenceMaxBytes)
