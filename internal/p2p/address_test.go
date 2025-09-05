@@ -1,15 +1,14 @@
 package p2p_test
 
 import (
-	"context"
-	"net"
+	"net/netip"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
+	"github.com/tendermint/tendermint/libs/utils/require"
+	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -28,7 +27,6 @@ func TestNewNodeID(t *testing.T) {
 		{"00112233445566778899aabbccddeeff0011223g", "", false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.input, func(t *testing.T) {
 			id, err := types.NewNodeID(tc.input)
 			if !tc.ok {
@@ -61,7 +59,6 @@ func TestNodeID_Bytes(t *testing.T) {
 		{"01g0", nil, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(string(tc.nodeID), func(t *testing.T) {
 			bz, err := tc.nodeID.Bytes()
 			if tc.ok {
@@ -87,7 +84,6 @@ func TestNodeID_Validate(t *testing.T) {
 		{"00112233445566778899AABBCCDDEEFF00112233", false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(string(tc.nodeID), func(t *testing.T) {
 			err := tc.nodeID.Validate()
 			if tc.ok {
@@ -189,7 +185,6 @@ func TestParseNodeAddress(t *testing.T) {
 		{"mconn://" + user + "@:80", p2p.NodeAddress{}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.url, func(t *testing.T) {
 			address, err := p2p.ParseNodeAddress(tc.url)
 			if !tc.ok {
@@ -205,91 +200,94 @@ func TestParseNodeAddress(t *testing.T) {
 func TestNodeAddress_Resolve(t *testing.T) {
 	id := types.NodeID("00112233445566778899aabbccddeeff00112233")
 
-	bctx, bcancel := context.WithCancel(context.Background())
-	defer bcancel()
-
 	testcases := []struct {
 		address p2p.NodeAddress
-		expect  *p2p.Endpoint
+		expect  p2p.Endpoint
 		ok      bool
 	}{
 		// Valid networked addresses (with hostname).
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1", Port: 80, Path: "/path"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1), Port: 80, Path: "/path"},
-			true,
-		},
-		{
-			p2p.NodeAddress{Protocol: "tcp", Hostname: "localhost", Port: 80, Path: "/path"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1), Port: 80, Path: "/path"},
-			true,
-		},
-		{
-			p2p.NodeAddress{Protocol: "tcp", Hostname: "localhost", Port: 80, Path: "/path"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv6loopback, Port: 80, Path: "/path"},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(), 80), Path: "/path"},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1)},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "::1"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv6loopback},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.IPv6Loopback(), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "8.8.8.8"},
-			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(8, 8, 8, 8)},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{8, 8, 8, 8}), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "2001:0db8::ff00:0042:8329"},
-			&p2p.Endpoint{Protocol: "tcp", IP: []byte{
-				0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x42, 0x83, 0x29}},
+			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom16([16]byte{
+				0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x42, 0x83, 0x29}), 0)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "some.missing.host.tendermint.com"},
-			&p2p.Endpoint{},
+			p2p.Endpoint{},
 			false,
 		},
 
 		// Valid non-networked addresses.
 		{
 			p2p.NodeAddress{Protocol: "memory", NodeID: id},
-			&p2p.Endpoint{Protocol: "memory", Path: string(id)},
+			p2p.Endpoint{Protocol: "memory", Path: string(id)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "memory", NodeID: id, Path: string(id)},
-			&p2p.Endpoint{Protocol: "memory", Path: string(id)},
+			p2p.Endpoint{Protocol: "memory", Path: string(id)},
 			true,
 		},
 
 		// Invalid addresses.
-		{p2p.NodeAddress{}, &p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Hostname: "127.0.0.1"}, &p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1:80"}, &p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "memory"}, &p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "memory", Path: string(id)}, &p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "tcp", Hostname: "💥"}, &p2p.Endpoint{}, false},
+		{p2p.NodeAddress{}, p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Hostname: "127.0.0.1"}, p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1:80"}, p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "memory"}, p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "memory", Path: string(id)}, p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "tcp", Hostname: "💥"}, p2p.Endpoint{}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.address.String(), func(t *testing.T) {
-			ctx, cancel := context.WithCancel(bctx)
-			defer cancel()
-
-			endpoints, err := tc.address.Resolve(ctx)
+			endpoints, err := tc.address.Resolve(t.Context())
 			if !tc.ok {
 				require.Error(t, err)
 				return
 			}
-			require.Contains(t, endpoints, tc.expect)
+			ok := false
+			tc.expect.Addr = tcp.Norm(tc.expect.Addr)
+			for _, e := range endpoints {
+				e.Addr = tcp.Norm(e.Addr)
+				ok = ok || e == tc.expect
+			}
+			if !ok {
+				t.Fatalf("%v not in %v", tc.expect, endpoints)
+			}
 		})
 	}
+	t.Run("Resolve localhost", func(t *testing.T) {
+		addr := p2p.NodeAddress{Protocol: "tcp", Hostname: "localhost", Port: 80, Path: "/path"}
+		endpoints, err := addr.Resolve(t.Context())
+		require.NoError(t, err)
+		require.True(t, len(endpoints) > 0)
+		for _, got := range endpoints {
+			require.True(t, got.Addr.Addr().IsLoopback())
+			// Any loopback address is acceptable, so ignore it in comparison.
+			want := p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(got.Addr.Addr(), 80), Path: "/path"}
+			require.Equal(t, want, got)
+		}
+	})
 }
 
 func TestNodeAddress_String(t *testing.T) {
@@ -348,7 +346,6 @@ func TestNodeAddress_String(t *testing.T) {
 		},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.address.String(), func(t *testing.T) {
 			require.Equal(t, tc.expect, tc.address.String())
 		})
@@ -375,7 +372,6 @@ func TestNodeAddress_Validate(t *testing.T) {
 		{p2p.NodeAddress{Protocol: "mconn", NodeID: id, Port: 80, Path: "path"}, false},
 	}
 	for _, tc := range testcases {
-		tc := tc
 		t.Run(tc.address.String(), func(t *testing.T) {
 			err := tc.address.Validate()
 			if tc.ok {

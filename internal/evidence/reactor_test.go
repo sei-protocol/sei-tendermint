@@ -63,8 +63,12 @@ func setup(ctx context.Context, t *testing.T, stateStores []sm.Store) *reactorTe
 		peerChans:      make(map[types.NodeID]chan p2p.PeerUpdate, numStateStores),
 	}
 
-	chDesc := &p2p.ChannelDescriptor{ID: evidence.EvidenceChannel, MessageType: new(tmproto.Evidence)}
-	rts.evidenceChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc)
+	chDesc := &p2p.ChannelDescriptor{
+		ID:                 evidence.EvidenceChannel,
+		MessageType:        new(tmproto.Evidence),
+		RecvBufferCapacity: 10,
+	}
+	rts.evidenceChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)
 	require.Len(t, rts.network.RandomNode().PeerManager.Peers(), 0)
 
 	idx := 0
@@ -231,8 +235,7 @@ func createEvidenceList(
 }
 
 func TestReactorMultiDisconnect(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	val := types.NewMockPV()
 	height := int64(numEvidence) + 10
@@ -271,8 +274,7 @@ func TestReactorMultiDisconnect(t *testing.T) {
 func TestReactorBroadcastEvidence(t *testing.T) {
 	numPeers := 7
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// create a stateDB for all test suites (nodes)
 	stateDBs := make([]sm.Store, numPeers)
@@ -335,8 +337,7 @@ func TestReactorBroadcastEvidence_Lagging(t *testing.T) {
 	height1 := int64(numEvidence) + 10
 	height2 := int64(numEvidence) / 2
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// stateDB1 is ahead of stateDB2, where stateDB1 has all heights (1-20) and
 	// stateDB2 only has heights 1-5.
@@ -371,8 +372,7 @@ func TestReactorBroadcastEvidence_Pending(t *testing.T) {
 	val := types.NewMockPV()
 	height := int64(10)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	stateDB1 := initializeValidatorState(ctx, t, val, height)
 	stateDB2 := initializeValidatorState(ctx, t, val, height)
@@ -412,8 +412,7 @@ func TestReactorBroadcastEvidence_Committed(t *testing.T) {
 	val := types.NewMockPV()
 	height := int64(10)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	stateDB1 := initializeValidatorState(ctx, t, val, height)
 	stateDB2 := initializeValidatorState(ctx, t, val, height)
@@ -467,8 +466,7 @@ func TestReactorBroadcastEvidence_FullyConnected(t *testing.T) {
 	stateDBs := make([]sm.Store, numPeers)
 	val := types.NewMockPV()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// We need all validators saved for heights at least as high as we have
 	// evidence for.
@@ -555,7 +553,6 @@ func TestEvidenceListSerialization(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
 
 		t.Run(name, func(t *testing.T) {
 			protoEv := make([]tmproto.Evidence, len(tc.evidenceList))

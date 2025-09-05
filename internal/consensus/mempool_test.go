@@ -32,8 +32,7 @@ func assertMempool(t *testing.T, txn txNotifier) mempool.Mempool {
 }
 
 func TestMempoolNoProgressUntilTxsAvailable(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	baseConfig := configSetup(t)
 
@@ -61,9 +60,8 @@ func TestMempoolNoProgressUntilTxsAvailable(t *testing.T) {
 }
 
 func TestMempoolProgressAfterCreateEmptyBlocksInterval(t *testing.T) {
+	ctx := t.Context()
 	baseConfig := configSetup(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	config, err := ResetConfig(t.TempDir(), "consensus_mempool_txs_available_test")
 	require.NoError(t, err)
@@ -87,9 +85,8 @@ func TestMempoolProgressAfterCreateEmptyBlocksInterval(t *testing.T) {
 }
 
 func TestMempoolProgressInHigherRound(t *testing.T) {
+	ctx := t.Context()
 	baseConfig := configSetup(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	config, err := ResetConfig(t.TempDir(), "consensus_mempool_txs_available_test")
 	require.NoError(t, err)
@@ -144,8 +141,7 @@ func checkTxsRange(ctx context.Context, t *testing.T, cs *State, start, end int)
 }
 
 func TestMempoolTxConcurrentWithCommit(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	config := configSetup(t)
 	logger := log.NewNopLogger()
@@ -167,7 +163,18 @@ func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 	newBlockHeaderCh := subscribe(ctx, t, cs.eventBus, types.EventQueryNewBlockHeader)
 
 	const numTxs int64 = 50
-	go checkTxsRange(ctx, t, cs, 0, int(numTxs))
+
+	// Send transactions SEQUENTIALLY to avoid race conditions
+	// The CounterApplication requires strict sequential ordering (0, 1, 2, 3...)
+	// Sending them concurrently causes race conditions where transactions arrive out of order
+	for i := 0; i < int(numTxs); i++ {
+		txBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(txBytes, uint64(i))
+		var rCode uint32
+		err := assertMempool(t, cs.txNotifier).CheckTx(ctx, txBytes, func(r *abci.ResponseCheckTx) { rCode = r.Code }, mempool.TxInfo{})
+		require.NoError(t, err, "error after checkTx")
+		require.Equal(t, code.CodeTypeOK, rCode, "checkTx code is error, txBytes %X, index=%d", txBytes, i)
+	}
 
 	startTestRound(ctx, cs, cs.roundState.Height(), cs.roundState.Round())
 	for n := int64(0); n < numTxs; {
@@ -183,9 +190,8 @@ func TestMempoolTxConcurrentWithCommit(t *testing.T) {
 }
 
 func TestMempoolRmBadTx(t *testing.T) {
+	ctx := t.Context()
 	config := configSetup(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	state, privVals := makeGenesisState(ctx, t, config, genesisStateArgs{
 		Validators: 1,

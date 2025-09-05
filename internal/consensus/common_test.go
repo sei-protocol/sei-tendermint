@@ -64,6 +64,7 @@ func configSetup(t *testing.T) *config.Config {
 	t.Cleanup(func() { os.RemoveAll(configStateTest.RootDir) })
 
 	configMempoolTest, err := ResetConfig(t.TempDir(), "consensus_mempool_test")
+	configMempoolTest.Mempool.DuplicateTxsCacheSize = 0
 	require.NoError(t, err)
 	t.Cleanup(func() { os.RemoveAll(configMempoolTest.RootDir) })
 
@@ -971,9 +972,7 @@ type mockTicker struct {
 	fired    bool
 }
 
-func (m *mockTicker) Start(context.Context) error { return nil }
-func (m *mockTicker) Stop()                       {}
-func (m *mockTicker) IsRunning() bool             { return false }
+func (m *mockTicker) Run(context.Context) error { return nil }
 
 func (m *mockTicker) ScheduleTimeout(ti timeoutInfo) {
 	m.mtx.Lock()

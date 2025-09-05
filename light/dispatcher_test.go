@@ -21,14 +21,14 @@ import (
 )
 
 type channelInternal struct {
-	In    chan p2p.Envelope
+	In    *p2p.Queue
 	Out   chan p2p.Envelope
 	Error chan p2p.PeerError
 }
 
 func testChannel(size int) (*channelInternal, *p2p.Channel) {
 	in := &channelInternal{
-		In:    make(chan p2p.Envelope, size),
+		In:    p2p.NewQueue(size),
 		Out:   make(chan p2p.Envelope, size),
 		Error: make(chan p2p.PeerError, size),
 	}
@@ -39,8 +39,7 @@ func TestDispatcherBasic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 	const numPeers = 5
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	chans, ch := testChannel(100)
 
@@ -56,7 +55,7 @@ func TestDispatcherBasic(t *testing.T) {
 
 	// make a bunch of async requests and require that the correct responses are
 	// given
-	for i := 0; i < numPeers; i++ {
+	for i := range numPeers {
 		wg.Add(1)
 		go func(height int64) {
 			defer wg.Done()
@@ -75,7 +74,7 @@ func TestDispatcherBasic(t *testing.T) {
 func TestDispatcherReturnsNoBlock(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	chans, ch := testChannel(100)
@@ -104,8 +103,7 @@ func TestDispatcherReturnsNoBlock(t *testing.T) {
 func TestDispatcherTimeOutWaitingOnLightBlock(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	_, ch := testChannel(100)
 	d := NewDispatcher(ch, func(height uint64) proto.Message {
@@ -130,8 +128,7 @@ func TestDispatcherProviders(t *testing.T) {
 
 	chainID := "test-chain"
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	chans, ch := testChannel(100)
 
@@ -160,8 +157,7 @@ func TestDispatcherProviders(t *testing.T) {
 func TestPeerListBasic(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	peerList := NewPeerList()
 	assert.Zero(t, peerList.Len())
@@ -179,7 +175,7 @@ func TestPeerListBasic(t *testing.T) {
 	assert.Equal(t, numPeers, peerList.Len())
 
 	half := numPeers / 2
-	for i := 0; i < half; i++ {
+	for i := range half {
 		assert.Equal(t, peerSet[i], peerList.Pop(ctx))
 	}
 	assert.Equal(t, half, peerList.Len())
@@ -207,8 +203,7 @@ func TestPeerListBlocksWhenEmpty(t *testing.T) {
 	peerList := NewPeerList()
 	require.Zero(t, peerList.Len())
 	doneCh := make(chan struct{})
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	go func() {
 		peerList.Pop(ctx)
 		close(doneCh)
@@ -226,8 +221,7 @@ func TestEmptyPeerListReturnsWhenContextCanceled(t *testing.T) {
 	require.Zero(t, peerList.Len())
 	doneCh := make(chan struct{})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	wrapped, cancel := context.WithCancel(ctx)
 	go func() {
@@ -251,7 +245,7 @@ func TestEmptyPeerListReturnsWhenContextCanceled(t *testing.T) {
 
 func TestPeerListConcurrent(t *testing.T) {
 	t.Cleanup(leaktest.Check(t))
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	peerList := NewPeerList()
@@ -336,7 +330,7 @@ func handleRequests(ctx context.Context, t *testing.T, d *Dispatcher, ch chan p2
 
 func createPeerSet(num int) []types.NodeID {
 	peers := make([]types.NodeID, num)
-	for i := 0; i < num; i++ {
+	for i := range num {
 		peers[i], _ = types.NewNodeID(strings.Repeat(fmt.Sprintf("%d", i), 2*types.NodeIDByteLength))
 	}
 	return peers

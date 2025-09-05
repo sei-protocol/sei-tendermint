@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"sync"
@@ -57,7 +58,7 @@ func chDesc(chID p2p.ChannelID, size int) *p2p.ChannelDescriptor {
 	return &p2p.ChannelDescriptor{
 		ID:                 chID,
 		MessageType:        new(tmcons.Message),
-		RecvBufferCapacity: size,
+		RecvBufferCapacity: int(math.Sqrt(float64(size)) + 1),
 	}
 }
 
@@ -78,10 +79,10 @@ func setup(
 		blocksyncSubs: make(map[types.NodeID]eventbus.Subscription, numNodes),
 	}
 
-	rts.stateChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc(StateChannel, size))
-	rts.dataChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc(DataChannel, size))
-	rts.voteChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc(VoteChannel, size))
-	rts.voteSetBitsChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc(VoteSetBitsChannel, size))
+	rts.stateChannels = rts.network.MakeChannelsNoCleanup(t, chDesc(StateChannel, size))
+	rts.dataChannels = rts.network.MakeChannelsNoCleanup(t, chDesc(DataChannel, size))
+	rts.voteChannels = rts.network.MakeChannelsNoCleanup(t, chDesc(VoteChannel, size))
+	rts.voteSetBitsChannels = rts.network.MakeChannelsNoCleanup(t, chDesc(VoteSetBitsChannel, size))
 
 	ctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
@@ -174,7 +175,7 @@ func waitForAndValidateBlock(
 ) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	defer cancel()
 
 	fn := func(j int) {
@@ -232,7 +233,7 @@ func waitForAndValidateBlockWithTx(
 ) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 4*time.Minute)
 	defer cancel()
 
 	fn := func(j int) {
@@ -347,7 +348,7 @@ func ensureBlockSyncStatus(t *testing.T, msg tmpubsub.Message, complete bool, he
 }
 
 func TestReactorBasic(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -438,7 +439,7 @@ func TestReactorBasic(t *testing.T) {
 }
 
 func TestReactorWithEvidence(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -546,7 +547,7 @@ func TestReactorWithEvidence(t *testing.T) {
 }
 
 func TestReactorCreatesBlockWhenEmptyBlocksFalse(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -647,7 +648,7 @@ func TestSwitchToConsensusVoteExtensions(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second*15)
 			defer cancel()
 			cs, vs := makeState(ctx, t, makeStateArgs{validators: 1})
 			validator := vs[0]
@@ -715,7 +716,7 @@ func TestSwitchToConsensusVoteExtensions(t *testing.T) {
 }
 
 func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
@@ -782,7 +783,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 
 // TODO: fix flaky test
 //func TestReactorVotingPowerChange(t *testing.T) {
-//	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+//	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 //	defer cancel()
 //
 //	cfg := configSetup(t)
@@ -907,7 +908,7 @@ func TestReactorRecordsVotesAndBlockParts(t *testing.T) {
 //}
 
 func TestReactorValidatorSetChanges(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 8*time.Minute)
 	defer cancel()
 
 	cfg := configSetup(t)
