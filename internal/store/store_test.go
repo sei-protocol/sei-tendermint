@@ -30,10 +30,10 @@ type cleanupFunc func()
 // timestamp
 func makeTestCommit(height int64, timestamp time.Time) *types.Commit {
 	commitSigs := []types.CommitSig{{
-			BlockIDFlag:      types.BlockIDFlagCommit,
-			ValidatorAddress: tmrand.Bytes(crypto.AddressSize),
-			Timestamp:        timestamp,
-			Signature:        []byte("Signature"),
+		BlockIDFlag:      types.BlockIDFlagCommit,
+		ValidatorAddress: tmrand.Bytes(crypto.AddressSize),
+		Timestamp:        timestamp,
+		Signature:        []byte("Signature"),
 	}}
 	return &types.Commit{
 		Height: height,

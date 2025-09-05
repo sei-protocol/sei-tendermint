@@ -225,7 +225,7 @@ func TestValidatorSet_VerifyCommitLightTrusting(t *testing.T) {
 	var (
 		blockID                       = makeBlockIDRandom()
 		voteSet, originalValset, vals = randVoteSet(ctx, t, 1, 1, tmproto.PrecommitType, 6, 1)
-		commit, err                = makeCommit(ctx, blockID, 1, 1, voteSet, vals, time.Now())
+		commit, err                   = makeCommit(ctx, blockID, 1, 1, voteSet, vals, time.Now())
 		newValSet, _                  = randValidatorPrivValSet(ctx, t, 2, 1)
 	)
 	require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestValidatorSet_VerifyCommitLightTrustingErrorsOnOverflow(t *testing.T) {
 	var (
 		blockID               = makeBlockIDRandom()
 		voteSet, valSet, vals = randVoteSet(ctx, t, 1, 1, tmproto.PrecommitType, 1, MaxTotalVotingPower)
-		commit, err        = makeCommit(ctx, blockID, 1, 1, voteSet, vals, time.Now())
+		commit, err           = makeCommit(ctx, blockID, 1, 1, voteSet, vals, time.Now())
 	)
 	require.NoError(t, err)
 

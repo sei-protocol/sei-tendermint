@@ -215,7 +215,7 @@ func (r *Reactor) respondToPeer(ctx context.Context, msg *bcproto.BlockRequest, 
 	return blockSyncCh.Send(ctx, p2p.Envelope{
 		To: peerID,
 		Message: &bcproto.BlockResponse{
-			Block:     blockProto,
+			Block: blockProto,
 		},
 	})
 }
@@ -621,7 +621,6 @@ func (r *Reactor) poolRoutine(ctx context.Context, stateSynced bool, blockSyncCh
 			}
 
 			r.pool.PopRequest()
-
 
 			// We use LastCommit here instead of extCommit. extCommit is not
 			// guaranteed to be populated by the peer if extensions are not enabled.

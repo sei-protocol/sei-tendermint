@@ -853,7 +853,6 @@ func randConsensusNetWithPeers(
 	cfg *config.Config,
 	nValidators int,
 	nPeers int,
-	testName string,
 	tickerFunc func() TimeoutTicker,
 	appFunc func(log.Logger, string) abci.Application,
 ) ([]*State, *types.GenesisDoc, *config.Config, cleanupFunc) {
@@ -869,7 +868,7 @@ func randConsensusNetWithPeers(
 	configRootDirs := make([]string, 0, nPeers)
 	for i := 0; i < nPeers; i++ {
 		state, _ := sm.MakeGenesisState(genDoc)
-		thisConfig, err := ResetConfig(t.TempDir(), fmt.Sprintf("%s_%d", testName, i))
+		thisConfig, err := ResetConfig(t.TempDir(), fmt.Sprintf("%s_%d", t.Name(), i))
 		require.NoError(t, err)
 
 		configRootDirs = append(configRootDirs, thisConfig.RootDir)
@@ -891,7 +890,7 @@ func randConsensusNetWithPeers(
 			require.NoError(t, err)
 		}
 
-		app := appFunc(logger, filepath.Join(cfg.DBDir(), fmt.Sprintf("%s_%d", testName, i)))
+		app := appFunc(logger, filepath.Join(cfg.DBDir(), fmt.Sprintf("%s_%d", t.Name(), i)))
 		vals := types.TM2PB.ValidatorUpdates(state.Validators)
 		switch app.(type) {
 		// simulate handshake, receive app version. If don't do this, replay test will fail

@@ -53,11 +53,11 @@ there's only a limited number of peers.
 NOTE: Assumes that the sum total of voting power does not exceed MaxUInt64.
 */
 type VoteSet struct {
-	chainID           string
-	height            int64
-	round             int32
-	signedMsgType     tmproto.SignedMsgType
-	valSet            *ValidatorSet
+	chainID       string
+	height        int64
+	round         int32
+	signedMsgType tmproto.SignedMsgType
+	valSet        *ValidatorSet
 
 	mtx           sync.Mutex
 	votesBitArray *bits.BitArray
@@ -632,9 +632,9 @@ func (voteSet *VoteSet) MakeCommit() *Commit {
 	}
 
 	return &Commit{
-		Height:             voteSet.GetHeight(),
-		Round:              voteSet.GetRound(),
-		BlockID:            *voteSet.maj23,
+		Height:     voteSet.GetHeight(),
+		Round:      voteSet.GetRound(),
+		BlockID:    *voteSet.maj23,
 		Signatures: sigs,
 	}
 }

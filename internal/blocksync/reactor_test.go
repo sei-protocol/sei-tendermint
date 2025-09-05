@@ -245,9 +245,9 @@ func makeNextBlock(ctx context.Context,
 	)
 	require.NoError(t, err)
 	seenCommit := &types.Commit{
-		Height:             vote.Height,
-		Round:              vote.Round,
-		BlockID:            blockID,
+		Height:     vote.Height,
+		Round:      vote.Round,
+		BlockID:    blockID,
 		Signatures: []types.CommitSig{vote.CommitSig()},
 	}
 	return block, blockID, partSet, seenCommit

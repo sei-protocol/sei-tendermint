@@ -94,8 +94,8 @@ func makeValidCommit(
 	}
 
 	return &types.Commit{
-		Height:             height,
-		BlockID:            blockID,
+		Height:     height,
+		BlockID:    blockID,
 		Signatures: sigs,
 	}, votes
 }

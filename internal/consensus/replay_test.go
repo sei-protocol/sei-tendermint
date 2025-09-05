@@ -295,7 +295,7 @@ type simulatorTestSuite struct {
 	GenesisState sm.State
 	Config       *config.Config
 	Chain        []*types.Block
-	Commits   []*types.Commit
+	Commits      []*types.Commit
 	CleanupFunc  cleanupFunc
 
 	Mempool mempool.Mempool
@@ -334,7 +334,6 @@ func setupSimulator(ctx context.Context, t *testing.T) *simulatorTestSuite {
 		cfg,
 		nVals,
 		nPeers,
-		"replay_test",
 		newMockTickerFunc(true),
 		newEpehemeralKVStore)
 	sim.Config = cfg
@@ -1046,9 +1045,9 @@ func makeBlockchainFromWAL(t *testing.T, wal WAL) ([]*types.Block, []*types.Comm
 	// log.Notice("Build a blockchain by reading from the WAL")
 
 	var (
-		blocks             []*types.Block
+		blocks          []*types.Block
 		commits         []*types.Commit
-		thisBlockParts     *types.PartSet
+		thisBlockParts  *types.PartSet
 		thisBlockCommit *types.Commit
 	)
 
@@ -1097,9 +1096,9 @@ func makeBlockchainFromWAL(t *testing.T, wal WAL) ([]*types.Block, []*types.Comm
 		case *types.Vote:
 			if p.Type == tmproto.PrecommitType {
 				thisBlockCommit = &types.Commit{
-					Height:             p.Height,
-					Round:              p.Round,
-					BlockID:            p.BlockID,
+					Height:     p.Height,
+					Round:      p.Round,
+					BlockID:    p.BlockID,
 					Signatures: []types.CommitSig{p.CommitSig()},
 				}
 			}
@@ -1165,12 +1164,12 @@ func stateAndStore(
 // mock block store
 
 type mockBlockStore struct {
-	cfg        *config.Config
-	params     types.ConsensusParams
-	chain      []*types.Block
+	cfg     *config.Config
+	params  types.ConsensusParams
+	chain   []*types.Block
 	commits []*types.Commit
-	base       int64
-	t          *testing.T
+	base    int64
+	t       *testing.T
 }
 
 var _ sm.BlockStore = &mockBlockStore{}

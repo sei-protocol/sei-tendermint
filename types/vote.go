@@ -48,14 +48,14 @@ type Address = crypto.Address
 // Vote represents a prevote, precommit, or commit vote from validators for
 // consensus.
 type Vote struct {
-	Type               tmproto.SignedMsgType `json:"type"`
-	Height             int64                 `json:"height,string"`
-	Round              int32                 `json:"round"`    // assume there will not be greater than 2_147_483_647 rounds
-	BlockID            BlockID               `json:"block_id"` // zero if vote is nil.
-	Timestamp          time.Time             `json:"timestamp"`
-	ValidatorAddress   Address               `json:"validator_address"`
-	ValidatorIndex     int32                 `json:"validator_index"`
-	Signature          []byte                `json:"signature"`
+	Type             tmproto.SignedMsgType `json:"type"`
+	Height           int64                 `json:"height,string"`
+	Round            int32                 `json:"round"`    // assume there will not be greater than 2_147_483_647 rounds
+	BlockID          BlockID               `json:"block_id"` // zero if vote is nil.
+	Timestamp        time.Time             `json:"timestamp"`
+	ValidatorAddress Address               `json:"validator_address"`
+	ValidatorIndex   int32                 `json:"validator_index"`
+	Signature        []byte                `json:"signature"`
 }
 
 // VoteFromProto attempts to convert the given serialization (Protobuf) type to
@@ -69,14 +69,14 @@ func VoteFromProto(pv *tmproto.Vote) (*Vote, error) {
 	}
 
 	return &Vote{
-		Type:               pv.Type,
-		Height:             pv.Height,
-		Round:              pv.Round,
-		BlockID:            *blockID,
-		Timestamp:          pv.Timestamp,
-		ValidatorAddress:   pv.ValidatorAddress,
-		ValidatorIndex:     pv.ValidatorIndex,
-		Signature:          pv.Signature,
+		Type:             pv.Type,
+		Height:           pv.Height,
+		Round:            pv.Round,
+		BlockID:          *blockID,
+		Timestamp:        pv.Timestamp,
+		ValidatorAddress: pv.ValidatorAddress,
+		ValidatorIndex:   pv.ValidatorIndex,
+		Signature:        pv.Signature,
 	}, nil
 }
 
@@ -241,14 +241,14 @@ func (vote *Vote) ToProto() *tmproto.Vote {
 	}
 
 	return &tmproto.Vote{
-		Type:               vote.Type,
-		Height:             vote.Height,
-		Round:              vote.Round,
-		BlockID:            vote.BlockID.ToProto(),
-		Timestamp:          vote.Timestamp,
-		ValidatorAddress:   vote.ValidatorAddress,
-		ValidatorIndex:     vote.ValidatorIndex,
-		Signature:          vote.Signature,
+		Type:             vote.Type,
+		Height:           vote.Height,
+		Round:            vote.Round,
+		BlockID:          vote.BlockID.ToProto(),
+		Timestamp:        vote.Timestamp,
+		ValidatorAddress: vote.ValidatorAddress,
+		ValidatorIndex:   vote.ValidatorIndex,
+		Signature:        vote.Signature,
 	}
 }
 
