@@ -512,7 +512,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
-		if maxBytes > -1 && totalSize+size > maxBytes || len(txs)>=60 {
+		if maxBytes > -1 && totalSize+size > maxBytes || len(txs)>=100 {
 			return false
 		}
 
