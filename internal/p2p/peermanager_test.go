@@ -12,10 +12,10 @@ import (
 
 	"github.com/fortytw2/leaktest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/internal/p2p"
+	"github.com/tendermint/tendermint/libs/utils/require"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -100,7 +100,6 @@ func TestPeerManagerOptions_Validate(t *testing.T) {
 		}, false},
 	}
 	for name, tc := range testcases {
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			err := tc.options.Validate()
 			if tc.ok {
@@ -194,7 +193,7 @@ func TestNewPeerManager_Persistence(t *testing.T) {
 	}, peerManager.Scores())
 
 	// Introduce a dial failure and persistent peer score should be reduced by one
-	ctx, _ := context.WithCancel(context.Background())
+	ctx := t.Context()
 	peerManager.DialFailed(ctx, bAddresses[0])
 	require.Equal(t, map[types.NodeID]p2p.PeerScore{
 		aID: 0,
@@ -344,8 +343,7 @@ func TestPeerManager_Add(t *testing.T) {
 }
 
 func TestPeerManager_DialNext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -370,8 +368,7 @@ func TestPeerManager_DialNext(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_Retry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -388,7 +385,7 @@ func TestPeerManager_DialNext_Retry(t *testing.T) {
 
 	// Do five dial retries (six dials total). The retry time should double for
 	// each failure. At the forth retry, MaxRetryTime should kick in.
-	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	for i := 0; i < 3; i++ {
@@ -405,8 +402,7 @@ func TestPeerManager_DialNext_Retry(t *testing.T) {
 }
 
 func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -423,7 +419,7 @@ func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
 
 	// Do five dial retries (six dials total). The retry time should double for
 	// each failure. At the forth retry, MaxRetryTime should kick in.
-	ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	for i := 0; i < 4; i++ {
@@ -436,7 +432,10 @@ func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
 			require.GreaterOrEqual(t, elapsed, time.Duration(math.Pow(2, float64(i)))*options.MinRetryTime)
 		}
 		if i == 3 {
-			require.ErrorContains(t, peerManager.DialFailed(ctx, a), "dialing failed 4 times")
+			if got, err := (p2p.DialFailuresError{}), peerManager.DialFailed(ctx, a); !errors.As(err, &got) || got.Failures != 4 {
+				t.Errorf("expected 4 failures, got error %v", err)
+			}
+
 			continue
 		}
 		require.NoError(t, peerManager.DialFailed(ctx, a))
@@ -444,8 +443,7 @@ func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_WakeOnDialFailed(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected: 1,
@@ -489,8 +487,7 @@ func TestPeerManager_DialNext_WakeOnDialFailed(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	options := p2p.PeerManagerOptions{MinRetryTime: 200 * time.Millisecond}
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), options, p2p.NopMetrics())
@@ -510,7 +507,7 @@ func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
 
 	// The retry timer should unblock DialNext and make a available again after
 	// the retry time passes.
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	dial, err = peerManager.DialNext(ctx)
 	require.NoError(t, err)
@@ -519,8 +516,7 @@ func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
 }
 
 func TestPeerManager_DialNext_WakeOnDisconnected(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -544,7 +540,7 @@ func TestPeerManager_DialNext_WakeOnDisconnected(t *testing.T) {
 		peerManager.Disconnected(dctx, a.NodeID)
 	}()
 
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	dial, err = peerManager.DialNext(ctx)
 	require.NoError(t, err)
@@ -588,8 +584,7 @@ func TestPeerManager_TryDialNext_MaxConnected(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_MaxConnectedUpgrade(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
@@ -759,8 +754,7 @@ func TestPeerManager_TryDialNext_DialingConnected(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_Multiple(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	aID := types.NodeID(strings.Repeat("a", 40))
 	bID := types.NodeID(strings.Repeat("b", 40))
@@ -811,8 +805,7 @@ func TestPeerManager_DialFailed(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, added)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Dialing and then calling DialFailed with a different address (same
 	// NodeID) should unmark as dialing and allow us to dial the other address
@@ -838,25 +831,25 @@ func TestPeerManager_DialFailed(t *testing.T) {
 }
 
 func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
 	c := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("c", 40))}
 
-	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
+	logger, _ := log.NewDefaultLogger("plain", "debug")
+	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
 			a.NodeID: p2p.DefaultMutableScore - 1, // Set lower score for a to make it upgradeable
 			b.NodeID: p2p.DefaultMutableScore + 1, // Higher score for b to attempt upgrade
-			c.NodeID: p2p.DefaultMutableScore + 1, // Same high score for c to attempt upgrade after b fails
+			c.NodeID: p2p.DefaultMutableScore + 2, // Higher score for c to ensure it's selected after b fails
 		},
 		MaxConnected:        1,
 		MaxConnectedUpgrade: 2,
 	}, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	// Add and connect to peer a (lower scored)
+	t.Logf("Add and connect to peer a (lower scored)")
 	added, err := peerManager.Add(a)
 	require.NoError(t, err)
 	require.True(t, added)
@@ -865,7 +858,7 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	require.Equal(t, a, dial)
 	require.NoError(t, peerManager.Dialed(a))
 
-	// Add both higher scored peers b and c
+	t.Logf("Add both higher scored peers b and c")
 	added, err = peerManager.Add(b)
 	require.NoError(t, err)
 	require.True(t, added)
@@ -873,17 +866,17 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, added)
 
-	// Attempt to dial b for upgrade
-	dial, err = peerManager.TryDialNext()
-	require.NoError(t, err)
-	require.Equal(t, b, dial)
-
-	// When b's dial fails, the upgrade slot should be freed
-	// allowing c to attempt upgrade of the same peer (a)
-	require.NoError(t, peerManager.DialFailed(ctx, b))
+	// Attempt to dial c for upgrade (higher score)
 	dial, err = peerManager.TryDialNext()
 	require.NoError(t, err)
 	require.Equal(t, c, dial)
+
+	// When c's dial fails, the upgrade slot should be freed
+	// allowing b to attempt upgrade of the same peer (a)
+	require.NoError(t, peerManager.DialFailed(ctx, c))
+	dial, err = peerManager.TryDialNext()
+	require.NoError(t, err)
+	require.Equal(t, b, dial)
 }
 
 func TestPeerManager_Dialed_Connected(t *testing.T) {
@@ -1055,12 +1048,13 @@ func TestPeerManager_Dialed_Upgrade(t *testing.T) {
 	// a should now be evicted.
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
+	}
 }
 
 func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
@@ -1112,12 +1106,13 @@ func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
 	require.NoError(t, peerManager.Dialed(c))
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, d.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != d.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, d.NodeID)
+	}
 }
 
 func TestPeerManager_Dialed_UpgradeNoEvict(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
@@ -1287,8 +1282,7 @@ func TestPeerManager_Accepted_MaxConnectedUpgrade(t *testing.T) {
 }
 
 func TestPeerManager_Accepted_Upgrade(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
@@ -1325,7 +1319,9 @@ func TestPeerManager_Accepted_Upgrade(t *testing.T) {
 	// This should cause a to get evicted.
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
+	}
 	peerManager.Disconnected(ctx, a.NodeID)
 
 	// c still cannot get accepted, since it's not scored above b.
@@ -1375,7 +1371,9 @@ func TestPeerManager_Accepted_UpgradeDialing(t *testing.T) {
 	// This should cause a to get evicted, and the dial upgrade to fail.
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
+	}
 	require.Error(t, peerManager.Dialed(b))
 }
 
@@ -1383,8 +1381,7 @@ func TestPeerManager_Ready(t *testing.T) {
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1417,8 +1414,7 @@ func TestPeerManager_Ready(t *testing.T) {
 }
 
 func TestPeerManager_Ready_Channels(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	pm, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1441,8 +1437,7 @@ func TestPeerManager_Ready_Channels(t *testing.T) {
 
 // See TryEvictNext for most tests, this just tests blocking behavior.
 func TestPeerManager_EvictNext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -1466,7 +1461,7 @@ func TestPeerManager_EvictNext(t *testing.T) {
 	peerManager.Errored(a.NodeID, errors.New("foo"))
 	evict, err := peerManager.EvictNext(timeoutCtx)
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	require.Equal(t, a.NodeID, evict.ID)
 
 	// Since there are no more peers to evict, the next call should block.
 	timeoutCtx, cancel = context.WithTimeout(ctx, 100*time.Millisecond)
@@ -1477,8 +1472,7 @@ func TestPeerManager_EvictNext(t *testing.T) {
 }
 
 func TestPeerManager_EvictNext_WakeOnError(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -1498,16 +1492,15 @@ func TestPeerManager_EvictNext_WakeOnError(t *testing.T) {
 	}()
 
 	// This will block until peer errors above.
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	evict, err := peerManager.EvictNext(ctx)
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	require.Equal(t, a.NodeID, evict.ID)
 }
 
 func TestPeerManager_EvictNext_WakeOnUpgradeDialed(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
@@ -1539,16 +1532,15 @@ func TestPeerManager_EvictNext_WakeOnUpgradeDialed(t *testing.T) {
 	}()
 
 	// This will block until peer is upgraded above.
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	evict, err := peerManager.EvictNext(ctx)
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	require.Equal(t, a.NodeID, evict.ID)
 }
 
 func TestPeerManager_EvictNext_WakeOnUpgradeAccepted(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 	b := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("b", 40))}
@@ -1574,15 +1566,14 @@ func TestPeerManager_EvictNext_WakeOnUpgradeAccepted(t *testing.T) {
 	}()
 
 	// This will block until peer is upgraded above.
-	ctx, cancel = context.WithTimeout(ctx, 3*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	evict, err := peerManager.EvictNext(ctx)
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	require.Equal(t, a.NodeID, evict.ID)
 }
 func TestPeerManager_TryEvictNext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -1606,7 +1597,9 @@ func TestPeerManager_TryEvictNext(t *testing.T) {
 	peerManager.Errored(a.NodeID, errors.New("foo"))
 	evict, err = peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
+	}
 
 	// While a is being evicted (before disconnect), it shouldn't get evicted again.
 	evict, err = peerManager.TryEvictNext()
@@ -1625,8 +1618,7 @@ func TestPeerManager_Disconnected(t *testing.T) {
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	sub := peerManager.Subscribe(ctx)
 
@@ -1676,8 +1668,7 @@ func TestPeerManager_Disconnected(t *testing.T) {
 }
 
 func TestPeerManager_Errored(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -1711,12 +1702,13 @@ func TestPeerManager_Errored(t *testing.T) {
 	peerManager.Errored(a.NodeID, errors.New("foo"))
 	evict, err = peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
+	}
 }
 
 func TestPeerManager_Subscribe(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -1761,7 +1753,9 @@ func TestPeerManager_Subscribe(t *testing.T) {
 
 	evict, err := peerManager.TryEvictNext()
 	require.NoError(t, err)
-	require.Equal(t, a.NodeID, evict)
+	if ev, ok := evict.Get(); !ok || ev.ID != a.NodeID {
+		t.Fatalf("evict = %v, expected %s", evict, a.NodeID)
+	}
 
 	peerManager.Disconnected(ctx, a.NodeID)
 	require.NotEmpty(t, sub.Updates())
@@ -1778,8 +1772,7 @@ func TestPeerManager_Subscribe(t *testing.T) {
 }
 
 func TestPeerManager_Subscribe_Close(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 
@@ -1799,14 +1792,14 @@ func TestPeerManager_Subscribe_Close(t *testing.T) {
 	require.Equal(t, p2p.PeerUpdate{NodeID: a.NodeID, Status: p2p.PeerStatusUp}, <-sub.Updates())
 
 	// Closing the subscription should not send us the disconnected update.
-	cancel()
-	peerManager.Disconnected(ctx, a.NodeID)
-	require.Empty(t, sub.Updates())
+	t.Cleanup(func() {
+		peerManager.Disconnected(ctx, a.NodeID)
+		require.Empty(t, sub.Updates())
+	})
 }
 
 func TestPeerManager_Subscribe_Broadcast(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	t.Cleanup(leaktest.Check(t))
 
@@ -1855,8 +1848,7 @@ func TestPeerManager_Close(t *testing.T) {
 	// leaktest will check that spawned goroutines are closed.
 	t.Cleanup(leaktest.CheckTimeout(t, 1*time.Second))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	a := p2p.NodeAddress{Protocol: "memory", NodeID: types.NodeID(strings.Repeat("a", 40))}
 

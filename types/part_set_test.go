@@ -16,6 +16,8 @@ const (
 )
 
 func TestBasicPartSet(t *testing.T) {
+
+	assert.False(t, (*PartSet)(nil).IsComplete())
 	// Construct random data of size partSize * 100
 	nParts := 100
 	data := tmrand.Bytes(testPartSize * nParts)
@@ -98,7 +100,6 @@ func TestPartSetHeaderValidateBasic(t *testing.T) {
 		{"Invalid Hash", func(psHeader *PartSetHeader) { psHeader.Hash = make([]byte, 1) }, true},
 	}
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			data := tmrand.Bytes(testPartSize * 100)
 			ps := NewPartSetFromData(data, testPartSize)
@@ -127,7 +128,6 @@ func TestPartValidateBasic(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			data := tmrand.Bytes(testPartSize * 100)
 			ps := NewPartSetFromData(data, testPartSize)

@@ -95,6 +95,20 @@ type timeoutInfo struct {
 	Step     cstypes.RoundStepType `json:"step"`
 }
 
+func (ti *timeoutInfo) Less(b *timeoutInfo) bool {
+	// sort by height, then round, then step
+	if ti.Height != b.Height {
+		return ti.Height < b.Height
+	}
+	if ti.Round != b.Round {
+		return ti.Round < b.Round
+	}
+	// This is copy-pasted logic, supposedly allowing for updating the timeout with Step 0 without incrementing the step.
+	// Note that because of this Less is NOT a strict order.
+	// TODO(gprusak): Figure out why we special case step 0 and fix it.
+	return ti.Step <= 0 || ti.Step < b.Step
+}
+
 func (timeoutInfo) TypeTag() string { return "tendermint/wal/TimeoutInfo" }
 
 func (ti *timeoutInfo) String() string {
@@ -420,9 +434,7 @@ func (cs *State) OnStart(ctx context.Context) error {
 	// NOTE: we will get a build up of garbage go routines
 	// firing on the tockChan until the receiveRoutine is started
 	// to deal with them (by that point, at most one will be valid)
-	if err := cs.timeoutTicker.Start(ctx); err != nil {
-		return err
-	}
+	cs.Spawn("timeoutTicker", cs.timeoutTicker.Run)
 
 	// We may have lost some votes if the process crashed reload from consensus
 	// log to catchup.
@@ -496,12 +508,11 @@ func (cs *State) OnStart(ctx context.Context) error {
 //
 // this is only used in tests.
 func (cs *State) startRoutines(ctx context.Context, maxSteps int) {
-	err := cs.timeoutTicker.Start(ctx)
-	if err != nil {
-		cs.logger.Error("failed to start timeout ticker", "err", err)
-		return
-	}
-
+	go func() {
+		if err := cs.timeoutTicker.Run(ctx); err != nil {
+			cs.logger.Error("cs.timeoutTicker.Run()", "err", err)
+		}
+	}()
 	go cs.receiveRoutine(ctx, maxSteps)
 }
 
@@ -536,10 +547,6 @@ func (cs *State) OnStop() {
 		case <-time.After(commitTimeout):
 			cs.logger.Error("OnStop: timeout waiting for commit to finish", "time", commitTimeout)
 		}
-	}
-
-	if cs.timeoutTicker.IsRunning() {
-		cs.timeoutTicker.Stop()
 	}
 	// WAL is stopped in receiveRoutine.
 }
@@ -1027,7 +1034,7 @@ func (cs *State) fsyncAndCompleteProposal(ctx context.Context, fsyncUponCompleti
 			cs.logger.Error("Error flushing wal after receiving all block parts", "error", err)
 		}
 	}
-	cs.metrics.CompleteProposalTime.Observe(float64(time.Since(cs.roundState.ProposalReceiveTime())))
+	cs.metrics.MarkCompleteProposalTime(time.Since(cs.roundState.ProposalReceiveTime()))
 	cs.handleCompleteProposal(ctx, height, span)
 }
 
@@ -2168,7 +2175,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 			cs.blockStore.SaveBlock(block, blockParts, seenExtendedCommit.ToCommit())
 		}
 		// Calculate consensus time
-		cs.metrics.ConsensusTime.Observe(time.Since(cs.roundState.StartTime()).Seconds())
+		cs.metrics.MarkConsensusTime(time.Since(cs.roundState.StartTime()))
 	} else {
 		// Happens during replay if we already saved the block but didn't commit
 		logger.Debug("calling finalizeCommit on already stored block", "height", block.Height)
@@ -2213,7 +2220,7 @@ func (cs *State) finalizeCommit(ctx context.Context, height int64) {
 		block,
 		cs.tracer,
 	)
-	cs.metrics.ApplyBlockLatency.Observe(float64(time.Since(startTime).Milliseconds()))
+	cs.metrics.MarkApplyBlockLatency(time.Since(startTime))
 	if err != nil {
 		logger.Error("failed to apply block", "err", err)
 		return
@@ -2334,7 +2341,7 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 	// Latency metric for prevote delay
 	if proposal != nil {
 		cs.metrics.MarkFinalRound(roundState.Round, proposal.ProposerAddress.String())
-		cs.metrics.MarkProposeLatency(proposal.ProposerAddress.String(), proposal.Timestamp.Sub(roundState.StartTime).Seconds())
+		cs.metrics.MarkProposeLatency(proposal.ProposerAddress.String(), proposal.Timestamp.Sub(roundState.StartTime))
 		for roundId := 0; int32(roundId) <= roundState.ValidRound; roundId++ {
 			preVotes := roundState.Votes.Prevotes(int32(roundId))
 			pl := preVotes.List()
@@ -2345,9 +2352,9 @@ func (cs *State) RecordMetrics(height int64, block *types.Block) {
 			sort.Slice(pl, func(i, j int) bool {
 				return pl[i].Timestamp.Before(pl[j].Timestamp)
 			})
-			firstVoteDelay := pl[0].Timestamp.Sub(roundState.StartTime).Seconds()
+			firstVoteDelay := pl[0].Timestamp.Sub(roundState.StartTime)
 			for _, vote := range pl {
-				currVoteDelay := vote.Timestamp.Sub(roundState.StartTime).Seconds()
+				currVoteDelay := vote.Timestamp.Sub(roundState.StartTime)
 				relativeVoteDelay := currVoteDelay - firstVoteDelay
 				cs.metrics.MarkPrevoteLatency(vote.ValidatorAddress.String(), relativeVoteDelay)
 			}

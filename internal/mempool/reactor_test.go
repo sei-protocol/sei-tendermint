@@ -59,7 +59,7 @@ func setupReactors(ctx context.Context, t *testing.T, logger log.Logger, numNode
 	}
 
 	chDesc := GetChannelDescriptor(cfg.Mempool)
-	rts.mempoolChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc)
+	rts.mempoolChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)
 
 	for nodeID := range rts.network.Nodes {
 		rts.kvstores[nodeID] = kvstore.NewApplication()
@@ -145,8 +145,7 @@ func (rts *reactorTestSuite) waitForTxns(t *testing.T, txs []types.Tx, ids ...ty
 }
 
 func TestReactorBroadcastDoesNotPanic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	const numNodes = 2
 
@@ -175,7 +174,7 @@ func TestReactorBroadcastDoesNotPanic(t *testing.T) {
 	go primaryReactor.broadcastTxRoutine(ctx, secondary, rts.mempoolChannels[primary])
 
 	wg := &sync.WaitGroup{}
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		next := &WrappedTx{}
 		wg.Add(1)
 		go func() {
@@ -191,8 +190,7 @@ func TestReactorBroadcastDoesNotPanic(t *testing.T) {
 func TestReactorBroadcastTxs(t *testing.T) {
 	numTxs := 512
 	numNodes := 4
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	logger := log.NewNopLogger()
 
@@ -217,8 +215,7 @@ func TestReactorConcurrency(t *testing.T) {
 	numTxs := 10
 	numNodes := 2
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	logger := log.NewNopLogger()
 	rts := setupReactors(ctx, t, logger, numNodes, 0)
@@ -276,8 +273,7 @@ func TestReactorNoBroadcastToSender(t *testing.T) {
 	numTxs := 1000
 	numNodes := 2
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	logger := log.NewNopLogger()
 	rts := setupReactors(ctx, t, logger, numNodes, uint(numTxs))
@@ -301,8 +297,7 @@ func TestReactor_MaxTxBytes(t *testing.T) {
 	numNodes := 2
 	cfg := config.TestConfig()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	logger := log.NewNopLogger()
 
@@ -339,8 +334,7 @@ func TestDontExhaustMaxActiveIDs(t *testing.T) {
 	// we're creating a single node network, but not starting the
 	// network.
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	logger := log.NewNopLogger()
 	rts := setupReactors(ctx, t, logger, 1, MaxActiveIDs+1)
@@ -392,8 +386,7 @@ func TestBroadcastTxForPeerStopsWhenPeerStops(t *testing.T) {
 		t.Skip("skipping test in short mode")
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	logger := log.NewNopLogger()
 

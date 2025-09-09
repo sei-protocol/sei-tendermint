@@ -1,17 +1,18 @@
 package blocksync
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
 	dbm "github.com/tendermint/tm-db"
-	"strings"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/libs/log"
@@ -107,8 +108,7 @@ func makePeerManager(peers map[types.NodeID]testPeer) *p2p.PeerManager {
 	return peerManager
 }
 func TestBlockPoolBasic(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	start := int64(42)
 	peers := makePeers(10, start, 1000)
@@ -120,7 +120,7 @@ func TestBlockPoolBasic(t *testing.T) {
 		t.Error(err)
 	}
 
-	t.Cleanup(func() { cancel(); pool.Wait() })
+	t.Cleanup(func() { pool.Wait() })
 
 	peers.start()
 	defer peers.stop()
@@ -163,8 +163,7 @@ func TestBlockPoolBasic(t *testing.T) {
 }
 
 func TestBlockPoolTimeout(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	start := int64(42)
 	peers := makePeers(10, start, 1000)
@@ -175,9 +174,6 @@ func TestBlockPoolTimeout(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Cleanup(func() {
-		cancel()
-	})
 
 	// Introduce each peer.
 	go func() {
@@ -213,8 +209,7 @@ func TestBlockPoolTimeout(t *testing.T) {
 }
 
 func TestBlockPoolRemovePeer(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	peers := make(testPeers, 10)
 	for i := 0; i < 10; i++ {
@@ -233,7 +228,7 @@ func TestBlockPoolRemovePeer(t *testing.T) {
 	pool := NewBlockPool(log.NewNopLogger(), 1, requestsCh, errorsCh, makePeerManager(peers))
 	err := pool.Start(ctx)
 	require.NoError(t, err)
-	t.Cleanup(func() { cancel(); pool.Wait() })
+	t.Cleanup(func() { pool.Wait() })
 
 	// add peers
 	for peerID, peer := range peers {
@@ -275,4 +270,27 @@ func TestSortedPeers(t *testing.T) {
 	}
 	// Peers should be sorted by score via peerManager
 	assert.Equal(t, []types.NodeID{peerIdC, peerIdA, peerIdB}, pool.getSortedPeers(pool.peers))
+}
+
+func TestBlockPoolMaliciousNodeMaxInt64(t *testing.T) {
+	const initialHeight = 7
+	goodNodeId := types.NodeID(strings.Repeat("a", 40))
+	badNodeId := types.NodeID(strings.Repeat("b", 40))
+	peers := testPeers{
+		goodNodeId: testPeer{goodNodeId, 1, initialHeight, make(chan inputData), 1},
+		badNodeId:  testPeer{badNodeId, 1, math.MaxInt64, make(chan inputData), 1},
+	}
+	errorsCh := make(chan peerError, 3)
+	requestsCh := make(chan BlockRequest)
+
+	pool := NewBlockPool(log.NewNopLogger(), 1, requestsCh, errorsCh, makePeerManager(peers))
+	// add peers
+	for peerID, peer := range peers {
+		pool.SetPeerRange(peerID, peer.base, peer.height)
+	}
+	require.Equal(t, int64(math.MaxInt64), pool.maxPeerHeight)
+	// now the bad peer withdraws its malicious height
+	pool.SetPeerRange(badNodeId, 1, initialHeight)
+	require.Equal(t, p2p.PeerScore(0), pool.peerManager.Scores()[badNodeId])
+	require.Equal(t, int64(initialHeight), pool.maxPeerHeight)
 }
