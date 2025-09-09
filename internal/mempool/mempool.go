@@ -319,19 +319,7 @@ func (txmp *TxMempool) CheckTx(
 	// DropUtilisationThreshold full.
 	if txmp.utilisation() >= txmp.config.DropUtilisationThreshold {
 		txmp.metrics.CheckTxMetDropUtilisationThreshold.Add(1)
-
-		hint, err := txmp.proxyAppConn.GetTxPriorityHint(ctx, &abci.RequestGetTxPriorityHint{Tx: tx})
-		if err != nil {
-			txmp.metrics.observeCheckTxPriorityDistribution(0, true, txInfo.SenderNodeID, err)
-			txmp.logger.Error("failed to get tx priority hint", "err", err)
-			return err
-		}
-
-		txmp.metrics.observeCheckTxPriorityDistribution(hint.Priority, true, txInfo.SenderNodeID, nil)
-		if hint.Priority <= txmp.config.DropPriorityThreshold {
-			txmp.metrics.CheckTxDroppedByPriorityHint.Add(1)
-			return errors.New("priority not high enough for mempool")
-		}
+		return errors.New("priority not high enough when mempool is almost full")
 	}
 
 	if txmp.preCheck != nil {
