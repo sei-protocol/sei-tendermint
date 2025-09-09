@@ -78,17 +78,11 @@ $(BUILDDIR)/:
 ###                                Protobuf                                 ###
 ###############################################################################
 
-check-proto-deps:
-ifeq (,$(shell which protoc-gen-gogofaster))
-	$(error "gogofaster plugin for protoc is required. Run 'go install github.com/gogo/protobuf/protoc-gen-gogofaster@latest' to install")
-endif
-.PHONY: check-proto-deps
-
 # Installs the gogofaster plugin for protoc, required for generating protobuf files.
 # Otherwise, if already installed, this is a no-op.
-check-proto-format-deps:
+check-proto-deps:
 	@go install github.com/gogo/protobuf/protoc-gen-gogofaster@v1.3.2
-.PHONY: check-proto-format-deps
+.PHONY: check-proto-deps
 
 proto-gen: check-proto-deps
 	@echo "Generating Protobuf files"
@@ -103,7 +97,7 @@ proto-lint: check-proto-deps
 	@$(BUF) lint
 .PHONY: proto-lint
 
-proto-format: check-proto-format-deps
+proto-format: check-proto-deps
 	@echo "Formatting Protobuf files"
 	@$(BUF) format -w
 .PHONY: proto-format
