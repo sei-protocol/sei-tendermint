@@ -479,9 +479,10 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 
 		// if the tx doesn't have a gas estimate, fallback to gas wanted
 		var txGasEstimate int64
-		if wtx.estimatedGas > 0 {
+		if wtx.estimatedGas > 0 && wtx.estimatedGas <= wtx.gasWanted {
 			txGasEstimate = wtx.estimatedGas
 		} else {
+			wtx.estimatedGas = wtx.gasWanted
 			txGasEstimate = wtx.gasWanted
 		}
 
