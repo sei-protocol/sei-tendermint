@@ -334,7 +334,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 	// Lock mempool, commit app state, update mempoool.
 	commitStart := time.Now()
-	retainHeight, err := blockExec.Commit(ctx, state, block, fBlockRes.TxResults)
+	retainHeight, err := blockExec.commit(ctx, state, block, fBlockRes.TxResults)
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
@@ -414,7 +414,7 @@ func (blockExec *BlockExecutor) VerifyVoteExtension(ctx context.Context, vote *t
 // The Mempool must be locked during commit and update because state is
 // typically reset on Commit and old txs must be replayed against committed
 // state before new txs are run in the mempool, lest they be invalid.
-func (blockExec *BlockExecutor) Commit(
+func (blockExec *BlockExecutor) commit(
 	ctx context.Context,
 	state State,
 	block *types.Block,

@@ -43,7 +43,6 @@ func main() {
 		commands.MakeShowNodeIDCommand(conf),
 		commands.GenNodeKeyCmd,
 		commands.VersionCmd,
-		commands.MakeInspectCommand(conf, logger),
 		commands.MakeRollbackStateCommand(conf),
 		commands.MakeKeyMigrateCommand(conf, logger),
 		debug.GetDebugCommand(logger),
