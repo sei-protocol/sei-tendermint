@@ -576,6 +576,35 @@ func TestTxMempool_ReapMaxTxs(t *testing.T) {
 	wg.Wait()
 }
 
+func TestTxMempool_ReapMaxBytesMaxGas_MinGasEVMTxThreshold(t *testing.T) {
+	ctx := t.Context()
+
+	// estimatedGas below MinGasEVMTx (21000), gasWanted above it
+	gasEstimated := int64(10000)
+	gasWanted := int64(50000)
+	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated, gasWanted: &gasWanted})
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+	peerID := uint16(1)
+	address := "0xeD23B3A9DE15e92B9ef9540E587B3661E15A12fA"
+
+	// Insert a single EVM tx (format: evm-sender=account=priority=nonce)
+	require.NoError(t, txmp.CheckTx(ctx, []byte(fmt.Sprintf("evm-sender=%s=%d=%d", address, 100, 0)), nil, TxInfo{SenderID: peerID}))
+	require.Equal(t, 1, txmp.Size())
+
+	// With MinGasEVMTx=21000, estimatedGas (10000) is ignored and we fallback to gasWanted (50000).
+	// Setting maxGasEstimated below gasWanted should therefore result in 0 reaped txs.
+	reaped := txmp.ReapMaxBytesMaxGas(-1, -1, 40000)
+	require.Len(t, reaped, 0)
+
+	// Note: If MinGasEVMTx is changed to 0, the same scenario would use estimatedGas (10000)
+	// and this test would fail because the tx would be reaped.
+}
+
 func TestTxMempool_CheckTxExceedsMaxSize(t *testing.T) {
 	ctx := t.Context()
 
