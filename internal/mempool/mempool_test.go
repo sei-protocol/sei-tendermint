@@ -605,6 +605,90 @@ func TestTxMempool_ReapMaxBytesMaxGas_MinGasEVMTxThreshold(t *testing.T) {
 	// and this test would fail because the tx would be reaped.
 }
 
+func TestTxMempool_MinTxsPerBlock_SkipOversizedAndReapUpToThreshold(t *testing.T) {
+	ctx := t.Context()
+
+	// Configure app to produce small gas values so gas limits are not the constraining factor.
+	gasEstimated := int64(1)
+	gasWanted := int64(1)
+	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated, gasWanted: &gasWanted})
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+	peerID := uint16(1)
+
+	// Create one large tx (valid format: sender=key=value) that exceeds the byte limit
+	// Give it a very high priority so it is encountered first by the heap
+	longKey := strings.Repeat("A", 5000)
+	largeTx := []byte(fmt.Sprintf("sender-large=%s=%d", longKey, 1000000))
+	require.NoError(t, txmp.CheckTx(ctx, types.Tx(largeTx), nil, TxInfo{SenderID: peerID}))
+
+	// Create many small txs that fit easily; ensure priorities are lower than the large tx
+	for i := 0; i < 100; i++ {
+		tx := []byte(fmt.Sprintf("sender-%d=peer=%d", i, 100-i))
+		require.NoError(t, txmp.CheckTx(ctx, tx, nil, TxInfo{SenderID: peerID}))
+	}
+
+	// Set a bytes cap that excludes the large tx but allows accumulating many small ones.
+	// By spec, after encountering the unfit large tx, we should keep pulling until MinTxsPerBlock.
+	reaped := txmp.ReapMaxBytesMaxGas(2000, -1, -1)
+	require.Len(t, reaped, MinTxsPerBlock)
+}
+
+func TestTxMempool_MinTxsPerBlock_StopsNearFullThreshold(t *testing.T) {
+	ctx := t.Context()
+
+	// Keep gas non-constraining
+	gasEstimated := int64(1)
+	gasWanted := int64(1)
+	client := abciclient.NewLocalClient(log.NewNopLogger(), &application{Application: kvstore.NewApplication(), gasEstimated: &gasEstimated, gasWanted: &gasWanted})
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+	peerID := uint16(1)
+
+	// Create 6 small high-priority txs
+	smallTxs := make([]types.Tx, 0, 6)
+	for i := 0; i < 6; i++ {
+		// Priorities descending so these come first
+		prio := 100 - i
+		tx := types.Tx([]byte(fmt.Sprintf("sender-small-%d=peer=%d", i, prio)))
+		smallTxs = append(smallTxs, tx)
+		require.NoError(t, txmp.CheckTx(ctx, tx, nil, TxInfo{SenderID: peerID}))
+	}
+
+	// Compute total bytes for the first 6 small txs and set maxBytes just above it
+	totalBytes := int64(0)
+	for _, tx := range smallTxs {
+		totalBytes += int64(types.ComputeProtoSizeForTxs([]types.Tx{tx}))
+	}
+	maxBytes := totalBytes + 1 // ensure < maxBytes but >= 90% of capacity
+
+	// Add a large unfit tx with slightly lower priority so it is encountered next
+	longKey := strings.Repeat("B", 5000)
+	largeTx := types.Tx([]byte(fmt.Sprintf("sender-large=%s=%d", longKey, 90)))
+	require.NoError(t, txmp.CheckTx(ctx, largeTx, nil, TxInfo{SenderID: peerID}))
+
+	// Add additional small lower-priority txs which would otherwise be used to reach MinTxsPerBlock
+	for i := 0; i < 20; i++ {
+		prio := 80 - i
+		tx := types.Tx([]byte(fmt.Sprintf("sender-rest-%d=peer=%d", i, prio)))
+		require.NoError(t, txmp.CheckTx(ctx, tx, nil, TxInfo{SenderID: peerID}))
+	}
+
+	// Because we are already >= 90% full (bytes) before hitting the unfit tx, we should stop
+	// and NOT continue to reach MinTxsPerBlock.
+	reaped := txmp.ReapMaxBytesMaxGas(maxBytes, -1, -1)
+	require.True(t, int64(len(reaped)) < int64(MinTxsPerBlock))
+	require.Equal(t, 6, len(reaped))
+}
+
 func TestTxMempool_CheckTxExceedsMaxSize(t *testing.T) {
 	ctx := t.Context()
 
