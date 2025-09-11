@@ -30,12 +30,10 @@ import (
 const maxCacheKeySize = sha256.Size / 2
 
 // MinTxsPerBlock is how many txs we will attempt to have in a block if there's still space.
-// BlockFullThresholdPercentage is the threshold at which we stop attempting to fit more txs.
 // MinGasEVMTx is the minimum the gas estimate can be for an EVM tx to be considered valid.
 const (
-	MinTxsToPeek                 = 10
-	BlockFullThresholdPercentage = 0.9
-	MinGasEVMTx                  = 21000
+	MinTxsToPeek = 10
+	MinGasEVMTx  = 21000
 )
 
 var _ Mempool = (*TxMempool)(nil)
