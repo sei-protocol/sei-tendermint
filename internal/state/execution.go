@@ -163,12 +163,12 @@ func (blockExec *BlockExecutor) ProcessProposal(
 	block *types.Block,
 	state State,
 ) (bool, error) {
-	txs := block.Data.Txs.ToSliceOfBytes()
+	// txs := block.Data.Txs.ToSliceOfBytes()
 	resp, err := blockExec.appClient.ProcessProposal(ctx, &abci.RequestProcessProposal{
 		Hash:                  block.Header.Hash(),
 		Height:                block.Header.Height,
 		Time:                  block.Header.Time,
-		Txs:                   txs,
+		// Txs:                   txs,
 		ProposedLastCommit:    buildLastCommitInfo(block, blockExec.store, state.InitialHeight),
 		ByzantineValidators:   block.Evidence.ToABCI(),
 		ProposerAddress:       block.ProposerAddress,
