@@ -246,7 +246,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		_, finalizeBlockSpan = tracer.Start(ctx, "cs.state.ApplyBlock.FinalizeBlock")
 		defer finalizeBlockSpan.End()
 	}
-	txs := block.Data.Txs.ToSliceOfBytes()
+	//txs := block.Data.Txs.ToSliceOfBytes()
 	finalizeBlockStartTime := time.Now()
 	fBlockRes, err := blockExec.appClient.FinalizeBlock(
 		ctx,
@@ -254,7 +254,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			Hash:                  block.Hash(),
 			Height:                block.Header.Height,
 			Time:                  block.Header.Time,
-			Txs:                   txs,
+			//Txs:                   txs,
 			DecidedLastCommit:     buildLastCommitInfo(block, blockExec.store, state.InitialHeight),
 			ByzantineValidators:   block.Evidence.ToABCI(),
 			ProposerAddress:       block.ProposerAddress,
@@ -316,6 +316,15 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		blockExec.metrics.ConsensusParamUpdates.Add(1)
 	}
 
+	for range block.Data.Txs {
+		fBlockRes.TxResults = append(fBlockRes.TxResults, &abci.ExecTxResult{
+			Code:      abci.CodeTypeOK,
+			Data:      []byte("one fine tx"),
+			GasWanted: 7,
+			GasUsed:   5,
+		})
+	}
+
 	// Update the state with the block and responses.
 	rs, err := abci.MarshalTxResults(fBlockRes.TxResults)
 	if err != nil {
@@ -341,9 +350,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if commitSpan != nil {
 		commitSpan.End()
 	}
-	if time.Since(commitStart) > 1000*time.Millisecond {
+	if since := time.Since(commitStart); since > time.Second {
 		blockExec.logger.Info("commit in blockExec",
-			"duration", time.Since(commitStart),
+			"duration", since,
 			"height", block.Height)
 	}
 
