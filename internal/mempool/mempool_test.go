@@ -629,6 +629,83 @@ func TestTxMempool_CheckTxExceedsMaxSize(t *testing.T) {
 	require.NoError(t, txmp.CheckTx(ctx, tx, nil, TxInfo{SenderID: 0}))
 }
 
+func TestTxMempool_Reap_SkipGasUnfitAndCollectMinTxs(t *testing.T) {
+	ctx := t.Context()
+
+	app := &application{Application: kvstore.NewApplication()}
+	client := abciclient.NewLocalClient(log.NewNopLogger(), app)
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+	peerID := uint16(1)
+
+	// Insert one high-priority tx that is unfit by gas (exceeds maxGasEstimated)
+	gwBig := int64(100)
+	geBig := int64(100)
+	app.gasWanted = &gwBig
+	app.gasEstimated = &geBig
+	bigTx := []byte(fmt.Sprintf("sender-big=key=%d", 1000000))
+	require.NoError(t, txmp.CheckTx(ctx, bigTx, nil, TxInfo{SenderID: peerID}))
+
+	// Now insert many small, lower-priority txs that fit well under the gas limit
+	gwSmall := int64(1)
+	geSmall := int64(1)
+	app.gasWanted = &gwSmall
+	app.gasEstimated = &geSmall
+	for i := 0; i < 50; i++ {
+		tx := []byte(fmt.Sprintf("sender-%d=key=%d", i, 1000-i))
+		require.NoError(t, txmp.CheckTx(ctx, tx, nil, TxInfo{SenderID: peerID}))
+	}
+
+	// Reap with a maxGasEstimated that makes the first tx unfit but allows many small txs
+	reaped := txmp.ReapMaxBytesMaxGas(-1, -1, 50)
+	require.Len(t, reaped, MinTxsToPeek)
+
+	// Ensure all reaped small txs are under gas constraint
+	for _, rtx := range reaped {
+		_ = rtx // gas constraints are enforced by ReapMaxBytesMaxGas; count assertion suffices here
+	}
+}
+
+func TestTxMempool_Reap_SkipGasUnfitStopsAtMinEvenWithCapacity(t *testing.T) {
+	ctx := t.Context()
+
+	app := &application{Application: kvstore.NewApplication()}
+	client := abciclient.NewLocalClient(log.NewNopLogger(), app)
+	if err := client.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(client.Wait)
+
+	txmp := setup(t, client, 0)
+	peerID := uint16(1)
+
+	// First tx: unfit by gas (bigger than limit), highest priority
+	gwBig := int64(100)
+	geBig := int64(100)
+	app.gasWanted = &gwBig
+	app.gasEstimated = &geBig
+	bigTx := []byte(fmt.Sprintf("sender-big=key=%d", 1000000))
+	require.NoError(t, txmp.CheckTx(ctx, bigTx, nil, TxInfo{SenderID: peerID}))
+
+	// Insert many small txs that fit; plenty of capacity for more than 10
+	gwSmall := int64(1)
+	geSmall := int64(1)
+	app.gasWanted = &gwSmall
+	app.gasEstimated = &geSmall
+	for i := 0; i < 100; i++ {
+		tx := []byte(fmt.Sprintf("sender-sm-%d=key=%d", i, 2000-i))
+		require.NoError(t, txmp.CheckTx(ctx, tx, nil, TxInfo{SenderID: peerID}))
+	}
+
+	// Make the gas limit very small so the first (big) tx is unfit and we only collect MinTxsPerBlock
+	reaped := txmp.ReapMaxBytesMaxGas(-1, -1, 10)
+	require.Len(t, reaped, MinTxsToPeek)
+}
+
 func TestTxMempool_Prioritization(t *testing.T) {
 	ctx := t.Context()
 

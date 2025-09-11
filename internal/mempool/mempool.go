@@ -29,6 +29,15 @@ import (
 // and we may revisit later.
 const maxCacheKeySize = sha256.Size / 2
 
+// MinTxsPerBlock is how many txs we will attempt to have in a block if there's still space.
+// BlockFullThresholdPercentage is the threshold at which we stop attempting to fit more txs.
+// MinGasEVMTx is the minimum the gas estimate can be for an EVM tx to be considered valid.
+const (
+	MinTxsToPeek                 = 10
+	BlockFullThresholdPercentage = 0.9
+	MinGasEVMTx                  = 21000
+)
+
 var _ Mempool = (*TxMempool)(nil)
 
 // TxMempoolOption sets an optional parameter on the TxMempool.
@@ -482,10 +491,6 @@ func (txmp *TxMempool) Flush() {
 	txmp.cache.Reset()
 }
 
-const (
-	MinGasEVMTx = 21000
-)
-
 // ReapMaxBytesMaxGas returns a list of transactions within the provided size
 // and gas constraints. Transaction are retrieved in priority order.
 // There are 4 types of constraints.
@@ -509,6 +514,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 	)
 
 	var txs []types.Tx
+	encounteredGasUnfit := false
 	if uint64(txmp.NumTxsNotPending()) < txmp.config.TxNotifyThreshold {
 		// do not reap anything if threshold is not met
 		return txs
@@ -516,6 +522,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
+		// bytes limit is a hard stop
 		if maxBytes > -1 && totalSize+size > maxBytes {
 			return false
 		}
@@ -529,20 +536,31 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 			txGasEstimate = wtx.gasWanted
 		}
 
-		totalSize += size
-		gasWanted := totalGasWanted + wtx.gasWanted
-		gasEstimated := totalGasEstimated + txGasEstimate
-		maxGasWantedExceeded := maxGasWanted > -1 && gasWanted > maxGasWanted
-		maxGasEstimatedExceeded := maxGasEstimated > -1 && gasEstimated > maxGasEstimated
+		// prospective totals
+		prospectiveGasWanted := totalGasWanted + wtx.gasWanted
+		prospectiveGasEstimated := totalGasEstimated + txGasEstimate
+
+		maxGasWantedExceeded := maxGasWanted > -1 && prospectiveGasWanted > maxGasWanted
+		maxGasEstimatedExceeded := maxGasEstimated > -1 && prospectiveGasEstimated > maxGasEstimated
 
 		if maxGasWantedExceeded || maxGasEstimatedExceeded {
+			// skip this unfit-by-gas tx once and attempt to pull up to 10 smaller ones
+			if !encounteredGasUnfit && len(txs) < MinTxsToPeek {
+				encounteredGasUnfit = true
+				return true
+			}
 			return false
 		}
 
-		totalGasWanted = gasWanted
-		totalGasEstimated = gasEstimated
+		// include tx and update totals
+		totalSize += size
+		totalGasWanted = prospectiveGasWanted
+		totalGasEstimated = prospectiveGasEstimated
 
 		txs = append(txs, wtx.tx)
+		if encounteredGasUnfit && len(txs) >= MinTxsToPeek {
+			return false
+		}
 		return true
 	})
 
