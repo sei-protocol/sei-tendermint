@@ -18,6 +18,13 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+// MinTxsPerBlock is how many txs we will attempt to have in a block if there's still space.
+// MinGasEVMTx is the minimum the gas estimate can be for an EVM tx to be considered valid.
+const (
+	MinTxsToPeek = 10
+	MinGasEVMTx  = 21000
+)
+
 var _ Mempool = (*TxMempool)(nil)
 
 // TxMempoolOption sets an optional parameter on the TxMempool.
@@ -466,6 +473,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 	)
 
 	var txs []types.Tx
+	encounteredGasUnfit := false
 	if uint64(txmp.NumTxsNotPending()) < txmp.config.TxNotifyThreshold {
 		// do not reap anything if threshold is not met
 		return txs
@@ -473,32 +481,45 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 	txmp.priorityIndex.ForEachTx(func(wtx *WrappedTx) bool {
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
+		// bytes limit is a hard stop
 		if maxBytes > -1 && totalSize+size > maxBytes {
 			return false
 		}
 
 		// if the tx doesn't have a gas estimate, fallback to gas wanted
 		var txGasEstimate int64
-		if wtx.estimatedGas > 0 {
+		if wtx.estimatedGas >= MinGasEVMTx && wtx.estimatedGas <= wtx.gasWanted {
 			txGasEstimate = wtx.estimatedGas
 		} else {
+			wtx.estimatedGas = wtx.gasWanted
 			txGasEstimate = wtx.gasWanted
 		}
 
-		totalSize += size
-		gasWanted := totalGasWanted + wtx.gasWanted
-		gasEstimated := totalGasEstimated + txGasEstimate
-		maxGasWantedExceeded := maxGasWanted > -1 && gasWanted > maxGasWanted
-		maxGasEstimatedExceeded := maxGasEstimated > -1 && gasEstimated > maxGasEstimated
+		// prospective totals
+		prospectiveGasWanted := totalGasWanted + wtx.gasWanted
+		prospectiveGasEstimated := totalGasEstimated + txGasEstimate
+
+		maxGasWantedExceeded := maxGasWanted > -1 && prospectiveGasWanted > maxGasWanted
+		maxGasEstimatedExceeded := maxGasEstimated > -1 && prospectiveGasEstimated > maxGasEstimated
 
 		if maxGasWantedExceeded || maxGasEstimatedExceeded {
+			// skip this unfit-by-gas tx once and attempt to pull up to 10 smaller ones
+			if !encounteredGasUnfit && len(txs) < MinTxsToPeek {
+				encounteredGasUnfit = true
+				return true
+			}
 			return false
 		}
 
-		totalGasWanted = gasWanted
-		totalGasEstimated = gasEstimated
+		// include tx and update totals
+		totalSize += size
+		totalGasWanted = prospectiveGasWanted
+		totalGasEstimated = prospectiveGasEstimated
 
 		txs = append(txs, wtx.tx)
+		if encounteredGasUnfit && len(txs) >= MinTxsToPeek {
+			return false
+		}
 		return true
 	})
 
