@@ -965,10 +965,10 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 	if !inserted {
 		return false
 	}
-	txmp.metrics.TxSizeBytes.Add(float64(wtx.Size()))
-	txmp.metrics.Size.Set(float64(txmp.NumTxsNotPending()))
-	txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
-	txmp.metrics.TotalTxsSizeBytes.Set(float64(txmp.TotalTxsBytesSize()))
+	//txmp.metrics.TxSizeBytes.Add(float64(wtx.Size()))
+	//txmp.metrics.Size.Set(float64(txmp.NumTxsNotPending()))
+	//txmp.metrics.PendingSize.Set(float64(txmp.PendingSize()))
+	//txmp.metrics.TotalTxsSizeBytes.Set(float64(txmp.TotalTxsBytesSize()))
 
 	if replacedTx != nil {
 		txmp.removeTx(replacedTx, true, false, false)
