@@ -2,6 +2,7 @@ package sink
 
 import (
 	"errors"
+	"log"
 	"strings"
 
 	"github.com/tendermint/tendermint/config"
@@ -14,6 +15,7 @@ import (
 // EventSinksFromConfig constructs a slice of indexer.EventSink using the provided
 // configuration.
 func EventSinksFromConfig(cfg *config.Config, dbProvider config.DBProvider, chainID string) ([]indexer.EventSink, error) {
+	log.Printf("event sinks = %v", cfg.TxIndex.Indexer)
 	if len(cfg.TxIndex.Indexer) == 0 {
 		return []indexer.EventSink{null.NewEventSink()}, nil
 	}
