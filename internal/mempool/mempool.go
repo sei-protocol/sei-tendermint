@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	slog "log"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -158,6 +159,7 @@ func NewTxMempool(
 		opt(txmp)
 	}
 
+	slog.Printf("cfg.DuplicateTxsCacheSize = %d", cfg.DuplicateTxsCacheSize)
 	if cfg.DuplicateTxsCacheSize > 0 {
 		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheSize, 1*time.Minute, 1*time.Minute, maxCacheKeySize)
 		go txmp.exposeDuplicateTxMetrics()
