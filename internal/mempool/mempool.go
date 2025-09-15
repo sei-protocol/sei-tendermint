@@ -303,6 +303,7 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
+	return nil
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
