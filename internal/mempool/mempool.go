@@ -303,14 +303,6 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
-	if cb!=nil {
-		res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
-		if err != nil {
-			return err
-		}
-		cb(res.ResponseCheckTx)
-	}
-	return nil
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
@@ -332,6 +324,15 @@ func (txmp *TxMempool) CheckTx(
 	}
 
 	txHash := tx.Key()
+
+	if cb!=nil {
+		res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
+		if err != nil {
+			return err
+		}
+		cb(res.ResponseCheckTx)
+	}
+	return nil
 
 	// We add the transaction to the mempool's cache and if the
 	// transaction is already present in the cache, i.e. false is returned, then we
