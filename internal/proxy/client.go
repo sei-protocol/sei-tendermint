@@ -2,10 +2,10 @@ package proxy
 
 import (
 	"context"
+	"crypto/sha256"
 	"io"
 	"os"
 	"syscall"
-	"crypto/sha256"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
@@ -175,15 +175,15 @@ func (app *proxyClient) CheckTx(ctx context.Context, req *types.RequestCheckTx) 
 	sender := string(hash[:])
 	return &types.ResponseCheckTxV2{
 		ResponseCheckTx: &types.ResponseCheckTx{
-			Sender: sender,
-			Priority: 11,
-			Code: types.CodeTypeOK,
-			GasWanted: 7,
+			Sender:       sender,
+			Priority:     11,
+			Code:         types.CodeTypeOK,
+			GasWanted:    7,
 			GasEstimated: 5,
 		},
-		EVMNonce: 1,
-		EVMSenderAddress: sender,
-		IsEVM: true,
+		EVMNonce:             1,
+		EVMSenderAddress:     sender,
+		IsEVM:                true,
 		IsPendingTransaction: false,
 	}, nil
 }

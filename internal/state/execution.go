@@ -165,9 +165,9 @@ func (blockExec *BlockExecutor) ProcessProposal(
 ) (bool, error) {
 	// txs := block.Data.Txs.ToSliceOfBytes()
 	resp, err := blockExec.appClient.ProcessProposal(ctx, &abci.RequestProcessProposal{
-		Hash:                  block.Header.Hash(),
-		Height:                block.Header.Height,
-		Time:                  block.Header.Time,
+		Hash:   block.Header.Hash(),
+		Height: block.Header.Height,
+		Time:   block.Header.Time,
 		// Txs:                   txs,
 		ProposedLastCommit:    buildLastCommitInfo(block, blockExec.store, state.InitialHeight),
 		ByzantineValidators:   block.Evidence.ToABCI(),
@@ -251,9 +251,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	fBlockRes, err := blockExec.appClient.FinalizeBlock(
 		ctx,
 		&abci.RequestFinalizeBlock{
-			Hash:                  block.Hash(),
-			Height:                block.Header.Height,
-			Time:                  block.Header.Time,
+			Hash:   block.Hash(),
+			Height: block.Header.Height,
+			Time:   block.Header.Time,
 			//Txs:                   txs,
 			DecidedLastCommit:     buildLastCommitInfo(block, blockExec.store, state.InitialHeight),
 			ByzantineValidators:   block.Evidence.ToABCI(),

@@ -14,6 +14,10 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
+const (
+	maxBlocks = 1000
+)
+
 /*
 BlockStore is a simple low level store for blocks.
 
@@ -486,6 +490,10 @@ func (bs *BlockStore) SaveBlock(block *types.Block, blockParts *types.PartSet, s
 
 	if err := batch.Close(); err != nil {
 		panic(err)
+	}
+
+	if block.Height > maxBlocks {
+		bs.PruneBlocks(block.Height + 1 - maxBlocks)
 	}
 }
 
