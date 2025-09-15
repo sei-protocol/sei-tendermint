@@ -379,15 +379,6 @@ func (txmp *TxMempool) CheckTx(
 		estimatedGas:  res.GasEstimated,
 	}
 
-	if cb!=nil {
-		res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
-		if err != nil {
-			return err
-		}
-		cb(res.ResponseCheckTx)
-	}
-	return nil
-
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
@@ -776,6 +767,7 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		return nil
 	}
 
+	return nil
 	if txmp.insertTx(wtx) {
 		txmp.logger.Debug(
 			"inserted good transaction",
