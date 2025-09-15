@@ -325,15 +325,6 @@ func (txmp *TxMempool) CheckTx(
 
 	txHash := tx.Key()
 
-	if cb!=nil {
-		res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
-		if err != nil {
-			return err
-		}
-		cb(res.ResponseCheckTx)
-	}
-	return nil
-
 	// We add the transaction to the mempool's cache and if the
 	// transaction is already present in the cache, i.e. false is returned, then we
 	// check if we've seen this transaction and error if we have.
@@ -387,6 +378,15 @@ func (txmp *TxMempool) CheckTx(
 		removeHandler: removeHandler,
 		estimatedGas:  res.GasEstimated,
 	}
+
+	if cb!=nil {
+		res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
+		if err != nil {
+			return err
+		}
+		cb(res.ResponseCheckTx)
+	}
+	return nil
 
 	if err == nil {
 		// only add new transaction if checkTx passes and is not pending
