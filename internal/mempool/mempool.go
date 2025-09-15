@@ -303,6 +303,13 @@ func (txmp *TxMempool) CheckTx(
 	cb func(*abci.ResponseCheckTx),
 	txInfo TxInfo,
 ) error {
+	if cb!=nil {
+		res, err := txmp.proxyAppConn.CheckTx(ctx, &abci.RequestCheckTx{Tx: tx})
+		if err != nil {
+			return err
+		}
+		cb(res.ResponseCheckTx)
+	}
 	return nil
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
