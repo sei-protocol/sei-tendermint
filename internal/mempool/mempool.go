@@ -625,7 +625,7 @@ func (txmp *TxMempool) Update(
 		}
 	}
 
-	txmp.purgeExpiredTxs(blockHeight)
+	//txmp.purgeExpiredTxs(blockHeight)
 	txmp.handlePendingTransactions()
 
 	// If there any uncommitted transactions left in the mempool, we either
@@ -767,7 +767,6 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 		return nil
 	}
 
-	return nil
 	if txmp.insertTx(wtx) {
 		txmp.logger.Debug(
 			"inserted good transaction",
@@ -978,8 +977,8 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 	}
 
 	txmp.txStore.SetTx(wtx)
-	txmp.heightIndex.Insert(wtx)
-	txmp.timestampIndex.Insert(wtx)
+	//txmp.heightIndex.Insert(wtx)
+	//txmp.timestampIndex.Insert(wtx)
 
 	// Insert the transaction into the gossip index and mark the reference to the
 	// linked-list element, which will be needed at a later point when the
@@ -1002,8 +1001,8 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 	if updatePriorityIndex {
 		toBeReenqueued = txmp.priorityIndex.RemoveTx(wtx, shouldReenqueue)
 	}
-	txmp.heightIndex.Remove(wtx)
-	txmp.timestampIndex.Remove(wtx)
+	//txmp.heightIndex.Remove(wtx)
+	//txmp.timestampIndex.Remove(wtx)
 
 	// Remove the transaction from the gossip index and cleanup the linked-list
 	// element so it can be garbage collected.
