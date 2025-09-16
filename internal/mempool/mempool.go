@@ -213,6 +213,10 @@ func (txmp *TxMempool) Size() int {
 	return txmp.NumTxsNotPending() + txmp.PendingSize()
 }
 
+func (txmp *TxMempool) utilisation() float64 {
+	return float64(txmp.Size()) / float64(txmp.config.Size)
+}
+
 func (txmp *TxMempool) NumTxsNotPending() int {
 	return txmp.txStore.Size()
 }
@@ -318,6 +322,25 @@ func (txmp *TxMempool) CheckTx(
 		}
 	}
 
+	// Reject low priority transactions when the mempool is more than
+	// DropUtilisationThreshold full.
+	if txmp.utilisation() >= txmp.config.DropUtilisationThreshold {
+		txmp.metrics.CheckTxMetDropUtilisationThreshold.Add(1)
+
+		hint, err := txmp.proxyAppConn.GetTxPriorityHint(ctx, &abci.RequestGetTxPriorityHint{Tx: tx})
+		if err != nil {
+			txmp.metrics.observeCheckTxPriorityDistribution(0, true, txInfo.SenderNodeID, err)
+			txmp.logger.Error("failed to get tx priority hint", "err", err)
+			return err
+		}
+
+		txmp.metrics.observeCheckTxPriorityDistribution(hint.Priority, true, txInfo.SenderNodeID, nil)
+		if hint.Priority <= txmp.config.DropPriorityThreshold {
+			txmp.metrics.CheckTxDroppedByPriorityHint.Add(1)
+			return errors.New("priority not high enough for mempool")
+		}
+	}
+
 	if txmp.preCheck != nil {
 		if err := txmp.preCheck(tx); err != nil {
 			return types.ErrPreCheck{Reason: err}
@@ -349,8 +372,10 @@ func (txmp *TxMempool) CheckTx(
 	txmp.totalCheckTxCount.Add(1)
 	if err != nil {
 		txmp.metrics.NumberOfFailedCheckTxs.Add(1)
+		txmp.metrics.observeCheckTxPriorityDistribution(0, false, txInfo.SenderNodeID, err)
 	} else {
 		txmp.metrics.NumberOfSuccessfulCheckTxs.Add(1)
+		txmp.metrics.observeCheckTxPriorityDistribution(res.Priority, false, txInfo.SenderNodeID, nil)
 	}
 	if len(txInfo.SenderNodeID) == 0 {
 		txmp.metrics.NumberOfLocalCheckTx.Add(1)
