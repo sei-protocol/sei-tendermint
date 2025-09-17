@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sync"
 	"time"
-	"container/heap"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
@@ -239,98 +238,22 @@ func (txs *TxStore) GetOrSetPeerByTxHash(hash types.TxKey, peerID uint16) (*Wrap
 	return wtx, false
 }
 
-type isKey[K any] interface {
-	Less(K) bool
-	Get(*WrappedTx) K
-}
-
-type txHeap[K isKey[K]] struct {
-	heap []*WrappedTx
-	pos map[types.TxKey]int
-}
-
-func newTxHeap[K isKey[K]]() *txHeap[K] {
-	return &txHeap[K]{
-		pos: map[types.TxKey]int{},
-	}
-}
-
-func (x *txHeap[K]) Len() int { return len(x.heap) }
-func (x *txHeap[K]) Less(i, j int) bool {
-	var k K
-	return k.Get(x.heap[i]).Less(k.Get(x.heap[j]))
-}
-func (x *txHeap[K]) Swap(i, j int) {
-	x.heap[i], x.heap[j] = x.heap[j], x.heap[i]
-	x.pos[x.heap[i].hash] = i
-	x.pos[x.heap[j].hash] = j
-}
-func (x *txHeap[K]) Push(v any) {
-	wtx := v.(*WrappedTx)
-	x.pos[wtx.hash] = len(x.heap)
-	x.heap = append(x.heap, wtx)
-}
-func (x *txHeap[K]) Pop() any {
-	n := x.Len()
-	v := x.heap[n-1]
-	delete(x.pos,v.hash)
-	x.heap = x.heap[:n-1]
-	return v
-}
-
-func (x *txHeap[K]) Insert(wtx *WrappedTx) {
-	if _,ok := x.pos[wtx.hash]; ok {
-		return
-	}
-	heap.Push(x,wtx)
-}
-
-func (x *txHeap[K]) Remove(wtx *WrappedTx) {
-	if i,ok := x.pos[wtx.hash]; ok {
-		heap.Remove(x,i)
-	}
-}
-
-func (x *txHeap[K]) PopUntil(k K) []*WrappedTx {
-	var res []*WrappedTx
-	for x.Len()>0 && k.Get(x.heap[0]).Less(k) {
-		res = append(res,heap.Pop(x).(*WrappedTx))
-	}
-	return res
-}
-
-type txTimestamp time.Time
-func (txTimestamp) Get(wtx *WrappedTx) txTimestamp { return txTimestamp(wtx.timestamp) }
-func (t txTimestamp) Less(b txTimestamp) bool { return time.Time(t).Before(time.Time(b)) }
-
-type txHeight int64
-func (txHeight) Get(wtx *WrappedTx) txHeight { return txHeight(wtx.height) }
-func (h txHeight) Less(b txHeight) bool { return h < b }
-
-type wrappedTxList struct {
-	byTimestamp *txHeap[txTimestamp]
-	byHeight  *txHeap[txHeight]
-}
-
 // WrappedTxList orders transactions in the order that they arrived.
 // They are ordered by timestamp.
 type WrappedTxList struct {
-	inner  utils.RWMutex[*wrappedTxList]
+	inner  utils.RWMutex[map[types.TxKey]*WrappedTx]
 }
 
 func NewWrappedTxList() *WrappedTxList {
 	return &WrappedTxList{
-		inner: utils.NewRWMutex(&wrappedTxList{
-			byTimestamp: newTxHeap[txTimestamp](),
-			byHeight:    newTxHeap[txHeight](),
-		}),
+		inner: utils.NewRWMutex(map[types.TxKey]*WrappedTx{}),
 	}
 }
 
 // Size returns the number of WrappedTx objects in the list.
 func (wtl *WrappedTxList) Size() int {
 	for inner := range wtl.inner.RLock() {
-		return inner.byTimestamp.Len()
+		return len(inner)
 	}
 	panic("unreachable")
 }
@@ -338,8 +261,7 @@ func (wtl *WrappedTxList) Size() int {
 // Reset resets the list of transactions to an empty list.
 func (wtl *WrappedTxList) Reset() {
 	for inner := range wtl.inner.Lock() {
-		inner.byTimestamp = newTxHeap[txTimestamp]()
-		inner.byHeight = newTxHeap[txHeight]()
+		clear(inner)
 	}
 }
 
@@ -347,16 +269,14 @@ func (wtl *WrappedTxList) Reset() {
 // comparator function.
 func (wtl *WrappedTxList) Insert(wtx *WrappedTx) {
 	for inner := range wtl.inner.Lock() {
-		inner.byTimestamp.Insert(wtx)
-		inner.byHeight.Insert(wtx)
+		inner[wtx.hash] = wtx
 	}
 }
 
 // Remove attempts to remove a WrappedTx from the sorted list.
 func (wtl *WrappedTxList) Remove(wtx *WrappedTx) {
 	for inner := range wtl.inner.Lock() {
-		inner.byTimestamp.Remove(wtx)
-		inner.byHeight.Remove(wtx)
+		delete(inner, wtx.hash)
 	}
 }
 
@@ -364,17 +284,22 @@ func (wtl *WrappedTxList) Remove(wtx *WrappedTx) {
 func (wtl *WrappedTxList) Purge(minTime utils.Option[time.Time], minHeight utils.Option[int64]) []*WrappedTx {
 	var purged []*WrappedTx
 	for inner := range wtl.inner.Lock() {
-		if t,ok := minTime.Get(); ok {
-			for _,wtx := range inner.byTimestamp.PopUntil(txTimestamp(t)) {
+		for _,wtx := range inner {
+			ok := func() bool {
+				if t,ok := minTime.Get(); ok && wtx.timestamp.Before(t) {
+					return true
+				}
+				if h,ok := minHeight.Get(); ok && wtx.height < h {
+					return true
+				}
+				return false
+			}()
+			if ok {
 				purged = append(purged,wtx)
-				inner.byHeight.Remove(wtx)
 			}
 		}
-		if h,ok := minHeight.Get(); ok {
-			for _,wtx := range inner.byHeight.PopUntil(txHeight(h)) {
-				purged = append(purged,wtx)
-				inner.byTimestamp.Remove(wtx)
-			}
+		for _,wtx := range purged {
+			delete(inner, wtx.hash)
 		}
 	}
 	return purged
