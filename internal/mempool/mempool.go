@@ -165,8 +165,8 @@ func NewTxMempool(
 		opt(txmp)
 	}
 
-	if cfg.DuplicateTxsCacheSize > 0 {
-		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheSize, 1*time.Minute, 1*time.Minute, maxCacheKeySize)
+	if cfg.DuplicateTxsCacheEnabled {
+		txmp.duplicateTxsCache = NewDuplicateTxCache(1*time.Minute, 1*time.Minute, maxCacheKeySize)
 		go txmp.exposeDuplicateTxMetrics()
 	}
 
@@ -341,7 +341,7 @@ func (txmp *TxMempool) CheckTx(
 
 	// Check TTL cache to see if we've recently processed this transaction
 	// Only execute TTL cache logic if we're using a real TTL cache (not NOP)
-	if txmp.config.DuplicateTxsCacheSize > 0 {
+	if txmp.config.DuplicateTxsCacheEnabled {
 		txmp.duplicateTxsCache.Increment(txHash)
 	}
 
