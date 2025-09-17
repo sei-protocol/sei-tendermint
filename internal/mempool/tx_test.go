@@ -6,12 +6,11 @@ import (
 	"testing"
 	"time"
 
-
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/libs/utils/require"
+	"github.com/tendermint/tendermint/types"
 )
 
 func TestTxStore_GetTxBySender(t *testing.T) {
@@ -221,11 +220,11 @@ func TestWrappedTxList(t *testing.T) {
 	var txs []*WrappedTx
 	for range 100 {
 		wtx := &WrappedTx{
-			height: rng.Int63n(10000),
+			height:    rng.Int63n(10000),
 			timestamp: now.Add(time.Duration(rng.Int63n(10000)) * time.Millisecond),
 		}
-		_,err := rng.Read(wtx.hash[:])
-		require.NoError(t,err)
+		_, err := rng.Read(wtx.hash[:])
+		require.NoError(t, err)
 		txs = append(txs, wtx)
 		list.Insert(wtx)
 	}
@@ -233,7 +232,7 @@ func TestWrappedTxList(t *testing.T) {
 	t.Log("remove some of them")
 	n := 50
 	rng.Shuffle(len(txs), func(i, j int) { txs[i], txs[j] = txs[j], txs[i] })
-	for _,wtx := range txs[:n] {
+	for _, wtx := range txs[:n] {
 		list.Remove(wtx)
 	}
 	txs = txs[n:]
@@ -242,11 +241,11 @@ func TestWrappedTxList(t *testing.T) {
 	sort.Slice(txs, func(i, j int) bool { return txs[i].timestamp.Before(txs[j].timestamp) })
 	n = 10
 	want := map[types.TxKey]struct{}{}
-	for _,wtx := range txs[:n] {
+	for _, wtx := range txs[:n] {
 		want[wtx.hash] = struct{}{}
 	}
 	got := map[types.TxKey]struct{}{}
-	for _,wtx := range list.Purge(utils.Some(txs[n].timestamp),utils.None[int64]()) {
+	for _, wtx := range list.Purge(utils.Some(txs[n].timestamp), utils.None[int64]()) {
 		got[wtx.hash] = struct{}{}
 	}
 	require.Equal(t, want, got)
@@ -256,11 +255,11 @@ func TestWrappedTxList(t *testing.T) {
 	sort.Slice(txs, func(i, j int) bool { return txs[i].height < txs[j].height })
 	n = 15
 	want = map[types.TxKey]struct{}{}
-	for _,wtx := range txs[:n] {
+	for _, wtx := range txs[:n] {
 		want[wtx.hash] = struct{}{}
 	}
 	got = map[types.TxKey]struct{}{}
-	for _,wtx := range list.Purge(utils.None[time.Time](),utils.Some(txs[n].height)) {
+	for _, wtx := range list.Purge(utils.None[time.Time](), utils.Some(txs[n].height)) {
 		got[wtx.hash] = struct{}{}
 	}
 	require.Equal(t, want, got)

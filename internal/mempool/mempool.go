@@ -132,17 +132,17 @@ func NewTxMempool(
 ) *TxMempool {
 
 	txmp := &TxMempool{
-		logger:            logger,
-		config:            cfg,
-		proxyAppConn:      proxyAppConn,
-		height:            -1,
-		cache:             NopTxCache{},
-		duplicateTxsCache: NopTxCacheWithTTL{}, // Default to NOP implementation
-		metrics:           NopMetrics(),
-		txStore:           NewTxStore(),
-		gossipIndex:       clist.New(),
-		priorityIndex:     NewTxPriorityQueue(),
-		timestampIndex:    NewWrappedTxList(),
+		logger:              logger,
+		config:              cfg,
+		proxyAppConn:        proxyAppConn,
+		height:              -1,
+		cache:               NopTxCache{},
+		duplicateTxsCache:   NopTxCacheWithTTL{}, // Default to NOP implementation
+		metrics:             NopMetrics(),
+		txStore:             NewTxStore(),
+		gossipIndex:         clist.New(),
+		priorityIndex:       NewTxPriorityQueue(),
+		timestampIndex:      NewWrappedTxList(),
 		pendingTxs:          NewPendingTxs(cfg),
 		totalCheckTxCount:   atomic.Uint64{},
 		failedCheckTxCounts: map[types.NodeID]uint64{},
@@ -1074,13 +1074,13 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 
 	minHeight := utils.None[int64]()
 	if n := txmp.config.TTLNumBlocks; n > 0 && blockHeight > n {
-		minHeight = utils.Some(blockHeight-n)
+		minHeight = utils.Some(blockHeight - n)
 	}
 	minTime := utils.None[time.Time]()
-	if d:=txmp.config.TTLDuration; d>0 {
+	if d := txmp.config.TTLDuration; d > 0 {
 		minTime = utils.Some(time.Now().Add(-d))
 	}
-	expiredTxs := txmp.timestampIndex.Purge(minTime,minHeight)
+	expiredTxs := txmp.timestampIndex.Purge(minTime, minHeight)
 
 	for _, wtx := range expiredTxs {
 		if txmp.config.RemoveExpiredTxsFromQueue {
@@ -1155,11 +1155,11 @@ func (txmp *TxMempool) Run(ctx context.Context) error {
 }
 
 func (txmp *TxMempool) runDuplicateTxMetrics(ctx context.Context) error {
-	if txmp.duplicateTxsCache==nil {
+	if txmp.duplicateTxsCache == nil {
 		return nil
 	}
 	for {
-		if err:=utils.Sleep(ctx, 10*time.Second); err!=nil {
+		if err := utils.Sleep(ctx, 10*time.Second); err != nil {
 			return err
 		}
 		// TODO(gprusak): instead of actively updating stats,

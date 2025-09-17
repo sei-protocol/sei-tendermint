@@ -8,8 +8,8 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/libs/clist"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/types"
 )
 
 // TxInfo are parameters that get passed when attempting to add a tx to the
@@ -241,7 +241,7 @@ func (txs *TxStore) GetOrSetPeerByTxHash(hash types.TxKey, peerID uint16) (*Wrap
 // WrappedTxList orders transactions in the order that they arrived.
 // They are ordered by timestamp.
 type WrappedTxList struct {
-	inner  utils.RWMutex[map[types.TxKey]*WrappedTx]
+	inner utils.RWMutex[map[types.TxKey]*WrappedTx]
 }
 
 func NewWrappedTxList() *WrappedTxList {
@@ -284,21 +284,21 @@ func (wtl *WrappedTxList) Remove(wtx *WrappedTx) {
 func (wtl *WrappedTxList) Purge(minTime utils.Option[time.Time], minHeight utils.Option[int64]) []*WrappedTx {
 	var purged []*WrappedTx
 	for inner := range wtl.inner.Lock() {
-		for _,wtx := range inner {
+		for _, wtx := range inner {
 			ok := func() bool {
-				if t,ok := minTime.Get(); ok && wtx.timestamp.Before(t) {
+				if t, ok := minTime.Get(); ok && wtx.timestamp.Before(t) {
 					return true
 				}
-				if h,ok := minHeight.Get(); ok && wtx.height < h {
+				if h, ok := minHeight.Get(); ok && wtx.height < h {
 					return true
 				}
 				return false
 			}()
 			if ok {
-				purged = append(purged,wtx)
+				purged = append(purged, wtx)
 			}
 		}
-		for _,wtx := range purged {
+		for _, wtx := range purged {
 			delete(inner, wtx.hash)
 		}
 	}

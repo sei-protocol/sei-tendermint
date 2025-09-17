@@ -111,7 +111,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	}
 	go r.processMempoolCh(ctx, r.channel)
 	go r.processPeerUpdates(ctx, r.peerEvents(ctx), r.channel)
-	r.SpawnCritical("mempool",r.mempool.Run)
+	r.SpawnCritical("mempool", r.mempool.Run)
 	return nil
 }
 
