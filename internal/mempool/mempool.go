@@ -16,6 +16,7 @@ import (
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/libs/clist"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -98,10 +99,6 @@ type TxMempool struct {
 	// thread-safe priority queue.
 	priorityIndex *TxPriorityQueue
 
-	// heightIndex defines a height-based, in ascending order, transaction index.
-	// i.e. older transactions are first.
-	heightIndex *WrappedTxList
-
 	// timestampIndex defines a timestamp-based, in ascending order, transaction
 	// index. i.e. older transactions are first.
 	timestampIndex *WrappedTxList
@@ -145,12 +142,7 @@ func NewTxMempool(
 		txStore:           NewTxStore(),
 		gossipIndex:       clist.New(),
 		priorityIndex:     NewTxPriorityQueue(),
-		heightIndex: NewWrappedTxList(func(wtx1, wtx2 *WrappedTx) bool {
-			return wtx1.height >= wtx2.height
-		}),
-		timestampIndex: NewWrappedTxList(func(wtx1, wtx2 *WrappedTx) bool {
-			return wtx1.timestamp.After(wtx2.timestamp) || wtx1.timestamp.Equal(wtx2.timestamp)
-		}),
+		timestampIndex:    NewWrappedTxList(),
 		pendingTxs:          NewPendingTxs(cfg),
 		totalCheckTxCount:   atomic.Uint64{},
 		failedCheckTxCounts: map[types.NodeID]uint64{},
@@ -167,7 +159,6 @@ func NewTxMempool(
 
 	if cfg.DuplicateTxsCacheSize > 0 {
 		txmp.duplicateTxsCache = NewDuplicateTxCache(cfg.DuplicateTxsCacheSize, 1*time.Minute, 1*time.Minute, maxCacheKeySize)
-		go txmp.exposeDuplicateTxMetrics()
 	}
 
 	return txmp
@@ -478,7 +469,6 @@ func (txmp *TxMempool) Flush() {
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
-	txmp.heightIndex.Reset()
 	txmp.timestampIndex.Reset()
 
 	for _, wtx := range txmp.txStore.GetAllTxs() {
@@ -996,7 +986,6 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 	}
 
 	txmp.txStore.SetTx(wtx)
-	txmp.heightIndex.Insert(wtx)
 	txmp.timestampIndex.Insert(wtx)
 
 	// Insert the transaction into the gossip index and mark the reference to the
@@ -1020,7 +1009,6 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 	if updatePriorityIndex {
 		toBeReenqueued = txmp.priorityIndex.RemoveTx(wtx, shouldReenqueue)
 	}
-	txmp.heightIndex.Remove(wtx)
 	txmp.timestampIndex.Remove(wtx)
 
 	// Remove the transaction from the gossip index and cleanup the linked-list
@@ -1083,41 +1071,16 @@ func (txmp *TxMempool) logExpiredTx(blockHeight int64, wtx *WrappedTx) {
 // the height and time based indexes.
 func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 	now := time.Now()
-	expiredTxs := make(map[types.TxKey]*WrappedTx)
 
-	if txmp.config.TTLNumBlocks > 0 {
-		purgeIdx := -1
-		for i, wtx := range txmp.heightIndex.txs {
-			if (blockHeight - wtx.height) > txmp.config.TTLNumBlocks {
-				expiredTxs[wtx.tx.Key()] = wtx
-				purgeIdx = i
-			} else {
-				// since the index is sorted, we know no other txs can be be purged
-				break
-			}
-		}
-
-		if purgeIdx >= 0 {
-			txmp.heightIndex.txs = txmp.heightIndex.txs[purgeIdx+1:]
-		}
+	minHeight := utils.None[int64]()
+	if n := txmp.config.TTLNumBlocks; n > 0 && blockHeight > n {
+		minHeight = utils.Some(blockHeight-n)
 	}
-
-	if txmp.config.TTLDuration > 0 {
-		purgeIdx := -1
-		for i, wtx := range txmp.timestampIndex.txs {
-			if now.Sub(wtx.timestamp) > txmp.config.TTLDuration {
-				expiredTxs[wtx.tx.Key()] = wtx
-				purgeIdx = i
-			} else {
-				// since the index is sorted, we know no other txs can be be purged
-				break
-			}
-		}
-
-		if purgeIdx >= 0 {
-			txmp.timestampIndex.txs = txmp.timestampIndex.txs[purgeIdx+1:]
-		}
+	minTime := utils.None[time.Time]()
+	if d:=txmp.config.TTLDuration; d>0 {
+		minTime = utils.Some(time.Now().Add(-d))
 	}
+	expiredTxs := txmp.timestampIndex.Purge(minTime,minHeight)
 
 	for _, wtx := range expiredTxs {
 		if txmp.config.RemoveExpiredTxsFromQueue {
@@ -1186,17 +1149,25 @@ func (txmp *TxMempool) handlePendingTransactions() {
 	}
 }
 
-func (txmp *TxMempool) exposeDuplicateTxMetrics() {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+// Run executes mempool background tasks.
+func (txmp *TxMempool) Run(ctx context.Context) error {
+	return txmp.runDuplicateTxMetrics(ctx)
+}
+
+func (txmp *TxMempool) runDuplicateTxMetrics(ctx context.Context) error {
+	if txmp.duplicateTxsCache==nil {
+		return nil
+	}
 	for {
-		select {
-		case <-ticker.C:
-			maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
-			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
-			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
-			txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
-			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
+		if err:=utils.Sleep(ctx, 10*time.Second); err!=nil {
+			return err
 		}
+		// TODO(gprusak): instead of actively updating stats,
+		// TxMempool should implement prometheus.Collector.
+		maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
+		txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
+		txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
+		txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
+		txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
 	}
 }

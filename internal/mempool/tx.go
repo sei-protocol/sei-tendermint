@@ -2,14 +2,15 @@ package mempool
 
 import (
 	"errors"
-	"sort"
 	"sync"
 	"time"
+	"container/heap"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/libs/clist"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/libs/utils"
 )
 
 // TxInfo are parameters that get passed when attempting to add a tx to the
@@ -238,85 +239,145 @@ func (txs *TxStore) GetOrSetPeerByTxHash(hash types.TxKey, peerID uint16) (*Wrap
 	return wtx, false
 }
 
-// WrappedTxList implements a thread-safe list of *WrappedTx objects that can be
-// used to build generic transaction indexes in the mempool. It accepts a
-// comparator function, less(a, b *WrappedTx) bool, that compares two WrappedTx
-// references which is used during Insert in order to determine sorted order. If
-// less returns true, a <= b.
-type WrappedTxList struct {
-	mtx  sync.RWMutex
-	txs  []*WrappedTx
-	less func(*WrappedTx, *WrappedTx) bool
+type isKey[K any] interface {
+	Less(K) bool
+	Get(*WrappedTx) K
 }
 
-func NewWrappedTxList(less func(*WrappedTx, *WrappedTx) bool) *WrappedTxList {
+type txHeap[K isKey[K]] struct {
+	heap []*WrappedTx
+	pos map[types.TxKey]int
+}
+
+func newTxHeap[K isKey[K]]() *txHeap[K] {
+	return &txHeap[K]{
+		pos: map[types.TxKey]int{},
+	}
+}
+
+func (x *txHeap[K]) Len() int { return len(x.heap) }
+func (x *txHeap[K]) Less(i, j int) bool {
+	var k K
+	return k.Get(x.heap[i]).Less(k.Get(x.heap[j]))
+}
+func (x *txHeap[K]) Swap(i, j int) {
+	x.heap[i], x.heap[j] = x.heap[j], x.heap[i]
+	x.pos[x.heap[i].hash] = i
+	x.pos[x.heap[j].hash] = j
+}
+func (x *txHeap[K]) Push(v any) {
+	wtx := v.(*WrappedTx)
+	x.pos[wtx.hash] = len(x.heap)
+	x.heap = append(x.heap, wtx)
+}
+func (x *txHeap[K]) Pop() any {
+	n := x.Len()
+	v := x.heap[n-1]
+	delete(x.pos,v.hash)
+	x.heap = x.heap[:n-1]
+	return v
+}
+
+func (x *txHeap[K]) Insert(wtx *WrappedTx) {
+	if _,ok := x.pos[wtx.hash]; ok {
+		return
+	}
+	heap.Push(x,wtx)
+}
+
+func (x *txHeap[K]) Remove(wtx *WrappedTx) {
+	if i,ok := x.pos[wtx.hash]; ok {
+		heap.Remove(x,i)
+	}
+}
+
+func (x *txHeap[K]) PopUntil(k K) []*WrappedTx {
+	var res []*WrappedTx
+	for x.Len()>0 && k.Get(x.heap[0]).Less(k) {
+		res = append(res,heap.Pop(x).(*WrappedTx))
+	}
+	return res
+}
+
+type txTimestamp time.Time
+func (txTimestamp) Get(wtx *WrappedTx) txTimestamp { return txTimestamp(wtx.timestamp) }
+func (t txTimestamp) Less(b txTimestamp) bool { return time.Time(t).Before(time.Time(b)) }
+
+type txHeight int64
+func (txHeight) Get(wtx *WrappedTx) txHeight { return txHeight(wtx.height) }
+func (h txHeight) Less(b txHeight) bool { return h < b }
+
+type wrappedTxList struct {
+	byTimestamp *txHeap[txTimestamp]
+	byHeight  *txHeap[txHeight]
+}
+
+// WrappedTxList orders transactions in the order that they arrived.
+// They are ordered by timestamp.
+type WrappedTxList struct {
+	inner  utils.RWMutex[*wrappedTxList]
+}
+
+func NewWrappedTxList() *WrappedTxList {
 	return &WrappedTxList{
-		txs:  make([]*WrappedTx, 0),
-		less: less,
+		inner: utils.NewRWMutex(&wrappedTxList{
+			byTimestamp: newTxHeap[txTimestamp](),
+			byHeight:    newTxHeap[txHeight](),
+		}),
 	}
 }
 
 // Size returns the number of WrappedTx objects in the list.
 func (wtl *WrappedTxList) Size() int {
-	wtl.mtx.RLock()
-	defer wtl.mtx.RUnlock()
-
-	return len(wtl.txs)
+	for inner := range wtl.inner.RLock() {
+		return inner.byTimestamp.Len()
+	}
+	panic("unreachable")
 }
 
 // Reset resets the list of transactions to an empty list.
 func (wtl *WrappedTxList) Reset() {
-	wtl.mtx.Lock()
-	defer wtl.mtx.Unlock()
-
-	wtl.txs = make([]*WrappedTx, 0)
+	for inner := range wtl.inner.Lock() {
+		inner.byTimestamp = newTxHeap[txTimestamp]()
+		inner.byHeight = newTxHeap[txHeight]()
+	}
 }
 
 // Insert inserts a WrappedTx reference into the sorted list based on the list's
 // comparator function.
 func (wtl *WrappedTxList) Insert(wtx *WrappedTx) {
-	wtl.mtx.Lock()
-	defer wtl.mtx.Unlock()
-
-	i := sort.Search(len(wtl.txs), func(i int) bool {
-		return wtl.less(wtl.txs[i], wtx)
-	})
-
-	if i == len(wtl.txs) {
-		// insert at the end
-		wtl.txs = append(wtl.txs, wtx)
-		return
+	for inner := range wtl.inner.Lock() {
+		inner.byTimestamp.Insert(wtx)
+		inner.byHeight.Insert(wtx)
 	}
-
-	// Make space for the inserted element by shifting values at the insertion
-	// index up one index.
-	//
-	// NOTE: The call to append does not allocate memory when cap(wtl.txs) > len(wtl.txs).
-	wtl.txs = append(wtl.txs[:i+1], wtl.txs[i:]...)
-	wtl.txs[i] = wtx
 }
 
 // Remove attempts to remove a WrappedTx from the sorted list.
 func (wtl *WrappedTxList) Remove(wtx *WrappedTx) {
-	wtl.mtx.Lock()
-	defer wtl.mtx.Unlock()
-
-	i := sort.Search(len(wtl.txs), func(i int) bool {
-		return wtl.less(wtl.txs[i], wtx)
-	})
-
-	// Since the list is sorted, we evaluate all elements starting at i. Note, if
-	// the element does not exist, we may potentially evaluate the entire remainder
-	// of the list. However, a caller should not be expected to call Remove with a
-	// non-existing element.
-	for i < len(wtl.txs) {
-		if wtl.txs[i] == wtx {
-			wtl.txs = append(wtl.txs[:i], wtl.txs[i+1:]...)
-			return
-		}
-
-		i++
+	for inner := range wtl.inner.Lock() {
+		inner.byTimestamp.Remove(wtx)
+		inner.byHeight.Remove(wtx)
 	}
+}
+
+// Purge pops transactions which have older timestamp than minTime OR lower height than minHeight.
+func (wtl *WrappedTxList) Purge(minTime utils.Option[time.Time], minHeight utils.Option[int64]) []*WrappedTx {
+	var purged []*WrappedTx
+	for inner := range wtl.inner.Lock() {
+		if t,ok := minTime.Get(); ok {
+			for _,wtx := range inner.byTimestamp.PopUntil(txTimestamp(t)) {
+				purged = append(purged,wtx)
+				inner.byHeight.Remove(wtx)
+			}
+		}
+		if h,ok := minHeight.Get(); ok {
+			for _,wtx := range inner.byHeight.PopUntil(txHeight(h)) {
+				purged = append(purged,wtx)
+				inner.byTimestamp.Remove(wtx)
+			}
+		}
+	}
+	return purged
 }
 
 type PendingTxs struct {
