@@ -1189,14 +1189,11 @@ func (txmp *TxMempool) handlePendingTransactions() {
 func (txmp *TxMempool) exposeDuplicateTxMetrics() {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
-			txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
-			txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
-			txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
-			txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
-		}
+	for range ticker.C {
+		maxOccurrence, totalOccurrence, duplicateCount, nonDuplicateCount := txmp.duplicateTxsCache.GetForMetrics()
+		txmp.metrics.DuplicateTxMaxOccurrences.Set(float64(maxOccurrence))
+		txmp.metrics.DuplicateTxTotalOccurrences.Set(float64(totalOccurrence))
+		txmp.metrics.NumberOfDuplicateTxs.Set(float64(duplicateCount))
+		txmp.metrics.NumberOfNonDuplicateTxs.Set(float64(nonDuplicateCount))
 	}
 }
