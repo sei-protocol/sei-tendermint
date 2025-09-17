@@ -769,8 +769,8 @@ type MempoolConfig struct {
 	// Size of the cache (used to filter transactions we saw earlier) in transactions
 	CacheSize int `mapstructure:"cache-size"`
 
-	// Size of the duplicate cache used to track duplicate txs
-	DuplicateTxsCacheSize int `mapstructure:"duplicate-txs-cache-size"`
+	// Enable duplicate transaction cache for tracking metrics
+	DuplicateTxsCacheEnabled bool `mapstructure:"duplicate-txs-cache-enabled"`
 
 	// Do not remove invalid transactions from the cache (default: false)
 	// Set to true if it's not possible for any invalid transaction to become
@@ -833,7 +833,7 @@ func DefaultMempoolConfig() *MempoolConfig {
 		Size:                         5000,
 		MaxTxsBytes:                  1024 * 1024 * 1024, // 1GB
 		CacheSize:                    10000,
-		DuplicateTxsCacheSize:        100000,
+		DuplicateTxsCacheEnabled:     true,
 		MaxTxBytes:                   1024 * 1024, // 1MB
 		TTLDuration:                  0 * time.Second,
 		TTLNumBlocks:                 0,

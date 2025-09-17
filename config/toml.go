@@ -375,8 +375,8 @@ max-txs-bytes = {{ .Mempool.MaxTxsBytes }}
 # Size of the cache (used to filter transactions we saw earlier) in transactions
 cache-size = {{ .Mempool.CacheSize }}
 
-# Size of the cache duplicate tx keys for tracking metrics
-duplicate-txs-cache-size = "{{ .Mempool.DuplicateTxsCacheSize }}"
+# Enable duplicate transaction cache for tracking metrics
+duplicate-txs-cache-enabled = {{ .Mempool.DuplicateTxsCacheEnabled }}
 
 # Do not remove invalid transactions from the cache (default: false)
 # Set to true if it's not possible for any invalid transaction to become valid

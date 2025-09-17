@@ -167,23 +167,21 @@ type TxCacheWithTTL interface {
 
 // DuplicateTxCache implements TxCacheWithTTL using go-cache
 type DuplicateTxCache struct {
-	maxSize   int
 	cache     *cache.Cache
 	maxKeyLen int
 }
 
-// NewDuplicateTxCache creates a new cache with TTL for transaction keys at a
-// given max size. Keys are derived from the transaction key and trimmed to at
-// most maxKeyLen bytes for predictable and efficient storage. If maxKeyLen is
-// zero or negative, keys are not trimmed. When the cache exceeds cacheSize, the
-// least recently used entry is evicted.
+// NewDuplicateTxCache creates a new cache with TTL for transaction keys.
+// Keys are derived from the transaction key and trimmed to at most maxKeyLen
+// bytes for predictable and efficient storage. If maxKeyLen is zero or negative,
+// keys are not trimmed.
 //
 // Note that maxKeyLen should be set with care. While a smaller value saves
 // memory, it increases the risk of key collisions, which can lead to false
 // positives in cache lookups. A larger value reduces collision risk but uses
 // more memory. A common choice is to use the full length of a cryptographic hash
 // (e.g., 32 bytes for SHA-256) to balance memory usage and collision risk.
-func NewDuplicateTxCache(maxSize int, defaultExpiration, cleanupInterval time.Duration, maxKeyLen int) *DuplicateTxCache {
+func NewDuplicateTxCache(defaultExpiration, cleanupInterval time.Duration, maxKeyLen int) *DuplicateTxCache {
 	// If defaultExpiration is 0 (no expiration), don't create a cleanup interval
 	// to avoid starting background janitor goroutines that can cause leaks
 	if defaultExpiration == 0 {
@@ -192,7 +190,6 @@ func NewDuplicateTxCache(maxSize int, defaultExpiration, cleanupInterval time.Du
 	}
 
 	return &DuplicateTxCache{
-		maxSize:   maxSize,
 		cache:     cache.New(defaultExpiration, cleanupInterval),
 		maxKeyLen: maxKeyLen,
 	}
