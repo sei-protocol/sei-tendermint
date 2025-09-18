@@ -285,7 +285,7 @@ func (wtl *WrappedTxList) Purge(minTime utils.Option[time.Time], minHeight utils
 	var purged []*WrappedTx
 	for inner := range wtl.inner.Lock() {
 		for _, wtx := range inner {
-			ok := func() bool {
+			shouldPurge := func() bool {
 				if t, ok := minTime.Get(); ok && wtx.timestamp.Before(t) {
 					return true
 				}
@@ -294,7 +294,7 @@ func (wtl *WrappedTxList) Purge(minTime utils.Option[time.Time], minHeight utils
 				}
 				return false
 			}()
-			if ok {
+			if shouldPurge {
 				purged = append(purged, wtx)
 			}
 		}

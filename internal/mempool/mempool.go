@@ -99,9 +99,9 @@ type TxMempool struct {
 	// thread-safe priority queue.
 	priorityIndex *TxPriorityQueue
 
-	// timestampIndex defines a timestamp-based, in ascending order, transaction
+	// expirationIndex defines a timestamp-based, in ascending order, transaction
 	// index. i.e. older transactions are first.
-	timestampIndex *WrappedTxList
+	expirationIndex *WrappedTxList
 
 	// pendingTxs stores transactions that are not valid yet but might become valid
 	// if its checker returns Accepted
@@ -142,7 +142,7 @@ func NewTxMempool(
 		txStore:             NewTxStore(),
 		gossipIndex:         clist.New(),
 		priorityIndex:       NewTxPriorityQueue(),
-		timestampIndex:      NewWrappedTxList(),
+		expirationIndex:     NewWrappedTxList(),
 		pendingTxs:          NewPendingTxs(cfg),
 		totalCheckTxCount:   atomic.Uint64{},
 		failedCheckTxCounts: map[types.NodeID]uint64{},
@@ -469,7 +469,7 @@ func (txmp *TxMempool) Flush() {
 	txmp.mtx.RLock()
 	defer txmp.mtx.RUnlock()
 
-	txmp.timestampIndex.Reset()
+	txmp.expirationIndex.Reset()
 
 	for _, wtx := range txmp.txStore.GetAllTxs() {
 		txmp.removeTx(wtx, false, false, true)
@@ -986,7 +986,7 @@ func (txmp *TxMempool) insertTx(wtx *WrappedTx) bool {
 	}
 
 	txmp.txStore.SetTx(wtx)
-	txmp.timestampIndex.Insert(wtx)
+	txmp.expirationIndex.Insert(wtx)
 
 	// Insert the transaction into the gossip index and mark the reference to the
 	// linked-list element, which will be needed at a later point when the
@@ -1009,7 +1009,7 @@ func (txmp *TxMempool) removeTx(wtx *WrappedTx, removeFromCache bool, shouldReen
 	if updatePriorityIndex {
 		toBeReenqueued = txmp.priorityIndex.RemoveTx(wtx, shouldReenqueue)
 	}
-	txmp.timestampIndex.Remove(wtx)
+	txmp.expirationIndex.Remove(wtx)
 
 	// Remove the transaction from the gossip index and cleanup the linked-list
 	// element so it can be garbage collected.
@@ -1080,7 +1080,7 @@ func (txmp *TxMempool) purgeExpiredTxs(blockHeight int64) {
 	if d := txmp.config.TTLDuration; d > 0 {
 		minTime = utils.Some(time.Now().Add(-d))
 	}
-	expiredTxs := txmp.timestampIndex.Purge(minTime, minHeight)
+	expiredTxs := txmp.expirationIndex.Purge(minTime, minHeight)
 
 	for _, wtx := range expiredTxs {
 		if txmp.config.RemoveExpiredTxsFromQueue {

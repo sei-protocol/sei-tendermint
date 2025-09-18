@@ -220,8 +220,8 @@ func TestWrappedTxList(t *testing.T) {
 	var txs []*WrappedTx
 	for range 100 {
 		wtx := &WrappedTx{
-			height:    rng.Int63n(10000),
-			timestamp: now.Add(time.Duration(rng.Int63n(10000)) * time.Millisecond),
+			height:    rng.Int63(),
+			timestamp: now.Add(time.Duration(rng.Int63n(1000000000000)) * time.Nanosecond),
 		}
 		_, err := rng.Read(wtx.hash[:])
 		require.NoError(t, err)
