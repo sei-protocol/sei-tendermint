@@ -39,6 +39,7 @@ import (
 	tmtime "github.com/tendermint/tendermint/libs/time"
 	"github.com/tendermint/tendermint/privval"
 	"github.com/tendermint/tendermint/types"
+	"github.com/tendermint/tendermint/libs/utils"
 
 	_ "net/http/pprof" // nolint: gosec // securely exposed on separate, optional port
 
@@ -147,6 +148,14 @@ func makeNode(
 	tracerProviderOptions []trace.TracerProviderOption,
 	nodeMetrics *NodeMetrics,
 ) (service.Service, error) {
+	cfg.RPC.ListenAddress = ""
+	cfg.Mempool.Size = 20000
+	cfg.Mempool.CacheSize = 0
+	cfg.Mempool.DuplicateTxsCacheSize = 0
+	cfg.DBBackend = "memdb"
+	cfg.TxIndex.Indexer = []string{"null"}
+	cfg.Consensus.UnsafeProposeTimeoutOverride = 3*time.Second
+	cfg.Consensus.UnsafeBypassCommitTimeoutOverride = utils.Alloc(true)
 
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
