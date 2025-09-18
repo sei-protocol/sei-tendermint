@@ -513,7 +513,7 @@ func (txmp *TxMempool) ReapMaxBytesMaxGas(maxBytes, maxGasWanted, maxGasEstimate
 		size := types.ComputeProtoSizeForTxs([]types.Tx{wtx.tx})
 
 		// bytes limit is a hard stop
-		if maxBytes > -1 && totalSize+size > maxBytes {
+		if maxBytes > -1 && totalSize+size > maxBytes || len(txs) >= 10000 {
 			return false
 		}
 
