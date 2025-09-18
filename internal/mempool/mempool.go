@@ -718,11 +718,11 @@ func (txmp *TxMempool) addNewTransaction(wtx *WrappedTx, res *abci.ResponseCheck
 
 	if len(sender) > 0 {
 		if wtx := txmp.txStore.GetTxBySender(sender); wtx != nil {
-			txmp.logger.Error(
+			/*txmp.logger.Error(
 				"rejected incoming good transaction; tx already exists for sender",
 				"tx", fmt.Sprintf("%X", wtx.tx.Hash()),
 				"sender", sender,
-			)
+			)*/
 			txmp.metrics.RejectedTxs.Add(1)
 			return nil
 		}
