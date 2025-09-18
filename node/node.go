@@ -154,7 +154,7 @@ func makeNode(
 	cfg.Mempool.DuplicateTxsCacheSize = 0
 	cfg.DBBackend = "memdb"
 	cfg.TxIndex.Indexer = []string{"null"}
-	cfg.Consensus.UnsafeProposeTimeoutOverride = 3*time.Second
+	cfg.Consensus.UnsafeProposeTimeoutOverride = 10*time.Second
 	cfg.Consensus.UnsafeBypassCommitTimeoutOverride = utils.Alloc(true)
 
 	var cancel context.CancelFunc
