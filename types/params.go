@@ -125,9 +125,9 @@ func DefaultBlockParams() BlockParams {
 	return BlockParams{
 		MaxBytes: 22020096, // 21MB
 		// Default, can be increased and tuned as needed
-		MaxGas:        100000000,
+		MaxGas:        100000000000,
 		MinTxsInBlock: 10,
-		MaxGasWanted:  50000000,
+		MaxGasWanted:  50000000000,
 	}
 }
 
