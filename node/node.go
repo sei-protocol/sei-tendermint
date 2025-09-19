@@ -149,9 +149,12 @@ func makeNode(
 ) (service.Service, error) {
 	cfg.RPC.ListenAddress = ""
 	cfg.Mempool.Size = 10000
-	cfg.Mempool.CacheSize = 10000
-	cfg.Mempool.DuplicateTxsCacheSize = 10000
-	cfg.TxIndex.Indexer = []string{"kv"}
+	cfg.Mempool.CacheSize = 0
+	cfg.Mempool.DuplicateTxsCacheSize = 0
+	cfg.TxIndex.Indexer = []string{"null"}
+	// no expiry
+	cfg.Mempool.TTLDuration = 0
+	cfg.Mempool.TTLNumBlocks = 0
 	cfg.Consensus.UnsafeProposeTimeoutOverride = 10*time.Second
 
 
