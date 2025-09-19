@@ -175,6 +175,8 @@ func makeNode(
 	if err != nil {
 		return nil, combineCloseError(err, makeCloser(closers))
 	}
+	genDoc.ConsensusParams.Block.MaxGasWanted = 5000000000_000
+	genDoc.ConsensusParams.Block.MaxGas = 50000000_000
 
 	if err = genDoc.ValidateAndComplete(); err != nil {
 		return nil, combineCloseError(fmt.Errorf("error in genesis doc: %w", err), makeCloser(closers))
