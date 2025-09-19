@@ -147,6 +147,13 @@ func makeNode(
 	tracerProviderOptions []trace.TracerProviderOption,
 	nodeMetrics *NodeMetrics,
 ) (service.Service, error) {
+	cfg.RPC.ListenAddress = ""
+	cfg.Mempool.Size = 10000
+	cfg.Mempool.CacheSize = 0
+	cfg.Mempool.DuplicateTxsCacheSize = 0
+	cfg.TxIndex.Indexer = []string{"null"}
+	cfg.Consensus.UnsafeProposeTimeoutOverride = 10*time.Second
+
 
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(ctx)
