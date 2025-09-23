@@ -13,10 +13,10 @@ import (
 	"github.com/fortytw2/leaktest"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/libs/log"
+	"github.com/tendermint/tendermint/libs/utils/require"
 	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/proto/tendermint/types"
 )
@@ -118,11 +118,9 @@ func TestMConnectionReceive(t *testing.T) {
 
 	msg := []byte("Cyclops")
 	assert.NoError(t, mconn2.Send(ctx, 0x01, msg))
-
-
-	receivedBytes,_,err := mconn1.Recv(ctx)
+	_,receivedBytes,err := mconn1.Recv(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, msg, receivedBytes)
+	require.Equal(t, msg, receivedBytes)
 }
 
 func TestMConnectionWillEventuallyTimeout(t *testing.T) {
@@ -278,13 +276,16 @@ func TestMConnectionStopsAndReturnsError(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _,_,err := mconn.Recv(ctx); !errors.Is(err, io.EOF) {
-		t.Fatalf("Expected io.EOF error, got %v", err)
+	// TODO(gprusak): proto reader does not wrap the error when cannot read the next byte,
+	// and the actual error depends on the underlying connection (EOF, ErrClosedPipe, etc),
+	// hence we cannot distinguish the EOF from malformed message. Fix the proto reader.
+	var want errBadEncoding
+	if _,_,got := mconn.Recv(ctx); !errors.As(got, &want) {
+		t.Fatalf("want %v, got %v", want, got)
 	}
 }
 
-func newClientAndServerConnsForReadErrors(
-	ctx context.Context,
+func newConns(
 	t *testing.T,
 ) (*MConnection, *MConnection) {
 	server, client := net.Pipe()
@@ -303,7 +304,7 @@ func newClientAndServerConnsForReadErrors(
 
 func TestMConnectionReadErrorBadEncoding(t *testing.T) {
 	ctx := t.Context()
-	mconnClient, mconnServer := newClientAndServerConnsForReadErrors(ctx, t)
+	mconnClient, mconnServer := newConns(t)
 
 	// Write it.
 	_, err := mconnClient.conn.Write([]byte{1, 2, 3, 4, 5})
@@ -317,7 +318,7 @@ func TestMConnectionReadErrorBadEncoding(t *testing.T) {
 func TestMConnectionReadErrorUnknownChannel(t *testing.T) {
 	ctx := t.Context()
 
-	mconnClient, mconnServer := newClientAndServerConnsForReadErrors(ctx, t)
+	mconnClient, mconnServer := newConns( t)
 
 	msg := []byte("Ant-Man")
 
@@ -336,7 +337,7 @@ func TestMConnectionReadErrorUnknownChannel(t *testing.T) {
 
 func TestMConnectionReadErrorLongMessage(t *testing.T) {
 	ctx := t.Context()
-	mconnClient, mconnServer := newClientAndServerConnsForReadErrors(ctx, t)
+	mconnClient, mconnServer := newConns( t)
 	protoWriter := protoio.NewDelimitedWriter(mconnClient.conn)
 
 	// send msg thats just right
@@ -360,8 +361,9 @@ func TestMConnectionReadErrorLongMessage(t *testing.T) {
 		Data:      make([]byte, mconnClient.config.MaxPacketMsgPayloadSize+100),
 	}
 
-	_, err = protoWriter.WriteMsg(mustWrapPacket(&packet))
-	require.NoError(t, err)
+	// Depending on when the server will terminate the connection,
+	// writing may fail or succeed.
+	_, _ = protoWriter.WriteMsg(mustWrapPacket(&packet))
 	var want errBadEncoding
 	if _,_,err:=mconnServer.Recv(ctx); !errors.As(err, &want) {
 		t.Fatalf("expected errBadEncoding, got %v", err)
@@ -370,7 +372,7 @@ func TestMConnectionReadErrorLongMessage(t *testing.T) {
 
 func TestMConnectionReadErrorUnknownMsgType(t *testing.T) {
 	ctx := t.Context()
-	mconnClient, mconnServer := newClientAndServerConnsForReadErrors(ctx, t)
+	mconnClient, mconnServer := newConns( t)
 
 	// send msg with unknown msg type
 	_, err := protoio.NewDelimitedWriter(mconnClient.conn).WriteMsg(&types.Header{ChainID: "x"})
@@ -402,7 +404,7 @@ func TestConnVectors(t *testing.T) {
 
 func TestMConnectionChannelOverflow(t *testing.T) {
 	ctx := t.Context()
-	m1, m2 := newClientAndServerConnsForReadErrors(ctx, t)
+	m1, m2 := newConns( t)
 	protoWriter := protoio.NewDelimitedWriter(m1.conn)
 
 	var packet = tmp2p.PacketMsg{

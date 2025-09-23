@@ -385,7 +385,7 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 	defer _recover(&err)
 
 	protoReader := protoio.NewDelimitedReader(c.bufConnReader, c._maxPacketMsgSize)
-	for ctx.Err() != nil {
+	for ctx.Err() == nil {
 		// Block until .recvMonitor says we can read.
 		c.recvMonitor.Limit(c._maxPacketMsgSize, c.config.RecvRate, true)
 
