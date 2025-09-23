@@ -229,7 +229,7 @@ func (c *MConnection) flush() {
 }
 
 // Catch panics, usually caused by remote disconnects.
-func _recover(ctx context.Context, err *error) {
+func _recover(err *error) {
 	if r := recover(); r != nil {
 		*err = fmt.Errorf("recovered from panic: %v", r)
 	}
@@ -266,7 +266,7 @@ func (c *MConnection) Recv(ctx context.Context) (ChannelID, []byte, error) {
 
 // sendRoutine polls for packets to send from channels.
 func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
-	defer _recover(ctx,&err)
+	defer _recover(&err)
 	protoWriter := protoio.NewDelimitedWriter(c.bufConnWriter)
 	pongTimeout := time.NewTicker(c.config.PongTimeout)
 	for {
@@ -306,7 +306,7 @@ func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 			break SELECTION
 		case <-c.send:
 			// Send some PacketMsgs
-			eof,err := c.sendSomePacketMsgs(ctx)
+			eof,err := c.sendSomePacketMsgs()
 			if err!=nil {
 				return fmt.Errorf("sendSomePacketMsgs(): %w", err)
 			}
@@ -327,7 +327,7 @@ func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 
 // Returns true if messages from channels were exhausted.
 // Blocks in accordance to .sendMonitor throttling.
-func (c *MConnection) sendSomePacketMsgs(ctx context.Context) (bool, error) {
+func (c *MConnection) sendSomePacketMsgs() (bool, error) {
 	// Block until .sendMonitor says we can write.
 	// Once we're ready we send more than we asked for,
 	// but amortized it should even out.
@@ -335,7 +335,7 @@ func (c *MConnection) sendSomePacketMsgs(ctx context.Context) (bool, error) {
 
 	// Now send some PacketMsgs.
 	for i := 0; i < numBatchPacketMsgs; i++ {
-		if done,err := c.sendPacketMsg(ctx); done || err != nil {
+		if done,err := c.sendPacketMsg(); done || err != nil {
 			return done,err
 		}
 	}
@@ -343,7 +343,7 @@ func (c *MConnection) sendSomePacketMsgs(ctx context.Context) (bool, error) {
 }
 
 // Returns true if messages from channels were exhausted.
-func (c *MConnection) sendPacketMsg(ctx context.Context) (bool, error) {
+func (c *MConnection) sendPacketMsg() (bool, error) {
 	// Choose a channel to create a PacketMsg from.
 	// The chosen channel will be the one whose recentlySent/priority is the least.
 	var leastRatio float32 = math.MaxFloat32
@@ -382,7 +382,7 @@ func (c *MConnection) sendPacketMsg(ctx context.Context) (bool, error) {
 // Blocks depending on how the connection is throttled.
 // Otherwise, it never blocks.
 func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
-	defer _recover(ctx,&err)
+	defer _recover(&err)
 
 	protoReader := protoio.NewDelimitedReader(c.bufConnReader, c._maxPacketMsgSize)
 	for ctx.Err() != nil {

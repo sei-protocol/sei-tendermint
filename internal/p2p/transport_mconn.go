@@ -317,7 +317,7 @@ func (c *mConnConnection) RemoteEndpoint() Endpoint {
 
 // Close implements Connection.
 func (c *mConnConnection) Close() error {
-	if c.mconn!=nil {
+	if c.mconn==nil {
 		return c.conn.Close()
 	}
 	return c.mconn.Close()

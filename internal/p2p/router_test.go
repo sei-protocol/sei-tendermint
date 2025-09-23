@@ -476,7 +476,7 @@ func TestRouter_AcceptPeers_HeadOfLineBlocking(t *testing.T) {
 	mockConnection := &mocks.Connection{}
 	mockConnection.On("String").Maybe().Return("mock")
 	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		WaitUntil(closeCh).Return(types.NodeInfo{}, nil, io.EOF)
+		WaitUntil(closeCh).Return(types.NodeInfo{}, io.EOF)
 	mockConnection.On("Close").Return(nil)
 	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
 
@@ -718,7 +718,7 @@ func TestRouter_EvictPeers(t *testing.T) {
 	mockConnection := &mocks.Connection{}
 	mockConnection.On("String").Maybe().Return("mock")
 	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		Return(peerInfo, peerKey.PubKey(), nil)
+		Return(peerInfo, nil)
 	mockConnection.On("ReceiveMessage", mock.Anything).WaitUntil(closeCh).Return(chID, nil, io.EOF)
 	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
 	mockConnection.On("Close").Run(func(_ mock.Arguments) {
@@ -784,7 +784,7 @@ func TestRouter_ChannelCompatability(t *testing.T) {
 	mockConnection := &mocks.Connection{}
 	mockConnection.On("String").Maybe().Return("mock")
 	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		Return(incompatiblePeer, peerKey.PubKey(), nil)
+		Return(incompatiblePeer, nil)
 	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
 	mockConnection.On("Close").Return(nil)
 
@@ -832,7 +832,7 @@ func TestRouter_DontSendOnInvalidChannel(t *testing.T) {
 	mockConnection := &mocks.Connection{}
 	mockConnection.On("String").Maybe().Return("mock")
 	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		Return(peer, peerKey.PubKey(), nil)
+		Return(peer, nil)
 	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
 	mockConnection.On("Close").Return(nil)
 	mockConnection.On("ReceiveMessage", mock.Anything).Return(chID, nil, io.EOF)
@@ -896,7 +896,7 @@ func TestRouter_Channel_FilterByID(t *testing.T) {
 	mockConnection := &mocks.Connection{}
 	mockConnection.On("String").Maybe().Return("mock")
 	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		Return(peer, peerKey.PubKey(), nil)
+		Return(peer, nil)
 	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
 	mockConnection.On("Close").Return(nil)
 	mockConnection.On("ReceiveMessage", mock.Anything).Return(chID, nil, io.EOF)

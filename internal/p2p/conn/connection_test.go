@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"io"
 	"net"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/libs/service"
 	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/proto/tendermint/types"
 )
