@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net"
 	"net/netip"
@@ -225,15 +224,21 @@ func (c *mConnConnection) Handshake(
 	if c.mconn != nil {
 		return types.NodeInfo{}, errors.New("connection is already handshaked")
 	}
-	secretConn, err := conn.MakeSecretConnection(c.conn, privKey)
-	if err != nil {
-		return types.NodeInfo{}, err
-	}
-	err = scope.Run1(ctx, func(ctx context.Context, s scope.Scope) error {
+	var peerInfo types.NodeInfo
+	var secretConn *conn.SecretConnection
+	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnBg(func() error {
 			<-ctx.Done()
-			conn.Close()
+			if ctx.Err() != nil {
+				c.conn.Close()
+			}
+			return nil
 		})
+		var err error
+		secretConn, err = conn.MakeSecretConnection(c.conn, privKey)
+		if err != nil {
+			return err
+		}
 		s.Spawn(func() error {
 			_, err := protoio.NewDelimitedWriter(secretConn).WriteMsg(nodeInfo.ToProto())
 			return err
@@ -242,15 +247,25 @@ func (c *mConnConnection) Handshake(
 		if _, err := protoio.NewDelimitedReader(secretConn, types.MaxNodeInfoSize()).ReadMsg(&pbPeerInfo); err != nil {
 			return err
 		}
-		peerInfo, err := types.NodeInfoFromProto(&pbPeerInfo)
+		peerInfo, err = types.NodeInfoFromProto(&pbPeerInfo)
 		if err!=nil {
 			return fmt.Errorf("error reading NodeInfo: %w", err)
 		}
-		return peerInfo,nil
+		// Authenticate the peer first.
+		peerID := types.NodeIDFromPubKey(secretConn.RemotePubKey())
+		if peerID != peerInfo.NodeID {
+			return fmt.Errorf("peer's public key did not match its node ID %q (expected %q)",
+				peerInfo.NodeID, peerID)
+		}
+		if err := peerInfo.Validate(); err != nil {
+			return fmt.Errorf("invalid handshake NodeInfo: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
-
+		return types.NodeInfo{}, err
 	}
+	// mconn takes ownership of conn.
 	c.mconn = conn.SpawnMConnection(
 		c.logger.With("peer", c.RemoteEndpoint().NodeAddress(peerInfo.NodeID)),
 		secretConn,
@@ -302,7 +317,7 @@ func (c *mConnConnection) RemoteEndpoint() Endpoint {
 
 // Close implements Connection.
 func (c *mConnConnection) Close() error {
-	if c.mconn==nil {
+	if c.mconn!=nil {
 		return c.conn.Close()
 	}
 	return c.mconn.Close()

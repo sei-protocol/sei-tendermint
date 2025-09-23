@@ -25,6 +25,11 @@ import (
 	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
 )
 
+var errPongTimeout = errors.New("pong timeout")
+
+type errBadEncoding struct { error }
+type errBadChannel struct { error }
+
 const (
 	// mirrors MaxPacketMsgPayloadSize from config/config.go
 	defaultMaxPacketMsgPayloadSize = 1400
@@ -207,7 +212,6 @@ func (c *MConnection) getLastMessageAt() time.Time {
 	return c.lastMsgRecv.at
 }
 
-// OnStop implements BaseService
 func (c *MConnection) Close() error {
 	return c.handle.Close()
 }
@@ -238,7 +242,7 @@ func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte)
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		return fmt.Errorf("Cannot send bytes, unknown channel %X", chID)
+		return errBadChannel{fmt.Errorf("Cannot send bytes, unknown channel %X", chID)}
 	}
 
 	if err := c.sendBytes(ctx, channel, msgBytes); err != nil {
@@ -316,7 +320,7 @@ func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 		}
 
 		if time.Since(c.getLastMessageAt()) > c.config.PongTimeout {
-			return errors.New("pong timeout")
+			return errPongTimeout
 		}
 	}
 }
@@ -391,7 +395,7 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 		_n, err := protoReader.ReadMsg(&packet)
 		c.recvMonitor.Update(_n)
 		if err != nil {
-			return err
+			return errBadEncoding{err}
 		}
 
 		// record for pong/heartbeat
@@ -415,7 +419,7 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 			channelID := ChannelID(pkt.PacketMsg.ChannelID)
 			channel, ok := c.channelsIdx[channelID]
 			if pkt.PacketMsg.ChannelID < 0 || pkt.PacketMsg.ChannelID > math.MaxUint8 || !ok || channel == nil {
-				return fmt.Errorf("unknown channel %X", pkt.PacketMsg.ChannelID)
+				return errBadChannel{fmt.Errorf("unknown channel %X", pkt.PacketMsg.ChannelID)}
 			}
 
 			msgBytes, err := channel.recvPacketMsg(*pkt.PacketMsg)
@@ -429,7 +433,7 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 				}
 			}
 		default:
-			return fmt.Errorf("unknown message type %v", reflect.TypeOf(packet))
+			return errBadEncoding{fmt.Errorf("unknown message type %v", reflect.TypeOf(packet))}
 		}
 	}
 	return nil
