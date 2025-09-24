@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/net/netutil"
 
@@ -226,10 +227,12 @@ func (c *mConnConnection) Handshake(
 	}
 	var peerInfo types.NodeInfo
 	var secretConn *conn.SecretConnection
+	var ok atomic.Bool
 	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.SpawnBg(func() error {
 			<-ctx.Done()
-			if ctx.Err() != nil {
+			// Close the connection if handshake did not complete.
+			if !ok.Load() {
 				c.conn.Close()
 			}
 			return nil
@@ -260,6 +263,7 @@ func (c *mConnConnection) Handshake(
 		if err := peerInfo.Validate(); err != nil {
 			return fmt.Errorf("invalid handshake NodeInfo: %w", err)
 		}
+		ok.Store(true)
 		return nil
 	})
 	if err != nil {

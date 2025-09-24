@@ -94,7 +94,6 @@ type MConnection struct {
 	channels      []*channel
 	channelsIdx   map[ChannelID]*channel
 	receiveCh     chan mConnMessage
-	errored       uint32
 	config        MConnConfig
 	handle        *scope.GlobalHandle
 
@@ -194,7 +193,8 @@ func SpawnMConnection(
 			s.Spawn(func() error { return c.recvRoutine(ctx) })
 			<-ctx.Done()
 			c.conn.Close()
-			return nil
+			// Guarantees that an error is ALWAYS returned.
+			return ctx.Err()
 		})
 	})
 	return c
@@ -257,6 +257,9 @@ func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte)
 }
 
 func (c *MConnection) Recv(ctx context.Context) (ChannelID, []byte, error) {
+	// select is nondeterministic and the code currently requires operations on the closed
+	// connection to ALWAYS fail immediately.
+	if err:=c.handle.Err(); err!=nil { return 0 ,nil, err }
 	select {
 	case <-ctx.Done(): return 0, nil, ctx.Err()
 	case <-c.handle.Done(): return 0, nil, c.handle.Err()
@@ -273,7 +276,7 @@ func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 	SELECTION:
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case <-c.flushTimer.Ch:
 			// NOTE: flushTimer.Set() must be called every time
 			// something is written to .bufConnWriter.
@@ -363,9 +366,8 @@ func (c *MConnection) sendPacketMsg() (bool, error) {
 
 	// Nothing to send?
 	if leastChannel == nil {
-		return false, nil
+		return true, nil
 	}
-	// c.logger.Info("Found a msgPacket to send")
 
 	// Make & send a PacketMsg from this channel
 	_n, err := leastChannel.writePacketMsgTo(c.bufConnWriter)
@@ -534,6 +536,9 @@ func newChannel(conn *MConnection, desc ChannelDescriptor) *channel {
 // Queues message to send to this channel.
 // Goroutine-safe
 func (c *MConnection) sendBytes(ctx context.Context, ch *channel, bytes []byte) error {
+	// select is nondeterministic and the code currently requires operations on the closed
+	// connection to ALWAYS fail immediately.
+	if err:=c.handle.Err(); err!=nil { return err }
 	select {
 	case <-ctx.Done(): return ctx.Err()
 	case <-c.handle.Done(): return c.handle.Err()
