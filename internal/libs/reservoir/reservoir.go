@@ -41,7 +41,7 @@ func New[T cmp.Ordered](size int, rng *rand.Rand) *Sampler[T] {
 	return &Sampler[T]{
 		size:    size,
 		samples: make([]T, 0, size),
-		rng:     rand.New(rand.NewPCG(nonDeterministicSeed())),
+		rng:     rng,
 	}
 }
 
