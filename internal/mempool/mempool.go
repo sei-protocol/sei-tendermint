@@ -1147,7 +1147,6 @@ func (txmp *TxMempool) handlePendingTransactions() {
 	}
 }
 
-
 // Run executes mempool background tasks.
 func (txmp *TxMempool) Run(ctx context.Context) error {
 	return txmp.runDuplicateTxMetrics(ctx)
