@@ -227,7 +227,7 @@ message RequestEndBlock {
 message RequestLoadLatest {}
 
 message RequestGetTxPriorityHint {
-  bytes tx = 1;  // raw tx bytes
+  bytes tx = 1; // raw tx bytes
 }
 
 //----------------------------------------
@@ -438,7 +438,7 @@ message ResponseFinalizeBlock {
 message ResponseLoadLatest {}
 
 message ResponseGetTxPriorityHint {
-  int64 priority = 1;  // higher is better
+  int64 priority = 1; // higher is better
 }
 
 //----------------------------------------
