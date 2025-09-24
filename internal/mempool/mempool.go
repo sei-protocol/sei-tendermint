@@ -318,7 +318,7 @@ func (txmp *TxMempool) CheckTx(
 
 	// Reject low priority transactions when the mempool is more than
 	// DropUtilisationThreshold full.
-	if txmp.utilisation() >= txmp.config.DropUtilisationThreshold {
+	if txmp.config.DropUtilisationThreshold > 0 && txmp.utilisation() >= txmp.config.DropUtilisationThreshold {
 		txmp.metrics.CheckTxMetDropUtilisationThreshold.Add(1)
 
 		hint, err := txmp.proxyAppConn.GetTxPriorityHint(ctx, &abci.RequestGetTxPriorityHint{Tx: tx})
