@@ -15,6 +15,7 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/config"
 	"github.com/tendermint/tendermint/internal/libs/clist"
+	"github.com/tendermint/tendermint/internal/libs/reservoir"
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/types"
@@ -120,7 +121,8 @@ type TxMempool struct {
 	failedCheckTxCounts    map[types.NodeID]uint64
 	mtxFailedCheckTxCounts sync.RWMutex
 
-	peerManager PeerEvictor
+	peerManager       PeerEvictor
+	priorityReservoir *reservoir.Sampler[int64]
 }
 
 func NewTxMempool(
@@ -147,6 +149,7 @@ func NewTxMempool(
 		totalCheckTxCount:   atomic.Uint64{},
 		failedCheckTxCounts: map[types.NodeID]uint64{},
 		peerManager:         peerManager,
+		priorityReservoir:   reservoir.New[int64](cfg.DropPriorityReservoirSize, nil), // Use non-deterministic RNG
 	}
 
 	if cfg.CacheSize > 0 {
@@ -324,9 +327,10 @@ func (txmp *TxMempool) CheckTx(
 			txmp.logger.Error("failed to get tx priority hint", "err", err)
 			return err
 		}
-
 		txmp.metrics.observeCheckTxPriorityDistribution(hint.Priority, true, txInfo.SenderNodeID, nil)
-		if hint.Priority <= txmp.config.DropPriorityThreshold {
+
+		cutoff, found := txmp.priorityReservoir.Percentile(txmp.config.DropPriorityThreshold)
+		if found && hint.Priority <= cutoff {
 			txmp.metrics.CheckTxDroppedByPriorityHint.Add(1)
 			return errors.New("priority not high enough for mempool")
 		}
@@ -401,6 +405,19 @@ func (txmp *TxMempool) CheckTx(
 	}
 
 	if err == nil {
+		// Update transaction priority reservoir with the true Tx priority
+		// as determined by the application.
+		//
+		// NOTE: This is done before potentially rejecting the transaction due to
+		// mempool being full. This is to ensure that the reservoir contains a
+		// representative sample of all transactions that have been processed by
+		// CheckTx.
+		//
+		// We do not use the priority hint here as it may be misleading and
+		// inaccurate. The true priority as determined by the application is the
+		// most accurate.
+		txmp.priorityReservoir.Add(res.Priority)
+
 		// only add new transaction if checkTx passes and is not pending
 		if !res.IsPendingTransaction {
 			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
