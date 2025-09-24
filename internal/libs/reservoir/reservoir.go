@@ -8,7 +8,12 @@ import (
 	"math/rand/v2"
 	"slices"
 	"sync"
+	"time"
 )
+
+// lastPercentileCacheTTL is the duration for which a cached percentile value is
+// considered valid if no new percentile p is asked for.
+const lastPercentileCacheTTL = 5 * time.Second
 
 // Sampler maintains a thread-safe reservoir of size k for ordered items of
 // type T, allowing random sampling from a stream of unknown length and
@@ -24,13 +29,15 @@ type Sampler[T cmp.Ordered] struct {
 	seen    int64
 	mu      sync.Mutex
 	rng     *rand.Rand
+
+	// Caching of the last calculated percentile and its value.
+	// See Percentile() for details.
+	lastP         float64   // last requested percentile
+	lastVal       T         // last sample at percentile lastP
+	lastCalc      time.Time // zero if never calculated
+	dirtySinceAdd bool      // true if Add() happened after the last calculation
 }
 
-// New creates a new Sampler with the given reservoir size.
-//
-// The rng parameter is optional; if nil, a non-deterministic random number
-// generator will be used. Note that the size cannot be less than or equal to
-// zero. Otherwise, New will panic.
 func New[T cmp.Ordered](size int, rng *rand.Rand) *Sampler[T] {
 	if size <= 0 {
 		panic("reservoir size must be greater than zero")
@@ -50,7 +57,9 @@ func (s *Sampler[T]) Add(item T) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.dirtySinceAdd = true
 	s.seen++
+
 	if len(s.samples) < s.size {
 		s.samples = append(s.samples, item)
 		return
@@ -67,22 +76,12 @@ func (s *Sampler[T]) Seen() int64 {
 	return s.seen
 }
 
-// Percentile returns the value at percentile p from the reservoir's contents,
-// using the "nearest-rank" definition on a sorted copy of the current samples.
-//
-// p is in [0.0, 1.0]. Values outside are clamped. The ordering is provided by
-// the caller via less(a, b) -> true if a < b.
-//
-// It returns (zero, false) if the reservoir is empty.
+// Percentile returns the nearest-rank percentile value.
+// Recalculation rules:
+//   - If p changed since last call: recompute immediately.
+//   - If new data arrived since last calc: recompute only if >= 5s have passed since last calc.
+//   - Otherwise, return cached value.
 func (s *Sampler[T]) Percentile(p float64) (T, bool) {
-
-	// We can use various strategies to cache the result here, e.g. caching the
-	// sorted copy and invalidating it on Add. However, this adds complexity and
-	// memory usage, and Percentile is not expected to be called very often.
-	// Therefore, we keep it simple for now and just sort a fresh copy each time.
-	//
-	// If this becomes a bottleneck, we can revisit this decision.
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -92,26 +91,42 @@ func (s *Sampler[T]) Percentile(p float64) (T, bool) {
 		return zero, false
 	}
 
-	p = min(max(p, 0.0), 1.0) // Clamp p to [0.0, 1.0].
+	// If we have a cached value and p is unchanged:
+	cachePresent := !s.lastCalc.IsZero()
+	if cachePresent && p == s.lastP {
+		if time.Since(s.lastCalc) < lastPercentileCacheTTL {
+			return s.lastVal, true
+		}
+		if !s.dirtySinceAdd {
+			// No new data, cached value is valid.
+			return s.lastVal, true
+		}
+	}
+
+	// Compute nearest-rank percentile.
+	clampedP := min(max(p, 0.0), 1.0) // Clamp p to [0.0, 1.0] while keeping the original p for caching.
 	tmp := make([]T, n)
 	copy(tmp, s.samples)
 	slices.Sort(tmp)
 
 	var index int
-	if p == 0 {
+	if clampedP == 0 {
 		index = 0
 	} else {
-		index = int(math.Ceil(p*float64(n))) - 1
+		index = int(math.Ceil(clampedP*float64(n))) - 1
 		index = min(max(index, 0), n-1) // Clamp index to [0, n-1].
 	}
+	val := tmp[index]
 
-	return tmp[index], true
+	s.lastP = p
+	s.lastVal = val
+	s.lastCalc = time.Now()
+	s.dirtySinceAdd = false
+	return val, true
 }
 
 func nonDeterministicSeed() (uint64, uint64) {
 	var buf [16]byte
-	// Ignore error and length, because crypto/rand.Read never returns an error and
-	// always fills the given buffer entirely as stated in its godoc.
 	_, _ = crand.Read(buf[:])
 	return binary.LittleEndian.Uint64(buf[:8]), binary.LittleEndian.Uint64(buf[8:])
 }
