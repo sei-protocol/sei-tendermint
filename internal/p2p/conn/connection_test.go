@@ -1,10 +1,10 @@
 package conn
 
 import (
-	"context"
-	"errors"
-	"encoding/hex"
 	"bytes"
+	"context"
+	"encoding/hex"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -118,7 +118,7 @@ func TestMConnectionReceive(t *testing.T) {
 
 	msg := []byte("Cyclops")
 	assert.NoError(t, mconn2.Send(ctx, 0x01, msg))
-	_,receivedBytes,err := mconn1.Recv(ctx)
+	_, receivedBytes, err := mconn1.Recv(ctx)
 	require.NoError(t, err)
 	require.Equal(t, msg, receivedBytes)
 }
@@ -145,7 +145,7 @@ func TestMConnectionWillEventuallyTimeout(t *testing.T) {
 		}
 	}()
 	<-mconn.handle.Done()
-	if got,want := mconn.handle.Err(),errPongTimeout; !errors.Is(got,want) {
+	if got, want := mconn.handle.Err(), errPongTimeout; !errors.Is(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
@@ -179,7 +179,7 @@ func TestMConnectionMultiplePongsInTheBeginning(t *testing.T) {
 	require.NoError(t, err)
 
 	pongTimerExpired := mconn.config.PongTimeout + 20*time.Millisecond
-	ctx,cancel := context.WithTimeout(ctx, pongTimerExpired)
+	ctx, cancel := context.WithTimeout(ctx, pongTimerExpired)
 	defer cancel()
 	_, _, err = mconn.Recv(ctx)
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -256,7 +256,7 @@ func TestMConnectionPingPongs(t *testing.T) {
 	require.NoError(t, err)
 
 	pongTimerExpired := mconn.config.PongTimeout + 20*time.Millisecond
-	ctx,cancel := context.WithTimeout(ctx, pongTimerExpired)
+	ctx, cancel := context.WithTimeout(ctx, pongTimerExpired)
 	defer cancel()
 	_, _, err = mconn.Recv(ctx)
 	if !errors.Is(err, context.DeadlineExceeded) {
@@ -280,7 +280,7 @@ func TestMConnectionStopsAndReturnsError(t *testing.T) {
 	// and the actual error depends on the underlying connection (EOF, ErrClosedPipe, etc),
 	// hence we cannot distinguish the EOF from malformed message. Fix the proto reader.
 	var want errBadEncoding
-	if _,_,got := mconn.Recv(ctx); !errors.As(got, &want) {
+	if _, _, got := mconn.Recv(ctx); !errors.As(got, &want) {
 		t.Fatalf("want %v, got %v", want, got)
 	}
 }
@@ -296,10 +296,10 @@ func newConns(
 	}
 	logger := log.NewNopLogger()
 	mc := spawnMConnectionWithCh(logger, client, chDescs)
-	t.Cleanup(func(){ mc.Close() })
+	t.Cleanup(func() { mc.Close() })
 	ms := spawnMConnection(logger, server)
-	t.Cleanup(func(){ ms.Close() })
-	return mc,ms
+	t.Cleanup(func() { ms.Close() })
+	return mc, ms
 }
 
 func TestMConnectionReadErrorBadEncoding(t *testing.T) {
@@ -310,7 +310,7 @@ func TestMConnectionReadErrorBadEncoding(t *testing.T) {
 	_, err := mconnClient.conn.Write([]byte{1, 2, 3, 4, 5})
 	require.NoError(t, err)
 	var want errBadEncoding
-	if _,_,err:=mconnServer.Recv(ctx); !errors.As(err, &want) {
+	if _, _, err := mconnServer.Recv(ctx); !errors.As(err, &want) {
 		t.Fatalf("expected errBadEncoding, got %v", err)
 	}
 }
@@ -318,26 +318,26 @@ func TestMConnectionReadErrorBadEncoding(t *testing.T) {
 func TestMConnectionReadErrorUnknownChannel(t *testing.T) {
 	ctx := t.Context()
 
-	mconnClient, mconnServer := newConns( t)
+	mconnClient, mconnServer := newConns(t)
 
 	msg := []byte("Ant-Man")
 
 	// fail to send msg on channel unknown by client
-	if got,want := mconnClient.Send(ctx, 0x04, msg),(errBadChannel{}); !errors.As(got,&want) {
+	if got, want := mconnClient.Send(ctx, 0x04, msg), (errBadChannel{}); !errors.As(got, &want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 	// send msg on channel unknown by the server.
 	// should cause an error
 	assert.NoError(t, mconnClient.Send(ctx, 0x02, msg))
 	var want errBadChannel
-	if _,_,got := mconnServer.Recv(ctx); !errors.As(got,&want) {
+	if _, _, got := mconnServer.Recv(ctx); !errors.As(got, &want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
 
 func TestMConnectionReadErrorLongMessage(t *testing.T) {
 	ctx := t.Context()
-	mconnClient, mconnServer := newConns( t)
+	mconnClient, mconnServer := newConns(t)
 	protoWriter := protoio.NewDelimitedWriter(mconnClient.conn)
 
 	// send msg thats just right
@@ -349,7 +349,7 @@ func TestMConnectionReadErrorLongMessage(t *testing.T) {
 
 	_, err := protoWriter.WriteMsg(mustWrapPacket(&packet))
 	require.NoError(t, err)
-	chID,got,err := mconnServer.Recv(ctx)
+	chID, got, err := mconnServer.Recv(ctx)
 	require.NoError(t, err)
 	require.Equal(t, ChannelID(0x01), chID)
 	require.True(t, bytes.Equal(got, packet.Data))
@@ -365,20 +365,20 @@ func TestMConnectionReadErrorLongMessage(t *testing.T) {
 	// writing may fail or succeed.
 	_, _ = protoWriter.WriteMsg(mustWrapPacket(&packet))
 	var want errBadEncoding
-	if _,_,err:=mconnServer.Recv(ctx); !errors.As(err, &want) {
+	if _, _, err := mconnServer.Recv(ctx); !errors.As(err, &want) {
 		t.Fatalf("expected errBadEncoding, got %v", err)
 	}
 }
 
 func TestMConnectionReadErrorUnknownMsgType(t *testing.T) {
 	ctx := t.Context()
-	mconnClient, mconnServer := newConns( t)
+	mconnClient, mconnServer := newConns(t)
 
 	// send msg with unknown msg type
 	_, err := protoio.NewDelimitedWriter(mconnClient.conn).WriteMsg(&types.Header{ChainID: "x"})
 	require.NoError(t, err)
 	var want errBadEncoding
-	if _,_,got:=mconnServer.Recv(ctx); !errors.As(got, &want) {
+	if _, _, got := mconnServer.Recv(ctx); !errors.As(got, &want) {
 		t.Fatalf("expected errBadEncoding, got %v", got)
 	}
 }
@@ -404,7 +404,7 @@ func TestConnVectors(t *testing.T) {
 
 func TestMConnectionChannelOverflow(t *testing.T) {
 	ctx := t.Context()
-	m1, m2 := newConns( t)
+	m1, m2 := newConns(t)
 	protoWriter := protoio.NewDelimitedWriter(m1.conn)
 
 	var packet = tmp2p.PacketMsg{
@@ -414,14 +414,14 @@ func TestMConnectionChannelOverflow(t *testing.T) {
 	}
 	_, err := protoWriter.WriteMsg(mustWrapPacket(&packet))
 	require.NoError(t, err)
-	_,_,err=m2.Recv(ctx)
+	_, _, err = m2.Recv(ctx)
 	require.NoError(t, err)
 	packet.ChannelID = int32(1025)
 	_, err = protoWriter.WriteMsg(mustWrapPacket(&packet))
 	require.NoError(t, err)
-	_,_,err=m2.Recv(ctx)
+	_, _, err = m2.Recv(ctx)
 	var want errBadChannel
-	if !errors.As(err,&want) {
+	if !errors.As(err, &want) {
 		t.Fatalf("got %v, want %v", err, want)
 	}
 }

@@ -180,11 +180,11 @@ func TestConnection_Handshake(t *testing.T) {
 		}
 		bKey := ed25519.GenPrivKey()
 		bInfo := types.NodeInfo{
-			NodeID: types.NodeIDFromPubKey(bKey.PubKey()),
+			NodeID:     types.NodeIDFromPubKey(bKey.PubKey()),
 			ListenAddr: "127.0.0.1:1234",
 			Moniker:    "othermoniker",
 			Other: types.NodeInfoOther{
-				TxIndex:    "off",
+				TxIndex: "off",
 			},
 		}
 
@@ -455,22 +455,22 @@ func dialAccept(ctx context.Context, t *testing.T, a, b p2p.Transport) (p2p.Conn
 
 	var acceptConn p2p.Connection
 	var dialConn p2p.Connection
-	if err:=scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+	if err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
 		s.Spawn(func() error {
 			var err error
-			if dialConn, err = a.Dial(ctx, endpoint); err!=nil {
+			if dialConn, err = a.Dial(ctx, endpoint); err != nil {
 				return err
 			}
 			t.Cleanup(func() { _ = dialConn.Close() })
 			return nil
 		})
 		var err error
-		if acceptConn, err = b.Accept(ctx); err!=nil {
+		if acceptConn, err = b.Accept(ctx); err != nil {
 			return err
 		}
 		t.Cleanup(func() { _ = acceptConn.Close() })
 		return nil
-	}); err!=nil {
+	}); err != nil {
 		t.Fatalf("dial/accept failed: %v", err)
 	}
 	return dialConn, acceptConn
@@ -488,7 +488,7 @@ func dialAcceptHandshake(ctx context.Context, t *testing.T, a, b p2p.Transport) 
 		s.Spawn(func() error {
 			privKey := ed25519.GenPrivKey()
 			nodeInfo := types.NodeInfo{
-				NodeID: types.NodeIDFromPubKey(privKey.PubKey()),
+				NodeID:     types.NodeIDFromPubKey(privKey.PubKey()),
 				ListenAddr: "127.0.0.1:1235",
 				Moniker:    "a",
 			}
@@ -497,7 +497,7 @@ func dialAcceptHandshake(ctx context.Context, t *testing.T, a, b p2p.Transport) 
 		})
 		privKey := ed25519.GenPrivKey()
 		nodeInfo := types.NodeInfo{
-			NodeID: types.NodeIDFromPubKey(privKey.PubKey()),
+			NodeID:     types.NodeIDFromPubKey(privKey.PubKey()),
 			ListenAddr: "127.0.0.1:1234",
 			Moniker:    "b",
 		}
@@ -505,7 +505,7 @@ func dialAcceptHandshake(ctx context.Context, t *testing.T, a, b p2p.Transport) 
 		return err
 	})
 
-	if err!=nil {
+	if err != nil {
 		t.Fatalf("handshake failed: %v", err)
 	}
 	return ab, ba

@@ -27,8 +27,8 @@ import (
 
 var errPongTimeout = errors.New("pong timeout")
 
-type errBadEncoding struct { error }
-type errBadChannel struct { error }
+type errBadEncoding struct{ error }
+type errBadChannel struct{ error }
 
 const (
 	// mirrors MaxPacketMsgPayloadSize from config/config.go
@@ -166,9 +166,9 @@ func SpawnMConnection(
 		receiveCh:     make(chan mConnMessage),
 		config:        config,
 		created:       time.Now(),
-		flushTimer: timer.NewThrottleTimer("flush", config.FlushThrottle),
-		pingTimer: time.NewTicker(config.PingInterval),
-		chStatsTimer: time.NewTicker(updateStats),
+		flushTimer:    timer.NewThrottleTimer("flush", config.FlushThrottle),
+		pingTimer:     time.NewTicker(config.PingInterval),
+		chStatsTimer:  time.NewTicker(updateStats),
 	}
 
 	// Create channels
@@ -259,11 +259,16 @@ func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte)
 func (c *MConnection) Recv(ctx context.Context) (ChannelID, []byte, error) {
 	// select is nondeterministic and the code currently requires operations on the closed
 	// connection to ALWAYS fail immediately.
-	if err:=c.handle.Err(); err!=nil { return 0 ,nil, err }
+	if err := c.handle.Err(); err != nil {
+		return 0, nil, err
+	}
 	select {
-	case <-ctx.Done(): return 0, nil, ctx.Err()
-	case <-c.handle.Done(): return 0, nil, c.handle.Err()
-	case m:=<-c.receiveCh: return m.channelID, m.payload, nil
+	case <-ctx.Done():
+		return 0, nil, ctx.Err()
+	case <-c.handle.Done():
+		return 0, nil, c.handle.Err()
+	case m := <-c.receiveCh:
+		return m.channelID, m.payload, nil
 	}
 }
 
@@ -309,8 +314,8 @@ func (c *MConnection) sendRoutine(ctx context.Context) (err error) {
 			break SELECTION
 		case <-c.send:
 			// Send some PacketMsgs
-			eof,err := c.sendSomePacketMsgs()
-			if err!=nil {
+			eof, err := c.sendSomePacketMsgs()
+			if err != nil {
 				return fmt.Errorf("sendSomePacketMsgs(): %w", err)
 			}
 			if !eof {
@@ -338,8 +343,8 @@ func (c *MConnection) sendSomePacketMsgs() (bool, error) {
 
 	// Now send some PacketMsgs.
 	for i := 0; i < numBatchPacketMsgs; i++ {
-		if done,err := c.sendPacketMsg(); done || err != nil {
-			return done,err
+		if done, err := c.sendPacketMsg(); done || err != nil {
+			return done, err
 		}
 	}
 	return false, nil
@@ -430,7 +435,7 @@ func (c *MConnection) recvRoutine(ctx context.Context) (err error) {
 			}
 			if msgBytes != nil {
 				c.logger.Debug("Received bytes", "chID", channelID, "msgBytes", msgBytes)
-				if err := utils.Send(ctx, c.receiveCh, mConnMessage{channelID: channelID, payload: msgBytes}); err!=nil {
+				if err := utils.Send(ctx, c.receiveCh, mConnMessage{channelID: channelID, payload: msgBytes}); err != nil {
 					return nil
 				}
 			}
@@ -538,11 +543,16 @@ func newChannel(conn *MConnection, desc ChannelDescriptor) *channel {
 func (c *MConnection) sendBytes(ctx context.Context, ch *channel, bytes []byte) error {
 	// select is nondeterministic and the code currently requires operations on the closed
 	// connection to ALWAYS fail immediately.
-	if err:=c.handle.Err(); err!=nil { return err }
+	if err := c.handle.Err(); err != nil {
+		return err
+	}
 	select {
-	case <-ctx.Done(): return ctx.Err()
-	case <-c.handle.Done(): return c.handle.Err()
-	case ch.sendQueue <- bytes: return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.handle.Done():
+		return c.handle.Err()
+	case ch.sendQueue <- bytes:
+		return nil
 	}
 }
 

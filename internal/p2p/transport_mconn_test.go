@@ -15,19 +15,19 @@ import (
 	"github.com/tendermint/tendermint/libs/utils/scope"
 	"github.com/tendermint/tendermint/libs/utils/tcp"
 
+	"github.com/tendermint/tendermint/crypto"
+	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/internal/p2p/conn"
 	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/types"
-	"github.com/tendermint/tendermint/crypto/ed25519"
 )
 
 func makeKeyAndInfo() (crypto.PrivKey, types.NodeInfo) {
 	peerKey := ed25519.GenPrivKey()
 	nodeID := types.NodeIDFromPubKey(peerKey.PubKey())
 	peerInfo := types.NodeInfo{
-		NodeID: nodeID,
+		NodeID:     nodeID,
 		ListenAddr: "0.0.0.0:0",
 		Network:    "test",
 		Moniker:    string(nodeID),
@@ -216,7 +216,7 @@ func TestMConnTransport_Listen(t *testing.T) {
 						return fmt.Errorf("transport.Dial(): %w", err)
 					}
 					defer conn.Close()
-					if _,err := conn.Handshake(ctx, aInfo, aKey); err!=nil {
+					if _, err := conn.Handshake(ctx, aInfo, aKey); err != nil {
 						return fmt.Errorf("conn.Handshake(): %w", err)
 					}
 					if err := conn.Close(); err != nil {
@@ -233,7 +233,7 @@ func TestMConnTransport_Listen(t *testing.T) {
 						return fmt.Errorf("transport.Accept(): %w", err)
 					}
 					defer conn.Close()
-					if _,err := conn.Handshake(ctx, bInfo, bKey); err!=nil {
+					if _, err := conn.Handshake(ctx, bInfo, bKey); err != nil {
 						return fmt.Errorf("conn.Handshake(): %w", err)
 					}
 					if err := conn.Close(); err != nil {

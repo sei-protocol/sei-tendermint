@@ -520,7 +520,7 @@ func (r *Router) connectPeer(ctx context.Context, address NodeAddress) {
 	}
 
 	peerInfo, err := r.handshakePeer(ctx, conn, address.NodeID)
-	if err!=nil {
+	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			r.logger.Debug("failed to handshake with peer", "peer", address, "err", err)
 			if err := r.peerManager.DialFailed(ctx, address); err != nil {

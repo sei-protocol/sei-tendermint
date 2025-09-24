@@ -251,7 +251,7 @@ func (c *mConnConnection) Handshake(
 			return err
 		}
 		peerInfo, err = types.NodeInfoFromProto(&pbPeerInfo)
-		if err!=nil {
+		if err != nil {
 			return fmt.Errorf("error reading NodeInfo: %w", err)
 		}
 		// Authenticate the peer first.
@@ -321,7 +321,7 @@ func (c *mConnConnection) RemoteEndpoint() Endpoint {
 
 // Close implements Connection.
 func (c *mConnConnection) Close() error {
-	if c.mconn==nil {
+	if c.mconn == nil {
 		return c.conn.Close()
 	}
 	return c.mconn.Close()

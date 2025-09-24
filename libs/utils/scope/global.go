@@ -6,10 +6,9 @@ import (
 
 // GlobalHandle is a handle to a task spawned via SpawnGlobal.
 type GlobalHandle struct {
-	ctx context.Context
 	cancel context.CancelFunc
-	done chan struct{}
-	err error
+	done   chan struct{}
+	err    error
 }
 
 // SpawnGlobal spawns a task in a global context.
@@ -18,9 +17,8 @@ type GlobalHandle struct {
 func SpawnGlobal(task func(ctx context.Context) error) *GlobalHandle {
 	ctx, cancel := context.WithCancel(context.Background())
 	h := &GlobalHandle{
-		ctx: ctx,
 		cancel: cancel,
-		done: make(chan struct{}),
+		done:   make(chan struct{}),
 	}
 	go func() {
 		h.err = task(ctx)
