@@ -237,7 +237,7 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	nodeID := types.NodeIDFromPubKey(privKey.PubKey())
 	nodeInfo := types.NodeInfo{
 		NodeID:     nodeID,
-		ListenAddr: "0.0.0.0:0", // FIXME: We have to fake this for now.
+		ListenAddr: "127.0.0.1:1234", // FIXME: We have to fake this for now.
 		Moniker:    string(nodeID),
 	}
 

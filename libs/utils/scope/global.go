@@ -41,9 +41,8 @@ func (h *GlobalHandle[T]) WhileRunning(ctx context.Context, f func(ctx context.C
 	go func() {
 		select {
 		case <-ctx.Done():
-		case <-h.done:
+		case <-h.done: cancel()
 		}
-		cancel()
 	}()
 	return f(ctx)
 }
