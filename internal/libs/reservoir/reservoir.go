@@ -32,13 +32,13 @@ type Sampler[T cmp.Ordered] struct {
 
 	// Caching of the last calculated percentile and its value.
 	// See Percentile() for details.
-	lastP         float64   // last requested percentile
 	lastVal       T         // last sample at percentile lastP
 	lastCalc      time.Time // zero if never calculated
 	dirtySinceAdd bool      // true if Add() happened after the last calculation
+	p             float64
 }
 
-func New[T cmp.Ordered](size int, rng *rand.Rand) *Sampler[T] {
+func New[T cmp.Ordered](size int, p float64, rng *rand.Rand) *Sampler[T] {
 	if size <= 0 {
 		panic("reservoir size must be greater than zero")
 	}
@@ -49,6 +49,7 @@ func New[T cmp.Ordered](size int, rng *rand.Rand) *Sampler[T] {
 		size:    size,
 		samples: make([]T, 0, size),
 		rng:     rng,
+		p:       min(max(p, 0.0), 1.0), // Clamp p to [0.0, 1.0]
 	}
 }
 
@@ -81,7 +82,7 @@ func (s *Sampler[T]) Seen() int64 {
 //   - If p changed since last call: recompute immediately.
 //   - If new data arrived since last calc: recompute only if >= 5s have passed since last calc.
 //   - Otherwise, return cached value.
-func (s *Sampler[T]) Percentile(p float64) (T, bool) {
+func (s *Sampler[T]) Percentile() (T, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -93,7 +94,7 @@ func (s *Sampler[T]) Percentile(p float64) (T, bool) {
 
 	// If we have a cached value and p is unchanged:
 	cachePresent := !s.lastCalc.IsZero()
-	if cachePresent && p == s.lastP {
+	if cachePresent {
 		if time.Since(s.lastCalc) < lastPercentileCacheTTL {
 			return s.lastVal, true
 		}
@@ -104,21 +105,19 @@ func (s *Sampler[T]) Percentile(p float64) (T, bool) {
 	}
 
 	// Compute nearest-rank percentile.
-	clampedP := min(max(p, 0.0), 1.0) // Clamp p to [0.0, 1.0] while keeping the original p for caching.
 	tmp := make([]T, n)
 	copy(tmp, s.samples)
 	slices.Sort(tmp)
 
 	var index int
-	if clampedP == 0 {
+	if s.p == 0 {
 		index = 0
 	} else {
-		index = int(math.Ceil(clampedP*float64(n))) - 1
+		index = int(math.Ceil(s.p*float64(n))) - 1
 		index = min(max(index, 0), n-1) // Clamp index to [0, n-1].
 	}
 	val := tmp[index]
 
-	s.lastP = p
 	s.lastVal = val
 	s.lastCalc = time.Now()
 	s.dirtySinceAdd = false

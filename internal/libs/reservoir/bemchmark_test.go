@@ -8,7 +8,7 @@ import (
 func BenchmarkAddSteadyState(b *testing.B) {
 	for _, k := range []int{16, 64, 256, 1024} {
 		b.Run(fmt.Sprintf("k=%d", k), func(b *testing.B) {
-			s := New[int](k, nil)
+			s := New[int](k, 0.1, nil)
 			// Prefill to capacity so Add does replacement logic.
 			for i := 0; i < k; i++ {
 				s.Add(i)
@@ -25,17 +25,15 @@ func BenchmarkAddSteadyState(b *testing.B) {
 func BenchmarkPercentile(b *testing.B) {
 	for _, k := range []int{16, 64, 256, 1024} {
 		b.Run(fmt.Sprintf("k=%d", k), func(b *testing.B) {
-			s := New[int](k, nil)
+			s := New[int](k, 0.1, nil)
 			for i := 0; i < 10_000; i++ {
 				s.Add(i)
 			}
 			b.ReportAllocs()
-			ps := []float64{0.0, 0.25, 0.5, 0.9, 1.0}
 			b.ResetTimer()
 			var sink int
 			for i := 0; i < b.N; i++ {
-				p := ps[i%len(ps)]
-				v, _ := s.Percentile(p)
+				v, _ := s.Percentile()
 				sink ^= v
 			}
 			_ = sink
@@ -46,7 +44,7 @@ func BenchmarkPercentile(b *testing.B) {
 // Parallel Add benchmark to exercise the mutex under contention.
 func BenchmarkAddParallel(b *testing.B) {
 	const k = 256
-	s := New[int](k, nil)
+	s := New[int](k, 0.1, nil)
 	for i := 0; i < k; i++ {
 		s.Add(i)
 	}

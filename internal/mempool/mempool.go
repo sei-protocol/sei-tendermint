@@ -149,7 +149,7 @@ func NewTxMempool(
 		totalCheckTxCount:   atomic.Uint64{},
 		failedCheckTxCounts: map[types.NodeID]uint64{},
 		peerManager:         peerManager,
-		priorityReservoir:   reservoir.New[int64](cfg.DropPriorityReservoirSize, nil), // Use non-deterministic RNG
+		priorityReservoir:   reservoir.New[int64](cfg.DropPriorityReservoirSize, cfg.DropPriorityThreshold, nil), // Use non-deterministic RNG
 	}
 
 	if cfg.CacheSize > 0 {
@@ -329,7 +329,7 @@ func (txmp *TxMempool) CheckTx(
 		}
 		txmp.metrics.observeCheckTxPriorityDistribution(hint.Priority, true, txInfo.SenderNodeID, nil)
 
-		cutoff, found := txmp.priorityReservoir.Percentile(txmp.config.DropPriorityThreshold)
+		cutoff, found := txmp.priorityReservoir.Percentile()
 		if found && hint.Priority <= cutoff {
 			txmp.metrics.CheckTxDroppedByPriorityHint.Add(1)
 			return errors.New("priority not high enough for mempool")

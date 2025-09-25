@@ -10,7 +10,7 @@ import (
 func TestNewPanicsOnNonPositiveSize(t *testing.T) {
 	t.Parallel()
 	for _, invalidSize := range []int{-3, -1, 0} {
-		require.Panicsf(t, func() { New[int](invalidSize, nil) }, "New(%d, nil) did not panic", invalidSize)
+		require.Panicsf(t, func() { New[int](invalidSize, 0.1, nil) }, "New(%d, nil) did not panic", invalidSize)
 	}
 }
 
@@ -21,7 +21,7 @@ func TestAddAndSeenBehavior(t *testing.T) {
 		n = 1000
 	)
 
-	subject := New[int](k, nil)
+	subject := New[int](k, 0.1, nil)
 
 	// Add fewer than k: reservoir grows to match added items.
 	for i := 0; i < k-3; i++ {
@@ -48,19 +48,15 @@ func TestAddAndSeenBehavior(t *testing.T) {
 
 func TestPercentileEmpty(t *testing.T) {
 	t.Parallel()
-	s := New[int](8, nil)
+	s := New[int](8, 0.5, nil)
 	// nothing added; samples is empty
-	percentile, ok := s.Percentile(0.5)
+	percentile, ok := s.Percentile()
 	require.False(t, ok, "Percentile on empty reservoir should return ok=false")
 	require.Zero(t, percentile, "Percentile on empty reservoir should return zero value")
 }
 
 func TestPercentileNearestRankAndClamping(t *testing.T) {
 	t.Parallel()
-
-	subject := New[int](5, nil)
-	// Overwrite the internal samples directly for deterministic testing, unsorted on purpose.
-	subject.samples = []int{7, 1, 4, 9, 2}
 
 	for _, test := range []struct {
 		name       string
@@ -133,7 +129,10 @@ func TestPercentileNearestRankAndClamping(t *testing.T) {
 			want:       9,
 		},
 	} {
-		got, ok := subject.Percentile(test.percentile)
+		subject := New[int](5, test.percentile, nil)
+		// Overwrite the internal samples directly for deterministic testing, unsorted on purpose.
+		subject.samples = []int{7, 1, 4, 9, 2}
+		got, ok := subject.Percentile()
 		require.True(t, ok, "%s: not OK", test.name)
 		require.Equalf(t, test.want, got, "%s: Percentile(%v) value mismatch", test.name, test.percentile)
 	}
@@ -148,7 +147,7 @@ func TestConcurrentAddsAreThreadSafe(t *testing.T) {
 		total      = goroutines * perG
 	)
 
-	subject := New[int](k, nil)
+	subject := New[int](k, 0.5, nil)
 
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
@@ -168,7 +167,7 @@ func TestConcurrentAddsAreThreadSafe(t *testing.T) {
 
 	// Make sure Percentile does not panic while others might be adding.
 	// (No concurrent adds here, just exercise the lock path.)
-	_, ok := subject.Percentile(0.5)
+	_, ok := subject.Percentile()
 	require.True(t, ok, "Percentile should succeed on non-empty reservoir")
 }
 
@@ -179,15 +178,21 @@ func TestReservoirCoversRangeLoosely(t *testing.T) {
 		n = 50_000
 	)
 
-	subject := New[int](k, nil)
+	subject := New[int](k, 0.0, nil)
 	for i := range n {
 		subject.Add(i)
 	}
 	// Expect min sample not too close to n and max not too close to 0.
 	// With uniform sampling, these should typically be well inside the range.
-	lowest, ok := subject.Percentile(0.0)
+	lowest, ok := subject.Percentile()
 	require.True(t, ok)
-	highest, ok := subject.Percentile(1.0)
+
+	subject = New[int](k, 1.0, nil)
+	for i := range n {
+		subject.Add(i)
+	}
+
+	highest, ok := subject.Percentile()
 	require.True(t, ok)
 
 	require.True(t, lowest >= 0 && highest < n, "min/max out of domain: min=%d max=%d n=%d", lowest, highest, n)
