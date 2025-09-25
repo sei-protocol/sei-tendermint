@@ -58,15 +58,17 @@ func (s *Sampler[T]) Add(item T) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.dirtySinceAdd = true
 	s.seen++
 
 	if len(s.samples) < s.size {
 		s.samples = append(s.samples, item)
+		s.dirtySinceAdd = true
 		return
 	}
 	if j := s.rng.Int64N(s.seen); int(j) < s.size {
+		replacee := s.samples[j]
 		s.samples[j] = item
+		s.dirtySinceAdd = replacee != item
 	}
 }
 
