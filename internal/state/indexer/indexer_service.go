@@ -103,8 +103,8 @@ func (is *Service) publish(msg pubsub.Message) error {
 				} else {
 					is.metrics.TxEventsSeconds.Observe(time.Since(start).Seconds())
 					is.metrics.TransactionsIndexed.Add(float64(curr.Size()))
-					is.logger.Debug("indexed txs",
-						"height", is.currentBlock.height, "sink", sink.Type())
+					is.logger.Info("indexed txs",
+						"height", is.currentBlock.height, "sink", sink.Type(), "duration", time.Since(start).Milliseconds())
 				}
 			}
 		}
