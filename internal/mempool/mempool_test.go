@@ -181,6 +181,7 @@ func setup(t testing.TB, app abciclient.Client, cacheSize int, options ...TxMemp
 	cfg, err := config.ResetTestRoot(t.TempDir(), strings.ReplaceAll(t.Name(), "/", "|"))
 	require.NoError(t, err)
 	cfg.Mempool.CacheSize = cacheSize
+	cfg.Mempool.DropUtilisationThreshold = 0.0 // disable dropping by priority hint to allow testing eviction logic
 
 	t.Cleanup(func() { os.RemoveAll(cfg.RootDir) })
 
