@@ -18,7 +18,7 @@ func IgnoreCancel(err error) error {
 // WithDeadline executes a function with a deadline.
 // If deadline is none, it executes the function without a deadline.
 func WithDeadline(ctx context.Context, md Option[time.Time], f func(ctx context.Context) error) error {
-	d,ok := md.Get()
+	d, ok := md.Get()
 	if !ok {
 		return f(ctx)
 	}

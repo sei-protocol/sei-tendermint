@@ -33,15 +33,17 @@ func SpawnGlobal[T any](task func(ctx context.Context) T) *GlobalHandle[T] {
 // WARNING: If the task is already finished, it SKIPs running f and returns context.Canceled.
 func (h *GlobalHandle[T]) WhileRunning(ctx context.Context, f func(ctx context.Context) error) error {
 	select {
-	case <-h.done: return context.Canceled
+	case <-h.done:
+		return context.Canceled
 	default:
 	}
-	ctx,cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
 		select {
 		case <-ctx.Done():
-		case <-h.done: cancel()
+		case <-h.done:
+			cancel()
 		}
 	}()
 	return f(ctx)
@@ -49,15 +51,17 @@ func (h *GlobalHandle[T]) WhileRunning(ctx context.Context, f func(ctx context.C
 
 // WhileRunning1 is like WhileRunning but for functions returning a value.
 func WhileRunning1[R any, T any](ctx context.Context, h *GlobalHandle[T], f func(ctx context.Context) (R, error)) (res R, err error) {
-	h.WhileRunning(ctx, func(ctx context.Context) error {
-		res,err = f(ctx)
-		return nil
+	// We need to set the error outside the closure, because
+	// h.WhileRunning() may return context.Canceled if the task is already finished.
+	err = h.WhileRunning(ctx, func(ctx context.Context) error {
+		res, err = f(ctx)
+		return err
 	})
 	return
 }
 
 // Join awaits tasks completion.
-func (h *GlobalHandle[T]) Join(ctx context.Context) (T,error) {
+func (h *GlobalHandle[T]) Join(ctx context.Context) (T, error) {
 	select {
 	case <-ctx.Done():
 		return utils.Zero[T](), ctx.Err()

@@ -14,8 +14,8 @@ import (
 
 	"github.com/tendermint/tendermint/internal/libs/protoio"
 	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/libs/utils/require"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/libs/utils/require"
 	"github.com/tendermint/tendermint/proto/tendermint/p2p"
 	"github.com/tendermint/tendermint/proto/tendermint/types"
 )
@@ -85,11 +85,11 @@ func TestMConnectionSendRecv(t *testing.T) {
 	require.Equal(t, msg, receivedBytes)
 
 	// Close mconn1, should terminate gracefully.
-	if err:=utils.IgnoreCancel(mconn1.Close()); err!=nil {
+	if err := utils.IgnoreCancel(mconn1.Close()); err != nil {
 		t.Fatal(err)
 	}
 	// mconn2 should fail, because mconn1 closed.
-	got,err := mconn2.handle.Join(ctx)
+	got, err := mconn2.handle.Join(ctx)
 	require.NoError(t, err)
 	require.Error(t, utils.IgnoreCancel(got))
 }
@@ -123,7 +123,7 @@ func TestMConnectionPingPong(t *testing.T) {
 		var got p2p.Packet
 		_, err := protoReader.ReadMsg(&got)
 		require.NoError(t, err)
-		if _,ok := got.Sum.(*p2p.Packet_PacketPing); !ok {
+		if _, ok := got.Sum.(*p2p.Packet_PacketPing); !ok {
 			t.Fatalf("expected ping, got %T", got.Sum)
 		}
 
@@ -133,9 +133,9 @@ func TestMConnectionPingPong(t *testing.T) {
 	}
 
 	// Read until connection dies.
-	_,_ = io.ReadAll(server)
+	_, _ = io.ReadAll(server)
 	// Expect pong timeout.
-	if got := mconn.Close(); !errors.Is(got,errPongTimeout) {
+	if got := mconn.Close(); !errors.Is(got, errPongTimeout) {
 		t.Fatalf("expected pong timeout error, got %v", got)
 	}
 }
@@ -159,10 +159,10 @@ func TestMConnectionReadErrorBadEncoding(t *testing.T) {
 	// Write it.
 	_, err := mconnClient.conn.Write([]byte{1, 2, 3, 4, 5})
 	require.NoError(t, err)
-	got,err := mconnServer.handle.Join(ctx)
+	got, err := mconnServer.handle.Join(ctx)
 	require.NoError(t, err)
-	if want:=(errBadEncoding{}); !errors.As(got, &want) {
-		t.Fatalf("got %v, want %T", got,want)
+	if want := (errBadEncoding{}); !errors.As(got, &want) {
+		t.Fatalf("got %v, want %T", got, want)
 	}
 }
 
@@ -180,7 +180,7 @@ func TestMConnectionReadErrorUnknownChannel(t *testing.T) {
 	// send msg on channel unknown by the server.
 	// should cause an error
 	require.NoError(t, mconnClient.Send(ctx, 0x02, msg))
-	got,err := mconnServer.handle.Join(ctx)
+	got, err := mconnServer.handle.Join(ctx)
 	require.NoError(t, err)
 	if want := (errBadChannel{}); !errors.As(got, &want) {
 		t.Fatalf("got %v, want %T", got, want)
@@ -198,8 +198,8 @@ func TestMConnectionReadErrorLongMessage(t *testing.T) {
 		EOF:       true,
 		Data:      make([]byte, mconnClient.config.MaxPacketMsgPayloadSize),
 	}
-	packet := &p2p.Packet {
-		Sum: &p2p.Packet_PacketMsg { PacketMsg: msg},
+	packet := &p2p.Packet{
+		Sum: &p2p.Packet_PacketMsg{PacketMsg: msg},
 	}
 	_, err := protoWriter.WriteMsg(packet)
 	require.NoError(t, err)
@@ -215,7 +215,7 @@ func TestMConnectionReadErrorLongMessage(t *testing.T) {
 	// writing may fail or succeed.
 	_, _ = protoWriter.WriteMsg(packet)
 	got, err := mconnServer.handle.Join(ctx)
-	require.NoError(t,err)
+	require.NoError(t, err)
 	if want := (errBadEncoding{}); !errors.As(got, &want) {
 		t.Fatalf("expected errBadEncoding, got %v", err)
 	}
@@ -228,9 +228,9 @@ func TestMConnectionReadErrorUnknownMsgType(t *testing.T) {
 	// send msg with unknown msg type
 	_, err := protoio.NewDelimitedWriter(mconnClient.conn).WriteMsg(&types.Header{ChainID: "x"})
 	require.NoError(t, err)
-	got,err := mconnServer.handle.Join(ctx)
+	got, err := mconnServer.handle.Join(ctx)
 	require.NoError(t, err)
-	if want:=(errBadEncoding{}); !errors.As(got, &want) {
+	if want := (errBadEncoding{}); !errors.As(got, &want) {
 		t.Fatalf("got %v, want %T", got, want)
 	}
 }
@@ -238,16 +238,16 @@ func TestMConnectionReadErrorUnknownMsgType(t *testing.T) {
 func TestConnVectors(t *testing.T) {
 	testCases := []struct {
 		testName string
-		packet      *p2p.Packet
+		packet   *p2p.Packet
 		expBytes string
 	}{
 		{"PacketPing", pingMsg(), "0a00"},
 		{"PacketPong", pongMsg(), "1200"},
-		{"PacketMsg", &p2p.Packet{ Sum: &p2p.Packet_PacketMsg{
+		{"PacketMsg", &p2p.Packet{Sum: &p2p.Packet_PacketMsg{
 			PacketMsg: &p2p.PacketMsg{
 				ChannelID: 1, EOF: false, Data: []byte("data transmitted over the wire"),
 			},
-		}}, "1a2208011a1e64617461207472616e736d6974746564206f766572207468652077697265" },
+		}}, "1a2208011a1e64617461207472616e736d6974746564206f766572207468652077697265"},
 	}
 
 	for _, tc := range testCases {
@@ -267,8 +267,8 @@ func TestMConnectionChannelOverflow(t *testing.T) {
 		EOF:       true,
 		Data:      []byte(`42`),
 	}
-	packet := &p2p.Packet {
-		Sum: &p2p.Packet_PacketMsg { PacketMsg: msg},
+	packet := &p2p.Packet{
+		Sum: &p2p.Packet_PacketMsg{PacketMsg: msg},
 	}
 	_, err := protoWriter.WriteMsg(packet)
 	require.NoError(t, err)
@@ -277,7 +277,7 @@ func TestMConnectionChannelOverflow(t *testing.T) {
 	msg.ChannelID = int32(1025)
 	_, err = protoWriter.WriteMsg(packet)
 	require.NoError(t, err)
-	got,err := m2.handle.Join(ctx)
+	got, err := m2.handle.Join(ctx)
 	require.NoError(t, err)
 	var want errBadChannel
 	if !errors.As(got, &want) {
