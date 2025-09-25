@@ -315,7 +315,7 @@ func (s *Server) publish(data types.EventData, events []abci.Event) error {
 	select {
 	case <-s.done:
 		return ErrServerStopped
-	case s.queue <- item{
+	case s.queue <- item{ //TODO: This function is dogshit and causes so much blocking in the critical path fml
 		Data:   data,
 		Events: events,
 	}:
