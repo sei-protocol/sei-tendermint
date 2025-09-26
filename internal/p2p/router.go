@@ -714,6 +714,7 @@ func (r *Router) receivePeer(ctx context.Context, peerID types.NodeID, conn Conn
 				return fmt.Errorf("failed to unwrap message: %w", err)
 			}
 		}
+		fmt.Printf("Recv %v\n", msg)
 
 		// Priority is not used since all messages in this queue are from the same channel.
 		if pruned, ok := queue.Send(Envelope{From: peerID, Message: msg, ChannelID: chID}, 0).Get(); ok {
@@ -740,7 +741,7 @@ func (r *Router) sendPeer(ctx context.Context, peerID types.NodeID, conn Connect
 			r.logger.Error("dropping nil message", "peer", peerID)
 			continue
 		}
-
+		fmt.Printf("Send %v\n", envelope.Message)
 		bz, err := proto.Marshal(envelope.Message)
 		if err != nil {
 			r.logger.Error("failed to marshal message", "peer", peerID, "err", err)

@@ -222,7 +222,7 @@ type Node struct {
 	PrivKey     crypto.PrivKey
 	Router      *p2p.Router
 	PeerManager *p2p.PeerManager
-	Transport   *p2p.MemoryTransport
+	Transport   *p2p.MConnTransport
 
 	cancel context.CancelFunc
 }
@@ -235,17 +235,19 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 
 	privKey := ed25519.GenPrivKey()
 	nodeID := types.NodeIDFromPubKey(privKey.PubKey())
-	nodeInfo := types.NodeInfo{
-		NodeID:     nodeID,
-		ListenAddr: "0.0.0.0:0", // FIXME: We have to fake this for now.
-		Moniker:    string(nodeID),
-	}
-
 	transport := n.memoryNetwork.CreateTransport(nodeID)
 	maxRetryTime := 1000 * time.Millisecond
 	if opts.MaxRetryTime > 0 {
 		maxRetryTime = opts.MaxRetryTime
 	}
+
+	nodeInfo := types.NodeInfo{
+		NodeID:     nodeID,
+		ListenAddr: transport.Endpoint().Addr.String(),
+		Moniker:    string(nodeID),
+		Network:    "test",
+	}
+
 
 	logger := n.logger.With("node", nodeID[:5])
 	peerManager, err := p2p.NewPeerManager(logger, nodeID, dbm.NewMemDB(), p2p.PeerManagerOptions{

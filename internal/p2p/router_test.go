@@ -105,15 +105,14 @@ func TestRouter_Channel_Basic(t *testing.T) {
 	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	testnet := p2ptest.MakeNetwork(ctx, t, p2ptest.NetworkOptions{NumNodes: 1})
-
+	transport := p2p.TestTransport(logger, selfID)
 	router, err := p2p.NewRouter(
 		logger,
 		p2p.NopMetrics(),
 		selfKey,
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
-		testnet.RandomNode().Transport,
+		transport,
 		nil,
 		p2p.RouterOptions{},
 	)
