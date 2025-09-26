@@ -353,14 +353,14 @@ func (txmp *TxMempool) CheckTx(
 		if removeFromCache {
 			txmp.cache.Remove(txHash)
 		}
-		if res.ExpireTxHandler != nil {
+		if res != nil && res.ExpireTxHandler != nil {
 			res.ExpireTxHandler()
 		}
 	}
 
 	if err != nil {
 		removeHandler(true)
-		res.Log = txmp.AppendCheckTxErr(res.Log, err.Error())
+		return err
 	}
 
 	wtx := &WrappedTx{
@@ -375,28 +375,26 @@ func (txmp *TxMempool) CheckTx(
 		estimatedGas:  res.GasEstimated,
 	}
 
-	if err == nil {
-		// only add new transaction if checkTx passes and is not pending
-		if !res.IsPendingTransaction {
-			err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
-			if err != nil {
-				return err
-			}
-		} else {
-			// otherwise add to pending txs store
-			if res.Checker == nil {
-				return errors.New("no checker available for pending transaction")
-			}
-			if err := txmp.canAddPendingTx(wtx); err != nil {
-				// TODO: eviction strategy for pending transactions
-				removeHandler(true)
-				return err
-			}
-			atomic.AddInt64(&txmp.pendingSizeBytes, int64(wtx.Size()))
-			if err := txmp.pendingTxs.Insert(wtx, res, txInfo); err != nil {
-				return err
-			}
+	// only add new transaction if checkTx passes and is not pending
+	if !res.IsPendingTransaction {
+		err = txmp.addNewTransaction(wtx, res.ResponseCheckTx, txInfo)
+		if err != nil {
+			return err
 		}
+	} else {
+		// otherwise add to pending txs store
+		if res.Checker == nil {
+			return errors.New("no checker available for pending transaction")
+		}
+		if err := txmp.canAddPendingTx(wtx); err != nil {
+			// TODO: eviction strategy for pending transactions
+			removeHandler(true)
+			return err
+		}
+		if err := txmp.pendingTxs.Insert(wtx, res, txInfo); err != nil {
+			return err
+		}
+		atomic.AddInt64(&txmp.pendingSizeBytes, int64(wtx.Size()))
 	}
 
 	if cb != nil {
