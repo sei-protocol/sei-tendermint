@@ -502,7 +502,9 @@ func (r *Reactor) gossipDataForCatchup(ctx context.Context, rs *cstypes.RoundSta
 		if err != nil {
 			// sleep to avoid retrying too fast
 			time.Sleep(r.state.config.PeerGossipSleepDuration)
+			return
 		}
+		ps.SetHasProposalBlockPart(prs.Height, prs.Round, index)
 		return
 	}
 
