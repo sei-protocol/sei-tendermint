@@ -713,6 +713,10 @@ func FireEvents(
 	finalizeBlockResponse *abci.ResponseFinalizeBlock,
 	validatorUpdates []*types.Validator,
 ) {
+	if block != nil {
+		logger.Info("PERF: fire events (disabled)")
+		return
+	}
 	if err := eventBus.PublishEventNewBlock(types.EventDataNewBlock{
 		Block:               block,
 		BlockID:             blockID,
