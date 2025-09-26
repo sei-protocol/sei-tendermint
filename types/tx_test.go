@@ -49,16 +49,37 @@ func TestTxIndexByHash(t *testing.T) {
 }
 
 func TestValidateTxRecordSet(t *testing.T) {
-	t.Run("should error on new transactions marked UNMODIFIED", func(t *testing.T) {
+	t.Run("should error when total size exceeds max bytes", func(t *testing.T) {
+		// Create a transaction that exceeds the max size
+		bigTx := make([]byte, 101) // 101 bytes
 		trs := []*abci.TxRecord{
 			{
 				Action: abci.TxRecord_UNMODIFIED,
-				Tx:     Tx([]byte{1, 2, 3, 4, 5}),
+				Tx:     Tx(bigTx),
+			},
+		}
+		txrSet := NewTxRecordSet(trs)
+		err := txrSet.Validate(100, []Tx{}) // Max 100 bytes
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "transaction data size exceeds maximum")
+	})
+
+	t.Run("should error on duplicate transactions", func(t *testing.T) {
+		tx := Tx([]byte{1, 2, 3, 4, 5})
+		trs := []*abci.TxRecord{
+			{
+				Action: abci.TxRecord_UNMODIFIED,
+				Tx:     tx,
+			},
+			{
+				Action: abci.TxRecord_UNMODIFIED,
+				Tx:     tx, // Same transaction
 			},
 		}
 		txrSet := NewTxRecordSet(trs)
 		err := txrSet.Validate(100, []Tx{})
 		require.Error(t, err)
+		require.Contains(t, err.Error(), "found duplicate transaction")
 	})
 }
 
