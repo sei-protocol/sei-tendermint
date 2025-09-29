@@ -294,6 +294,7 @@ func (c *MConnection) popSendQueue(ctx context.Context) (*p2p.Packet, error) {
 			if leastChannel != nil {
 				q.setFlush(time.Now().Add(c.config.FlushThrottle))
 				msg := leastChannel.popMsg(c.config.MaxPacketMsgPayloadSize)
+				ctrl.Updated()
 				leastChannel.recentlySent.Add(uint64(len(msg.Data)))
 				return &p2p.Packet{
 					Sum: &p2p.Packet_PacketMsg{
