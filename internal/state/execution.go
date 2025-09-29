@@ -279,6 +279,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 			LastResultsHash:       block.LastResultsHash,
 		},
 	)
+	fmt.Printf("[Debug] finalizeBlock latency is %s\n", time.Since(finalizeBlockStartTime))
 	blockExec.metrics.FinalizeBlockLatency.Observe(float64(time.Since(finalizeBlockStartTime).Milliseconds()))
 	if finalizeBlockSpan != nil {
 		finalizeBlockSpan.End()
@@ -305,7 +306,6 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		// but not for saving it to the state store
 		return state, err
 	}
-
 	// validate the validator updates and convert to tendermint types
 	err = validateValidatorUpdates(fBlockRes.ValidatorUpdates, state.ConsensusParams.Validator)
 	if err != nil {
@@ -380,7 +380,7 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	blockExec.cache = make(map[string]struct{})
 
 	// Events are fired after everything else.
-	// NOTE: if we crash between Commit and Save, events wont be fired during replay
+	// NOTE: if we crash between Commit and Save, events won't be fired during replay
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
@@ -431,7 +431,7 @@ func (blockExec *BlockExecutor) Commit(
 	)
 
 	// Update mempool.
-	start = time.Now()
+	updateStart := time.Now()
 	err = blockExec.mempool.Update(
 		ctx,
 		block.Height,
@@ -441,8 +441,8 @@ func (blockExec *BlockExecutor) Commit(
 		TxPostCheckForState(state),
 		state.ConsensusParams.ABCI.RecheckTx,
 	)
-	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(start)))
-
+	blockExec.metrics.UpdateMempoolTime.Observe(float64(time.Since(updateStart)))
+	fmt.Printf("[Debug] Update mempool latency is %s\n", time.Since(updateStart))
 	return res.RetainHeight, err
 }
 
