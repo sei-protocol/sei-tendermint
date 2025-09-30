@@ -12,9 +12,9 @@ import (
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/log"
-	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
 	"github.com/tendermint/tendermint/libs/utils/require"
+	"github.com/tendermint/tendermint/types"
 )
 
 // Network sets up an in-memory network that can be used for high-level P2P
@@ -28,8 +28,8 @@ type Network struct {
 // NetworkOptions is an argument structure to parameterize the
 // MakeNetwork function.
 type NetworkOptions struct {
-	NumNodes   int
-	NodeOpts   NodeOptions
+	NumNodes int
+	NodeOpts NodeOptions
 }
 
 type NodeOptions struct {
@@ -43,8 +43,8 @@ type NodeOptions struct {
 func MakeNetwork(t *testing.T, opts NetworkOptions) *Network {
 	logger, _ := log.NewDefaultLogger("plain", "info")
 	n := &Network{
-		logger:     logger,
-		nodes: 			utils.NewMutex(map[types.NodeID]*Node{}),
+		logger: logger,
+		nodes:  utils.NewMutex(map[types.NodeID]*Node{}),
 	}
 	for i := 0; i < opts.NumNodes; i++ {
 		n.MakeNode(t, opts.NodeOpts)
@@ -172,7 +172,7 @@ func (n *Network) RandomNode() *Node {
 // Peers returns a node's peers (i.e. everyone except itself).
 func (n *Network) Peers(id types.NodeID) []*Node {
 	var peers []*Node
-	for _,n := range n.Nodes() {
+	for _, n := range n.Nodes() {
 		if n.NodeID != id {
 			peers = append(peers, n)
 		}

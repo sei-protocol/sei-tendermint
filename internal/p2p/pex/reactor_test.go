@@ -350,7 +350,7 @@ func setupNetwork(ctx context.Context, t *testing.T, opts testOptions) *reactorT
 		opts.BufferSize = defaultBufferSize
 	}
 	networkOpts := p2ptest.NetworkOptions{
-		NumNodes:   opts.TotalNodes,
+		NumNodes: opts.TotalNodes,
 		NodeOpts: p2ptest.NodeOptions{
 			MaxPeers:     opts.MaxPeers,
 			MaxConnected: opts.MaxConnected,
@@ -374,7 +374,7 @@ func setupNetwork(ctx context.Context, t *testing.T, opts testOptions) *reactorT
 	rts.pexChannels = rts.network.MakeChannelsNoCleanup(t, pex.ChannelDescriptor())
 
 	idx := 0
-	for _,node := range rts.network.Nodes() {
+	for _, node := range rts.network.Nodes() {
 		nodeID := node.NodeID
 		rts.peerChans[nodeID] = make(chan p2p.PeerUpdate, chBuf)
 		peerUpdates := p2p.NewPeerUpdates(rts.peerChans[nodeID], chBuf)
