@@ -61,7 +61,7 @@ func setupReactors(ctx context.Context, t *testing.T, logger log.Logger, numNode
 	chDesc := GetChannelDescriptor(cfg.Mempool)
 	rts.mempoolChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)
 
-	for _,node := range rts.network.Nodes() {
+	for _, node := range rts.network.Nodes() {
 		nodeID := node.NodeID
 		rts.kvstores[nodeID] = kvstore.NewApplication()
 

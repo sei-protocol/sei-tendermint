@@ -74,7 +74,7 @@ func setup(ctx context.Context, t *testing.T, stateStores []sm.Store) *reactorTe
 	idx := 0
 	evidenceTime := time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	for _,node := range rts.network.Nodes() {
+	for _, node := range rts.network.Nodes() {
 		nodeID := node.NodeID
 		logger := rts.logger.With("validator", idx)
 		evidenceDB := dbm.NewMemDB()
@@ -300,7 +300,7 @@ func TestReactorBroadcastEvidence(t *testing.T) {
 	primary := rts.network.RandomNode()
 	secondaries := make([]*p2ptest.Node, 0, len(rts.network.NodeIDs())-1)
 	secondaryIDs := make([]types.NodeID, 0, cap(secondaries))
-	for _,node := range rts.network.Nodes() {
+	for _, node := range rts.network.Nodes() {
 		if node.NodeID == primary.NodeID {
 			continue
 		}
