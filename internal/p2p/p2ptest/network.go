@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/tendermint/tendermint/crypto"
@@ -15,6 +14,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	"github.com/tendermint/tendermint/types"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/libs/utils/require"
 )
 
 // Network sets up an in-memory network that can be used for high-level P2P
@@ -87,10 +87,11 @@ func (n *Network) Start(t *testing.T) {
 			case <-ctx.Done():
 				require.Fail(t, "operation canceled")
 			case peerUpdate := <-subs[source.NodeID].Updates():
+				peerUpdate.Channels = nil
 				require.Equal(t, p2p.PeerUpdate{
 					NodeID: target.NodeID,
 					Status: p2p.PeerStatusUp,
-				}, peerUpdate.NodeID)
+				}, peerUpdate)
 			}
 
 			select {

@@ -782,7 +782,6 @@ func (m *PeerManager) Accepted(peerID types.NodeID) error {
 // reactors, which can then mediate their own behavior based on the
 // capability of the peers.
 func (m *PeerManager) Ready(ctx context.Context, peerID types.NodeID, channels ChannelIDSet) {
-	fmt.Printf("Ready %v\n", peerID)
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 
