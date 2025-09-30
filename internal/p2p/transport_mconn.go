@@ -40,6 +40,20 @@ type MConnTransportOptions struct {
 	MaxAcceptedConnections uint32
 }
 
+// TestTransport creates a new Transport for tests.
+func TestTransport(logger log.Logger, nodeID types.NodeID) *MConnTransport {
+	return NewMConnTransport(
+		logger.With("local", nodeID),
+		Endpoint{
+			Protocol: MConnProtocol,
+			Addr: tcp.TestReserveAddr(),
+		},
+		conn.DefaultMConnConfig(),
+		[]*ChannelDescriptor{},
+		MConnTransportOptions{},
+	)
+}
+
 // MConnTransport is a Transport implementation using the current multiplexed
 // Tendermint protocol ("MConn").
 type MConnTransport struct {
