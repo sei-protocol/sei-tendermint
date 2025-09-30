@@ -61,8 +61,9 @@ func setup(
 	require.True(t, numNodes >= 1,
 		"must specify at least one block height (nodes)")
 
+	logger, _ := log.NewDefaultLogger("plain", "info")
 	rts := &reactorTestSuite{
-		logger:            log.NewNopLogger().With("module", "block_sync", "testCase", t.Name()),
+		logger:            logger.With("module", "block_sync", "testCase", t.Name()),
 		network:           p2ptest.MakeNetwork(ctx, t, p2ptest.NetworkOptions{NumNodes: numNodes}),
 		nodes:             make([]types.NodeID, 0, numNodes),
 		reactors:          make(map[types.NodeID]*Reactor, numNodes),
@@ -72,7 +73,11 @@ func setup(
 		peerUpdates:       make(map[types.NodeID]*p2p.PeerUpdates, numNodes),
 	}
 
-	chDesc := &p2p.ChannelDescriptor{ID: BlockSyncChannel, MessageType: new(bcproto.Message)}
+	chDesc := &p2p.ChannelDescriptor{
+		ID: BlockSyncChannel,
+		MessageType: new(bcproto.Message),
+		RecvBufferCapacity: 32,
+	}
 	rts.blockSyncChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)
 
 	i := 0
