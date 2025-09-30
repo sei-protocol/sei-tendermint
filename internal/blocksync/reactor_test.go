@@ -74,14 +74,14 @@ func setup(
 	}
 
 	chDesc := &p2p.ChannelDescriptor{
-		ID: BlockSyncChannel,
-		MessageType: new(bcproto.Message),
+		ID:                 BlockSyncChannel,
+		MessageType:        new(bcproto.Message),
 		RecvBufferCapacity: 32,
 	}
 	rts.blockSyncChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)
 
 	i := 0
-	for _,nodeID := range rts.network.NodeIDs() {
+	for _, nodeID := range rts.network.NodeIDs() {
 		rts.addNode(ctx, t, nodeID, genDoc, privVal, maxBlockHeights[i])
 		rts.reactors[nodeID].SetChannel(rts.blockSyncChannels[nodeID])
 		i++
