@@ -300,10 +300,6 @@ func (c *mConnConnection) Close() error {
 	}
 	return c.mconn.Close()
 }
-
-// Protocol identifies a transport protocol.
-type Protocol string
-
 // Connection represents an established connection between two endpoints.
 //
 // FIXME: This is a temporary interface for backwards-compatibility with the

@@ -358,23 +358,6 @@ func TestRouter_AcceptPeers(t *testing.T) {
 
 			t.Cleanup(leaktest.Check(t))
 
-			// Set up a mock transport that handshakes.
-			connCtx, connCancel := context.WithCancel(ctx)
-			mockConnection := &mocks.Connection{}
-			mockConnection.On("String").Maybe().Return("mock")
-			mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-				Return(tc.peerInfo, nil)
-			mockConnection.On("Close").Run(func(_ mock.Arguments) { connCancel() }).Return(nil).Maybe()
-			mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
-			if tc.ok {
-				mockConnection.On("ReceiveMessage", mock.Anything).Return(chID, nil, io.EOF).Maybe()
-			}
-
-			mockTransport := &mocks.Transport{}
-			mockTransport.On("Accept", mock.Anything).Once().Return(mockConnection, nil)
-			mockTransport.On("Accept", mock.Anything).Maybe().Return(nil, context.Canceled)
-			mockTransport.On("Run", mock.Anything).Return(nil)
-
 			// Set up and start the router.
 			peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 			require.NoError(t, err)
@@ -411,8 +394,6 @@ func TestRouter_AcceptPeers(t *testing.T) {
 			}
 
 			router.Stop()
-			mockTransport.AssertExpectations(t)
-			mockConnection.AssertExpectations(t)
 		})
 	}
 }
@@ -424,12 +405,6 @@ func TestRouter_AcceptPeers_Errors(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 
 			ctx := t.Context()
-
-			// Set up a mock transport that returns io.EOF once, which should prevent
-			// the router from calling Accept again.
-			mockTransport := &mocks.Transport{}
-			mockTransport.On("Accept", mock.Anything).Once().Return(nil, context.Canceled)
-			mockTransport.On("Run", mock.Anything).Return(nil)
 
 			// Set up and start the router.
 			peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -450,9 +425,6 @@ func TestRouter_AcceptPeers_Errors(t *testing.T) {
 			require.NoError(t, router.Start(ctx))
 			time.Sleep(time.Second)
 			router.Stop()
-
-			mockTransport.AssertExpectations(t)
-
 		})
 
 	}
@@ -468,20 +440,6 @@ func TestRouter_AcceptPeers_HeadOfLineBlocking(t *testing.T) {
 	// a single connection can't halt other connections being accepted.
 	acceptCh := make(chan bool, 3)
 	closeCh := make(chan time.Time)
-
-	mockConnection := &mocks.Connection{}
-	mockConnection.On("String").Maybe().Return("mock")
-	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		WaitUntil(closeCh).Return(types.NodeInfo{}, io.EOF)
-	mockConnection.On("Close").Return(nil)
-	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
-
-	mockTransport := &mocks.Transport{}
-	mockTransport.On("Accept", mock.Anything).Times(3).Run(func(_ mock.Arguments) {
-		acceptCh <- true
-	}).Return(mockConnection, nil)
-	mockTransport.On("Accept", mock.Anything).Once().Return(nil, context.Canceled)
-	mockTransport.On("Run", mock.Anything).Return(nil)
 
 	// Set up and start the router.
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -540,36 +498,7 @@ func TestRouter_DialPeers(t *testing.T) {
 			t.Cleanup(leaktest.Check(t))
 			ctx := t.Context()
 
-			address := p2p.NodeAddress{Protocol: "mock", NodeID: tc.dialID}
-			endpoint := p2p.Endpoint{Protocol: "mock", Path: string(tc.dialID)}
-
-			// Set up a mock transport that handshakes.
-			connCtx, connCancel := context.WithCancel(ctx)
-			defer connCancel()
-			mockConnection := &mocks.Connection{}
-			mockConnection.On("String").Maybe().Return("mock")
-			if tc.dialErr == nil {
-				mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-					Return(tc.peerInfo, nil)
-				mockConnection.On("Close").Run(func(_ mock.Arguments) { connCancel() }).Return(nil).Maybe()
-			}
-			if tc.ok {
-				mockConnection.On("ReceiveMessage", mock.Anything).Return(chID, nil, io.EOF).Maybe()
-			}
-
-			mockTransport := &mocks.Transport{}
-			mockTransport.On("Run", mock.Anything).Return(nil)
-			mockTransport.On("Accept", mock.Anything).Maybe().Return(nil, context.Canceled)
-			if tc.dialErr == nil {
-				mockTransport.On("Dial", mock.Anything, endpoint).Once().Return(mockConnection, nil)
-				// This handles the retry when a dialed connection gets closed after ReceiveMessage
-				// returns io.EOF above.
-				mockTransport.On("Dial", mock.Anything, endpoint).Maybe().Return(nil, io.EOF)
-			} else {
-				mockTransport.On("Dial", mock.Anything, endpoint).Once().
-					Run(func(_ mock.Arguments) { connCancel() }).
-					Return(nil, tc.dialErr)
-			}
+			address := p2p.NodeAddress{NodeID: tc.dialID}
 
 			// Set up and start the router.
 			peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -610,8 +539,6 @@ func TestRouter_DialPeers(t *testing.T) {
 			}
 
 			router.Stop()
-			mockTransport.AssertExpectations(t)
-			mockConnection.AssertExpectations(t)
 		})
 	}
 }
@@ -621,30 +548,14 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{Protocol: "mock", NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{Protocol: "mock", NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{Protocol: "mock", NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
 
 	// Set up a mock transport that returns a connection that blocks during the
 	// handshake. It should dial all peers in parallel.
 	dialCh := make(chan bool, 3)
 	closeCh := make(chan time.Time)
-
-	mockConnection := &mocks.Connection{}
-	mockConnection.On("String").Maybe().Return("mock")
-	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		WaitUntil(closeCh).Return(types.NodeInfo{}, nil, io.EOF)
-	mockConnection.On("Close").Return(nil)
-
-	mockTransport := &mocks.Transport{}
-	mockTransport.On("Run", mock.Anything).Return(nil)
-	mockTransport.On("Accept", mock.Anything).Once().Return(nil, context.Canceled)
-	for _, address := range []p2p.NodeAddress{a, b, c} {
-		endpoint := p2p.Endpoint{Protocol: address.Protocol, Path: string(address.NodeID)}
-		mockTransport.On("Dial", mock.Anything, endpoint).Run(func(_ mock.Arguments) {
-			dialCh <- true
-		}).Return(mockConnection, nil)
-	}
 
 	// Set up and start the router.
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -697,8 +608,6 @@ func TestRouter_DialPeers_Parallel(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	router.Stop()
-	mockTransport.AssertExpectations(t)
-	mockConnection.AssertExpectations(t)
 }
 
 func TestRouter_EvictPeers(t *testing.T) {
@@ -710,23 +619,6 @@ func TestRouter_EvictPeers(t *testing.T) {
 	// Set up a mock transport that we can evict.
 	closeCh := make(chan time.Time)
 	closeOnce := sync.Once{}
-
-	mockConnection := &mocks.Connection{}
-	mockConnection.On("String").Maybe().Return("mock")
-	mockConnection.On("Handshake", mock.Anything, selfInfo, selfKey).
-		Return(peerInfo, nil)
-	mockConnection.On("ReceiveMessage", mock.Anything).WaitUntil(closeCh).Return(chID, nil, io.EOF)
-	mockConnection.On("RemoteEndpoint").Return(p2p.Endpoint{})
-	mockConnection.On("Close").Run(func(_ mock.Arguments) {
-		closeOnce.Do(func() {
-			close(closeCh)
-		})
-	}).Return(nil)
-
-	mockTransport := &mocks.Transport{}
-	mockTransport.On("Accept", mock.Anything).Once().Return(mockConnection, nil)
-	mockTransport.On("Accept", mock.Anything).Maybe().Return(nil, context.Canceled)
-	mockTransport.On("Run", mock.Anything).Return(nil)
 
 	// Set up and start the router.
 	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -740,7 +632,6 @@ func TestRouter_EvictPeers(t *testing.T) {
 		selfKey,
 		peerManager,
 		func() *types.NodeInfo { return &selfInfo },
-		mockTransport,
 		nil,
 		p2p.RouterOptions{},
 	)
@@ -761,8 +652,6 @@ func TestRouter_EvictPeers(t *testing.T) {
 	})
 
 	router.Stop()
-	mockTransport.AssertExpectations(t)
-	mockConnection.AssertExpectations(t)
 }
 
 func TestRouter_ChannelCompatability(t *testing.T) {
