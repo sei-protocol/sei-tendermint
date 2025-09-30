@@ -39,18 +39,15 @@ func makeKeyAndInfo() (crypto.PrivKey, types.NodeInfo) {
 // Transports are mainly tested by common tests in transport_test.go, we
 // register a transport factory here to get included in those tests.
 func init() {
-	testTransports["mconn"] = func() func(context.Context) p2p.Transport {
+	testTransports["mconn"] = func() func(context.Context) *p2p.Transport {
 		return func(ctx context.Context) p2p.Transport {
 			logger, _ := log.NewDefaultLogger("plain", "info")
-			transport := p2p.NewMConnTransport(
+			transport := p2p.NewTransport(
 				logger,
-				p2p.Endpoint{
-					Protocol: p2p.MConnProtocol,
-					Addr:     tcp.TestReserveAddr(),
-				},
+				p2p.Endpoint{tcp.TestReserveAddr()},
 				conn.DefaultMConnConfig(),
 				[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
-				p2p.MConnTransportOptions{},
+				p2p.TransportOptions{},
 			)
 			go func() {
 				if err := transport.Run(ctx); err != nil {
@@ -67,7 +64,7 @@ func init() {
 
 // Establishes a connection to the transport.
 // Returns both ends of the connection.
-func connect(ctx context.Context, tr *p2p.MConnTransport) (c1 p2p.Connection, c2 p2p.Connection, err error) {
+func connect(ctx context.Context, tr *p2p.Transport) (c1 p2p.Connection, c2 p2p.Connection, err error) {
 	defer func() {
 		if err != nil {
 			if c1 != nil {
@@ -78,7 +75,7 @@ func connect(ctx context.Context, tr *p2p.MConnTransport) (c1 p2p.Connection, c2
 			}
 		}
 	}()
-	// Here we are utilizing the fact that MConnTransport accepts connection proactively
+	// Here we are utilizing the fact that Transport accepts connection proactively
 	// before Accept is called.
 	c1, err = tr.Dial(ctx, tr.Endpoint())
 	if err != nil {
@@ -97,17 +94,14 @@ func connect(ctx context.Context, tr *p2p.MConnTransport) (c1 p2p.Connection, c2
 	return c1, c2, nil
 }
 
-func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
+func TestTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 	ctx := t.Context()
-	transport := p2p.NewMConnTransport(
+	transport := p2p.NewTransport(
 		log.NewNopLogger(),
-		p2p.Endpoint{
-			Protocol: p2p.MConnProtocol,
-			Addr:     tcp.TestReserveAddr(),
-		},
+		p2p.Endpoint{tcp.TestReserveAddr()},
 		conn.DefaultMConnConfig(),
 		[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
-		p2p.MConnTransportOptions{
+		p2p.TransportOptions{
 			MaxAcceptedConnections: 2,
 		},
 	)
@@ -164,7 +158,7 @@ func TestMConnTransport_AcceptMaxAcceptedConnections(t *testing.T) {
 	}
 }
 
-func TestMConnTransport_Listen(t *testing.T) {
+func TestTransport_Listen(t *testing.T) {
 	reservePort := func(ip netip.Addr) netip.AddrPort {
 		addr := tcp.TestReserveAddr()
 		return netip.AddrPortFrom(ip, addr.Port())
@@ -175,16 +169,13 @@ func TestMConnTransport_Listen(t *testing.T) {
 		ok       bool
 	}{
 		// Valid v4 and v6 addresses, with mconn and tcp protocols.
-		{p2p.Endpoint{Protocol: p2p.MConnProtocol, Addr: reservePort(netip.IPv4Unspecified())}, true},
-		{p2p.Endpoint{Protocol: p2p.MConnProtocol, Addr: reservePort(tcp.IPv4Loopback())}, true},
-		{p2p.Endpoint{Protocol: p2p.MConnProtocol, Addr: reservePort(netip.IPv6Unspecified())}, true},
-		{p2p.Endpoint{Protocol: p2p.MConnProtocol, Addr: reservePort(netip.IPv6Loopback())}, true},
-		{p2p.Endpoint{Protocol: p2p.TCPProtocol, Addr: reservePort(netip.IPv4Unspecified())}, true},
+		{p2p.Endpoint{reservePort(netip.IPv4Unspecified())}, true},
+		{p2p.Endpoint{reservePort(tcp.IPv4Loopback())}, true},
+		{p2p.Endpoint{reservePort(netip.IPv6Unspecified())}, true},
+		{p2p.Endpoint{reservePort(netip.IPv6Loopback())}, true},
 
 		// Invalid endpoints.
 		{p2p.Endpoint{}, false},
-		{p2p.Endpoint{Protocol: p2p.MConnProtocol, Path: "foo"}, false},
-		{p2p.Endpoint{Protocol: p2p.MConnProtocol, Addr: reservePort(netip.IPv4Unspecified()), Path: "foo"}, false},
 	}
 
 	aKey, aInfo := makeKeyAndInfo()
@@ -194,12 +185,12 @@ func TestMConnTransport_Listen(t *testing.T) {
 			ctx := t.Context()
 			t.Cleanup(leaktest.Check(t))
 
-			transport := p2p.NewMConnTransport(
+			transport := p2p.NewTransport(
 				log.NewNopLogger(),
 				tc.endpoint,
 				conn.DefaultMConnConfig(),
 				[]*p2p.ChannelDescriptor{{ID: chID, Priority: 1}},
-				p2p.MConnTransportOptions{},
+				p2p.TransportOptions{},
 			)
 			if got, want := transport.Endpoint(), tc.endpoint; got != want {
 				t.Fatalf("transport.Endpoint() = %v, want %v", got, want)

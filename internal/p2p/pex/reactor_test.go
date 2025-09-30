@@ -146,14 +146,14 @@ func TestReactorErrorsOnReceivingTooManyPeers(t *testing.T) {
 	ctx := t.Context()
 
 	r := setupSingle(ctx, t)
-	peer := p2p.NodeAddress{Protocol: p2p.MConnProtocol, NodeID: randomNodeID()}
+	peer := p2p.NodeAddress{NodeID: randomNodeID()}
 	added, err := r.manager.Add(peer)
 	require.NoError(t, err)
 	require.True(t, added)
 
 	addresses := make([]p2pproto.PexAddress, 101)
 	for i := range addresses {
-		nodeAddress := p2p.NodeAddress{Protocol: p2p.MConnProtocol, NodeID: randomNodeID()}
+		nodeAddress := p2p.NodeAddress{NodeID: randomNodeID()}
 		addresses[i] = p2pproto.PexAddress{
 			URL: nodeAddress.String(),
 		}

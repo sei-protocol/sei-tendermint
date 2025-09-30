@@ -26,7 +26,7 @@ func TestPeerScoring(t *testing.T) {
 
 	// create a fake node
 	id := types.NodeID(strings.Repeat("a1", 20))
-	added, err := peerManager.Add(NodeAddress{NodeID: id, Protocol: "memory"})
+	added, err := peerManager.Add(NodeAddress{NodeID: id})
 	require.NoError(t, err)
 	require.True(t, added)
 
@@ -55,7 +55,7 @@ func TestPeerScoring(t *testing.T) {
 		}
 
 		// Dial failure should decrease score
-		addr := NodeAddress{NodeID: id, Protocol: "memory"}
+		addr := NodeAddress{NodeID: id}
 		_ = peerManager.DialFailed(ctx, addr)
 		_ = peerManager.DialFailed(ctx, addr)
 		_ = peerManager.DialFailed(ctx, addr)

@@ -145,7 +145,7 @@ type Router struct {
 	privKey     crypto.PrivKey
 	peerManager *PeerManager
 	chDescs     []*ChannelDescriptor
-	transport   Transport
+	transport   *Transport
 	connTracker connectionTracker
 
 	peerStates       utils.RWMutex[map[types.NodeID]*peerState]
@@ -177,7 +177,7 @@ func NewRouter(
 	privKey crypto.PrivKey,
 	peerManager *PeerManager,
 	nodeInfoProducer func() *types.NodeInfo,
-	transport Transport,
+	transport *Transport,
 	dynamicIDFilterer func(context.Context, types.NodeID) error,
 	options RouterOptions,
 ) (*Router, error) {
@@ -399,14 +399,14 @@ func (r *Router) dialSleep(ctx context.Context) error {
 
 // acceptPeers accepts inbound connections from peers on the given transport,
 // and spawns goroutines that route messages to/from them.
-func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
+func (r *Router) acceptPeers(ctx context.Context, transport *Transport) error {
 	for {
 		conn, err := transport.Accept(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to accept connection: %w", err)
 		}
 		r.metrics.NewConnections.With("direction", "in").Add(1)
-		incomingAddr := conn.RemoteEndpoint().Addr
+		incomingAddr := conn.RemoteEndpoint().AddrPort
 		if err := r.connTracker.AddConn(incomingAddr); err != nil {
 			closeErr := conn.Close()
 			r.logger.Error("rate limiting incoming peer",
@@ -428,7 +428,7 @@ func (r *Router) acceptPeers(ctx context.Context, transport Transport) error {
 
 func (r *Router) openConnection(ctx context.Context, conn Connection) error {
 	defer conn.Close()
-	incomingAddr := conn.RemoteEndpoint().Addr
+	incomingAddr := conn.RemoteEndpoint().AddrPort
 	defer r.connTracker.RemoveConn(incomingAddr)
 
 	if err := r.filterPeersIP(ctx, incomingAddr); err != nil {
