@@ -38,7 +38,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/internal/pubsub/query"
@@ -337,20 +336,6 @@ func (s *Server) run(ctx context.Context) {
 		defer s.pubs.Unlock()
 		close(s.queue)
 		s.queue = nil
-	}()
-
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				s.logger.Info("pubsub queue depth", "depth", len(s.queue))
-			}
-		}
 	}()
 
 	s.exited = make(chan struct{})
