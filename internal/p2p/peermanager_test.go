@@ -1,6 +1,7 @@
 package p2p_test
 
 import (
+	"fmt"
 	"context"
 	"errors"
 	"math"
@@ -18,6 +19,16 @@ import (
 	"github.com/tendermint/tendermint/libs/utils/require"
 	"github.com/tendermint/tendermint/types"
 )
+
+func testAddr(x string) p2p.NodeAddress {
+	if len(x)!=1 { panic("x must be a single character") }
+	return p2p.NodeAddress{
+		NodeID: types.NodeID(strings.Repeat(x, 40)),
+		Hostname: fmt.Sprintf("%v.com",x),
+		Port: 26657,
+	}
+}
+
 
 // FIXME: We should probably have some randomized property-based tests for the
 // PeerManager too, which runs a bunch of random operations with random peers
@@ -258,8 +269,8 @@ func TestNewPeerManager_Unconditional(t *testing.T) {
 }
 
 func TestNewPeerManager_SelfIDChange(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	db := dbm.NewMemDB()
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, db, p2p.PeerManagerOptions{}, p2p.NopMetrics())
@@ -332,7 +343,7 @@ func TestPeerManager_Add(t *testing.T) {
 func TestPeerManager_DialNext(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -357,7 +368,7 @@ func TestPeerManager_DialNext(t *testing.T) {
 func TestPeerManager_DialNext_Retry(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	options := p2p.PeerManagerOptions{
 		MinRetryTime: 100 * time.Millisecond,
@@ -391,7 +402,7 @@ func TestPeerManager_DialNext_Retry(t *testing.T) {
 func TestPeerManagerDeleteOnMaxRetries(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	options := p2p.PeerManagerOptions{
 		MinRetryTime: 100 * time.Millisecond,
@@ -437,8 +448,8 @@ func TestPeerManager_DialNext_WakeOnDialFailed(t *testing.T) {
 	}, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	// Add and dial a.
 	added, err := peerManager.Add(a)
@@ -480,7 +491,7 @@ func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), options, p2p.NopMetrics())
 	require.NoError(t, err)
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	// Add a, dial it, and mark it a failure. This will start a retry timer.
 	added, err := peerManager.Add(a)
@@ -505,7 +516,7 @@ func TestPeerManager_DialNext_WakeOnDialFailedRetry(t *testing.T) {
 func TestPeerManager_DialNext_WakeOnDisconnected(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -535,9 +546,9 @@ func TestPeerManager_DialNext_WakeOnDisconnected(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_MaxConnected(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected: 2,
@@ -573,11 +584,11 @@ func TestPeerManager_TryDialNext_MaxConnected(t *testing.T) {
 func TestPeerManager_TryDialNext_MaxConnectedUpgrade(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
-	d := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("d", 40))}
-	e := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("e", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
+	d := testAddr("d")
+	e := testAddr("e")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
@@ -657,9 +668,9 @@ func TestPeerManager_TryDialNext_MaxConnectedUpgrade(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_UpgradeReservesPeer(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores:          map[types.NodeID]p2p.PeerScore{b.NodeID: p2p.DefaultMutableScore + 1, c.NodeID: p2p.DefaultMutableScore + 1},
@@ -820,9 +831,9 @@ func TestPeerManager_DialFailed(t *testing.T) {
 func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	logger, _ := log.NewDefaultLogger("plain", "debug")
 	peerManager, err := p2p.NewPeerManager(logger, selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
@@ -867,8 +878,8 @@ func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_Connected(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -901,14 +912,14 @@ func TestPeerManager_Dialed_Self(t *testing.T) {
 	require.NoError(t, err)
 
 	// Dialing self should error.
-	added, err := peerManager.Add(p2p.NodeAddress{NodeID: selfID})
+	added, err := peerManager.Add(p2p.NodeAddress{NodeID: selfID, Hostname: "a.com", Port: 1234})
 	require.Nil(t, err)
 	require.False(t, added)
 }
 
 func TestPeerManager_Dialed_MaxConnected(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected: 1,
@@ -935,10 +946,10 @@ func TestPeerManager_Dialed_MaxConnected(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_MaxConnectedUpgrade(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
-	d := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("d", 40))}
+  a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
+	d := testAddr("d")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected:        2,
@@ -987,7 +998,7 @@ func TestPeerManager_Dialed_MaxConnectedUpgrade(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_Unknown(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -997,9 +1008,9 @@ func TestPeerManager_Dialed_Unknown(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_Upgrade(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+  a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected:        1,
@@ -1043,10 +1054,10 @@ func TestPeerManager_Dialed_Upgrade(t *testing.T) {
 func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
-	d := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("d", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
+	d := testAddr("d")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected:        2,
@@ -1101,9 +1112,9 @@ func TestPeerManager_Dialed_UpgradeEvenLower(t *testing.T) {
 func TestPeerManager_Dialed_UpgradeNoEvict(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b	 := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected:        2,
@@ -1148,10 +1159,10 @@ func TestPeerManager_Dialed_UpgradeNoEvict(t *testing.T) {
 }
 
 func TestPeerManager_Accepted(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
-	d := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("d", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
+	d := testAddr("d")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1195,9 +1206,9 @@ func TestPeerManager_Accepted(t *testing.T) {
 }
 
 func TestPeerManager_Accepted_MaxConnected(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected: 2,
@@ -1223,10 +1234,10 @@ func TestPeerManager_Accepted_MaxConnected(t *testing.T) {
 }
 
 func TestPeerManager_Accepted_MaxConnectedUpgrade(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
-	d := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("d", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
+	d := testAddr("d")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
@@ -1271,9 +1282,9 @@ func TestPeerManager_Accepted_MaxConnectedUpgrade(t *testing.T) {
 func TestPeerManager_Accepted_Upgrade(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
@@ -1316,9 +1327,9 @@ func TestPeerManager_Accepted_Upgrade(t *testing.T) {
 }
 
 func TestPeerManager_Accepted_UpgradeDialing(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
-	c := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("c", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
+	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		PeerScores: map[types.NodeID]p2p.PeerScore{
@@ -1365,8 +1376,8 @@ func TestPeerManager_Accepted_UpgradeDialing(t *testing.T) {
 }
 
 func TestPeerManager_Ready(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	ctx := t.Context()
 
@@ -1408,7 +1419,7 @@ func TestPeerManager_Ready_Channels(t *testing.T) {
 
 	sub := pm.Subscribe(ctx)
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 	added, err := pm.Add(a)
 	require.NoError(t, err)
 	require.True(t, added)
@@ -1426,7 +1437,7 @@ func TestPeerManager_Ready_Channels(t *testing.T) {
 func TestPeerManager_EvictNext(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1461,7 +1472,7 @@ func TestPeerManager_EvictNext(t *testing.T) {
 func TestPeerManager_EvictNext_WakeOnError(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1489,8 +1500,8 @@ func TestPeerManager_EvictNext_WakeOnError(t *testing.T) {
 func TestPeerManager_EvictNext_WakeOnUpgradeDialed(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected:        1,
@@ -1529,8 +1540,8 @@ func TestPeerManager_EvictNext_WakeOnUpgradeDialed(t *testing.T) {
 func TestPeerManager_EvictNext_WakeOnUpgradeAccepted(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
-	b := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("b", 40))}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected:        1,
@@ -1562,7 +1573,11 @@ func TestPeerManager_EvictNext_WakeOnUpgradeAccepted(t *testing.T) {
 func TestPeerManager_TryEvictNext(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := p2p.NodeAddress{
+		NodeID: types.NodeID(strings.Repeat("a", 40)),
+		Hostname: "a.com",
+		Port:     26657,
+	}
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1600,7 +1615,7 @@ func TestPeerManager_TryEvictNext(t *testing.T) {
 }
 
 func TestPeerManager_Disconnected(t *testing.T) {
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1657,7 +1672,7 @@ func TestPeerManager_Disconnected(t *testing.T) {
 func TestPeerManager_Errored(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1697,7 +1712,7 @@ func TestPeerManager_Errored(t *testing.T) {
 func TestPeerManager_Subscribe(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1761,7 +1776,7 @@ func TestPeerManager_Subscribe(t *testing.T) {
 func TestPeerManager_Subscribe_Close(t *testing.T) {
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1790,7 +1805,7 @@ func TestPeerManager_Subscribe_Broadcast(t *testing.T) {
 
 	t.Cleanup(leaktest.Check(t))
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -1837,7 +1852,7 @@ func TestPeerManager_Close(t *testing.T) {
 
 	ctx := t.Context()
 
-	a := p2p.NodeAddress{NodeID: types.NodeID(strings.Repeat("a", 40))}
+	a := testAddr("a")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MinRetryTime: 10 * time.Second,
@@ -1903,7 +1918,7 @@ func TestPeerManager_Advertise(t *testing.T) {
 	// Asking for 2 addresses should get the highest-rated ones, i.e. a.
 	require.ElementsMatch(t, []p2p.NodeAddress{
 		aTCP,
-	}, peerManager.Advertise(dID, 2))
+	}, peerManager.Advertise(dID, 1))
 }
 
 func TestPeerManager_Advertise_Self(t *testing.T) {

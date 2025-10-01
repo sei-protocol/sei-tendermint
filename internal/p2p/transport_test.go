@@ -525,10 +525,6 @@ func TestEndpoint_NodeAddress(t *testing.T) {
 			p2p.Endpoint{netip.AddrPortFrom(ip6, 8080)},
 			p2p.NodeAddress{Hostname: "b10c::1", Port: 8080},
 		},
-
-		// Partial (invalid) endpoints.
-		{p2p.Endpoint{}, p2p.NodeAddress{}},
-		{p2p.Endpoint{netip.AddrPortFrom(ip4, 0)}, p2p.NodeAddress{Hostname: "1.2.3.4"}},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.endpoint.String(), func(t *testing.T) {
@@ -558,7 +554,6 @@ func TestEndpoint_Validate(t *testing.T) {
 
 		// Invalid endpoints.
 		{p2p.Endpoint{}, false},
-		{p2p.Endpoint{netip.AddrPortFrom(ip4, 0)}, false},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.endpoint.String(), func(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"net/netip"
 
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
@@ -146,7 +147,9 @@ func TestReactorErrorsOnReceivingTooManyPeers(t *testing.T) {
 	ctx := t.Context()
 
 	r := setupSingle(ctx, t)
-	peer := p2p.NodeAddress{NodeID: randomNodeID()}
+	peer := p2p.Endpoint{
+		AddrPort: netip.AddrPortFrom(netip.IPv6Loopback(),1234),
+	}.NodeAddress(randomNodeID())
 	added, err := r.manager.Add(peer)
 	require.NoError(t, err)
 	require.True(t, added)
