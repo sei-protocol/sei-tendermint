@@ -38,12 +38,12 @@ type TransportOptions struct {
 }
 
 // TestTransport creates a new Transport for tests.
-func TestTransport(logger log.Logger, nodeID types.NodeID) *Transport {
+func TestTransport(logger log.Logger, nodeID types.NodeID, descs ...*ChannelDescriptor) *Transport {
 	return NewTransport(
 		logger.With("local", nodeID),
 		Endpoint{tcp.TestReserveAddr()},
 		conn.DefaultMConnConfig(),
-		[]*ChannelDescriptor{},
+		descs,
 		TransportOptions{},
 	)
 }
