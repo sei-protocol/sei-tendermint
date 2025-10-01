@@ -751,7 +751,7 @@ func (evl EvidenceList) ValidateBasic() error {
 			return fmt.Errorf("nil evidence in evidence list at index %d", at)
 		}
 		if err := evidence.ValidateBasic(); err != nil {
-			return fmt.Errorf("invalid evidence at index %d: %v: %w", at, evidence, err)
+			return fmt.Errorf("invalid evidence at index %d: %w", at, err)
 		}
 	}
 	return nil
