@@ -134,6 +134,15 @@ func (se *signerEndpoint) WriteMessage(msg privvalproto.Message) (err error) {
 		return
 	}
 
+	switch s := msg.Sum.(type) {
+	case *privvalproto.Message_SignProposalRequest:
+		proposal := s.SignProposalRequest.Proposal
+		proposal.TxKeys = nil
+		proposal.Evidence = nil
+		proposal.LastCommit = nil
+		proposal.ProposerAddress = nil
+	}
+
 	_, err = protoWriter.WriteMsg(&msg)
 	if _, ok := err.(timeoutError); ok {
 		if err != nil {
