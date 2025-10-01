@@ -23,8 +23,6 @@ import (
 	"github.com/tendermint/tendermint/types"
 )
 
-//go:generate ../../scripts/mockery_generate.sh Connection
-
 // TransportOptions sets options for Transport.
 type TransportOptions struct {
 	// MaxAcceptedConnections is the maximum number of simultaneous accepted
