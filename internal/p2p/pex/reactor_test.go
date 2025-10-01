@@ -4,10 +4,10 @@ package pex_test
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
-	"net/netip"
 
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
@@ -148,7 +148,7 @@ func TestReactorErrorsOnReceivingTooManyPeers(t *testing.T) {
 
 	r := setupSingle(ctx, t)
 	peer := p2p.Endpoint{
-		AddrPort: netip.AddrPortFrom(netip.IPv6Loopback(),1234),
+		AddrPort: netip.AddrPortFrom(netip.IPv6Loopback(), 1234),
 	}.NodeAddress(randomNodeID())
 	added, err := r.manager.Add(peer)
 	require.NoError(t, err)

@@ -10,16 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"errors"
+	"fmt"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
 	"github.com/tendermint/tendermint/libs/bytes"
-	"github.com/tendermint/tendermint/libs/utils/scope"
-	"github.com/tendermint/tendermint/types"
-	"errors"
-	"fmt"
-	"io"
 	"github.com/tendermint/tendermint/libs/utils"
+	"github.com/tendermint/tendermint/libs/utils/scope"
 	"github.com/tendermint/tendermint/libs/utils/tcp"
+	"github.com/tendermint/tendermint/types"
+	"io"
 
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/internal/p2p/conn"
@@ -228,6 +228,7 @@ func TestTransport_Listen(t *testing.T) {
 		})
 	}
 }
+
 // transportFactory is used to set up transports for tests.
 type transportFactory = func(ctx context.Context) *p2p.Transport
 

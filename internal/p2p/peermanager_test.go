@@ -1,9 +1,9 @@
 package p2p_test
 
 import (
-	"fmt"
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -21,14 +21,15 @@ import (
 )
 
 func testAddr(x string) p2p.NodeAddress {
-	if len(x)!=1 { panic("x must be a single character") }
+	if len(x) != 1 {
+		panic("x must be a single character")
+	}
 	return p2p.NodeAddress{
-		NodeID: types.NodeID(strings.Repeat(x, 40)),
-		Hostname: fmt.Sprintf("%v.com",x),
-		Port: 26657,
+		NodeID:   types.NodeID(strings.Repeat(x, 40)),
+		Hostname: fmt.Sprintf("%v.com", x),
+		Port:     26657,
 	}
 }
-
 
 // FIXME: We should probably have some randomized property-based tests for the
 // PeerManager too, which runs a bunch of random operations with random peers
@@ -707,12 +708,10 @@ func TestPeerManager_TryDialNext_UpgradeReservesPeer(t *testing.T) {
 }
 
 func TestPeerManager_TryDialNext_DialingConnected(t *testing.T) {
-	aID := types.NodeID(strings.Repeat("a", 40))
-	a := p2p.NodeAddress{NodeID: aID}
-	aTCP := p2p.NodeAddress{NodeID: aID, Hostname: "localhost"}
-
-	bID := types.NodeID(strings.Repeat("b", 40))
-	b := p2p.NodeAddress{NodeID: bID}
+	a := testAddr("a")
+	a2 := a
+	a2.Hostname = "else.com"
+	b := testAddr("b")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MaxConnected: 2,
@@ -728,7 +727,7 @@ func TestPeerManager_TryDialNext_DialingConnected(t *testing.T) {
 	require.Equal(t, a, dial)
 
 	// Adding a's TCP address will not dispense a, since it's already dialing.
-	added, err = peerManager.Add(aTCP)
+	added, err = peerManager.Add(a2)
 	require.NoError(t, err)
 	require.True(t, added)
 	dial, err = peerManager.TryDialNext()
@@ -745,7 +744,7 @@ func TestPeerManager_TryDialNext_DialingConnected(t *testing.T) {
 	added, err = peerManager.Add(b)
 	require.NoError(t, err)
 	require.True(t, added)
-	require.NoError(t, peerManager.Accepted(bID))
+	require.NoError(t, peerManager.Accepted(b.NodeID))
 	dial, err = peerManager.TryDialNext()
 	require.NoError(t, err)
 	require.Zero(t, dial)
@@ -757,8 +756,6 @@ func TestPeerManager_TryDialNext_Multiple(t *testing.T) {
 	aID := types.NodeID(strings.Repeat("a", 40))
 	bID := types.NodeID(strings.Repeat("b", 40))
 	addresses := []p2p.NodeAddress{
-		{NodeID: aID},
-		{NodeID: bID},
 		{NodeID: aID, Hostname: "127.0.0.1"},
 		{NodeID: bID, Hostname: "::1"},
 	}
@@ -791,10 +788,8 @@ func TestPeerManager_TryDialNext_Multiple(t *testing.T) {
 func TestPeerManager_DialFailed(t *testing.T) {
 	// DialFailed is tested through other tests, we'll just check a few basic
 	// things here, e.g. reporting unknown addresses.
-	aID := types.NodeID(strings.Repeat("a", 40))
-	a := p2p.NodeAddress{NodeID: aID}
-	bID := types.NodeID(strings.Repeat("b", 40))
-	b := p2p.NodeAddress{NodeID: bID}
+	a := testAddr("a")
+	b := testAddr("b")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{}, p2p.NopMetrics())
 	require.NoError(t, err)
@@ -812,8 +807,8 @@ func TestPeerManager_DialFailed(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, a, dial)
 	require.NoError(t, peerManager.DialFailed(ctx, p2p.NodeAddress{
-		NodeID: aID, Hostname: "localhost"}))
-	require.Equal(t, []p2p.NodeAddress{a}, peerManager.Addresses(aID))
+		NodeID: a.NodeID, Hostname: "localhost"}))
+	require.Equal(t, []p2p.NodeAddress{a}, peerManager.Addresses(a.NodeID))
 
 	dial, err = peerManager.TryDialNext()
 	require.NoError(t, err)
@@ -825,7 +820,7 @@ func TestPeerManager_DialFailed(t *testing.T) {
 
 	// DialFailed on an unknown peer shouldn't error or add it.
 	require.NoError(t, peerManager.DialFailed(ctx, b))
-	require.Equal(t, []types.NodeID{aID}, peerManager.Peers())
+	require.Equal(t, []types.NodeID{a.NodeID}, peerManager.Peers())
 }
 
 func TestPeerManager_DialFailed_UnreservePeer(t *testing.T) {
@@ -946,7 +941,7 @@ func TestPeerManager_Dialed_MaxConnected(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_MaxConnectedUpgrade(t *testing.T) {
-  a := testAddr("a")
+	a := testAddr("a")
 	b := testAddr("b")
 	c := testAddr("c")
 	d := testAddr("d")
@@ -1008,7 +1003,7 @@ func TestPeerManager_Dialed_Unknown(t *testing.T) {
 }
 
 func TestPeerManager_Dialed_Upgrade(t *testing.T) {
-  a := testAddr("a")
+	a := testAddr("a")
 	b := testAddr("b")
 	c := testAddr("c")
 
@@ -1113,7 +1108,7 @@ func TestPeerManager_Dialed_UpgradeNoEvict(t *testing.T) {
 	ctx := t.Context()
 
 	a := testAddr("a")
-	b	 := testAddr("b")
+	b := testAddr("b")
 	c := testAddr("c")
 
 	peerManager, err := p2p.NewPeerManager(log.NewNopLogger(), selfID, dbm.NewMemDB(), p2p.PeerManagerOptions{
@@ -1574,7 +1569,7 @@ func TestPeerManager_TryEvictNext(t *testing.T) {
 	ctx := t.Context()
 
 	a := p2p.NodeAddress{
-		NodeID: types.NodeID(strings.Repeat("a", 40)),
+		NodeID:   types.NodeID(strings.Repeat("a", 40)),
 		Hostname: "a.com",
 		Port:     26657,
 	}

@@ -652,7 +652,6 @@ func (r *Router) handshakePeer(
 // they are closed elsewhere it will cause this method to shut down and return.
 func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connection, channels ChannelIDSet) error {
 	r.metrics.Peers.Add(1)
-	r.peerManager.Ready(ctx, peerID, channels)
 	peerCtx, cancel := context.WithCancel(ctx)
 	state := &peerState{
 		cancel:   cancel,
@@ -665,6 +664,7 @@ func (r *Router) routePeer(ctx context.Context, peerID types.NodeID, conn Connec
 		}
 		states[peerID] = state
 	}
+	r.peerManager.Ready(ctx, peerID, channels)
 	r.logger.Debug("peer connected", "peer", peerID, "endpoint", conn)
 	err := scope.Run(peerCtx, func(ctx context.Context, s scope.Scope) error {
 		s.Spawn(func() error { return r.receivePeer(ctx, peerID, conn) })

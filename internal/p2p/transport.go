@@ -300,6 +300,7 @@ func (c *mConnConnection) Close() error {
 	}
 	return c.mconn.Close()
 }
+
 // Connection represents an established connection between two endpoints.
 //
 // FIXME: This is a temporary interface for backwards-compatibility with the
@@ -350,11 +351,11 @@ type Connection interface {
 
 // Endpoint represents a transport connection endpoint, either local or remote.
 // It is a TCP endpoint address.
-type Endpoint struct { netip.AddrPort }
+type Endpoint struct{ netip.AddrPort }
 
 // NewEndpoint constructs an Endpoint from a types.NetAddress structure.
 func NewEndpoint(addr string) (Endpoint, error) {
-	e,err := types.ParseAddressString(addr)
+	e, err := types.ParseAddressString(addr)
 	return Endpoint{e}, err
 }
 
@@ -363,7 +364,7 @@ func (e Endpoint) NodeAddress(nodeID types.NodeID) NodeAddress {
 	return NodeAddress{
 		NodeID:   nodeID,
 		Hostname: e.Addr().String(),
-		Port: e.Port(),
+		Port:     e.Port(),
 	}
 }
 

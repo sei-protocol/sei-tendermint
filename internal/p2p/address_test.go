@@ -216,7 +216,6 @@ func TestNodeAddress_Resolve(t *testing.T) {
 
 		// Invalid addresses.
 		{p2p.NodeAddress{}, p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Hostname: "127.0.0.1"}, p2p.Endpoint{}, false},
 		{p2p.NodeAddress{Hostname: "127.0.0.1:80"}, p2p.Endpoint{}, false},
 		{p2p.NodeAddress{Hostname: "💥"}, p2p.Endpoint{}, false},
 	}
@@ -268,23 +267,12 @@ func TestNodeAddress_String(t *testing.T) {
 			p2p.NodeAddress{NodeID: id, Hostname: "host.domain"},
 			"mconn://" + user + "@host.domain",
 		},
-		{
-			p2p.NodeAddress{NodeID: id, Hostname: "host", Port: 80},
-			"mconn://" + user + "@host:80/foo/bar",
-		},
 
 		// Addresses with weird contents, which are technically fine (not harmful).
 		{
 			p2p.NodeAddress{NodeID: "👨", Hostname: "💻", Port: 80},
-			"%F0%9F%91%A8@%F0%9F%92%BB:80",
+			"mconn://%F0%9F%91%A8@%F0%9F%92%BB:80",
 		},
-
-		// Partial (invalid) addresses.
-		{p2p.NodeAddress{}, ""},
-		{p2p.NodeAddress{NodeID: id}, user + "@"},
-		{p2p.NodeAddress{Hostname: "host"}, "host"},
-		{p2p.NodeAddress{Port: 80}, ""},
-		{p2p.NodeAddress{NodeID: id, Port: 80}, user + "@"},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.address.String(), func(t *testing.T) {
@@ -302,12 +290,10 @@ func TestNodeAddress_Validate(t *testing.T) {
 		// Valid addresses.
 		{p2p.NodeAddress{NodeID: id, Hostname: "host", Port: 80}, true},
 		{p2p.NodeAddress{NodeID: id, Hostname: "host"}, true},
-		{p2p.NodeAddress{NodeID: id}, true},
 
 		// Invalid addresses.
 		{p2p.NodeAddress{}, false},
 		{p2p.NodeAddress{NodeID: "foo", Hostname: "host"}, false},
-		{p2p.NodeAddress{NodeID: id}, true},
 		{p2p.NodeAddress{NodeID: id, Port: 80}, false},
 	}
 	for _, tc := range testcases {
