@@ -563,7 +563,7 @@ func TestRouter_DialPeer_Reject(t *testing.T) {
 				}
 				defer conn.Close()
 				// Connections should be closed either during handshake, or immediately afterwards.
-				if _, err := conn.Handshake(ctx, tc.info, key); err == nil {
+				if _, err := conn.Handshake(ctx, tc.info, key); err != nil {
 					return nil
 				}
 				if _, _, err := conn.ReceiveMessage(ctx); !errors.Is(err, context.Canceled) {
