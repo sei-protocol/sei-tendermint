@@ -44,7 +44,7 @@ type ChannelDescriptor struct {
 }
 
 func (chDesc ChannelDescriptor) withDefaults() ChannelDescriptor {
-	if chDesc.Priority == 0 {
+	if chDesc.Priority <= 0 {
 		chDesc.Priority = 1
 	}
 	if chDesc.SendQueueCapacity == 0 {
