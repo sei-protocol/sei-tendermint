@@ -91,7 +91,15 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	state State,
 	lastCommit *types.Commit,
 	proposerAddr []byte,
-) (*types.Block, error) {
+) (block *types.Block, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			blockExec.logger.Error("panic recovered in CreateProposalBlock", "panic", r, "height", height)
+			// Convert panic to error
+			block = nil
+			err = fmt.Errorf("CreateProposalBlock panic recovered: %v", r)
+		}
+	}()
 
 	maxBytes := state.ConsensusParams.Block.MaxBytes
 	maxGas := state.ConsensusParams.Block.MaxGas
@@ -103,7 +111,7 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	txs := blockExec.mempool.ReapMaxBytesMaxGas(maxDataBytes, maxGasWanted, maxGas)
-	block := state.MakeBlock(height, txs, lastCommit, evidence, proposerAddr)
+	block = state.MakeBlock(height, txs, lastCommit, evidence, proposerAddr)
 	rpp, err := blockExec.appClient.PrepareProposal(
 		ctx,
 		&abci.RequestPrepareProposal{
@@ -150,7 +158,8 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		}
 	}
 	itxs := txrSet.IncludedTxs()
-	return state.MakeBlock(height, itxs, lastCommit, evidence, proposerAddr), nil
+	block = state.MakeBlock(height, itxs, lastCommit, evidence, proposerAddr)
+	return block, nil
 }
 
 func (blockExec *BlockExecutor) GetTxsForKeys(txKeys []types.TxKey) types.Txs {
@@ -286,7 +295,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		"num_val_updates", len(fBlockRes.ValidatorUpdates),
 		"block_app_hash", fmt.Sprintf("%X", fBlockRes.AppHash),
 	)
-
+	var saveBlockResponseSpan otrace.Span = nil
+	if tracer != nil {
+		_, saveBlockResponseSpan = tracer.Start(ctx, "cs.state.ApplyBlock.SaveBlockResponse")
+		defer saveBlockResponseSpan.End()
+	}
 	// Save the results before we commit.
 	saveBlockResponseTime := time.Now()
 	err = blockExec.store.SaveFinalizeBlockResponses(block.Height, fBlockRes)
@@ -295,6 +308,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		// It is correct to have an empty ResponseFinalizeBlock for ApplyBlock,
 		// but not for saving it to the state store
 		return state, err
+	}
+	if saveBlockResponseSpan != nil {
+		saveBlockResponseSpan.End()
 	}
 
 	// validate the validator updates and convert to tendermint types
@@ -316,6 +332,11 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	// Update the state with the block and responses.
+	var updateStateSpan otrace.Span = nil
+	if tracer != nil {
+		_, updateStateSpan = tracer.Start(ctx, "cs.state.ApplyBlock.UpdateState")
+		defer updateStateSpan.End()
+	}
 	rs, err := abci.MarshalTxResults(fBlockRes.TxResults)
 	if err != nil {
 		return state, fmt.Errorf("marshaling TxResults: %w", err)
@@ -325,7 +346,9 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	if err != nil {
 		return state, fmt.Errorf("commit failed for application: %w", err)
 	}
-
+	if updateStateSpan != nil {
+		updateStateSpan.End()
+	}
 	var commitSpan otrace.Span = nil
 	if tracer != nil {
 		_, commitSpan = tracer.Start(ctx, "cs.state.ApplyBlock.Commit")
@@ -347,16 +370,37 @@ func (blockExec *BlockExecutor) ApplyBlock(
 	}
 
 	// Update evpool with the latest state.
+	var updateEvpoolSpan otrace.Span = nil
+	if tracer != nil {
+		_, updateEvpoolSpan = tracer.Start(ctx, "cs.state.ApplyBlock.UpdateEvpool")
+		defer updateEvpoolSpan.End()
+	}
 	blockExec.evpool.Update(ctx, state, block.Evidence)
+	if updateEvpoolSpan != nil {
+		updateEvpoolSpan.End()
+	}
 
 	// Update the app hash and save the state.
+	var saveBlockSpan otrace.Span = nil
+	if tracer != nil {
+		_, saveBlockSpan = tracer.Start(ctx, "cs.state.ApplyBlock.SaveBlock")
+		defer saveBlockSpan.End()
+	}
 	saveBlockTime := time.Now()
 	state.AppHash = fBlockRes.AppHash
 	if err := blockExec.store.Save(state); err != nil {
 		return state, err
 	}
 	blockExec.metrics.SaveBlockLatency.Observe(float64(time.Since(saveBlockTime).Milliseconds()))
+	if saveBlockSpan != nil {
+		saveBlockSpan.End()
+	}
 	// Prune old heights, if requested by ABCI app.
+	var pruneBlockSpan otrace.Span = nil
+	if tracer != nil {
+		_, pruneBlockSpan = tracer.Start(ctx, "cs.state.ApplyBlock.PruneBlock")
+		defer pruneBlockSpan.End()
+	}
 	pruneBlockTime := time.Now()
 	if retainHeight > 0 {
 		pruned, err := blockExec.pruneBlocks(retainHeight)
@@ -367,14 +411,25 @@ func (blockExec *BlockExecutor) ApplyBlock(
 		}
 	}
 	blockExec.metrics.PruneBlockLatency.Observe(float64(time.Since(pruneBlockTime).Milliseconds()))
+	if pruneBlockSpan != nil {
+		pruneBlockSpan.End()
+	}
 	// reset the verification cache
 	blockExec.cache = make(map[string]struct{})
 
 	// Events are fired after everything else.
 	// NOTE: if we crash between Commit and Save, events wont be fired during replay
+	var fireEventsSpan otrace.Span = nil
+	if tracer != nil {
+		_, fireEventsSpan = tracer.Start(ctx, "cs.state.ApplyBlock.FireEvents")
+		defer fireEventsSpan.End()
+	}
 	fireEventsStartTime := time.Now()
 	FireEvents(blockExec.logger, blockExec.eventBus, block, blockID, fBlockRes, validatorUpdates)
 	blockExec.metrics.FireEventsLatency.Observe(float64(time.Since(fireEventsStartTime).Milliseconds()))
+	if fireEventsSpan != nil {
+		fireEventsSpan.End()
+	}
 	return state, nil
 }
 
