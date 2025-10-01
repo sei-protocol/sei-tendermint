@@ -55,7 +55,7 @@ type Transport struct {
 	endpoint     Endpoint
 	options      TransportOptions
 	mConnConfig  conn.MConnConfig
-	channelDescs []*ChannelDescriptor
+	channelDescs utils.Mutex[*[]*ChannelDescriptor]
 	started      chan struct{}
 	listener     chan *mConnConnection
 }
@@ -75,7 +75,7 @@ func NewTransport(
 		endpoint:     endpoint,
 		options:      options,
 		mConnConfig:  mConnConfig,
-		channelDescs: channelDescs,
+		channelDescs: utils.NewMutex(&channelDescs),
 		// This is rendezvous channel, so that no unclosed connections get stuck inside
 		// when transport is closing.
 		started:  make(chan struct{}),
@@ -124,7 +124,8 @@ func (m *Transport) Run(ctx context.Context) error {
 				}
 				return err
 			}
-			mconn := newMConnConnection(m.logger, conn, m.mConnConfig, m.channelDescs)
+			descs := m.getChannelDescs()
+			mconn := newMConnConnection(m.logger, conn, m.mConnConfig, descs)
 			if err := utils.Send(ctx, m.listener, mconn); err != nil {
 				mconn.Close()
 				return err
@@ -156,7 +157,8 @@ func (m *Transport) Dial(ctx context.Context, endpoint Endpoint) (Connection, er
 	if err != nil {
 		return nil, fmt.Errorf("dialer.DialContext(%v): %w", endpoint, err)
 	}
-	return newMConnConnection(m.logger, tcpConn, m.mConnConfig, m.channelDescs), nil
+	descs := m.getChannelDescs()
+	return newMConnConnection(m.logger, tcpConn, m.mConnConfig, descs), nil
 }
 
 // SetChannels sets the channel descriptors to be used when
@@ -167,7 +169,18 @@ func (m *Transport) Dial(ctx context.Context, endpoint Endpoint) (Connection, er
 // connections should be agnostic to everything but the channel ID's which are
 // initialized in the handshake.
 func (m *Transport) AddChannelDescriptors(channelDesc []*ChannelDescriptor) {
-	m.channelDescs = append(m.channelDescs, channelDesc...)
+	for descs := range m.channelDescs.Lock() {
+		*descs = append(*descs, channelDesc...)
+	}
+}
+
+func (m *Transport) getChannelDescs() []*ChannelDescriptor {
+	var descs []*ChannelDescriptor
+	for d := range m.channelDescs.Lock() {
+		descs = make([]*ChannelDescriptor, len(*d))
+		copy(descs, *d)
+	}
+	return descs
 }
 
 type InvalidEndpointErr struct{ error }
