@@ -1,3 +1,7 @@
+
+> [!IMPORTANT]
+> This repository has been archived and is moved to [`sei-chain`](https://github.com/sei-protocol/sei-chain) as a nested module.
+
 # Tendermint
 
 ![banner](docs/tendermint-core-image.jpg)
