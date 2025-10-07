@@ -1,14 +1,14 @@
 package p2p_test
 
 import (
-	"net/netip"
+	"net"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/internal/p2p"
-	"github.com/tendermint/tendermint/libs/utils/require"
-	"github.com/tendermint/tendermint/libs/utils/tcp"
 	"github.com/tendermint/tendermint/types"
 )
 
@@ -202,61 +202,61 @@ func TestNodeAddress_Resolve(t *testing.T) {
 
 	testcases := []struct {
 		address p2p.NodeAddress
-		expect  p2p.Endpoint
+		expect  *p2p.Endpoint
 		ok      bool
 	}{
 		// Valid networked addresses (with hostname).
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1", Port: 80, Path: "/path"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(), 80), Path: "/path"},
+			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1), Port: 80, Path: "/path"},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(tcp.IPv4Loopback(), 0)},
+			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(127, 0, 0, 1)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "::1"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.IPv6Loopback(), 0)},
+			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv6loopback},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "8.8.8.8"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom4([4]byte{8, 8, 8, 8}), 0)},
+			&p2p.Endpoint{Protocol: "tcp", IP: net.IPv4(8, 8, 8, 8)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "2001:0db8::ff00:0042:8329"},
-			p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(netip.AddrFrom16([16]byte{
-				0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x42, 0x83, 0x29}), 0)},
+			&p2p.Endpoint{Protocol: "tcp", IP: []byte{
+				0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x42, 0x83, 0x29}},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "tcp", Hostname: "some.missing.host.tendermint.com"},
-			p2p.Endpoint{},
+			&p2p.Endpoint{},
 			false,
 		},
 
 		// Valid non-networked addresses.
 		{
 			p2p.NodeAddress{Protocol: "memory", NodeID: id},
-			p2p.Endpoint{Protocol: "memory", Path: string(id)},
+			&p2p.Endpoint{Protocol: "memory", Path: string(id)},
 			true,
 		},
 		{
 			p2p.NodeAddress{Protocol: "memory", NodeID: id, Path: string(id)},
-			p2p.Endpoint{Protocol: "memory", Path: string(id)},
+			&p2p.Endpoint{Protocol: "memory", Path: string(id)},
 			true,
 		},
 
 		// Invalid addresses.
-		{p2p.NodeAddress{}, p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Hostname: "127.0.0.1"}, p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1:80"}, p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "memory"}, p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "memory", Path: string(id)}, p2p.Endpoint{}, false},
-		{p2p.NodeAddress{Protocol: "tcp", Hostname: "💥"}, p2p.Endpoint{}, false},
+		{p2p.NodeAddress{}, &p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Hostname: "127.0.0.1"}, &p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "tcp", Hostname: "127.0.0.1:80"}, &p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "memory"}, &p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "memory", Path: string(id)}, &p2p.Endpoint{}, false},
+		{p2p.NodeAddress{Protocol: "tcp", Hostname: "💥"}, &p2p.Endpoint{}, false},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.address.String(), func(t *testing.T) {
@@ -265,26 +265,39 @@ func TestNodeAddress_Resolve(t *testing.T) {
 				require.Error(t, err)
 				return
 			}
-			ok := false
-			tc.expect.Addr = tcp.Norm(tc.expect.Addr)
-			for _, e := range endpoints {
-				e.Addr = tcp.Norm(e.Addr)
-				ok = ok || e == tc.expect
+
+			// Special handling for localhost tests - accept either IPv4 or IPv6
+			if tc.address.Hostname == "localhost" && tc.address.Port == 80 && tc.address.Path == "/path" {
+				hasIPv4 := false
+				hasIPv6 := false
+				for _, ep := range endpoints {
+					if ep.Protocol == "tcp" && ep.Port == 80 && ep.Path == "/path" {
+						if ep.IP.Equal(net.IPv4(127, 0, 0, 1)) {
+							hasIPv4 = true
+						}
+						if ep.IP.Equal(net.IPv6loopback) {
+							hasIPv6 = true
+						}
+					}
+				}
+				require.True(t, hasIPv4 || hasIPv6, "localhost should resolve to either IPv4 or IPv6")
+				return
 			}
-			if !ok {
-				t.Fatalf("%v not in %v", tc.expect, endpoints)
-			}
+
+			require.Contains(t, endpoints, tc.expect)
 		})
 	}
 	t.Run("Resolve localhost", func(t *testing.T) {
 		addr := p2p.NodeAddress{Protocol: "tcp", Hostname: "localhost", Port: 80, Path: "/path"}
 		endpoints, err := addr.Resolve(t.Context())
 		require.NoError(t, err)
+
+		want := &p2p.Endpoint{Protocol: "tcp", Port: 80, Path: "/path"}
 		require.True(t, len(endpoints) > 0)
 		for _, got := range endpoints {
-			require.True(t, got.Addr.Addr().IsLoopback())
+			require.True(t, got.IP.IsLoopback())
 			// Any loopback address is acceptable, so ignore it in comparison.
-			want := p2p.Endpoint{Protocol: "tcp", Addr: netip.AddrPortFrom(got.Addr.Addr(), 80), Path: "/path"}
+			want.IP = got.IP
 			require.Equal(t, want, got)
 		}
 	})

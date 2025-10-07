@@ -17,21 +17,8 @@ var False = require.False
 // True .
 var True = require.True
 
-// Zero .
-var Zero = require.Zero
-
-// NotZero .
-var NotZero = require.NotZero
-
 // Contains .
 var Contains = require.Contains
-
-func ElementsMatch[T any](t TestingT, a []T, b []T, msgAndArgs ...any) {
-	require.ElementsMatch(t, a, b, msgAndArgs...)
-}
-
-// Eventually .
-var Eventually = require.Eventually
 
 // EqualError .
 // TODO: get rid of comparing errors by strings,
@@ -78,19 +65,9 @@ func Less[T cmp.Ordered](t TestingT, e1, e2 T, msgAndArgs ...any) {
 	require.Less(t, e1, e2, msgAndArgs...)
 }
 
-// LessOrEqual .
-func LessOrEqual[T cmp.Ordered](t TestingT, e1, e2 T, msgAndArgs ...any) {
-	require.LessOrEqual(t, e1, e2, msgAndArgs...)
-}
-
 // Greater .
 func Greater[T cmp.Ordered](t TestingT, e1, e2 T, msgAndArgs ...any) {
 	require.Greater(t, e1, e2, msgAndArgs...)
-}
-
-// GreaterOrEqual .
-func GreaterOrEqual[T cmp.Ordered](t TestingT, e1, e2 T, msgAndArgs ...any) {
-	require.GreaterOrEqual(t, e1, e2, msgAndArgs...)
 }
 
 // Equal .

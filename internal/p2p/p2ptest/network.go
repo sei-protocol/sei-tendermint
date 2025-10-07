@@ -51,7 +51,7 @@ func (opts *NetworkOptions) setDefaults() {
 // connects them to each other.
 func MakeNetwork(ctx context.Context, t *testing.T, opts NetworkOptions) *Network {
 	opts.setDefaults()
-	logger, _ := log.NewDefaultLogger("plain", "info")
+	logger := log.NewNopLogger()
 	network := &Network{
 		Nodes:         map[types.NodeID]*Node{},
 		logger:        logger,
@@ -144,12 +144,13 @@ func (n *Network) NodeIDs() []types.NodeID {
 // MakeChannels makes a channel on all nodes and returns them, automatically
 // doing error checks and cleanups.
 func (n *Network) MakeChannels(
+	ctx context.Context,
 	t *testing.T,
 	chDesc *p2p.ChannelDescriptor,
 ) map[types.NodeID]*p2p.Channel {
 	channels := map[types.NodeID]*p2p.Channel{}
 	for _, node := range n.Nodes {
-		channels[node.NodeID] = node.MakeChannel(t, chDesc)
+		channels[node.NodeID] = node.MakeChannel(ctx, t, chDesc)
 	}
 	return channels
 }
@@ -158,12 +159,13 @@ func (n *Network) MakeChannels(
 // automatically doing error checks. The caller must ensure proper cleanup of
 // all the channels.
 func (n *Network) MakeChannelsNoCleanup(
+	ctx context.Context,
 	t *testing.T,
 	chDesc *p2p.ChannelDescriptor,
 ) map[types.NodeID]*p2p.Channel {
 	channels := map[types.NodeID]*p2p.Channel{}
 	for _, node := range n.Nodes {
-		channels[node.NodeID] = node.MakeChannelNoCleanup(t, chDesc)
+		channels[node.NodeID] = node.MakeChannelNoCleanup(ctx, t, chDesc)
 	}
 	return channels
 }
@@ -203,6 +205,7 @@ func (n *Network) Remove(ctx context.Context, t *testing.T, id types.NodeID) {
 		subs = append(subs, sub)
 	}
 
+	require.NoError(t, node.Transport.Close())
 	node.cancel()
 	if node.Router.IsRunning() {
 		node.Router.Stop()
@@ -219,7 +222,6 @@ func (n *Network) Remove(ctx context.Context, t *testing.T, id types.NodeID) {
 
 // Node is a node in a Network, with a Router and a PeerManager.
 type Node struct {
-	Logger      log.Logger
 	NodeID      types.NodeID
 	NodeInfo    types.NodeInfo
 	NodeAddress p2p.NodeAddress
@@ -246,13 +248,16 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	}
 
 	transport := n.memoryNetwork.CreateTransport(nodeID)
+	ep, err := transport.Endpoint()
+	require.NoError(t, err)
+	require.NotNil(t, ep, "transport not listening an endpoint")
+
 	maxRetryTime := 1000 * time.Millisecond
 	if opts.MaxRetryTime > 0 {
 		maxRetryTime = opts.MaxRetryTime
 	}
 
-	logger := n.logger.With("node", nodeID[:5])
-	peerManager, err := p2p.NewPeerManager(logger, nodeID, dbm.NewMemDB(), p2p.PeerManagerOptions{
+	peerManager, err := p2p.NewPeerManager(n.logger, nodeID, dbm.NewMemDB(), p2p.PeerManagerOptions{
 		MinRetryTime:    10 * time.Millisecond,
 		MaxRetryTime:    maxRetryTime,
 		RetryTimeJitter: time.Millisecond,
@@ -262,14 +267,15 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 	require.NoError(t, err)
 
 	router, err := p2p.NewRouter(
-		logger,
+		n.logger,
 		p2p.NopMetrics(),
 		privKey,
 		peerManager,
 		func() *types.NodeInfo { return &nodeInfo },
 		transport,
+		ep,
 		nil,
-		p2p.RouterOptions{DialSleep: func(_ context.Context) error { return nil }},
+		p2p.RouterOptions{DialSleep: func(_ context.Context) {}},
 	)
 
 	require.NoError(t, err)
@@ -280,14 +286,14 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 			router.Stop()
 			router.Wait()
 		}
+		require.NoError(t, transport.Close())
 		cancel()
 	})
 
 	return &Node{
-		Logger:      logger,
 		NodeID:      nodeID,
 		NodeInfo:    nodeInfo,
-		NodeAddress: transport.Endpoint().NodeAddress(nodeID),
+		NodeAddress: ep.NodeAddress(nodeID),
 		PrivKey:     privKey,
 		Router:      router,
 		PeerManager: peerManager,
@@ -300,13 +306,16 @@ func (n *Network) MakeNode(ctx context.Context, t *testing.T, opts NodeOptions) 
 // test cleanup, it also checks that the channel is empty, to make sure
 // all expected messages have been asserted.
 func (n *Node) MakeChannel(
+	ctx context.Context,
 	t *testing.T,
 	chDesc *p2p.ChannelDescriptor,
 ) *p2p.Channel {
-	channel, err := n.Router.OpenChannel(chDesc)
+	ctx, cancel := context.WithCancel(ctx)
+	channel, err := n.Router.OpenChannel(ctx, chDesc)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		RequireEmpty(t, channel)
+		RequireEmpty(ctx, t, channel)
+		cancel()
 	})
 	return channel
 }
@@ -314,10 +323,11 @@ func (n *Node) MakeChannel(
 // MakeChannelNoCleanup opens a channel, with automatic error handling. The
 // caller must ensure proper cleanup of the channel.
 func (n *Node) MakeChannelNoCleanup(
+	ctx context.Context,
 	t *testing.T,
 	chDesc *p2p.ChannelDescriptor,
 ) *p2p.Channel {
-	channel, err := n.Router.OpenChannel(chDesc)
+	channel, err := n.Router.OpenChannel(ctx, chDesc)
 	require.NoError(t, err)
 	return channel
 }

@@ -3,7 +3,8 @@ package types
 import (
 	"errors"
 	"fmt"
-	"net/netip"
+	"net"
+	"strconv"
 	"strings"
 
 	"github.com/tendermint/tendermint/libs/bytes"
@@ -76,7 +77,7 @@ func (info NodeInfo) ID() NodeID {
 // url-encoding), and we just need to be careful with how we handle that in our
 // clients. (e.g. off by default).
 func (info NodeInfo) Validate() error {
-	if _, err := ParseAddressString(info.ID().AddressString(info.ListenAddr)); err != nil {
+	if _, _, err := ParseAddressString(info.ID().AddressString(info.ListenAddr)); err != nil {
 		return err
 	}
 
@@ -235,22 +236,48 @@ func NodeInfoFromProto(pb *tmp2p.NodeInfo) (NodeInfo, error) {
 // ParseAddressString reads an address string, and returns the IP
 // address and port information, returning an error for any validation
 // errors.
-func ParseAddressString(addr string) (netip.AddrPort, error) {
+func ParseAddressString(addr string) (net.IP, uint16, error) {
 	addrWithoutProtocol := removeProtocolIfDefined(addr)
 	spl := strings.Split(addrWithoutProtocol, "@")
 	if len(spl) != 2 {
-		return netip.AddrPort{}, errors.New("invalid address")
+		return nil, 0, errors.New("invalid address")
 	}
 
 	id, err := NewNodeID(spl[0])
 	if err != nil {
-		return netip.AddrPort{}, err
+		return nil, 0, err
 	}
 
 	if err := id.Validate(); err != nil {
-		return netip.AddrPort{}, err
+		return nil, 0, err
 	}
-	return netip.ParseAddrPort(spl[1])
+
+	addrWithoutProtocol = spl[1]
+
+	// get host and port
+	host, portStr, err := net.SplitHostPort(addrWithoutProtocol)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(host) == 0 {
+		return nil, 0, err
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return nil, 0, err
+		}
+		ip = ips[0]
+	}
+
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return ip, uint16(port), nil
 }
 
 func removeProtocolIfDefined(addr string) string {

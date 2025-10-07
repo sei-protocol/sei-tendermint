@@ -59,7 +59,7 @@ func setupReactors(ctx context.Context, t *testing.T, logger log.Logger, numNode
 	}
 
 	chDesc := GetChannelDescriptor(cfg.Mempool)
-	rts.mempoolChannels = rts.network.MakeChannelsNoCleanup(t, chDesc)
+	rts.mempoolChannels = rts.network.MakeChannelsNoCleanup(ctx, t, chDesc)
 
 	for nodeID := range rts.network.Nodes {
 		rts.kvstores[nodeID] = kvstore.NewApplication()
@@ -174,7 +174,7 @@ func TestReactorBroadcastDoesNotPanic(t *testing.T) {
 	go primaryReactor.broadcastTxRoutine(ctx, secondary, rts.mempoolChannels[primary])
 
 	wg := &sync.WaitGroup{}
-	for range 50 {
+	for i := 0; i < 50; i++ {
 		next := &WrappedTx{}
 		wg.Add(1)
 		go func() {

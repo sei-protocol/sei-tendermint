@@ -22,7 +22,6 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	tmmath "github.com/tendermint/tendermint/libs/math"
 	"github.com/tendermint/tendermint/libs/service"
-	"github.com/tendermint/tendermint/libs/utils"
 	tmp2p "github.com/tendermint/tendermint/proto/tendermint/p2p"
 )
 
@@ -303,9 +302,9 @@ func (c *MConnection) stopForError(ctx context.Context, r interface{}) {
 }
 
 // Queues a message to be sent to channel.
-func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte) error {
+func (c *MConnection) Send(chID ChannelID, msgBytes []byte) bool {
 	if !c.IsRunning() {
-		return errors.New("not running")
+		return false
 	}
 
 	c.logger.Debug("Send", "channel", chID, "conn", c, "msgBytes", msgBytes)
@@ -313,18 +312,21 @@ func (c *MConnection) Send(ctx context.Context, chID ChannelID, msgBytes []byte)
 	// Send message to channel.
 	channel, ok := c.channelsIdx[chID]
 	if !ok {
-		return fmt.Errorf("Cannot send bytes, unknown channel %X", chID)
+		c.logger.Error(fmt.Sprintf("Cannot send bytes, unknown channel %X", chID))
+		return false
 	}
 
-	if err := channel.sendBytes(ctx, msgBytes); err != nil {
-		return fmt.Errorf("channel.sendBytes(): %v", err)
+	success := channel.sendBytes(msgBytes)
+	if success {
+		// Wake up sendRoutine if necessary
+		select {
+		case c.send <- struct{}{}:
+		default:
+		}
+	} else {
+		c.logger.Debug("Send failed", "channel", chID, "conn", c, "msgBytes", msgBytes)
 	}
-	// Wake up sendRoutine if necessary
-	select {
-	case c.send <- struct{}{}:
-	default:
-	}
-	return nil
+	return success
 }
 
 // sendRoutine polls for packets to send from channels.
@@ -643,11 +645,12 @@ type channel struct {
 	// See https://github.com/tendermint/tendermint/issues/7000.
 	recentlySent int64
 
-	conn      *MConnection
-	desc      ChannelDescriptor
-	sendQueue chan []byte
-	recving   []byte
-	sending   []byte
+	conn          *MConnection
+	desc          ChannelDescriptor
+	sendQueue     chan []byte
+	sendQueueSize int32 // atomic.
+	recving       []byte
+	sending       []byte
 
 	maxPacketMsgPayloadSize int
 
@@ -672,10 +675,16 @@ func newChannel(conn *MConnection, desc ChannelDescriptor) *channel {
 // Queues message to send to this channel.
 // Goroutine-safe
 // Times out (and returns false) after defaultSendTimeout
-func (ch *channel) sendBytes(ctx context.Context, bytes []byte) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultSendTimeout)
-	defer cancel()
-	return utils.Send(ctx, ch.sendQueue, bytes)
+func (ch *channel) sendBytes(bytes []byte) bool {
+	timer := time.NewTimer(defaultSendTimeout)
+	defer timer.Stop()
+	select {
+	case ch.sendQueue <- bytes:
+		atomic.AddInt32(&ch.sendQueueSize, 1)
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // Returns true if any PacketMsgs are pending to be sent.
@@ -700,6 +709,7 @@ func (ch *channel) nextPacketMsg() tmp2p.PacketMsg {
 	if len(ch.sending) <= maxSize {
 		packet.EOF = true
 		ch.sending = nil
+		atomic.AddInt32(&ch.sendQueueSize, -1) // decrement sendQueueSize
 	} else {
 		packet.EOF = false
 		ch.sending = ch.sending[tmmath.MinInt(maxSize, len(ch.sending)):]
