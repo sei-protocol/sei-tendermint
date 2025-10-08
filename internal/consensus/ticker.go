@@ -37,6 +37,7 @@ func NewTimeoutTicker(logger log.Logger) TimeoutTicker {
 	tt := &timeoutTicker{
 		logger:   logger,
 		tick:     utils.NewAtomicWatch(utils.None[timeoutInfo]()),
+		tock: 	  utils.NewAtomicWatch(utils.None[timeoutInfo]()),
 		tockChan: make(chan timeoutInfo, tickTockBufferSize),
 	}
 	return tt
@@ -81,7 +82,7 @@ func (t *timeoutTicker) Run(ctx context.Context) error {
 		// Task reporting timeouts via channel.
 		// TODO(gprusak): it would be better to expose t.tock directly,
 		// however the receiving task doesn't support receiving from AtomicWatch yet.
-		return t.tick.Iter(ctx, func(ctx context.Context, mto utils.Option[timeoutInfo]) error {
+		return t.tock.Iter(ctx, func(ctx context.Context, mto utils.Option[timeoutInfo]) error {
 			to, ok := mto.Get()
 			if !ok {
 				return nil
