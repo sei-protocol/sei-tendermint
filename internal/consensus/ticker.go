@@ -28,6 +28,7 @@ type TimeoutTicker interface {
 type timeoutTicker struct {
 	logger   log.Logger
 	tick     utils.AtomicWatch[utils.Option[timeoutInfo]] // for scheduling timeouts
+	tock     utils.AtomicWatch[utils.Option[timeoutInfo]] // last fired timeout
 	tockChan chan timeoutInfo                             // for notifying about them
 }
 
@@ -61,18 +62,31 @@ func (t *timeoutTicker) ScheduleTimeout(newti timeoutInfo) {
 // timeouts of 0 on the tickChan will be immediately relayed to the tockChan
 func (t *timeoutTicker) Run(ctx context.Context) error {
 	return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		return t.tick.Iter(ctx, func(ctx context.Context, mti utils.Option[timeoutInfo]) error {
-			ti, ok := mti.Get()
+		s.Spawn(func() error {
+			// Task measuring timeouts.
+			return t.tick.Iter(ctx, func(ctx context.Context, mti utils.Option[timeoutInfo]) error {
+				ti, ok := mti.Get()
+				if !ok {
+					return nil
+				}
+				t.logger.Debug("Internal state machine timeout scheduled", "duration", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+				if err := utils.Sleep(ctx, ti.Duration); err != nil {
+					return err
+				}
+				t.logger.Debug("Internal state machine timeout elapsed ", "duration", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
+				t.tock.Store(utils.Some(ti))
+				return nil
+			})
+		})
+		// Task reporting timeouts via channel.
+		// TODO(gprusak): it would be better to expose t.tock directly,
+		// however the receiving task doesn't support receiving from AtomicWatch yet.
+		return t.tick.Iter(ctx, func(ctx context.Context, mto utils.Option[timeoutInfo]) error {
+			to, ok := mto.Get()
 			if !ok {
 				return nil
 			}
-			t.logger.Debug("Internal state machine timeout scheduled", "duration", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
-			if err := utils.Sleep(ctx, ti.Duration); err != nil {
-				return err
-			}
-			t.logger.Debug("Internal state machine timeout elapsed ", "duration", ti.Duration, "height", ti.Height, "round", ti.Round, "step", ti.Step)
-			s.Spawn(func() error { return utils.Send(ctx, t.tockChan, ti) })
-			return nil
+			return utils.Send(ctx, t.tockChan, to)
 		})
 	})
 }
