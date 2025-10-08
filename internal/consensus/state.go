@@ -1650,6 +1650,15 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 	if cs.roundState.Proposal() == nil {
 		logger.Info("prevote step: did not receive proposal; prevoting nil")
+		done := make(chan struct{})
+		defer close(done)
+		go func() {
+			select {
+			case <-time.After(time.Second * 10):
+				logger.Error("signAddVote(prevote) takes over 10s")
+			case <-done:
+			}
+		}()
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
@@ -2861,6 +2870,7 @@ func (cs *State) signVote(
 	if err := cs.wal.FlushAndSync(); err != nil {
 		return nil, err
 	}
+	cs.logger.Info("FlushAndSync() done")
 
 	if cs.privValidatorPubKey == nil {
 		return nil, errPubKeyIsNotSet
