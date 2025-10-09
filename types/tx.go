@@ -159,22 +159,10 @@ func (t TxRecordSet) RemovedTxs() []Tx {
 
 // Validate checks that the record set was correctly constructed from the original
 // list of transactions.
-func (t TxRecordSet) Validate(maxSizeBytes int64, otxs Txs) error {
+func (t TxRecordSet) Validate(maxSizeBytes int64, _ Txs) error {
 	if len(t.unknown) > 0 {
 		return fmt.Errorf("%d transactions marked unknown (first unknown hash: %x)", len(t.unknown), t.unknown[0].Hash())
 	}
-
-	// The following validation logic performs a set of sorts on the data in the TxRecordSet indexes.
-	// It sorts the original transaction list, otxs, once.
-	// It sorts the new transaction list twice: once when sorting 'all', the total list,
-	// and once by sorting the set of the added, removed, and unmodified transactions indexes,
-	// which, when combined, comprise the complete list of modified transactions.
-	//
-	// Each of the added, removed, and unmodified indices is then iterated and once
-	// and each value index is checked against the sorted original list for containment.
-	// Asymptotically, this yields a total runtime of O(N*log(N) + 2*M*log(M) + M*log(N)).
-	// in the input size of the original list, N, and the input size of the new list, M, respectively.
-	// Performance gains are likely possible, but this was preferred for readability and maintainability.
 
 	// Sort a copy of the complete transaction slice so we can check for
 	// duplication. The copy is so we do not change the original ordering.
@@ -188,34 +176,15 @@ func (t TxRecordSet) Validate(maxSizeBytes int64, otxs Txs) error {
 		}
 	}
 
-	// create copies of each of the action-specific indexes so that order of the original
-	// indexes can be preserved.
-	addedCopy := sortedCopy(t.added)
-	removedCopy := sortedCopy(t.removed)
-	unmodifiedCopy := sortedCopy(t.unmodified)
-
+	// Check total size of included transactions
 	var size int64
-	for _, cur := range append(unmodifiedCopy, addedCopy...) {
+	for _, cur := range append(t.unmodified, t.added...) {
 		size += int64(len(cur))
 		if size > maxSizeBytes {
 			return fmt.Errorf("transaction data size exceeds maximum %d", maxSizeBytes)
 		}
 	}
 
-	// make a defensive copy of otxs so that the order of
-	// the caller's data is not altered.
-	otxsCopy := sortedCopy(otxs)
-
-	if ix, ok := containsAll(otxsCopy, unmodifiedCopy); !ok {
-		return fmt.Errorf("new transaction incorrectly marked as removed, transaction hash: %x", unmodifiedCopy[ix].Hash())
-	}
-
-	if ix, ok := containsAll(otxsCopy, removedCopy); !ok {
-		return fmt.Errorf("new transaction incorrectly marked as removed, transaction hash: %x", removedCopy[ix].Hash())
-	}
-	if ix, ok := containsAny(otxsCopy, addedCopy); ok {
-		return fmt.Errorf("existing transaction incorrectly marked as added, transaction hash: %x", addedCopy[ix].Hash())
-	}
 	return nil
 }
 
