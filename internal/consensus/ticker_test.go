@@ -31,7 +31,7 @@ func TestTicker(t *testing.T) {
 		for h < int64(cap(ch)) {
 			h += 1
 			ticker.ScheduleTimeout(timeoutInfo{Height: h, Duration: 0})
-			for len(ch) <= int(h) {
+			for len(ch) < int(h) {
 				if err := utils.Sleep(ctx, 10*time.Millisecond); err != nil {
 					return err
 				}
