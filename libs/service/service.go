@@ -165,6 +165,10 @@ func (bs *BaseService) Spawn(name string, task func(ctx context.Context) error) 
 	}()
 }
 
+// Spawns a critical task which should run as long as the service is running.
+// It panics in any of the following cases:
+// * task returns BEFORE the service is canceled (even if it returns no error)
+// * task returns an error other than context.Canceled.
 func (bs *BaseService) SpawnCritical(name string, task func(ctx context.Context) error) {
 	inner := bs.inner.Load()
 	if inner == nil {
@@ -174,7 +178,7 @@ func (bs *BaseService) SpawnCritical(name string, task func(ctx context.Context)
 	inner.wg.Add(1)
 	go func() {
 		defer inner.wg.Done()
-		if err := utils.IgnoreCancel(task(inner.ctx)); err != nil {
+		if err := task(inner.ctx); utils.IgnoreCancel(err) != nil || inner.ctx.Err() == nil {
 			panic(fmt.Sprintf("critical task failed: name=%v, service=%v: %v", name, bs.name, err))
 		}
 	}()

@@ -431,10 +431,7 @@ func (cs *State) OnStart(ctx context.Context) error {
 
 	// we need the timeoutRoutine for replay so
 	// we don't block on the tick chan.
-	// NOTE: we will get a build up of garbage go routines
-	// firing on the tockChan until the receiveRoutine is started
-	// to deal with them (by that point, at most one will be valid)
-	cs.Spawn("timeoutTicker", cs.timeoutTicker.Run)
+	cs.SpawnCritical("timeoutTicker", cs.timeoutTicker.Run)
 
 	// We may have lost some votes if the process crashed reload from consensus
 	// log to catchup.
@@ -1650,15 +1647,6 @@ func (cs *State) defaultDoPrevote(ctx context.Context, height int64, round int32
 
 	if cs.roundState.Proposal() == nil {
 		logger.Info("prevote step: did not receive proposal; prevoting nil")
-		done := make(chan struct{})
-		defer close(done)
-		go func() {
-			select {
-			case <-time.After(time.Second * 10):
-				logger.Error("signAddVote(prevote) takes over 10s")
-			case <-done:
-			}
-		}()
 		cs.signAddVote(ctx, tmproto.PrevoteType, nil, types.PartSetHeader{})
 		return
 	}
@@ -2870,7 +2858,6 @@ func (cs *State) signVote(
 	if err := cs.wal.FlushAndSync(); err != nil {
 		return nil, err
 	}
-	cs.logger.Info("FlushAndSync() done")
 
 	if cs.privValidatorPubKey == nil {
 		return nil, errPubKeyIsNotSet
