@@ -117,7 +117,7 @@ type Endpoint struct {
 
 // NewEndpoint constructs an Endpoint from a types.NetAddress structure.
 func NewEndpoint(addr string) (Endpoint, error) {
-	addrPort, err := types.ParseAddressString(addr)
+	addrPort, err := types.ResolveAddressString(addr)
 	if err != nil {
 		return Endpoint{}, err
 	}
