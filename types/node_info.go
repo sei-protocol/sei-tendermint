@@ -250,8 +250,8 @@ func ResolveAddressString(addr string) (netip.AddrPort, error) {
 		return netip.AddrPort{}, err
 	}
 
-	tcpAddr,err := net.ResolveTCPAddr("tcp", spl[1])
-	if err!=nil {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", spl[1])
+	if err != nil {
 		return netip.AddrPort{}, err
 	}
 	return tcpAddr.AddrPort(), nil
