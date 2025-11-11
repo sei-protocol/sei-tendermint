@@ -883,11 +883,14 @@ func (blockExec *BlockExecutor) PruneBlocks(retainHeight int64) (uint64, error) 
 	// Note here we intentionally only prune a single height instead of from base till retain height for perf reasons
 	if blockExec.indexerService != nil && blockExec.enableIndexerPruning && retainHeight > 0 {
 		targetHeight := retainHeight - 1
+		fmt.Printf("[Debug] Pruning index store for height %d\n", targetHeight)
 		if targetHeight > 0 {
+			startTime := time.Now()
 			if err := blockExec.indexerService.Prune(targetHeight); err != nil {
 				blockExec.logger.Error("failed to prune indexer", "target_height", targetHeight, "err", err)
 				// Don't fail the entire pruning operation if indexer pruning fails
 			}
+			fmt.Printf("[Debug] Pruned indexer for height %d with latency %s\n", targetHeight, time.Since(startTime))
 		}
 	}
 
