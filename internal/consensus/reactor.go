@@ -799,7 +799,10 @@ func (r *Reactor) gossipVotesRoutine(ctx context.Context, ps *PeerState, voteCh 
 			if r.state.state.ConsensusParams.ABCI.VoteExtensionsEnabled(prs.Height) {
 				ec = r.state.blockStore.LoadBlockExtendedCommit(prs.Height)
 			} else {
-				ec = r.state.blockStore.LoadBlockCommit(prs.Height).WrappedExtendedCommit()
+				commit := r.state.blockStore.LoadBlockCommit(prs.Height)
+				if commit != nil {
+					ec = commit.WrappedExtendedCommit()
+				}
 			}
 			r.state.mtx.RUnlock()
 			if ec == nil {
